@@ -722,10 +722,12 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 	break;
     }
     case 3:
+    {
 	value=new char[precision+1];
 	std::copy(reinterpret_cast<char *>(source.value),reinterpret_cast<char *>(source.value)+precision,reinterpret_cast<char *>(value));
 	(reinterpret_cast<char *>(value))[precision]='\0';
 	break;
+    }
     case 6:
     {
 	compound.members.resize(source.compound.members.size());
@@ -745,52 +747,90 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 	break;
     }
     case 9:
+    {
 	value=new unsigned char[size+1];
 	std::copy(reinterpret_cast<unsigned char *>(source.value),reinterpret_cast<unsigned char *>(source.value)+size+1,reinterpret_cast<unsigned char *>(value));
+	vlen.class_=source.vlen.class_;
+	if (source.vlen.size > 0) {
+	  vlen.size=source.vlen.size;
+	  vlen.buffer.reset(new unsigned char[vlen.size]);
+	  std::copy(&source.vlen.buffer[0],&source.vlen.buffer[vlen.size],vlen.buffer.get());
+	}
+	else {
+	  vlen.size=0;
+	  vlen.buffer.reset(nullptr);
+	}
 	break;
+    }
   }
   return *this;
 }
 
 void InputHDF5Stream::DataValue::clear()
 {
-  if (value != NULL) {
+  if (value != nullptr) {
     switch (class_) {
 	case 0:
+	{
 	  switch (precision) {
 	    case 8:
+	    {
 		delete[] reinterpret_cast<unsigned char *>(value);
 		break;
+	    }
 	    case 16: 
+	    {
 		delete[] reinterpret_cast<short *>(value);
 		break;
+	    }
 	    case 32: 
+	    {
 		delete[] reinterpret_cast<int *>(value);
 		break;
+	    }
 	    case 64: 
+	    {
 		delete[] reinterpret_cast<long long *>(value);
 		break;
+	    }
 	  }
 	  break;
+	}
 	case 1:
+	{
 	  switch (precision) {
 	    case 32: 
+	    {
 		delete[] reinterpret_cast<float *>(value);
 		break;
+	    }
 	    case 64: 
+	    {
 		delete[] reinterpret_cast<double *>(value);
 		break;
+	    }
 	  }
 	  break;
+	}
 	case 3:
+	{
 	  delete[] reinterpret_cast<char *>(value);
 	  break;
+	}
 	case 6:
+	{
 	  if (compound.members.size() > 0) {
 	    compound.members.clear();
 	    delete[] reinterpret_cast<unsigned char *>(value);
 	  }
 	  break;
+	}
+	case 9:
+	{
+	  delete[] reinterpret_cast<unsigned char *>(value);
+	  vlen.buffer.reset(nullptr);
+	  break;
+	}
     }
     value=nullptr;
   }
@@ -798,9 +838,6 @@ void InputHDF5Stream::DataValue::clear()
 
 void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const
 {
-  size_t n,m,l;
-  int off;
-
   if (value == nullptr) {
     ofs << "?????0 (" << class_ << ")";
     return;
@@ -815,29 +852,29 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
 	}
-	for (size_t cnt=0; cnt < max_cnt; ++cnt) {
-	  if (cnt > 0) {
+	for (size_t n=0; n < max_cnt; ++n) {
+	  if (n > 0) {
 	    ofs << ", ";
 	  }
 	  switch (precision) {
 	    case 8:
 	    {
-		ofs << static_cast<int>((reinterpret_cast<unsigned char *>(value))[cnt]) << "d";
+		ofs << static_cast<int>((reinterpret_cast<unsigned char *>(value))[n]) << "d";
 		break;
 	    }
 	    case 16:
 	    {
-		ofs << (reinterpret_cast<short *>(value))[cnt] << "d";
+		ofs << (reinterpret_cast<short *>(value))[n] << "d";
 		break;
 	    }
 	    case 32:
 	    {
-		ofs << (reinterpret_cast<int *>(value))[cnt] << "d";
+		ofs << (reinterpret_cast<int *>(value))[n] << "d";
 		break;
 	    }
 	    case 64:
 	    {
-		ofs << (reinterpret_cast<long long *>(value))[cnt] << "d";
+		ofs << (reinterpret_cast<long long *>(value))[n] << "d";
 		break;
 	    }
 	    default:
@@ -856,19 +893,19 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	  max_cnt*=dim_sizes[0];
 	}
  	ofs.setf(std::ios::fixed);
-	for (size_t cnt=0; cnt < max_cnt; ++cnt) {
-	  if (cnt > 0) {
+	for (size_t n=0; n < max_cnt; ++n) {
+	  if (n > 0) {
 	    ofs << ", ";
 	  }
 	  switch (precision) {
 	    case 32:
 	    {
-		ofs << (reinterpret_cast<float *>(value))[cnt] << "f";
+		ofs << (reinterpret_cast<float *>(value))[n] << "f";
 		break;
 	    }
 	    case 64:
 	    {
-		ofs << (reinterpret_cast<double *>(value))[cnt] << "f";
+		ofs << (reinterpret_cast<double *>(value))[n] << "f";
 		break;
 	    }
 	    default:
@@ -894,20 +931,21 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	  ofs << compound.members[n].name;
 	}
 	ofs << "): ";
+	size_t end=0;
 	if (dim_sizes.size() > 0) {
 	  ofs << "[ ";
-	  l=dim_sizes[0];
+	  end=dim_sizes[0];
 	}
 	else {
-	  l=1;
+	  end=1;
 	}
-	off=0;
-	for (n=0; n < l; ++n) {
+	auto off=0;
+	for (size_t n=0; n < end; ++n) {
 	  if (n > 0) {
 	    ofs << ", ";
 	  }
 	  ofs << "(";
-	  for (m=0; m < compound.members.size(); ++m) {
+	  for (size_t m=0; m < compound.members.size(); ++m) {
 	    if (m > 0) {
 		ofs << ", ";
 	    }
@@ -944,51 +982,62 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
     case 9:
     {
 // variable-length
+	size_t end=1;
 	if (dim_sizes.size() > 0) {
-	  ofs << "[";
-	  l=dim_sizes[0];
+	  end=dim_sizes[0];
 	}
-	else
-	  l=1;
-	off=1;
-	for (n=0; n < l; ++n) {
-	  if (n > 0) {
-	    ofs << ", ";
+	auto off=0;
+	switch (vlen.class_) {
+	  case 3:
+	  {
+	    for (size_t n=0; n < end; ++n) {
+		if (n > 0) {
+		  ofs << ", ";
+		}
+		int len;
+		getBits(&vlen.buffer[off],len,0,32);
+		ofs << "\"" << std::string(reinterpret_cast<char *>(&vlen.buffer[off+4]),len) << "\"" << std::endl;
+		off+=(4+len);
+	    }
+	    break;
 	  }
-	  switch ((reinterpret_cast<unsigned char *>(value))[0]) {
-	    case 7:
-	    {
+	  case 7:
+	  {
+	    if (dim_sizes.size() > 0) {
+		ofs << "[";
+	    }
+	    for (size_t n=0; n < end; ++n) {
+		if (n > 0) {
+		  ofs << ", ";
+		}
 		if (ref_table != nullptr) {
 		  ReferenceEntry re;
-		  re.key=HDF5::getValue(&(reinterpret_cast<unsigned char *>(value))[off],precision);
+		  re.key=HDF5::getValue(&vlen.buffer[off+4],precision);
 		  ref_table->found(re.key,re);
 		  ofs << re.name;
 		}
 		else {
-		  ofs << "(" << HDF5::getValue(&(reinterpret_cast<unsigned char *>(value))[off],precision) << "R";
+		  ofs << "(" << HDF5::getValue(&vlen.buffer[off+4],precision) << "R";
 		}
-                off+=precision;
-		break;
+                off+=(4+precision);
 	    }
+	    if (dim_sizes.size() > 0) {
+		ofs << "]";
+	    }
+	    break;
 	  }
-	}
-	if (dim_sizes.size() > 0) {
-	  ofs << "]";
 	}
 	break;
     }
     default:
+    {
 	ofs << "?????u (" << class_ << ")";
+    }
   }
 }
 
 bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace,bool show_debug)
 {
-  size_t n,m,l;
-  int len;
-  short byte_order[2],lo_pad,hi_pad,sign;
-  int off;
-
   clear();
   class_=datatype.class_;
   dim_sizes=dataspace.sizes;
@@ -1004,13 +1053,17 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
     case 4:
 // bitfield
     {
+	short byte_order[2];
 	getBits(datatype.bit_fields,byte_order[0],7,1);
+	short lo_pad;
 	getBits(datatype.bit_fields,lo_pad,6,1);
+	short hi_pad;
 	getBits(datatype.bit_fields,hi_pad,5,1);
+	short sign;
 	if (class_ == 0) {
 	  getBits(datatype.bit_fields,sign,4,1);
 	}
-	off=HDF5::getValue(&datatype.properties[0],2);
+	auto off=HDF5::getValue(&datatype.properties[0],2);
 	precision=HDF5::getValue(&datatype.properties[2],2);
 	size_t max_cnt=1;
 	if (dim_sizes.size() == 1) {
@@ -1020,47 +1073,47 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  case 0:
 	    if (off == 0) {
 		if ( (precision % 8) == 0) {
-		  n=precision/8;
-		  for (size_t cnt=0; cnt < max_cnt; ++cnt) {
-		    switch (n) {
+		  auto byte_len=precision/8;
+		  for (size_t n=0; n < max_cnt; ++n) {
+		    switch (byte_len) {
 			case 1:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new unsigned char[max_cnt];
 			  }
-			  (reinterpret_cast<unsigned char *>(value))[cnt]=HDF5::getValue(&buffer[n*cnt],1);
+			  (reinterpret_cast<unsigned char *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],1);
 			  break;
 			}
 			case 2:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new short[max_cnt];
 			  }
-			  (reinterpret_cast<short *>(value))[cnt]=HDF5::getValue(&buffer[n*cnt],2);
+			  (reinterpret_cast<short *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],2);
 			  break;
 			}
 			case 4:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new int[max_cnt];
 			  }
-			  (reinterpret_cast<int *>(value))[cnt]=HDF5::getValue(&buffer[n*cnt],4);
+			  (reinterpret_cast<int *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],4);
 			  break;
 			}
 			case 8:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new long long[max_cnt];
 			  }
-			  (reinterpret_cast<long long *>(value))[cnt]=HDF5::getValue(&buffer[n*cnt],8);
+			  (reinterpret_cast<long long *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],8);
 			  break;
 			}
 		    }
 		  }
-		  size=n*max_cnt;
+		  size=byte_len*max_cnt;
 		}
 		else {
-		  if (myerror.length() > 0) {
+		  if (!myerror.empty()) {
 		    myerror+=", ";
 		  }
 		  myerror+="unable to decode little-endian integer with precision "+strutils::itos(precision);
@@ -1068,7 +1121,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		}
 	    }
 	    else {
-		if (myerror.length() > 0) {
+		if (!myerror.empty()) {
 		  myerror+=", ";
 		}
 		myerror+="unable to decode little-endian integer with bit offset "+strutils::itos(off);
@@ -1078,47 +1131,47 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  case 1:
 	    if (off == 0) {
 		if ( (precision % 8) == 0) {
-		  n=precision/8;
-		  for (size_t cnt=0; cnt < max_cnt; ++cnt) {
-		    switch (n) {
+		  auto byte_len=precision/8;
+		  for (size_t n=0; n < max_cnt; ++n) {
+		    switch (byte_len) {
 			case 1:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			  value=new unsigned char[max_cnt];
 			  }
-			  getBits(&buffer[n*cnt],(reinterpret_cast<unsigned char *>(value))[cnt],0,precision);
+			  getBits(&buffer[byte_len*n],(reinterpret_cast<unsigned char *>(value))[n],0,precision);
 			  break;
 			}
 			case 2:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new short[max_cnt];
 			  }
-			  getBits(&buffer[n*cnt],(reinterpret_cast<short *>(value))[cnt],0,precision);
+			  getBits(&buffer[byte_len*n],(reinterpret_cast<short *>(value))[n],0,precision);
 			  break;
 			}
 			case 4:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new int[max_cnt];
 			  }
-			  getBits(&buffer[n*cnt],(reinterpret_cast<int *>(value))[cnt],0,precision);
+			  getBits(&buffer[byte_len*n],(reinterpret_cast<int *>(value))[n],0,precision);
 			  break;
 			}
 			case 8:
 			{
-			  if (cnt == 0) {
+			  if (n == 0) {
 			    value=new long long[max_cnt];
 			  }
-			  getBits(&buffer[n*cnt],(reinterpret_cast<long long *>(value))[cnt],0,precision);
+			  getBits(&buffer[byte_len*n],(reinterpret_cast<long long *>(value))[n],0,precision);
 			  break;
 			}
 		    }
 		  }
-		  size=n*max_cnt;
+		  size=byte_len*max_cnt;
 		}
 		else {
-		  if (myerror.length() > 0) {
+		  if (!myerror.empty()) {
 		    myerror+=", ";
 		  }
 		  myerror+="unable to decode big-endian integer with precision "+strutils::itos(precision);
@@ -1126,7 +1179,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		}
 	    }
 	    else {
-		if (myerror.length() > 0) {
+		if (!myerror.empty()) {
 		  myerror+=", ";
 		}
 		myerror+="unable to decode big-endian integer with bit offset "+strutils::itos(off);
@@ -1139,9 +1192,12 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
     case 1:
 // floating-point numbers
     {
+	short byte_order[2];
 	getBits(datatype.bit_fields,byte_order[0],1,1);
 	getBits(datatype.bit_fields,byte_order[1],7,1);
+	short lo_pad;
 	getBits(datatype.bit_fields,lo_pad,6,1);
+	short hi_pad;
 	getBits(datatype.bit_fields,hi_pad,5,1);
 	short int_pad;
 	getBits(datatype.bit_fields,int_pad,4,1);
@@ -1152,22 +1208,25 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
 	}
-	for (size_t cnt=0; cnt < max_cnt; ++cnt) {
+	for (size_t n=0; n < max_cnt; ++n) {
 	  unsigned char v[8];
 	  if (byte_order[0] == 0 && byte_order[1] == 0) {
 // little-endian
-	    for (n=0,l=precision/8,m=l-1; n < l; ++n,--m) {
-		v[n]=(reinterpret_cast<unsigned char *>(buffer))[l*cnt+m];
+	    size_t byte_len=precision/8;
+	    int idx=byte_len-1;
+	    for (size_t m=0; m < byte_len; ++m) {
+		v[m]=(reinterpret_cast<unsigned char *>(buffer))[byte_len*n+idx];
+		--idx;
 	    }
 	  }
 	  else if (byte_order[0] == 0 && byte_order[1] == 1) {
 // big-endian
-	    l=precision/8;
-	    auto start=l*cnt;
-	    std::copy(buffer+start,buffer+start+l,v);
+	    auto byte_len=precision/8;
+	    auto start=byte_len*n;
+	    std::copy(&buffer[start],&buffer[start+byte_len],v);
 	  }
 	  else {
-	    if (myerror.length() > 0) {
+	    if (!myerror.empty()) {
 		myerror+=", ";
 	    }
 	    myerror+="unknown byte order for data value";
@@ -1177,8 +1236,9 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	    long long exp,mant;
 	    getBits(reinterpret_cast<unsigned char *>(v),exp,precision-static_cast<int>(datatype.properties[4])-static_cast<int>(datatype.properties[5]),static_cast<int>(datatype.properties[5]));
 	    getBits(reinterpret_cast<unsigned char *>(v),mant,precision-static_cast<int>(datatype.properties[6])-static_cast<int>(datatype.properties[7]),static_cast<int>(datatype.properties[7]));
+	    short sign;
 	    getBits(reinterpret_cast<unsigned char *>(v),sign,precision-static_cast<int>(datatype.bit_fields[1])-1,1);
-	    if (cnt == 0) {
+	    if (n == 0) {
 		switch (precision) {
 		  case 32:
 		  {
@@ -1198,12 +1258,12 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		switch (precision) {
 		  case 32:
 		  {
-		    (reinterpret_cast<float *>(value))[cnt]=0.;
+		    (reinterpret_cast<float *>(value))[n]=0.;
 		    break;
 		  }
 		  case 64:
 		  {
-		    (reinterpret_cast<double *>(value))[cnt]=0.;
+		    (reinterpret_cast<double *>(value))[n]=0.;
 		    break;
 		  }
 		}
@@ -1214,12 +1274,12 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		  switch (precision) {
 		    case 32:
 		    {
-		      (reinterpret_cast<float *>(value))[cnt]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
+		      (reinterpret_cast<float *>(value))[n]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
 		      break;
 		    }
 		    case 64:
 		    {
-		      (reinterpret_cast<double *>(value))[cnt]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
+		      (reinterpret_cast<double *>(value))[n]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
 		      break;
 		    }
 		  }
@@ -1230,6 +1290,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	break;
     }
     case 3:
+    {
 // strings
 	if (dataspace.dimensionality < 0) {
 	  precision=0;
@@ -1242,6 +1303,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	getBits(buffer,(reinterpret_cast<char *>(value)),0,8,0,precision);
 	(reinterpret_cast<char *>(value))[precision]='\0';
 	break;
+    }
     case 6:
     {
 // compound
@@ -1254,16 +1316,17 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	}
 	std::unique_ptr<Datatype[]> l_datatypes;
 	l_datatypes.reset(new Datatype[compound.members.size()]);
+	auto total_size=0;
 	switch (datatype.version) {
 	  case 1:
-	    off=0;
-	    m=0;
-	    for (n=0; n < compound.members.size(); ++n) {
+	  {
+	    auto off=0;
+	    for (size_t n=0; n < compound.members.size(); ++n) {
 		compound.members[n].name=&(reinterpret_cast<char *>(datatype.properties.get()))[off];
 		if (show_debug) {
 		  std::cerr << "  name: " << compound.members[n].name << " at offset " << off << std::endl;
 		}
-		len=compound.members[n].name.length();
+		auto len=compound.members[n].name.length();
 		off+=len;
 		while ( (len++ % 8) > 0) {
 		  ++off;
@@ -1280,53 +1343,58 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		HDF5::decodeDatatype(&datatype.properties[off],l_datatypes[n],show_debug);
 		compound.members[n].class_=l_datatypes[n].class_;
 		compound.members[n].size=l_datatypes[n].size;
-		m+=l_datatypes[n].size;
+		total_size+=l_datatypes[n].size;
 		off+=8+l_datatypes[n].prop_len;
 	    }
 	    break;
+	  }
 	  case 3:
-	    off=0;
-	    m=0;
+	  {
 	    if (dim_sizes.size() > 1) {
 		std::cerr << "unable to decode compound type with dimensionality "+strutils::itos(dim_sizes.size()) << std::endl;
 		exit(1);
 	    }
-	    for (n=0; n < compound.members.size(); ++n) {
+	    auto off=0;
+	    for (size_t n=0; n < compound.members.size(); ++n) {
 		compound.members[n].name=&(reinterpret_cast<char *>(datatype.properties.get()))[off];
 		if (show_debug) {
 		  std::cerr << "  name: " << compound.members[n].name << " at offset " << off << std::endl;
 		}
 		while (datatype.properties[off++] != 0);
-		len=1;
-		l=datatype.size;
-		while (l/256 > 0) {
+		auto len=1;
+		auto s=datatype.size;
+		while (s/256 > 0) {
 		  ++len;
-		  l/=256;
+		  s/=256;
 		}
 		off+=len;
 		HDF5::decodeDatatype(&datatype.properties[off],l_datatypes[n],show_debug);
 		compound.members[n].class_=l_datatypes[n].class_;
 		compound.members[n].size=l_datatypes[n].size;
-		m+=l_datatypes[n].size;
+		total_size+=l_datatypes[n].size;
 		off+=8+l_datatypes[n].prop_len;
 	    }
 	    break;
+	  }
 	  default:
-	    if (myerror.length() > 0)
+	  {
+	    if (!myerror.empty()) {
 		myerror+=", ";
+	    }
 	    myerror+="unable to decode compound type version "+strutils::itos(datatype.version);
 	    return false;
+	  }
 	}
-	value= (dim_sizes.size() > 0) ? new unsigned char[m*dim_sizes[0]] : new unsigned char[m];
+	value= (dim_sizes.size() > 0) ? new unsigned char[total_size*dim_sizes[0]] : new unsigned char[total_size];
 	if (show_debug) {
 	  std::cerr << "num values: " << compound.members.size() << std::endl;
 	}
-	off=0;
+	auto off=0;
 	auto voff=off;
-	l= (dim_sizes.size() > 0) ? dim_sizes[0] : 1;
-	for (n=0; n < l; ++n) {
+	auto end= (dim_sizes.size() > 0) ? dim_sizes[0] : 1;
+	for (size_t n=0; n < end; ++n) {
 	  auto roff=off;
-	  for (m=0; m < compound.members.size(); ++m) {
+	  for (size_t m=0; m < compound.members.size(); ++m) {
 	    DataValue l_value;
 	    l_value.set(fs,&buffer[roff],size_of_offsets,size_of_lengths,l_datatypes[m],dataspace,show_debug);
 	    if (n == 0) {
@@ -1343,81 +1411,103 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	break;
     }
     case 7:
+    {
 // reference
-	n=(datatype.bit_fields[0] & 0xf0);
-	if (n == 0x0 || n == 0x10) {
+	auto type=((datatype.bit_fields[0] & 0xf0) >> 4);
+	if (type == 0 || type == 1) {
 	  size=size_of_offsets;
 	  value=new unsigned char[size];
 	  std::copy(buffer,buffer+size,reinterpret_cast<unsigned char *>(value));
 	}
 	else {
-	  if (myerror.length() > 0) {
+	  if (!myerror.empty()) {
 	    myerror+=", ";
 	  }
-	  myerror+="unable to set class 7 value for bits 0-3="+strutils::itos(n);
+	  myerror+="unable to set class 7 value for bits 0-3="+strutils::itos(type);
 	  return false;
 	}
 	break;
+    }
     case 9:
+    {
 // variable-length
 	short type,pad,charset;
 	getBits(datatype.bit_fields,type,0,4);
 	getBits(datatype.bit_fields,pad,4,4);
 	getBits(datatype.bit_fields,charset,8,4);
 	if (show_debug) {
-	  std::cerr << "decoding data class 9 -  type: " << type << " pad: " << pad << " charset: " << charset << " size: " << datatype.size << std::endl;
+	  std::cerr << "decoding data class 9 -  type: " << type << " pad: " << pad << " charset: " << charset << " size: " << datatype.size << " base type class and version: " << static_cast<int>(datatype.properties[0] & 0xf) << "/" << static_cast<int>((datatype.properties[0] & 0xf0) >> 4) << std::endl;
 	}
 	if (type == 0) {
-	  n=(datatype.properties[0] & 0xf);
-	  switch (n) {
-	    case 0x7:
-		precision=size_of_offsets;
-		size=datatype.size;
-		if (dim_sizes.size() > 0) {
-		  size*=dim_sizes[0];
-		  l=dim_sizes[0];
-		}
-		else {
-		  l=1;
-		}
-		value=new unsigned char[size+1];
-		(reinterpret_cast<unsigned char *>(value))[0]=n;
-		off=0;
-		for (n=0; n < l; ++n) {
-		  unsigned char *buf2=nullptr;
-		  len=HDF5::getGlobalHeapObject(fs,size_of_lengths,HDF5::getValue(&buffer[off+4],precision),HDF5::getValue(&buffer[off+4+precision],4),&buf2);
-		  std::copy(buf2,buf2+size_of_offsets,&(reinterpret_cast<unsigned char *>(value))[1+n*size_of_offsets]);
-		  if (show_debug) {
-		    std::cerr << "***LEN=" << len << " " << HDF5::getValue(buf2,size_of_offsets) << std::endl;
-		  }
-		  if (len > 0) {
-		    delete[] buf2;
-		  }
-		  off+=(8+precision);
-		}
-		break;
-	    default:
-		if (myerror.length() > 0) {
-		  myerror+=", ";
-		}
-		myerror+="unable to set class 9 value for type 0 and class "+strutils::itos(n);
-		return false;
+	  size=datatype.size;
+	  precision=size_of_offsets;
+	  size_t num_pointers=1;
+	  if (dim_sizes.size() > 0) {	
+	    num_pointers=dim_sizes.front();
+	    size*=dim_sizes.front();
 	  }
+	  value=new unsigned char[size];
+	  vlen.class_=(datatype.properties[0] & 0xf);
+	  auto element_size=HDF5::getValue(&datatype.properties[4],4);
+// patch for strings stored as sequence of fixed-point numbers
+	  if (vlen.class_ == 0 && datatype.size > 1 && element_size == 1) {
+	    vlen.class_=3;
+	    if (show_debug) {
+		std::cerr << "***BASE CLASS changed from 'fixed-point number' to 'string'" << std::endl;
+	    }
+	  }
+	  vlen.size=0;
+	  auto off=0;
+	  std::vector<int> lengths;
+	  for (size_t n=0; n < num_pointers; ++n) {
+	    lengths.emplace_back(HDF5::getValue(&buffer[off],4)*element_size);
+	    vlen.size+=lengths.back();
+	    off+=(8+precision);
+	  }
+	  vlen.size+=4*num_pointers;
+	  vlen.buffer.reset(new unsigned char[vlen.size]);
+	  if (show_debug) {
+	    std::cerr << "Variable length (class " << vlen.class_ << ") buffer set to " << vlen.size << " bytes" << std::endl;
+	  }
+	  off=0;
+	  auto voff=0;
+	  for (size_t n=0; n < num_pointers; ++n) {
+	    setBits(&vlen.buffer[voff],lengths[n],0,32);
+	    unsigned char *buf2=nullptr;
+	    auto len=HDF5::getGlobalHeapObject(fs,size_of_lengths,HDF5::getValue(&buffer[off+4],precision),HDF5::getValue(&buffer[off+4+precision],4),&buf2);
+	    std::copy(&buf2[0],&buf2[lengths[n]],&vlen.buffer[voff+4]);
+	    if (show_debug) {
+		std::cerr << "***LEN=" << len;
+		if (vlen.class_ == 7) {
+		  std::cerr << " " << HDF5::getValue(buf2,size_of_offsets);
+		}
+		std::cerr << std::endl;
+	    }
+	    if (len > 0) {
+		delete[] buf2;
+	    }
+	    off+=(8+precision);
+	    voff+=(4+lengths[n]);
+	  }
+	  std::copy(&buffer[0],&buffer[off],reinterpret_cast<unsigned char *>(value));
 	}
 	else {
-	  if (myerror.length() > 0) {
+	  if (!myerror.empty()) {
 	    myerror+=", ";
 	  }
 	  myerror+="unable to set class 9 value for type "+strutils::itos(type);
 	  return false;
 	}
 	break;
+    }
     default:
-	if (myerror.length() > 0) {
+    {
+	if (!myerror.empty()) {
 	  myerror+=", ";
 	}
 	myerror+="unable to decode data of class "+strutils::itos(datatype.class_);
 	return false;
+    }
   }
   return true;
 }
@@ -2491,9 +2581,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 		    std::cerr << "  dataset element size: " << dse.dataset->data.size_of_element << " at offset " << 3+sizes.offsets+dimensionality*4 << std::endl;
 		  }
 		  if (dse.dataset->data.address != undef_addr) {
-		    if (!decodeV1BTree(dse.dataset->data.address,*dse.dataset)) {
-			exit(1);
-		    }
+		    decodeV1BTree(dse.dataset->data.address,*dse.dataset);
 		  }
 		  break;
 		default:
@@ -3370,9 +3458,7 @@ if (node_level == 1) {
 	if (show_debug) {
 	  std::cerr << "ANOTHER TREE" << std::endl;
 	}
-	if (!decodeV1BTree(ldum,dataset)) {
-	  return false;
-	}
+	decodeV1BTree(ldum,dataset);
     }
     else {
 	dataset.data.chunks.emplace_back(ldum,chunk_size,chunk_len,offsets);
@@ -3875,7 +3961,7 @@ bool decodeStringArray(const unsigned char *buffer,const InputHDF5Stream::Dataty
   size_t nvals=chunk_length/size_of_element;
   size_t end=index+nvals;
   for (; index < end; ++index,buf+=size_of_element) {
-    (reinterpret_cast<std::string *>(*values))[index]=reinterpret_cast<char *>(buf);
+    ((reinterpret_cast<std::string *>(*values))[index]).assign(reinterpret_cast<char *>(buf),size_of_element);
   }
   return true;
 }
@@ -3999,7 +4085,12 @@ num_values=dataset.dataspace.sizes[0];
 	    }
 	    case 3:
 	    {
-		decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		if (dataset.dataspace.dimensionality == 2) {
+		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.dataspace.sizes.back(),&values,dataset.dataspace.sizes.front(),type,idx,dataset.data.chunks[n].length);
+		}
+		else {
+		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		}
 		break;
 	    }
 	    case 6:
@@ -4153,6 +4244,33 @@ std::string DataArray::string_value(size_t index) const
   }
 }
 
+double DataArray::value(size_t index) const
+{
+  switch (type) {
+    case short_:
+    {
+	return short_value(index);
+    }
+    case int_:
+    {
+	return int_value(index);
+    }
+    case long_long_:
+    {
+	return long_long_value(index);
+    }
+    case float_:
+    {
+	return float_value(index);
+    }
+    case double_:
+    {
+	return double_value(index);
+    }
+  }
+  return 0.;
+}
+
 void DataArray::clear()
 {
   if (values != nullptr) {
@@ -4205,7 +4323,7 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
   int num_members,n,m,off;
   InputHDF5Stream::Datatype *l_datatype;
 
-  if (value == NULL) {
+  if (value == nullptr) {
     std::cout << "?????";
     return;
   }
@@ -4215,19 +4333,29 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
 // fixed point numbers (integers)
 	switch (HDF5::getValue(&datatype.properties[2],2)) {
 	  case 8:
+	  {
 	    std::cout << static_cast<int>(*(reinterpret_cast<unsigned char *>(value)));
 	    break;
+	  }
 	  case 16:
+	  {
 	    std::cout << *(reinterpret_cast<short *>(value));
 	    break;
+	  }
 	  case 32:
+	  {
 	    std::cout << *(reinterpret_cast<int *>(value));
 	    break;
+	  }
 	  case 64:
+	  {
 	    std::cout << *(reinterpret_cast<long long *>(value));
 	    break;
+	  }
 	  default:
+	  {
 	    std::cout << "?????";
+	  }
 	}
 	break;
     }
@@ -4236,13 +4364,19 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
 // floating point numbers
 	switch (HDF5::getValue(&datatype.properties[2],2)) {
 	  case 32:
+	  {
 	    std::cout << *(reinterpret_cast<float *>(value));
 	    break;
+	  }
 	  case 64:
+	  {
 	    std::cout << *(reinterpret_cast<double *>(value));
 	    break;
+	  }
 	  default:
+	  {
 	    std::cout << "????.?";
+	  }
 	}
 	break;
     }
@@ -4258,6 +4392,7 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
 	num_members=HDF5::getValue(datatype.bit_fields,2);
 	switch (datatype.version) {
 	  case 1:
+	  {
 	    off=0;
 	    std::cout << num_members << " values: ";
 	    for (n=0; n < num_members; ++n) {
@@ -4281,8 +4416,11 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
 		delete l_datatype;
 	    }
 	    break;
+	  }
 	  default:
+	  {
 	    std::cout << "?????";
+	  }
 	}
 	break;
     }
@@ -4419,7 +4557,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
   std::copy(&buffer[1],&buffer[3],datatype.bit_fields);
   datatype.size=HDF5::getValue(&buffer[4],4);
   if (show_debug) {
-    std::cerr << "Datatype class and version=" << datatype.class_ << " / " << datatype.version << " size: " << datatype.size << std::endl;
+    std::cerr << "Datatype class and version=" << datatype.class_ << "/" << datatype.version << " size: " << datatype.size << std::endl;
     std::cerr << "Size of datatype element is " << datatype.size << std::endl;
   }
   switch (datatype.class_) {
@@ -4618,6 +4756,10 @@ int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long lon
     }
     int idx=HDF5::getValue(buf,2);
     unsigned long long osize=HDF5::getValue(&buf[8],size_of_lengths);
+    auto pad=(osize % 8);
+    if (pad > 0) {
+	osize+=(8-pad);
+    }
     if (idx == index) {
 	buf_len=osize;
 	*buffer=new unsigned char[buf_len];
@@ -4647,6 +4789,78 @@ unsigned long long getValue(const unsigned char *buffer,int num_bytes)
     m*=256;
   }
   return val;
+}
+
+double decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator)
+{
+  if (value == nullptr) {
+    return missing_indicator;
+  }
+  switch (datatype.class_) {
+    case 0:
+    {
+// fixed point numbers (integers)
+	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	  case 8:
+	  {
+	    return static_cast<int>(*(reinterpret_cast<unsigned char *>(value)));
+	  }
+	  case 16:
+	  {
+	    return *(reinterpret_cast<short *>(value));
+	  }
+	  case 32:
+	  {
+	    return *(reinterpret_cast<int *>(value));
+	  }
+	  case 64:
+	  {
+	    return *(reinterpret_cast<long long *>(value));
+	  }
+	  default:
+	  {
+	    return missing_indicator;
+	  }
+	}
+	break;
+    }
+    case 1:
+    {
+// floating point numbers
+	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	  case 32:
+	  {
+	    return *(reinterpret_cast<float *>(value));
+	  }
+	  case 64:
+	  {
+	    return *(reinterpret_cast<double *>(value));
+	  }
+	  default:
+	  {
+	    return missing_indicator;
+	  }
+	}
+	break;
+    }
+  }
+  return missing_indicator;
+}
+
+std::string decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator)
+{
+  if (value == nullptr) {
+    return missing_indicator;
+  }
+  switch (datatype.class_) {
+    case 3:
+    {
+// strings
+	missing_indicator.assign(reinterpret_cast<char *>(value),datatype.size);
+	break;
+    }
+  }
+  return missing_indicator;
 }
 
 std::string datatypeClassToString(const InputHDF5Stream::Datatype& datatype)
