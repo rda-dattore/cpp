@@ -140,14 +140,14 @@ public:
   };
   class FillValue {
   public:
-    FillValue() : length(0),bytes(NULL) {}
+    FillValue() : length(0),bytes(nullptr) {}
 
     int length;
     unsigned char *bytes;
   };
   class DataValue {
   public:
-    DataValue() : class_(0),precision(0),size(0),dim_sizes(),value(nullptr),compound() {}
+    DataValue() : class_(-1),precision(0),size(0),dim_sizes(),value(nullptr),compound(),vlen() {}
     DataValue(const DataValue& source) : DataValue() { *this=source; }
     ~DataValue() { clear(); }
     DataValue& operator=(const DataValue& source);
@@ -159,12 +159,12 @@ public:
     bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace,bool show_debug);
 
     short class_,precision;
-    int size;
+    size_t size;
     std::vector<unsigned long long> dim_sizes;
     void *value;
     struct Compound {
 	struct Member {
-	  Member() : name(),class_(0),precision(0),size(0) {}
+	  Member() : name(),class_(-1),precision(0),size(0) {}
 
 	  std::string name;
 	  short class_,precision;
@@ -174,6 +174,13 @@ public:
 
 	std::vector<Member> members;
     } compound;
+    struct VariableLength {
+	VariableLength() : class_(-1),size(0),buffer(nullptr) {}
+
+	short class_;
+	size_t size;
+	std::unique_ptr<unsigned char[]> buffer;
+    } vlen;
   };
   struct Attribute {
     Attribute() : key(),value() {}
@@ -244,7 +251,7 @@ public:
   Attribute getAttribute(std::string xpath);
 //  int getData(Dataset& dataset,void **values);
   Dataset *getDataset(std::string xpath);
-  std::list<InputHDF5Stream::DatasetEntry> getDatasetsWithAttribute(std::string attribute_path,Group *g = NULL);
+  std::list<InputHDF5Stream::DatasetEntry> getDatasetsWithAttribute(std::string attribute_path,Group *g = nullptr);
   std::fstream *file_stream() { return &fs; }
   std::shared_ptr<my::map<ReferenceEntry>> getReferenceTablePointer() const { return ref_table; }
   short getSizeOfOffsets() const { return sizes.offsets; }
@@ -310,6 +317,7 @@ public:
   float float_value(size_t index) const;
   double double_value(size_t index) const;
   std::string string_value(size_t index) const;
+  double value(size_t index) const;
 
   size_t num_values,type;
   void *values;
@@ -334,6 +342,9 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long long address,int index,unsigned char **buffer);
 
 unsigned long long getValue(const unsigned char *buffer,int num_bytes);
+
+double decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator);
+std::string decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator);
 
 }; // end namespace HDF5
 
