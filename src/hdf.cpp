@@ -1540,6 +1540,15 @@ InputHDF5Stream::Attribute InputHDF5Stream::getAttribute(std::string xpath)
   return attr;
 }
 
+void InputHDF5Stream::Dataset::free()
+{
+  for (auto& chunk : data.chunks) {
+    if (chunk.buffer != nullptr) {
+	chunk.buffer.reset(nullptr);
+    }
+  }
+}
+
 InputHDF5Stream::Dataset *InputHDF5Stream::getDataset(std::string xpath)
 {
   Group *g=&root_group;
@@ -3960,6 +3969,9 @@ bool decodeStringArray(const unsigned char *buffer,const InputHDF5Stream::Dataty
   }
   size_t nvals=chunk_length/size_of_element;
   size_t end=index+nvals;
+  if (end > num_values) {
+    end=num_values;
+  }
   for (; index < end; ++index,buf+=size_of_element) {
     ((reinterpret_cast<std::string *>(*values))[index]).assign(reinterpret_cast<char *>(buf),size_of_element);
   }
@@ -4141,11 +4153,13 @@ std::cerr << std::endl;
 		break;
 	    }
 	    default:
+	    {
 		if (myerror.length() > 0) {
 		  myerror+=", ";
 		}
 		myerror+="unable to fill data array for class "+strutils::itos(dataset.datatype.class_);
 		return false;
+	    }
 	  }
 	}
     }
