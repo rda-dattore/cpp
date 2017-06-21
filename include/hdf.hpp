@@ -188,8 +188,10 @@ public:
     std::string key;
     DataValue value;
   };
-  struct Dataset {
+  class Dataset {
+  public:
     Dataset() : datatype(),dataspace(),fillvalue(),attributes(),filters(0),data() {}
+    void free();
 
     Datatype datatype;
     Dataspace dataspace;
