@@ -4099,6 +4099,7 @@ num_values=dataset.dataspace.sizes[0];
 	    {
 		if (dataset.dataspace.dimensionality == 2) {
 		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.dataspace.sizes.back(),&values,dataset.dataspace.sizes.front(),type,idx,dataset.data.chunks[n].length);
+		  num_values=dataset.dataspace.sizes.front();
 		}
 		else {
 		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
