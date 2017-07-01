@@ -2567,13 +2567,16 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	  case 3:
 	    switch (static_cast<int>(buffer[1])) {
 		case 1:
+		{
 		  dse.dataset->data.address=HDF5::getValue(&buffer[2],sizes.offsets);
 		  dse.dataset->data.sizes.emplace_back(HDF5::getValue(&buffer[2+sizes.offsets],sizes.lengths));
 		  if (show_debug) {
 		    std::cerr << "CONTIGUOUS DATA at " << dse.dataset->data.address << " of length " << dse.dataset->data.sizes.back() << std::endl;
 		  }
 		  break;
+		}
 		case 2:
+		{
 		  dse.dataset->data.address=HDF5::getValue(&buffer[3],sizes.offsets);
 		  dimensionality=buffer[2]-1;
 		  if (show_debug) {
@@ -2593,12 +2596,15 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 		    decodeV1BTree(dse.dataset->data.address,*dse.dataset);
 		  }
 		  break;
+		}
 		default:
+		{
 		  if (myerror.length() > 0) {
 		    myerror+=", ";
 		  }
 		  myerror+="unable to decode layout class "+strutils::itos(static_cast<int>(buffer[1]));
 		  exit(1);
+		}
 	    }
 	    break;
 	  default:
@@ -3750,106 +3756,248 @@ void InputHDF5Stream::printAGroupTree(Group& group)
 
 namespace HDF5 {
 
-bool decodeFixedPointNumberArray(const unsigned char *buffer,size_t chunk_number,const InputHDF5Stream::Datatype& datatype,const std::vector<size_t>& dimensions,const InputHDF5Stream::Dataset& dataset,void **values,size_t num_values,size_t& type)
-//bool decodeFixedPointNumberArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,size_t num_values,size_t& type,size_t& index,size_t chunk_length)
+int data_array_index(size_t chunk_index,const std::deque<size_t>& multipliers,const std::vector<size_t> offsets,const std::vector<unsigned long long>& array_dimensions)
 {
-  unsigned char *buf=const_cast<unsigned char *>(buffer);
-  short off=HDF5::getValue(&datatype.properties[0],2);
-  short bit_length=HDF5::getValue(&datatype.properties[2],2);
+  int index=0;
+  for (size_t n=0,end=multipliers.size()-1; n < end; ++n) {
+    size_t i=(chunk_index % multipliers[n])/multipliers[n+1]+offsets[n];
+    if (i >= array_dimensions[n]) {
+	return -1;
+    }
+    if (n < array_dimensions.size()-1) {
+	index+=i*array_dimensions[n+1];
+    }
+    else {
+	index+=i;
+    }
+  }
+  return index;
+}
+
+bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number,const std::vector<size_t>& dimensions)
+{
+  unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
+  short off=HDF5::getValue(&dataset.datatype.properties[0],2);
+  short bit_length=HDF5::getValue(&dataset.datatype.properties[2],2);
   short byte_order;
-  getBits(datatype.bit_fields,byte_order,7,1);
+  getBits(dataset.datatype.bit_fields,byte_order,7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
   if (off == 0 && (bit_length % 8) == 0) {
-    auto idx=0;
-    for (size_t n=0; n < dataset.data.chunks[chunk_number].offsets.size(); ++n) {
+    std::deque<size_t> multipliers;
+    if (dataset.dataspace.dimensionality > 1) {
 	size_t mult=1;
-	for (size_t m=n+1; m < dimensions.size(); ++m) {
-	  mult*=dimensions[m];
+	multipliers.emplace_front(mult);
+	for (int n=dataset.data.sizes.size()-1; n >= 0; --n) {
+	  mult*=dataset.data.sizes[n];
+	  multipliers.emplace_front(mult);
 	}
-	idx+=dataset.data.chunks[chunk_number].offsets[n]*mult;
     }
     auto byte_length=bit_length/8;
     switch (byte_length) {
 	case 1:
 	{
-	  if (*values == nullptr) {
-	    *values=new unsigned char[num_values];
+	  if (darray.values == nullptr) {
+	    darray.values=new unsigned char[darray.num_values];
 	  }
 	  if (byte_order == 0) {
-	    for (size_t n=0; n < nvals; ++n) {
-		if (n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		  idx+=dataset.data.sizes.back();
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		  if (m < darray.num_values) {
+		    (reinterpret_cast<unsigned char *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
 		}
-		(reinterpret_cast<unsigned char *>(*values))[idx]=HDF5::getValue(buf,byte_length);
-		buf+=dataset.data.size_of_element;
-		++idx;
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    (reinterpret_cast<unsigned char *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
 	    }
 	  }
 	  else {
-	    getBits(buf,&(reinterpret_cast<unsigned char *>(*values)[idx]),0,bit_length,0,nvals);
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		auto end=nvals+dataset.data.chunks[chunk_number].offsets[0];
+		if (end > darray.num_values) {
+		  nvals-=(end-darray.num_values);
+		}
+		getBits(buf,&(reinterpret_cast<unsigned char *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    getBits(buf,(reinterpret_cast<unsigned char *>(darray.values))[idx],0,bit_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
+	    }
 	  }
 	  break;
 	}
 	case 2:
 	{
-	  if (*values == nullptr) {
-	    *values=new short[num_values];
-	    type=DataArray::short_;
+	  if (darray.values == nullptr) {
+	    darray.values=new short[darray.num_values];
+	    short fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    for (size_t n=0; n < darray.num_values; ++n) {
+		(reinterpret_cast<short *>(darray.values))[n]=fill_value;
+	    }
+	    darray.type=DataArray::short_;
 	  }
 	  if (byte_order == 0) {
-	    for (size_t n=0; n < nvals; ++n) {
-		if (n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		  idx+=dataset.data.sizes.back();
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		  if (m < darray.num_values) {
+		    (reinterpret_cast<short *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
 		}
-		(reinterpret_cast<short *>(*values))[idx]=HDF5::getValue(buf,byte_length);
-		buf+=dataset.data.size_of_element;
-		++idx;
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    (reinterpret_cast<short *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
 	    }
 	  }
 	  else {
-	    getBits(buf,&(reinterpret_cast<short *>(*values)[idx]),0,bit_length,0,nvals);
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		auto end=nvals+dataset.data.chunks[chunk_number].offsets[0];
+		if (end > darray.num_values) {
+		  nvals-=(end-darray.num_values);
+		}
+		getBits(buf,&(reinterpret_cast<short *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    getBits(buf,(reinterpret_cast<short *>(darray.values))[idx],0,bit_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
+	    }
 	  }
 	  break;
 	}
 	case 4:
 	{
-	  if (*values == nullptr) {
-	    *values=new int[num_values];
-	    type=DataArray::int_;
+	  if (darray.values == nullptr) {
+	    darray.values=new int[darray.num_values];
+	    int fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    for (size_t n=0; n < darray.num_values; ++n) {
+		(reinterpret_cast<int *>(darray.values))[n]=fill_value;
+	    }
+	    darray.type=DataArray::int_;
 	  }
 	  if (byte_order == 0) {
-	    for (size_t n=0; n < nvals; ++n) {
-		if (n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		  idx+=dataset.data.sizes.back();
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		  if (m < darray.num_values) {
+		    (reinterpret_cast<int *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
 		}
-		(reinterpret_cast<int *>(*values))[idx]=HDF5::getValue(buf,byte_length);
-		buf+=dataset.data.size_of_element;
-		++idx;
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    (reinterpret_cast<int *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
 	    }
 	  }
 	  else {
-	    getBits(buf,&(reinterpret_cast<int *>(*values)[idx]),0,bit_length,0,nvals);
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		auto end=nvals+dataset.data.chunks[chunk_number].offsets[0];
+		if (end > darray.num_values) {
+		  nvals-=(end-darray.num_values);
+		}
+		getBits(buf,&(reinterpret_cast<int *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    getBits(buf,(reinterpret_cast<int *>(darray.values))[idx],0,bit_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
+	    }
 	  }
 	  break;
 	}
 	case 8:
 	{
-	  if (*values == nullptr) {
-	    *values=new long long[num_values];
-	    type=DataArray::long_long_;
+	  if (darray.values == nullptr) {
+	    darray.values=new long long[darray.num_values];
+	    long long fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    for (size_t n=0; n < darray.num_values; ++n) {
+		(reinterpret_cast<long long *>(darray.values))[n]=fill_value;
+	    }
+	    darray.type=DataArray::long_long_;
 	  }
 	  if (byte_order == 0) {
-	    for (size_t n=0; n < nvals; ++n) {
-		if (n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		  idx+=dataset.data.sizes.back();
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		  if (m < darray.num_values) {
+		    (reinterpret_cast<long long *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
 		}
-		(reinterpret_cast<long long *>(*values))[idx]=HDF5::getValue(buf,byte_length);
-		buf+=dataset.data.size_of_element;
-		++idx;
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    (reinterpret_cast<long long *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
 	    }
 	  }
 	  else {
-	    getBits(buf,&(reinterpret_cast<long long *>(*values)[idx]),0,bit_length,0,nvals);
+	    if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+		auto end=nvals+dataset.data.chunks[chunk_number].offsets[0];
+		if (end > darray.num_values) {
+		  nvals-=(end-darray.num_values);
+		}
+		getBits(buf,&(reinterpret_cast<long long *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+	    }
+	    else {
+// multi-dimensional array
+		for (size_t n=0; n < nvals; ++n) {
+		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		  if (idx >= 0) {
+		    getBits(buf,(reinterpret_cast<long long *>(darray.values))[idx],0,bit_length);
+		  }
+		  buf+=dataset.data.size_of_element;
+		}
+	    }
 	  }
 	  break;
 	}
@@ -3865,56 +4013,89 @@ bool decodeFixedPointNumberArray(const unsigned char *buffer,size_t chunk_number
   }
 }
 
-bool decodeFloatingPointNumberArray(const unsigned char *buffer,size_t chunk_number,const InputHDF5Stream::Datatype& datatype,const std::vector<size_t>& dimensions,const InputHDF5Stream::Dataset& dataset,void **values,size_t num_values,size_t& type)
+bool decode_class1_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number)
 {
-  unsigned char *buf=const_cast<unsigned char *>(buffer);
-  short bit_length=HDF5::getValue(&datatype.properties[2],2);
+  unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
+  short bit_length=HDF5::getValue(&dataset.datatype.properties[2],2);
   short byte_order[2];
-  getBits(datatype.bit_fields,byte_order[0],1,1);
-  getBits(datatype.bit_fields,byte_order[1],7,1);
+  getBits(dataset.datatype.bit_fields,byte_order[0],1,1);
+  getBits(dataset.datatype.bit_fields,byte_order[1],7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
-if (nvals > num_values) {
-num_values=nvals;
+/*
+if (nvals > darray.num_values) {
+darray.num_values=nvals;
 }
+*/
+  std::deque<size_t> multipliers;
+  if (dataset.dataspace.dimensionality > 1) {
+    size_t mult=1;
+    multipliers.emplace_front(mult);
+    for (int n=dataset.data.sizes.size()-1; n >= 0; --n) {
+	mult*=dataset.data.sizes[n];
+	multipliers.emplace_front(mult);
+    }
+  }
   if (byte_order[0] == 0 && byte_order[1] == 0) {
 // little-endian
     if (!system_is_big_endian()) {
-	auto idx=0;
-	for (size_t n=0; n < dataset.data.chunks[chunk_number].offsets.size(); ++n) {
-	  size_t mult=1;
-	  for (size_t m=n+1; m < dimensions.size(); ++m) {
-	    mult*=dimensions[m];
-	  }
-	  idx+=dataset.data.chunks[chunk_number].offsets[n]*mult;
-	}
-	if (bit_length == 32 && datatype.properties[5] == 8 && datatype.properties[6] == 0 && datatype.properties[4] == 23) {
+	if (bit_length == 32 && dataset.datatype.properties[5] == 8 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 23) {
 // IEEE single precision
-	  if (*values == nullptr) {
-	    *values=new float[num_values];
-	    type=DataArray::float_;
-	  }
-	  for (size_t n=0; n < nvals; ++n) {
-	    if (nvals != num_values && n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		idx+=dataset.data.sizes.back();
+	  if (darray.values == nullptr) {
+	    darray.values=new float[darray.num_values];
+	    float fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    for (size_t n=0; n < darray.num_values; ++n) {
+		(reinterpret_cast<float *>(darray.values))[n]=fill_value;
 	    }
-	    (reinterpret_cast<float *>(*values))[idx]=(reinterpret_cast<float *>(buf))[0];
-	    buf+=dataset.data.size_of_element;
-	    ++idx;
+	    darray.type=DataArray::float_;
+	  }
+	  if (dataset.dataspace.dimensionality == 1) {
+// one-dimension array
+	    for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		if (m < darray.num_values) {
+		  (reinterpret_cast<float *>(darray.values))[m]=(reinterpret_cast<float *>(buf))[0];
+		}
+		buf+=dataset.data.size_of_element;
+	    }
+	  }
+	  else {
+// multi-dimensional array
+	    for (size_t n=0; n < nvals; ++n) {
+		auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		if (idx >= 0) {
+		  (reinterpret_cast<float *>(darray.values))[idx]=(reinterpret_cast<float *>(buf))[0];
+		}
+		buf+=dataset.data.size_of_element;
+	    }
 	  }
 	}
-	else if (bit_length == 64 && datatype.properties[5] == 11 && datatype.properties[6] == 0 && datatype.properties[4] == 52) {
+	else if (bit_length == 64 && dataset.datatype.properties[5] == 11 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 52) {
 // IEEE double-precision
-	  if (*values == nullptr) {
-	    *values=new double[num_values];
-	    type=DataArray::double_;
-	  }
-	  for (size_t n=0; n < nvals; ++n) {
-	    if (n > 0 && (n % dataset.data.sizes.back()) == 0) {
-		idx+=dataset.data.sizes.back();
+	  if (darray.values == nullptr) {
+	    darray.values=new double[darray.num_values];
+	    double fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    for (size_t n=0; n < darray.num_values; ++n) {
+		(reinterpret_cast<double *>(darray.values))[n]=fill_value;
 	    }
-	    (reinterpret_cast<double *>(*values))[idx]=(reinterpret_cast<double *>(buf))[0];
-	    buf+=dataset.data.size_of_element;
-	    ++idx;
+	    darray.type=DataArray::double_;
+	  }
+	  if (dataset.dataspace.dimensionality == 1) {
+// one-dimensional array
+	    for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
+		if (m < darray.num_values) {
+		  (reinterpret_cast<double *>(darray.values))[m]=(reinterpret_cast<double *>(buf))[0];
+		}
+		buf+=dataset.data.size_of_element;
+	    }
+	  }
+	  else {
+// multi-dimensional array
+	    for (size_t n=0; n < nvals; ++n) {
+		auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
+		if (idx >= 0) {
+		  (reinterpret_cast<double *>(darray.values))[idx]=(reinterpret_cast<double *>(buf))[0];
+		}
+		buf+=dataset.data.size_of_element;
+	    }
 	  }
 	}
 	else {
@@ -4035,6 +4216,8 @@ bool castValue(const InputHDF5Stream::DataValue& data_value,int idx,void **array
   return false;
 }
 
+const double DataArray::default_missing_value=3.4e38;
+
 DataArray& DataArray::operator=(const DataArray& source)
 {
   if (this == &source) {
@@ -4064,35 +4247,45 @@ bool DataArray::fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,
     }
     if (std::string(test,4) == "TREE") {
 // chunked data
-	dimensions.resize(dataset.data.sizes.size(),0);
+//	dimensions.resize(dataset.data.sizes.size(),0);
 	for (size_t n=0; n < dataset.data.chunks.size(); ++n) {
 	  if (dataset.data.chunks[n].buffer == nullptr) {
 	    if (!dataset.data.chunks[n].fill(*fs,dataset,false)) {
 		exit(1);
 	    }
 	  }
-	  num_values+=dataset.data.chunks[n].length/dataset.data.size_of_element;
+/*
 	  for (size_t m=0; m < dataset.data.sizes.size(); ++m) {
 	    auto d=dataset.data.chunks[n].offsets[m]+dataset.data.sizes[m];
 	    if (d > dimensions[m]) {
 		dimensions[m]=d;
 	    }
 	  }
+*/
 	}
+dimensions.resize(dataset.dataspace.sizes.size(),0);
+for (size_t n=0; n < dataset.dataspace.sizes.size(); ++n) {
+dimensions[n]=dataset.dataspace.sizes[n];
+}
+/*
 if (dataset.dataspace.dimensionality == 1 && static_cast<size_t>(num_values) > dataset.dataspace.sizes[0]) {
 num_values=dataset.dataspace.sizes[0];
 }
+*/
+	num_values=1;
+	for (size_t n=0; n < dataset.dataspace.sizes.size(); ++n) {
+	  num_values*=dataset.dataspace.sizes[n];
+	}
 	for (size_t n=0,idx=0; n < dataset.data.chunks.size(); ++n) {
 	  switch (dataset.datatype.class_) {
 	    case 0:
 	    {
-		decodeFixedPointNumberArray(dataset.data.chunks[n].buffer.get(),n,dataset.datatype,dimensions,dataset,&values,num_values,type);
-//		decodeFixedPointNumberArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		decode_class0_array(*this,dataset,n,dimensions);
 		break;
 	    }
 	    case 1:
 	    {
-		decodeFloatingPointNumberArray(dataset.data.chunks[n].buffer.get(),n,dataset.datatype,dimensions,dataset,&values,num_values,type);
+		decode_class1_array(*this,dataset,n);
 		break;
 	    }
 	    case 3:
@@ -4115,13 +4308,12 @@ num_values=dataset.dataspace.sizes[0];
 		switch (cdtype.members[compound_member_index].datatype.class_) {
 		  case 0:
 		  {
-		    decodeFixedPointNumberArray(&dataset.data.chunks[n].buffer[off],n,cdtype.members[compound_member_index].datatype,dimensions,dataset,&values,num_values,type);
-//		    decodeFixedPointNumberArray(&dataset.data.chunks[n].buffer[off],cdtype.members[compound_member_index].datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		    decode_class0_array(*this,dataset,n,dimensions);
 		    break;
 		  }
 		  case 1:
 		  {
-		    decodeFloatingPointNumberArray(&dataset.data.chunks[n].buffer[off],n,cdtype.members[compound_member_index].datatype,dimensions,dataset,&values,num_values,type);
+		    decode_class1_array(*this,dataset,n);
 		    break;
 		  }
 		  case 3:
@@ -4806,7 +4998,7 @@ unsigned long long getValue(const unsigned char *buffer,int num_bytes)
   return val;
 }
 
-double decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator)
+double decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator)
 {
   if (value == nullptr) {
     return missing_indicator;
@@ -4862,7 +5054,7 @@ double decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,double 
   return missing_indicator;
 }
 
-std::string decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator)
+std::string decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator)
 {
   if (value == nullptr) {
     return missing_indicator;
