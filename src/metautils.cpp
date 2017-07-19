@@ -559,17 +559,13 @@ std::string getWebHome()
 
 std::string getRelativeWebFilename(std::string URL)
 {
-  std::string data_alias;
-
   strutils::replace_all(URL,"https://rda.ucar.edu","");
+  strutils::replace_all(URL,"http://rda.ucar.edu","");
   strutils::replace_all(URL,"http://dss.ucar.edu","");
-  if (strutils::has_beginning(URL,"/dsszone")) {
-    data_alias=getWebHome();
+  if (std::regex_search(URL,std::regex("^/dsszone"))) {
+    strutils::replace_all(URL,"/dsszone",directives.data_root_alias);
   }
-  else {
-    data_alias=directives.data_root_alias+"/ds"+args.dsnum;
-  }
-  return strutils::substitute(URL,data_alias+"/","");
+  return strutils::substitute(URL,directives.data_root_alias+"/ds"+args.dsnum+"/","");
 }
 
 std::string cleanID(std::string ID)
@@ -872,34 +868,29 @@ namespace NcLevel {
 
 std::string writeLevelMap(std::string dsnum,const LevelInfo& level_info)
 {
-  std::ifstream ifs;
-  std::ofstream ofs;
-  char line[32768];
-  std::list<std::string> map_contents;
-  std::string format,herror;
-  std::stringstream output,error;
-  LevelMap level_map;
-  TempFile tfile(directives.tempPath);
-
-  map_contents.clear();
+  std::string format;
   if (args.format == "hdf5nc4") {
     format="netCDF4";
   }
   else {
     format="netCDF";
   }
+  LevelMap level_map;
+  std::list<std::string> map_contents;
   std::string sdum=getRemoteWebFile("https://rda.ucar.edu/metadata/LevelTables/"+format+".ds"+dsnum+".xml",directives.tempPath);
   if (level_map.fill(sdum)) {
-    ifs.open(sdum.c_str());
+    std::ifstream ifs(sdum.c_str());
+    char line[32768];
     ifs.getline(line,32768);
     while (!ifs.eof()) {
-	map_contents.push_back(line);
+	map_contents.emplace_back(line);
 	ifs.getline(line,32768);
     }
     ifs.close();
     map_contents.pop_back();
   }
-  ofs.open(tfile.name().c_str());
+  TempFile tfile(directives.tempPath);
+  std::ofstream ofs(tfile.name().c_str());
   if (!ofs.is_open()) {
     return "can't open "+tfile.name()+" file for writing netCDF levels";
   }
@@ -922,9 +913,11 @@ std::string writeLevelMap(std::string dsnum,const LevelInfo& level_info)
   }
   ofs << "</levelMap>" << std::endl;
   ofs.close();
+  std::string herror;
   if (hostSync(tfile.name(),"/__HOST__/web/metadata/LevelTables/"+format+".ds"+dsnum+".xml",herror) < 0) {
     return herror;
   }
+  std::stringstream output,error;
   mysystem2("/bin/cp "+tfile.name()+" /glade/u/home/rdadata/share/metadata/LevelTables/"+format+".ds"+dsnum+".xml",output,error);
   return error.str();
 }
