@@ -14,6 +14,7 @@ SpellChecker::SpellChecker() : valids_tables(),misspelled_words_()
     add_to_hash(server,"metautil.name_valids","word",valids_tables.exact_matches);
     add_to_hash(server,"metautil.other_exactmatch_valids","word",valids_tables.exact_matches);
     add_to_hash(server,"metautil.unit_valids","word",valids_tables.units);
+    add_to_hash(server,"metautil.non_english_valids","word",valids_tables.words);
     server.disconnect();
   }
 }
