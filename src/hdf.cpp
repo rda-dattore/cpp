@@ -1604,16 +1604,43 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribu
 	    return_list.emplace_back(dse);
 	  }
 	  else if  (dse.dataset->attributes.found(key2,attr)) {
-	    if (attr.value.class_ == 3) {
-		if (std::string(reinterpret_cast<char *>(attr.value.value)) == value) {
-		  return_list.emplace_back(dse);
+	    switch (attr.value.class_) {
+		case 3:
+		{
+		  if (std::string(reinterpret_cast<char *>(attr.value.value)) == value) {
+		    return_list.emplace_back(dse);
+		  }
+		  break;
 		}
-	    }
-	    else {
-		if (myerror.length() > 0) {
-		  myerror+=", ";
+		case 9:
+		{
+		  switch (attr.value.vlen.class_) {
+		    case 3:
+		    {
+			int len;
+			getBits(attr.value.vlen.buffer.get(),len,0,32);
+			if (std::string(reinterpret_cast<char *>(&attr.value.vlen.buffer[4]),len) == value) {
+			  return_list.emplace_back(dse);
+			}
+			break;
+		    }
+		    default:
+		    {
+			if (myerror.length() > 0) {
+			  myerror+=", ";
+			}
+			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attr.value.vlen.class_);
+		    }
+		  }
+		  break;
 		}
-		myerror+="can't match an attribute value of class "+strutils::itos(attr.value.class_);
+		default:
+		{
+		  if (myerror.length() > 0) {
+		    myerror+=", ";
+		  }
+		  myerror+="can't match an attribute value of class "+strutils::itos(attr.value.class_);
+		}
 	    }
 	  }
 	  break;
