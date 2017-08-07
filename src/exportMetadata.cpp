@@ -1219,6 +1219,10 @@ void exportToISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     tokens.ifs.insert(ife);
     tokens.replaces.emplace_back("__DOI__<!>"+row[0]);
   }
+  else {
+    ife.key="__NO_DOI__";
+    tokens.ifs.insert(ife);
+  }
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
     ife.key="__HAS_AUTHOR_PERSONS__";
