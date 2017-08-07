@@ -1477,6 +1477,10 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     tokens.ifs.insert(ife);
     tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convertHTMLSummaryToASCII(e.to_string(),32768,0));
   }
+  else {
+    ife.key="__NO_ACCESS_RESTRICTIONS__";
+    tokens.ifs.insert(ife);
+  }
   hereDoc::print("/usr/local/www/server_root/web/html/oai/iso19139.xml",&tokens,ofs,indent_length);
 }
 
