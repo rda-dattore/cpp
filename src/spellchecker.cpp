@@ -130,8 +130,7 @@ bool SpellChecker::check_word(const std::string& word)
     return false;
   }
 // ignore acronyms containing all capital letters and numbers
-//  if (strutils::is_alphanumeric(word) && !strutils::is_alpha(word) && word == strutils::to_upper(word)) {
-if (strutils::is_alphanumeric(word) && word == strutils::to_upper(word)) {
+  if (strutils::is_alphanumeric(word) && word == strutils::to_upper(word)) {
     return false;
   }
 // ignore floating point numbers
@@ -217,9 +216,14 @@ if (strutils::is_alphanumeric(word) && word == strutils::to_upper(word)) {
 	return false;
     }
   }
-// ignore email address
-  if (strutils::occurs(word,"@") == 1 && strutils::occurs(word.substr(word.find("@")+1),".") >= 1)
+// ignore email addresses
+  if (strutils::occurs(word,"@") == 1 && strutils::occurs(word.substr(word.find("@")+1),".") >= 1) {
     return false;
+  }
+// ignore file extensions
+  if (std::regex_search(word,std::regex("^\\.([a-zA-Z0-9]){1,10}$"))) {
+    return false;
+  }
 // ignore acronyms like TS1.3B.4C
   if (strutils::contains(word,".")) {
     for (const auto& c : word) {
