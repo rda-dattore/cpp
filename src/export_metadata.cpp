@@ -11,11 +11,11 @@
 #include <metadata.hpp>
 #include <citation.hpp>
 #include <hereDoc.hpp>
-#include <tokenDoc.hpp>
+#include <tokendoc.hpp>
 
 namespace metadataExport {
 
-int compareReferences(XMLElement& left,XMLElement& right)
+int compare_references(XMLElement& left,XMLElement& right)
 {
   auto e=left.element("year");
   auto l=e.content();
@@ -29,7 +29,7 @@ int compareReferences(XMLElement& left,XMLElement& right)
   }
 }
 
-std::string getKey(double res,std::string units)
+std::string resolution_key(double res,std::string units)
 {
   std::string s;
   if (units == "degrees") {
@@ -99,10 +99,10 @@ std::string getKey(double res,std::string units)
   return (s+"<!>"+units);
 }
 
-void addToResolutionTable(double lon_res,double lat_res,std::string units,my::map<Entry>& resolution_table)
+void add_to_resolution_table(double lon_res,double lat_res,std::string units,my::map<Entry>& resolution_table)
 {
   Entry e;
-  e.key=getKey(lon_res,units);
+  e.key=resolution_key(lon_res,units);
   if (!resolution_table.found(e.key,e)) {
     e.min_lon=lon_res;
     e.min_lat=lat_res;
@@ -114,7 +114,7 @@ void addToResolutionTable(double lon_res,double lat_res,std::string units,my::ma
 	resolution_table.replace(e);
     }
   }
-  e.key=getKey(lat_res,units);
+  e.key=resolution_key(lat_res,units);
   if (!resolution_table.found(e.key,e)) {
     e.min_lon=lon_res;
     e.min_lat=lat_res;
@@ -128,7 +128,7 @@ void addToResolutionTable(double lon_res,double lat_res,std::string units,my::ma
   }
 }
 
-std::string getPrimarySize(std::string dsnum,MySQL::Server& server)
+std::string primary_size(std::string dsnum,MySQL::Server& server)
 {
   const char *vunits[]={"bytes","Kbytes","Mbytes","Gbytes","Tbytes","Pbytes"};
   MySQL::LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
@@ -155,10 +155,10 @@ std::string getPrimarySize(std::string dsnum,MySQL::Server& server)
   return psize;
 }
 
-void convertBoxData(const std::string& row,const std::string& col,double& comp_lat,double& comp_lon,std::string comp_type)
+void convert_box_data(const std::string& row,const std::string& col,double& comp_lat,double& comp_lon,std::string comp_type)
 {
   double lat,lon;
-  convertBoxToCenterLatLon(1,std::stoi(row),std::stoi(col),lat,lon);
+  convert_box_to_center_lat_lon(1,std::stoi(row),std::stoi(col),lat,lon);
   if (comp_type == "min") {
     if (lat >= -89.5) {
 	lat-=0.5;
@@ -192,7 +192,7 @@ struct HResEntry {
   std::string uom;
 };
 
-void getGeographicExtentData(MySQL::Server& server,std::string dsnum,XMLDocument& xdoc,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::deque<HResEntry>& hres_list,my::map<Entry>& unique_places_table)
+void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocument& xdoc,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::deque<HResEntry>& hres_list,my::map<Entry>& unique_places_table)
 {
   min_west_lon=min_south_lat=9999.;
   max_east_lon=max_north_lat=-9999.;
@@ -204,7 +204,7 @@ void getGeographicExtentData(MySQL::Server& server,std::string dsnum,XMLDocument
     MySQL::Row row;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
-	if (getSpatialDomainFromGridDefinition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	if (fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	  if (west_lon < min_west_lon) {
 	    min_west_lon=west_lon;
 	  }
@@ -257,7 +257,7 @@ void getGeographicExtentData(MySQL::Server& server,std::string dsnum,XMLDocument
 	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("resLat")+":"+element.attribute_value("projLon")+":"+element.attribute_value("pole")+":"+element.attribute_value("xRes")+":"+element.attribute_value("yRes")+":"+element.attribute_value("stdParallel1")+":"+element.attribute_value("stdParallel2");
 	  }
 	  double west_lon,south_lat,east_lon,north_lat;
-	  if (getSpatialDomainFromGridDefinition(element.attribute_value("definition")+"<!>"+def_params,"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	  if (fill_spatial_domain_from_grid_definition(element.attribute_value("definition")+"<!>"+def_params,"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	    if (west_lon < min_west_lon) {
 		min_west_lon=west_lon;
 	    }
@@ -328,28 +328,28 @@ void getGeographicExtentData(MySQL::Server& server,std::string dsnum,XMLDocument
 	    unique_places_table.insert(entry);
 	  }
 	  if (row[1] != "0" || row[2] != "359") {
-	    convertBoxData(row[1],row[2],min_south_lat,min_west_lon,"min");
-	    convertBoxData(row[1],row[3],max_north_lat,max_east_lon,"max");
+	    convert_box_data(row[1],row[2],min_south_lat,min_west_lon,"min");
+	    convert_box_data(row[1],row[3],max_north_lat,max_east_lon,"max");
 	  }
 	}
     }
     else {
 	auto elist=xdoc.element_list("dsOverview/contentMetadata/geospatialCoverage/location");
-	std::string sdum="";
+	std::string where_conditions="";
 	for (const auto& element : elist) {
-	  if (sdum.length() > 0) {
-	    sdum+=" or ";
+	  if (!where_conditions.empty()) {
+	    where_conditions+=" or ";
 	  }
-	  sdum+="keyword = '"+element.content()+"'";
+	  where_conditions+="keyword = '"+element.content()+"'";
 	}
-	query.set("select keyword,min(box1d_row),min(box1d_bitmap_min),max(box1d_row),max(box1d_bitmap_max) from search.location_data where "+sdum+" and box1d_row >= 0 group by keyword");
+	query.set("select keyword,min(box1d_row),min(box1d_bitmap_min),max(box1d_row),max(box1d_bitmap_max) from search.location_data where "+where_conditions+" and box1d_row >= 0 group by keyword");
 	query.submit(server);
 	if (query.num_rows() > 0) {
 	  MySQL::Row row;
 	  while (query.fetch_row(row)) {
 	    if (row[2] != "0" || row[4] != "359") {
-		convertBoxData(row[1],row[2],min_south_lat,min_west_lon,"min");
-		convertBoxData(row[3],row[4],max_north_lat,max_east_lon,"max");
+		convert_box_data(row[1],row[2],min_south_lat,min_west_lon,"min");
+		convert_box_data(row[3],row[4],max_north_lat,max_east_lon,"max");
 	    }
 	  }
 	}
@@ -357,20 +357,7 @@ void getGeographicExtentData(MySQL::Server& server,std::string dsnum,XMLDocument
   }
 }
 
-void addRepeatListFromElementContent(XMLDocument& xdoc,std::string list_xpath,std::string replace_token,TokenDocument& token_doc,std::string if_key = "")
-{
-  auto elist=xdoc.element_list(list_xpath);
-  if (elist.size() > 0) {
-    if (!if_key.empty()) {
-	token_doc.add_if(if_key);
-    }
-    for (const auto& e : elist) {
-	token_doc.add_repeat(replace_token,e.content());
-    }
-  }
-}
-
-void addReplaceFromElementContent(XMLDocument& xdoc,std::string xpath,std::string replace_token,TokenDocument& token_doc,std::string if_key = "")
+void add_replace_from_element_content(XMLDocument& xdoc,std::string xpath,std::string replace_token,TokenDocument& token_doc,std::string if_key = "")
 {
   auto e=xdoc.element(xpath);
   if (!e.name().empty()) {
@@ -381,7 +368,7 @@ void addReplaceFromElementContent(XMLDocument& xdoc,std::string xpath,std::strin
   }
 }
 
-void exportToOAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
@@ -404,9 +391,8 @@ void exportToOAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/topic@vocabulary=ISO");
   ofs << indent << "  <dc:subject>" << e.content() << "</dc:subject>" << std::endl;
   e=xdoc.element("dsOverview/summary");
-  auto sdum=e.to_string();
   ofs << indent << "  <dc:description>" << std::endl;
-  ofs << summary::convertHTMLSummaryToASCII(sdum,80,indent_length+4) << std::endl;
+  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </dc:description>" << std::endl;
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/contributor@vocabulary=GCMD");
   for (const auto& element : elist) {
@@ -425,25 +411,22 @@ void exportToOAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   }
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
-    sdum=e.to_string();
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convertHTMLSummaryToASCII(sdum,80,4) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
-    sdum=e.to_string();
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convertHTMLSummaryToASCII(sdum,80,4) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   ofs << indent << "</oai_dc:dc>" << std::endl;
 }
 
 XMLDocument *old_gcmd=nullptr;
-void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  std::string sdum;
   MySQL::LocalQuery query;
   MySQL::Row row;
   my::map<Entry> resolution_table,format_table;
@@ -470,7 +453,7 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
     exit(1);
   }
   MySQL::Server server;
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -612,7 +595,7 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
     double min_west_lon=9999.,min_south_lat=9999.,max_east_lon=-9999.,max_north_lat=-9999.;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
-	if (getSpatialDomainFromGridDefinition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	if (fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	  if (west_lon < min_west_lon) {
 	    min_west_lon=west_lon;
 	  }
@@ -626,19 +609,19 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
 	    max_north_lat=north_lat;
 	  }
 	}
-	sdum=convertGridDefinition(row[0]+"<!>"+row[1]);
+	auto sdum=convert_grid_definition(row[0]+"<!>"+row[1]);
 	if (strutils::contains(sdum,"&deg; x")) {
 	  auto sp=strutils::split(sdum," x ");
 	  sdum=sp[1];
 	  sdum=sdum.substr(0,sdum.find("&deg;"));
 	  strutils::replace_all(sdum,"~","");
-	  addToResolutionTable(std::stof(sdum),std::stof(strutils::substitute(sp[0],"&deg;","")),"degrees",resolution_table);
+	  add_to_resolution_table(std::stof(sdum),std::stof(strutils::substitute(sp[0],"&deg;","")),"degrees",resolution_table);
 	}
 	else if (strutils::contains(sdum,"km x")) {
 	  auto sp=strutils::split(sdum," x ");
 	  sdum=sp[1];
 	  sdum=sdum.substr(0,sdum.find("km"));
-	  addToResolutionTable(std::stof(sdum),std::stof(strutils::substitute(sp[0],"km","")),"km",resolution_table);
+	  add_to_resolution_table(std::stof(sdum),std::stof(strutils::substitute(sp[0],"km","")),"km",resolution_table);
 	}
     }
     if (max_north_lat > -999.) {
@@ -724,14 +707,14 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
   if (e.name() == "access") {
     auto access_restrictions=e.to_string();
     ofs << indent << "  <Access_Constraints>" << std::endl;
-    ofs << summary::convertHTMLSummaryToASCII(access_restrictions,80,indent_length+4) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(access_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Access_Constraints>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     auto usage_restrictions=e.to_string();
     ofs << indent << "  <Use_Constraints>" << std::endl;
-    ofs << summary::convertHTMLSummaryToASCII(usage_restrictions,80,indent_length+4) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(usage_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Use_Constraints>" << std::endl;
   }
   ofs << indent << "  <Data_Set_Language>English</Data_Set_Language>" << std::endl;
@@ -759,7 +742,7 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
   ofs << indent << "      </Contact_Address>" << std::endl;
   ofs << indent << "    </Personnel>" << std::endl;
   ofs << indent << "  </Data_Center>" << std::endl;
-  auto distribution_size=getPrimarySize(dsnum,server);
+  auto distribution_size=primary_size(dsnum,server);
   if (!distribution_size.empty()) {
     ofs << indent << "  <Distribution>" << std::endl;
     ofs << indent << "    <Distribution_Size>" << distribution_size << "</Distribution_Size>" << std::endl;
@@ -773,11 +756,11 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
   }
   struct stat buf;
   std::string format_ref;
-  if (stat((directives.serverRoot+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-    format_ref=directives.serverRoot+"/web/metadata/FormatReferences.xml.new";
+  if (stat((directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+    format_ref=directives.server_root+"/web/metadata/FormatReferences.xml.new";
   }
   else {
-    format_ref=getRemoteWebFile("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
+    format_ref=remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
   }
   XMLDocument fdoc(format_ref);
   while (query.fetch_row(row)) {
@@ -806,47 +789,46 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
     for (const auto& element : elist) {
 	earray.emplace_back(element);
     }
-    binarySort(earray,compareReferences);
+    binary_sort(earray,compare_references);
     ofs << indent << "  <Reference>" << std::endl;
     for (size_t n=0; n < elist.size(); ++n) {
 	if (n > 0) {
 	  ofs << std::endl;
 	}
 	auto reference="<reference><p>"+earray[n].element("authorList").content()+", "+earray[n].element("year").content()+": "+earray[n].element("title").content()+". ";
-	sdum=earray[n].attribute_value("type");
-	if (sdum == "journal") {
+	auto ref_type=earray[n].attribute_value("type");
+	if (ref_type == "journal") {
 	  e=earray[n].element("periodical");
 	  reference+=e.content()+", "+e.attribute_value("number")+", "+e.attribute_value("pages");
 	}
-	else if (sdum == "preprint") {
+	else if (ref_type == "preprint") {
 	  e=earray[n].element("conference");
 	  reference+=" Proceedings of the "+e.content()+", "+e.attribute_value("host")+", "+e.attribute_value("location")+", "+e.attribute_value("pages");
 	}
-	else if (sdum == "technical_report") {
+	else if (ref_type == "technical_report") {
 	  e=earray[n].element("organization");
 	  reference+=e.attribute_value("reportID")+", "+e.content()+", "+e.attribute_value("pages")+" pp.";
 	}
-	else if (sdum == "book") {
+	else if (ref_type == "book") {
 	  e=earray[n].element("publisher");
 	  reference+=e.content()+", "+e.attribute_value("place");
 	}
-	sdum=earray[n].element("doi").content();
-	if (sdum.length() > 0) {
-	  reference+=" (DOI: "+sdum+")";
+	auto doi=earray[n].element("doi").content();
+	if (!doi.empty()) {
+	  reference+=" (DOI: "+doi+")";
 	}
-	sdum=earray[n].element("url").content();
-	if (sdum.length() > 0) {
-	  reference+=", URL: "+sdum;
+	auto url=earray[n].element("url").content();
+	if (!url.empty()) {
+	  reference+=", URL: "+url;
 	}
 	reference+=".</p></reference>";
-	ofs << summary::convertHTMLSummaryToASCII(reference,80,indent_length+4) << std::endl;
+	ofs << summary::convert_html_summary_to_ASCII(reference,80,indent_length+4) << std::endl;
     }
     ofs << indent << "  </Reference>" << std::endl;
   }
   ofs << indent << "  <Summary>" << std::endl;
   e=xdoc.element("dsOverview/summary");
-  sdum=e.to_string();
-  ofs << summary::convertHTMLSummaryToASCII(sdum,80,indent_length+4) << std::endl;
+  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </Summary>" << std::endl;
   elist=xdoc.element_list("dsOverview/relatedDataset");
   for (const auto& element : elist) {
@@ -876,10 +858,10 @@ void exportToDIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t in
   server.disconnect();
 }
 
-void exportToDataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -915,7 +897,7 @@ void exportToDataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   query.set("select min(concat(date_start,' ',time_start)),min(start_flag),max(concat(date_end,' ',time_end)),min(end_flag),time_zone from dssdb.dsperiod where dsid = 'ds"+dsnum+"' and date_start > '0000-00-00' and date_start < '3000-01-01' and date_end > '0000-00-00' and date_end < '3000-01-01'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "  <dates>" << std::endl;
-    ofs << indent << "    <date dateType=\"Valid\">" << summarizeMetadata::setDateTimeString(row[0],row[1],row[4],"T") << " to " << summarizeMetadata::setDateTimeString(row[2],row[3],row[4],"T") << "</date>" << std::endl;
+    ofs << indent << "    <date dateType=\"Valid\">" << summarizeMetadata::set_date_time_string(row[0],row[1],row[4],"T") << " to " << summarizeMetadata::set_date_time_string(row[2],row[3],row[4],"T") << "</date>" << std::endl;
     ofs << indent << "  </dates>" << std::endl;
   }
   ofs << indent << "  <language>eng</language>" << std::endl;
@@ -923,12 +905,12 @@ void exportToDataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   ofs << indent << "  <alternateIdentifiers>" << std::endl;
   ofs << indent << "    <alternateIdentifier alternateIdentifierType=\"Local\">ds" << dsnum << "</alternateIdentifier>" << std::endl;
   ofs << indent << "  </alternateIdentifiers>" << std::endl;
-  auto sdum=getPrimarySize(dsnum,server);
-  if (sdum.length() > 0) {
+  auto size=primary_size(dsnum,server);
+  if (!size.empty()) {
     ofs << indent << "  <relatedIdentifiers>" << std::endl;
     ofs << indent << "  </relatedIdentifiers>" << std::endl;
     ofs << indent << "  <sizes>" << std::endl;
-    ofs << indent << "    <size>" << sdum << "</size>" << std::endl;
+    ofs << indent << "    <size>" << size << "</size>" << std::endl;
     ofs << indent << "  </sizes>" << std::endl;
     query.set("keyword","search.formats","dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
@@ -942,9 +924,9 @@ void exportToDataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     ofs << indent << "  <rights>XXXXX</rights>" << std::endl;
     ofs << indent << "  <descriptions>" << std::endl;
     e=xdoc.element("dsOverview/summary");
-    sdum=e.to_string();
+    auto summary=e.to_string();
     ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
-    ofs << summary::convertHTMLSummaryToASCII(sdum,120,indent_length+6) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(summary,120,indent_length+6) << std::endl;
     ofs << indent << "    </description>" << std::endl;
     ofs << indent << "  </descriptions>" << std::endl;
   }
@@ -952,21 +934,11 @@ void exportToDataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   server.disconnect();
 }
 
-void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
-  MySQL::LocalQuery query;
-  MySQL::Row row;
-  std::string indent,sdum,sdum2;
-  XMLElement e;
-  std::list<XMLElement> elist;
-  std::deque<std::string> sp;
-  double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
-  std::deque<HResEntry> hres_list;
-  my::map<Entry> unique_places_table;
-  bool is_grid;
-
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
+  std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
   }
@@ -976,21 +948,22 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   ofs << indent << "  <idinfo>" << std::endl;
   ofs << indent << "    <citation>" << std::endl;
   ofs << indent << "      <citeinfo>" << std::endl;
-  ofs << indent << "        <origin>" << citation::listAuthors(xdoc,3,"et al.") << "</origin>" << std::endl;
-  e=xdoc.element("dsOverview/publicationDate");
-  sdum=e.content();
-  if (sdum.length() == 0) {
-    query.set("pub_date","search.datasets","dsid = '"+dsnum+"'");
+  ofs << indent << "        <origin>" << citation::list_authors(xdoc,3,"et al.") << "</origin>" << std::endl;
+  auto e=xdoc.element("dsOverview/publicationDate");
+  auto pub_date=e.content();
+  if (pub_date.empty()) {
+    MySQL::LocalQuery query("pub_date","search.datasets","dsid = '"+dsnum+"'");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;
 	exit(1);
     }
+    MySQL::Row row;
     if (query.fetch_row(row)) {
-	sdum=row[0];
+	pub_date=row[0];
     }
   }
-  ofs << indent << "        <pubdate>" << strutils::substitute(sdum,"-","") << "</pubdate>" << std::endl;
+  ofs << indent << "        <pubdate>" << strutils::substitute(pub_date,"-","") << "</pubdate>" << std::endl;
   e=xdoc.element("dsOverview/title");
   ofs << indent << "        <title>" << e.content() << "</title>" << std::endl;
   ofs << indent << "        <pubinfo>" << std::endl;
@@ -998,7 +971,8 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   ofs << indent << "          <publish>Research Data Archive at the National Center for Atmospheric Research, Computational and Information Systems Laboratory</publish>" << std::endl;
   ofs << indent << "        </pubinfo>" << std::endl;
   ofs << indent << "        <onlink>https://rda.ucar.edu/datasets/ds" << dsnum << "/</onlink>" << std::endl;
-  query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "      <onlink>https://doi.org/" << row[0] << "</onlink>" << std::endl;
   }
@@ -1006,9 +980,8 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   ofs << indent << "    </citation>" << std::endl;
   ofs << indent << "    <descript>" << std::endl;
   e=xdoc.element("dsOverview/summary");
-  sdum=e.to_string();
   ofs << indent << "      <abstract>" << std::endl;
-  ofs << summary::convertHTMLSummaryToASCII(sdum,120,indent_length+8) << std::endl;
+  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,indent_length+8) << std::endl;
   ofs << indent << "      </abstract>" << std::endl;
   ofs << indent << "      <purpose>.</purpose>" << std::endl;
   ofs << indent << "    </descript>" << std::endl;
@@ -1031,25 +1004,31 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   ofs << indent << "    </timeperd>" << std::endl;
   ofs << indent << "    <status>" << std::endl;
   e=xdoc.element("dsOverview/continuingUpdate");
-  sdum=e.attribute_value("value");
-  if (sdum == "no") {
+  auto update=e.attribute_value("value");
+  if (update == "no") {
     ofs << indent << "      <progress>Complete</progress>" << std::endl;
     ofs << indent << "      <update>None planned</update>" << std::endl;
   }
   else {
     ofs << indent << "      <progress>In work</progress>" << std::endl;
-    ofs << indent << "      <update>" << strutils::to_capital(sdum) << "</update>" << std::endl;
+    ofs << indent << "      <update>" << strutils::to_capital(update) << "</update>" << std::endl;
   }
   ofs << indent << "    </status>" << std::endl;
-  getGeographicExtentData(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
+  bool is_grid;
+  std::deque<HResEntry> hres_list;
+  my::map<Entry> unique_places_table;
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (max_north_lat > -999.) {
     ofs << indent << "    <spdom>" << std::endl;
     ofs << indent << "      <bounding>" << std::endl;
-    if (min_west_lon < -180.)
+    if (min_west_lon < -180.) {
 	min_west_lon+=360.;
+    }
     ofs << indent << "        <westbc>" << min_west_lon << "</westbc>" << std::endl;
-    if (max_east_lon > 180.)
+    if (max_east_lon > 180.) {
 	max_east_lon-=360.;
+    }
     ofs << indent << "        <eastbc>" << max_east_lon << "</eastbc>" << std::endl;
     ofs << indent << "        <northbc>" << max_north_lat << "</northbc>" << std::endl;
     ofs << indent << "        <southbc>" << min_south_lat << "</southbc>" << std::endl;
@@ -1079,8 +1058,7 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     ofs << indent << "    <accconst>" << std::endl;
-    sdum=e.to_string();
-    ofs << summary::convertHTMLSummaryToASCII(sdum,120,6) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </accconst>" << std::endl;
   }
   else
@@ -1088,15 +1066,15 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     ofs << indent << "    <useconst>" << std::endl;
-    sdum=e.to_string();
-    ofs << summary::convertHTMLSummaryToASCII(sdum,120,6) << std::endl;
+    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </useconst>" << std::endl;
   }
-  else
+  else {
     ofs << indent << "    <useconst>None</useconst>" << std::endl;
-  elist=xdoc.element_list("dsOverview/contact");
-  sp=strutils::split(elist.front().content());
-  query.set("logname,phoneno","dssdb.dssgrp","fstname = '"+sp[0]+"' and lstname = '"+sp[1]+"'");
+  }
+  auto elist=xdoc.element_list("dsOverview/contact");
+  auto contact_parts=strutils::split(elist.front().content());
+  query.set("logname,phoneno","dssdb.dssgrp","fstname = '"+contact_parts[0]+"' and lstname = '"+contact_parts[1]+"'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -1141,8 +1119,8 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   ofs << indent << "  </idinfo>" << std::endl;
   ofs << indent << "  <metainfo>" << std::endl;
   e=xdoc.element("dsOverview/timeStamp");
-  sp=strutils::split(e.attribute_value("value"));
-  ofs << indent << "    <metd>" << strutils::substitute(sp[0],"-","") << "</metd>" << std::endl;
+  auto ts_parts=strutils::split(e.attribute_value("value"));
+  ofs << indent << "    <metd>" << strutils::substitute(ts_parts[0],"-","") << "</metd>" << std::endl;
   ofs << indent << "    <metc>" << std::endl;
   ofs << indent << "      <cntinfo>" << std::endl;
   ofs << indent << "        <cntperp>" << std::endl;
@@ -1168,7 +1146,7 @@ void exportToFGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t i
   server.disconnect();
 }
 
-void exportToISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_ISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   MySQL::LocalQuery query;
@@ -1178,7 +1156,7 @@ void exportToISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   hereDoc::RepeatEntry re;
   my::map<Entry> unique_places_table;
 
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   tokens.replaces.emplace_back("__DSNUM__<!>"+dsnum);
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
@@ -1200,15 +1178,15 @@ void exportToISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   e=xdoc.element("dsOverview/title");
   tokens.replaces.emplace_back("__TITLE__<!>"+e.content());
   e=xdoc.element("dsOverview/publicationDate");
-  std::string sdum=e.content();
-  if (sdum.length() == 0) {
+  auto pub_date=e.content();
+  if (pub_date.empty()) {
     query.set("pub_date","search.datasets","dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row)) {
-	sdum=row[0];
+	pub_date=row[0];
     }
   }
-  if (sdum.length() > 0) {
-    tokens.replaces.emplace_back("__PUBLICATION_DATE_XML__<!><gmd:date><gco:Date>"+sdum+"</gco:Date></gmd:date>");
+  if (!pub_date.empty()) {
+    tokens.replaces.emplace_back("__PUBLICATION_DATE_XML__<!><gmd:date><gco:Date>"+pub_date+"</gco:Date></gmd:date>");
   }
   else {
     tokens.replaces.emplace_back("__PUBLICATION_DATE_XML__<!><gmd:date gco:nilReason=\"unknown\" />");
@@ -1250,7 +1228,7 @@ void exportToISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     }
   }
   e=xdoc.element("dsOverview/summary");
-  tokens.replaces.emplace_back("__ABSTRACT__<!>"+summary::convertHTMLSummaryToASCII(e.to_string(),32768,0));
+  tokens.replaces.emplace_back("__ABSTRACT__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
 //tokens.replaces.emplace_back("__ABSTRACT__<!>"+e.content());
   e=xdoc.element("dsOverview/continuingUpdate");
   std::string frequency;
@@ -1357,7 +1335,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
   std::deque<HResEntry> hres_list;
-  getGeographicExtentData(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
     ife.key="__IS_GRID__";
     tokens.ifs.insert(ife);
@@ -1469,7 +1447,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   if (!e.name().empty()) {
     ife.key="__HAS_USAGE_RESTRICTIONS__";
     tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__USAGE_RESTRICTIONS__<!>"+summary::convertHTMLSummaryToASCII(e.to_string(),32768,0));
+    tokens.replaces.emplace_back("__USAGE_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
   }
   else {
     ife.key="__NO_USAGE_RESTRICTIONS__";
@@ -1479,7 +1457,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   if (!e.name().empty()) {
     ife.key="__HAS_ACCESS_RESTRICTIONS__";
     tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convertHTMLSummaryToASCII(e.to_string(),32768,0));
+    tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
   }
   else {
     ife.key="__NO_ACCESS_RESTRICTIONS__";
@@ -1488,7 +1466,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   hereDoc::print("/usr/local/www/server_root/web/html/oai/iso19139.xml",&tokens,ofs,indent_length);
 }
 
-void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_ISO19115_dash_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   if (token_doc == nullptr) {
     token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/iso19115-3.xml"));
@@ -1496,7 +1474,7 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
   MySQL::Server server;
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   MySQL::LocalQuery query;
   query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   MySQL::Row row;
@@ -1507,18 +1485,18 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
   }
   token_doc->add_replacement("__MDATE__",mdate);
   token_doc->add_replacement("__DSNUM__",dsnum);
-  addReplaceFromElementContent(xdoc,"dsOverview/title","__TITLE__",*token_doc);
+  add_replace_from_element_content(xdoc,"dsOverview/title","__TITLE__",*token_doc);
   e=xdoc.element("dsOverview/publicationDate");
-  std::string sdum=e.content();
-  if (sdum.length() == 0) {
+  auto pub_date=e.content();
+  if (pub_date.empty()) {
     query.set("pub_date","search.datasets","dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row)) {
-	sdum=row[0];
+	pub_date=row[0];
     }
   }
-  if (sdum.length() > 0) {
+  if (!pub_date.empty()) {
     token_doc->add_if("__HAS_PUBLICATION_DATE__");
-    token_doc->add_replacement("__PUBLICATION_DATE__",sdum);
+    token_doc->add_replacement("__PUBLICATION_DATE__",pub_date);
   }
   query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -1542,7 +1520,7 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
 	}
     }
   }
-  addReplaceFromElementContent(xdoc,"dsOverview/summary","__ABSTRACT__",*token_doc);
+  add_replace_from_element_content(xdoc,"dsOverview/summary","__ABSTRACT__",*token_doc);
   e=xdoc.element("dsOverview/continuingUpdate");
   std::string frequency;
   if (e.attribute_value("value") == "yes") {
@@ -1579,7 +1557,7 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
   bool is_grid=false;
   std::deque<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
-  getGeographicExtentData(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
     token_doc->add_if("__IS_GRID__");
   }
@@ -1718,8 +1696,8 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
 	}
     }
   }
-  addReplaceFromElementContent(xdoc,"dsOverview/restrictions/access","__ACCESS_RESTRICTIONS__",*token_doc,"__HAS_ACCESS_RESTRICTIONS__");
-  addReplaceFromElementContent(xdoc,"dsOverview/restrictions/usage","__USAGE_RESTRICTIONS__",*token_doc,"__HAS_USAGE_RESTRICTIONS__");
+  add_replace_from_element_content(xdoc,"dsOverview/restrictions/access","__ACCESS_RESTRICTIONS__",*token_doc,"__HAS_ACCESS_RESTRICTIONS__");
+  add_replace_from_element_content(xdoc,"dsOverview/restrictions/usage","__USAGE_RESTRICTIONS__",*token_doc,"__HAS_USAGE_RESTRICTIONS__");
   elist=xdoc.element_list("dsOverview/relatedResource");
   if (elist.size() > 0) {
     token_doc->add_if("__HAS_RELATED_RESOURCES__");
@@ -1742,7 +1720,7 @@ void exportToISO19115Part3(std::unique_ptr<TokenDocument>& token_doc,std::ostrea
   ofs << *token_doc << std::endl;
 }
 
-void addFrequency(my::map<Entry>& frequency_table,size_t frequency,std::string unit)
+void add_frequency(my::map<Entry>& frequency_table,size_t frequency,std::string unit)
 {
   Entry e;
 
@@ -1771,21 +1749,21 @@ void addFrequency(my::map<Entry>& frequency_table,size_t frequency,std::string u
   }
 }
 
-extern "C" void *runQuery(void *ts)
+extern "C" void *run_query(void *ts)
 {
   MySQL::Server tserver;
   PThreadStruct *t=(PThreadStruct *)ts;
 
-  metautils::connectToMetadataServer(tserver);
+  metautils::connect_to_metadata_server(tserver);
   t->query.submit(tserver);
   tserver.disconnect();
   return NULL;
 }
 
-void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+void export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  std::string indent,sdum;
-  bool foundContentMetadata=false;
+  std::string indent;
+  bool found_content_metadata=false;
   MySQL::Server server;
   MySQL::LocalQuery query;
   MySQL::Row row;
@@ -1797,7 +1775,7 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   struct stat buf;
 
   temp_dir.create("/tmp");
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
   }
@@ -1819,28 +1797,29 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/title");
   ofs << indent << "  " << e.to_string() << std::endl;
   e=xdoc.element("dsOverview/summary");
-  sdum=e.to_string();
-  strutils::replace_all(sdum,"\n","\n"+indent+"  ");
-  ofs << indent << "  " << sdum << std::endl;
+  auto summary=e.to_string();
+  strutils::replace_all(summary,"\n","\n"+indent+"  ");
+  ofs << indent << "  " << summary << std::endl;
   e=xdoc.element("dsOverview/creator");
-  sdum=e.to_string();
-  if (strutils::contains(sdum,"/SCD/")) {
-    strutils::replace_all(sdum,"SCD","CISL");
+  auto creator=e.to_string();
+  if (strutils::contains(creator,"/SCD/")) {
+    strutils::replace_all(creator,"SCD","CISL");
   }
-  ofs << indent << "  " << sdum << std::endl;
+  ofs << indent << "  " << creator << std::endl;
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/contributor");
   for (const auto& element : elist) {
-    sdum=element.to_string();
-    if (strutils::contains(sdum,"/SCD/"))
-	strutils::replace_all(sdum,"SCD","CISL");
-    ofs << indent << "  " << sdum << std::endl;
+    auto contributor=element.to_string();
+    if (strutils::contains(contributor,"/SCD/")) {
+	strutils::replace_all(contributor,"SCD","CISL");
+    }
+    ofs << indent << "  " << contributor << std::endl;
   }
   elist=xdoc.element_list("dsOverview/author");
   for (const auto& element : elist) {
     ofs << indent << "  <author>" << element.attribute_value("fname");
-    sdum=element.attribute_value("mname");
-    if (sdum.length() > 0) {
-	ofs << " " << sdum;
+    auto author=element.attribute_value("mname");
+    if (!author.empty()) {
+	ofs << " " << author;
     }
     ofs << " " << element.attribute_value("lname") << "</author>" << std::endl;
   }
@@ -1876,9 +1855,9 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   }
   elist=xdoc.element_list("dsOverview/reference");
   for (const auto& element : elist) {
-    sdum=element.to_string();
-    strutils::replace_all(sdum,"\n","\n"+indent+"  ");
-    ofs << indent << "  " << sdum << std::endl;
+    auto reference=element.to_string();
+    strutils::replace_all(reference,"\n","\n"+indent+"  ");
+    ofs << indent << "  " << reference << std::endl;
   }
   elist=xdoc.element_list("dsOverview/referenceURL");
   for (const auto& element : elist) {
@@ -1902,26 +1881,26 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
 	ofs << indent << "  <publicationDate>" << row[0] << "</publicationDate>" << std::endl;
     }
   }
-  std::list<std::string> cmd_databases=metautils::getCMDDatabases("unknown","unknown","unknown");
+  auto cmd_databases=metautils::CMD_databases("unknown","unknown","unknown");
   for (const auto& database : cmd_databases) {
     if (MySQL::table_exists(server,database+".ds"+dsnum2+"_primaries")) {
-	foundContentMetadata=true;
+	found_content_metadata=true;
     }
   }
-  if (foundContentMetadata) {
+  if (found_content_metadata) {
     ofs << indent << "  <contentMetadata>" << std::endl;
     pts.query.set("select min(concat(date_start,' ',time_start)),min(start_flag),max(concat(date_end,' ',time_end)),min(end_flag),time_zone from dssdb.dsperiod where dsid = 'ds"+dsnum+"' group by dsid");
-    pthread_create(&pts.tid,NULL,runQuery,reinterpret_cast<void *>(&pts));
+    pthread_create(&pts.tid,NULL,run_query,reinterpret_cast<void *>(&pts));
     gfts.query.set("nsteps_per,unit","GrML.frequencies","dsid = '"+dsnum+"'");
-    pthread_create(&gfts.tid,NULL,runQuery,reinterpret_cast<void *>(&gfts));
+    pthread_create(&gfts.tid,NULL,run_query,reinterpret_cast<void *>(&gfts));
     gfmts.query.set("select distinct f.format from GrML.ds"+dsnum2+"_primaries as p left join GrML.formats as f on f.code = p.format_code");
-    pthread_create(&gfmts.tid,NULL,runQuery,reinterpret_cast<void *>(&gfmts));
+    pthread_create(&gfmts.tid,NULL,run_query,reinterpret_cast<void *>(&gfmts));
     ofts.query.set("select min(min_obs_per),max(max_obs_per),unit from ObML.ds"+dsnum2+"_frequencies group by unit");
-    pthread_create(&ofts.tid,NULL,runQuery,reinterpret_cast<void *>(&ofts));
+    pthread_create(&ofts.tid,NULL,run_query,reinterpret_cast<void *>(&ofts));
     ofmts.query.set("select distinct f.format from ObML.ds"+dsnum2+"_primaries as p left join ObML.formats as f on f.code = p.format_code");
-    pthread_create(&ofmts.tid,NULL,runQuery,reinterpret_cast<void *>(&ofmts));
+    pthread_create(&ofmts.tid,NULL,run_query,reinterpret_cast<void *>(&ofmts));
     dts.query.set("select distinct d.definition,d.defParams from GrML.summary as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code where s.dsid = '"+dsnum+"'");
-    pthread_create(&dts.tid,NULL,runQuery,reinterpret_cast<void *>(&dts));
+    pthread_create(&dts.tid,NULL,run_query,reinterpret_cast<void *>(&dts));
     pthread_join(pts.tid,NULL);
     pthread_join(gfts.tid,NULL);
     pthread_join(gfmts.tid,NULL);
@@ -1930,7 +1909,7 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
     pthread_join(dts.tid,NULL);
     if (pts.query.num_rows() > 0) {
 	while (pts.query.fetch_row(row)) {
-	  ofs << indent << "    <temporal start=\"" << summarizeMetadata::setDateTimeString(row[0],row[1],row[4]) << "\" end=\"" << summarizeMetadata::setDateTimeString(row[2],row[3],row[4]) << "\" groupID=\"Entire Dataset\" />" << std::endl;
+	  ofs << indent << "    <temporal start=\"" << summarizeMetadata::set_date_time_string(row[0],row[1],row[4]) << "\" end=\"" << summarizeMetadata::set_date_time_string(row[2],row[3],row[4]) << "\" groupID=\"Entire Dataset\" />" << std::endl;
 	}
     }
     for (const auto& database : cmd_databases) {
@@ -1938,7 +1917,7 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
 	  type_list.emplace_back("grid");
 	  if (gfts.query.num_rows() > 0) {
 	    while (gfts.query.fetch_row(row)) {
-		addFrequency(frequency_table,std::stoi(row[0]),row[1]);
+		add_frequency(frequency_table,std::stoi(row[0]),row[1]);
 	    }
 	  }
 	  if (gfmts.query.num_rows() > 0) {
@@ -1951,8 +1930,8 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
 	  type_list.emplace_back("platform_observation");
 	  if (ofts.query.num_rows() > 0) {
 	    while (ofts.query.fetch_row(row)) {
-		addFrequency(frequency_table,std::stoi(row[0]),row[2]);
-		addFrequency(frequency_table,std::stoi(row[1]),row[2]);
+		add_frequency(frequency_table,std::stoi(row[0]),row[2]);
+		add_frequency(frequency_table,std::stoi(row[1]),row[2]);
 	    }
 	  }
 	  if (ofmts.query.num_rows() > 0) {
@@ -1969,19 +1948,20 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
     for (const auto& type : type_list) {
 	ofs << indent << "    <dataType>" << type << "</dataType>" << std::endl;
     }
-    if (stat((directives.serverRoot+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-	sdum=directives.serverRoot+"/web/metadata/FormatReferences.xml.new";
+    std::string format_ref_doc;
+    if (stat((directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+	format_ref_doc=directives.server_root+"/web/metadata/FormatReferences.xml.new";
     }
     else {
-	sdum=getRemoteWebFile("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
+	format_ref_doc=remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
     }
-    XMLDocument fdoc(sdum);
+    XMLDocument fdoc(format_ref_doc);
     for (const auto& format : format_list) {
 	e=fdoc.element("formatReferences/format@name="+format+"/href");
-	sdum=e.content();
+	auto href=e.content();
 	ofs << indent << "    <format";
-	if (sdum.length() > 0) {
-	  ofs << " href=\"" << sdum << "\"";
+	if (!href.empty()) {
+	  ofs << " href=\"" << href << "\"";
 	}
 	ofs << ">" << format << "</format>" << std::endl;
     }
@@ -1991,20 +1971,20 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
 	  ofs << indent << "    <geospatialCoverage>" << std::endl;
 	  std::deque<std::string> sp=strutils::split(row[1],":");
 	  ofs << indent << "      <grid definition=\"" << row[0] << "\" numX=\"" << sp[0] << "\" numY=\"" << sp[1] << "\"";
-	  sdum=row[0];
-	  if (sdum == "gaussLatLon") {
+	  auto grid_def=row[0];
+	  if (grid_def == "gaussLatLon") {
 	    ofs << " startLon=\"" << sp[3] << "\" startLat=\"" << sp[2] << "\" endLon=\"" << sp[5] << "\" endLat=\"" << sp[4] << "\" xRes=\"" << sp[6] << "\"";
 	  }
-	  else if (sdum == "lambertConformal") {
+	  else if (grid_def == "lambertConformal") {
 	    ofs << " startLon=\"" << sp[3] << "\" startLat=\"" << sp[2] << "\" projLon=\"" << sp[5] << "\" resLat=\"" << sp[4] << "\" xRes=\"" << sp[7] << "\" yRes=\"" << sp[8] << "\" pole=\"" << sp[6] << "\" stdParallel1=\"" << sp[9] << "\" stdParallel2=\"" << sp[10] << "\"";
 	  }
-	  else if (sdum == "latLon") {
+	  else if (grid_def == "latLon") {
 	    ofs << " startLon=\"" << sp[3] << "\" startLat=\"" << sp[2] << "\" endLon=\"" << sp[5] << "\" endLat=\"" << sp[4] << "\" xRes=\"" << sp[6] << "\" yRes=\"" << sp[7] << "\"";
 	  }
-	  else if (sdum == "mercator") {
+	  else if (grid_def == "mercator") {
 	    ofs << " startLon=\"" << sp[3] << "\" startLat=\"" << sp[2] << "\" endLon=\"" << sp[5] << "\" endLat=\"" << sp[4] << "\" xRes=\"" << sp[6] << "\" yRes=\"" << sp[7] << "\" resLat=\"" << sp[8] << "\"";
 	  }
-	  else if (sdum == "polarStereographic") {
+	  else if (grid_def == "polarStereographic") {
 	    ofs << " startLon=\"" << sp[3] << "\" startLat=\"" << sp[2] << "\" projLon=\"" << sp[5] << "\" xRes=\"" << sp[7] << "\" yRes=\"" << sp[8] << "\" pole=\"" << sp[6] << "\"";
 	  }
 	  ofs << " />" << std::endl;
@@ -2015,15 +1995,15 @@ void exportToNative(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   }
   else {
     e=xdoc.element("dsOverview/contentMetadata");
-    sdum=e.to_string();
-    strutils::replace_all(sdum,"\n","\n"+indent+"  ");
-    ofs << indent << "  " << sdum << std::endl;
+    auto content_metadata=e.to_string();
+    strutils::replace_all(content_metadata,"\n","\n"+indent+"  ");
+    ofs << indent << "  " << content_metadata << std::endl;
   }
   ofs << indent << "</dsOverview>" << std::endl;
   server.disconnect();
 }
 
-void exportToTHREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
+void export_to_THREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   MySQL::LocalQuery query;
@@ -2033,7 +2013,7 @@ void exportToTHREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_
 
   for (n=0; n < indent_length; n++)
     indent+=" ";
-  metautils::connectToMetadataServer(server);
+  metautils::connect_to_metadata_server(server);
   ofs << indent << "<catalog xmlns=\"http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0\"" << std::endl;
   ofs << indent << "         xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
   ofs << indent << "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -2058,7 +2038,7 @@ void exportToTHREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_
     ofs << indent << "        <contact url=\"https://rda.ucar.edu/\" email=\"dssweb@ucar.edu\" />" << std::endl;
     ofs << indent << "      </publisher>" << std::endl;
     ofs << indent << "      <documentation type=\"summary\">" << std::endl;
-    ofs << indent << "        " << summary::convertHTMLSummaryToASCII("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
+    ofs << indent << "        " << summary::convert_html_summary_to_ASCII("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
     ofs << indent << "      </documentation>" << std::endl;
     ofs << indent << "    </metadata>" << std::endl;
     ofs << indent << "  </dataset>" << std::endl;
@@ -2118,46 +2098,46 @@ void exportToTHREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_
   server.disconnect();
 }
 
-void exportMetadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string ident,size_t initial_indent_length)
+void export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string ident,size_t initial_indent_length)
 {
   XMLDocument xdoc;
-  std::string sdum;
   TempDir temp_dir;
   struct stat buf;
 
   temp_dir.create("/tmp");
   if (ident.length() == 5 && ident[3] == '.' && strutils::is_numeric(strutils::substitute(ident,".",""))) {
-    if (stat((directives.serverRoot+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
-	sdum=directives.serverRoot+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
+    std::string ds_overview;
+    if (stat((directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
+	ds_overview=directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
     }
     else {
-	sdum=getRemoteWebFile("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
+	ds_overview=remote_web_file("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
     }
-    xdoc.open(sdum);
+    xdoc.open(ds_overview);
   }
   if (format == "oai_dc") {
-    exportToOAI_DC(ofs,ident,xdoc,initial_indent_length);
+    export_to_OAI_DC(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "datacite") {
-    exportToDataCite(ofs,ident,xdoc,initial_indent_length);
+    export_to_DataCite(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "dif") {
-    exportToDIF(ofs,ident,xdoc,initial_indent_length);
+    export_to_DIF(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "fgdc") {
-    exportToFGDC(ofs,ident,xdoc,initial_indent_length);
+    export_to_FGDC(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "iso19139") {
-    exportToISO19139(ofs,ident,xdoc,initial_indent_length);
+    export_to_ISO19139(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "iso19115-3") {
-    exportToISO19115Part3(token_doc,ofs,ident,xdoc,initial_indent_length);
+    export_to_ISO19115_dash_3(token_doc,ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "native") {
-    exportToNative(ofs,ident,xdoc,initial_indent_length);
+    export_to_native(ofs,ident,xdoc,initial_indent_length);
   }
   else if (format == "thredds") {
-    exportToTHREDDS(ofs,ident,xdoc,initial_indent_length);
+    export_to_THREDDS(ofs,ident,xdoc,initial_indent_length);
   }
   xdoc.close();
 }
