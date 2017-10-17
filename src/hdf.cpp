@@ -117,19 +117,19 @@ bool InputHDF4Stream::open(const char *filename)
 	return bfstream::error;
     }
     size_t num_dds;
-    getBits(buf,num_dds,0,16);
-    getBits(buf,next,16,32);
+    get_bits(buf,num_dds,0,16);
+    get_bits(buf,next,16,32);
     for (size_t n=0; n < num_dds; ++n) {
 	fs.read(cbuf,12);
 	if (fs.gcount() != 12) {
 	  return bfstream::error;
 	}
 	DataDescriptor dd;
-	getBits(buf,dd.key,0,16);
+	get_bits(buf,dd.key,0,16);
 	if (dd.key != 1) {
-	  getBits(buf,dd.reference_number,16,16);
-	  getBits(buf,dd.offset,32,32);
-	  getBits(buf,dd.length,64,32);
+	  get_bits(buf,dd.reference_number,16,16);
+	  get_bits(buf,dd.offset,32,32);
+	  get_bits(buf,dd.length,64,32);
 	  data_descriptors.emplace_back(dd);
 	  ReferenceEntry re;
 	  if (!reference_table.found(dd.reference_number,re)) {
@@ -150,7 +150,7 @@ int InputHDF4Stream::peek()
 return bfstream::error;
 }
 
-void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,std::string indent)
+void InputHDF4Stream::print_data_descriptor(const DataDescriptor& data_descriptor,std::string indent)
 {
   TagEntry te;
   ReferenceEntry re;
@@ -183,11 +183,11 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  exit(1);
 	}
 	std::cout << indent;
-	getBits(buffer,idum,0,32);
+	get_bits(buffer,idum,0,32);
 	std::cout << "  Version: " << idum;
-	getBits(buffer,idum,32,32);
+	get_bits(buffer,idum,32,32);
 	std::cout << "." << idum;
-	getBits(buffer,idum,64,32);
+	get_bits(buffer,idum,64,32);
 	std::cout << "." << idum << "  Description: ";
 	std::cout.write(&cbuf[12],data_descriptor.length-12);
 	std::cout << std::endl;
@@ -207,13 +207,13 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  exit(1);
 	}
 	std::cout << indent;
-	getBits(buffer,idum,0,8);
+	get_bits(buffer,idum,0,8);
 	std::cout << "  version: " << idum;
-	getBits(buffer,idum,8,8);
+	get_bits(buffer,idum,8,8);
 	std::cout << "  type: " << data_types[idum] << "(" << idum << ")";
-	getBits(buffer,idum,16,8);
+	get_bits(buffer,idum,16,8);
 	std::cout << "  width: " << idum;
-	getBits(buffer,idum,24,8);
+	get_bits(buffer,idum,24,8);
 	std::cout << "  class: " << idum;
 	std::cout << std::endl;
 	delete[] buffer;
@@ -236,17 +236,17 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  exit(1);
 	}
 	std::cout << indent;
-	getBits(buffer,ndims,0,16);
+	get_bits(buffer,ndims,0,16);
 	std::cout << "  #dims: " << ndims;
 	nvals=new int[ndims];
 	off=16;
-	getBits(buffer,nvals,off,32,0,ndims);
+	get_bits(buffer,nvals,off,32,0,ndims);
 	off+=32*ndims;
-	getBits(buffer,idum,off,16);
+	get_bits(buffer,idum,off,16);
 	std::cout << "  data_nt_ref: " << idum << std::endl;
 	off+=16;
 	scale_nt_refs=new short[ndims];
-	getBits(buffer,scale_nt_refs,off,16,0,ndims);
+	get_bits(buffer,scale_nt_refs,off,16,0,ndims);
 	for (n=0; n < ndims; ++n) {
 	  std::cout << indent << "  Dimension: " << n << "  #vals: " << nvals[n] << "  scale_nt_ref: " << scale_nt_refs[n] << std::endl;
 	}
@@ -270,7 +270,7 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  exit(1);
 	}
 	vals=new short[data_descriptor.length/2];
-	getBits(buffer,vals,0,16,0,data_descriptor.length/2);
+	get_bits(buffer,vals,0,16,0,data_descriptor.length/2);
 	for (n=0; n < data_descriptor.length/2; n+=2) {
 	  std::cout << indent << "  Member: " << n/2 << "  tag/ref#: ";
 	  if (tag_table.found(vals[n],te)) {
@@ -301,13 +301,13 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  exit(1);
 	}
 	std::cout << indent;
-	getBits(buffer,idum,0,16);
+	get_bits(buffer,idum,0,16);
 	std::cout << "  Interlace: " << idum;
-	getBits(buffer,nentries,16,32);
+	get_bits(buffer,nentries,16,32);
 	std::cout << "  #entries: " << nentries;
-	getBits(buffer,idum,48,16);
+	get_bits(buffer,idum,48,16);
 	std::cout << "  entry len: " << idum;
-	getBits(buffer,nfields,64,16);
+	get_bits(buffer,nfields,64,16);
 	std::cout << "  #fields/entry: " << nfields << std::endl;
 	off=80;
 	types=new short[nfields];
@@ -316,19 +316,19 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	orders=new short[nfields];
 	fldnmlens=new short[nfields];
 	fldnms=new char *[nfields];
-	getBits(buffer,types,off,16,0,nfields);
+	get_bits(buffer,types,off,16,0,nfields);
 	off+=16*nfields;
-	getBits(buffer,sizes,off,16,0,nfields);
+	get_bits(buffer,sizes,off,16,0,nfields);
 	off+=16*nfields;
-	getBits(buffer,offsets,off,16,0,nfields);
+	get_bits(buffer,offsets,off,16,0,nfields);
 	off+=16*nfields;
-	getBits(buffer,orders,off,16,0,nfields);
+	get_bits(buffer,orders,off,16,0,nfields);
 	off+=16*nfields;
 	for (n=0; n < nfields; ++n) {
-	  getBits(buffer,fldnmlens[n],off,16);
+	  get_bits(buffer,fldnmlens[n],off,16);
 	  off+=16;
 	  fldnms[n]=new char[fldnmlens[n]];
-	  getBits(buffer,fldnms[n],off,8,0,fldnmlens[n]);
+	  get_bits(buffer,fldnms[n],off,8,0,fldnmlens[n]);
 	  off+=8*fldnmlens[n];
 	}
 	for (n=0; n < nfields; ++n) {
@@ -344,19 +344,19 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 	  delete[] fldnms[n];
 	}
 	delete[] fldnms;
-	getBits(buffer,idum,off,16);
+	get_bits(buffer,idum,off,16);
 	off+=16;
 	std::cout << indent;
 	cdum=new char[idum];
-	getBits(buffer,cdum,off,8,0,idum);
+	get_bits(buffer,cdum,off,8,0,idum);
 	off+=8*idum;
 	std::cout << "  Name: '";
 	std::cout.write(cdum,idum);
 	delete[] cdum;
-	getBits(buffer,idum,off,16);
+	get_bits(buffer,idum,off,16);
 	off+=16;
 	cdum=new char[idum];
-	getBits(buffer,cdum,off,8,0,idum);
+	get_bits(buffer,cdum,off,8,0,idum);
 	std::cout << "'  Class: '";
 	std::cout.write(cdum,idum);
 	std::cout << "'" << std::endl;
@@ -395,22 +395,22 @@ void InputHDF4Stream::printDataDescriptor(const DataDescriptor& data_descriptor,
 		  off+=8;
 		}
 		else if (data_types[types[0]] == "DFNT_INT16") {
-		  getBits(buffer,shdum,off,16);
+		  get_bits(buffer,shdum,off,16);
 		  std::cout << shdum;
 		  off+=16;
 		}
 		else if (data_types[types[0]] == "DFNT_UINT16") {
-		  getBits(buffer,idum,off,16);
+		  get_bits(buffer,idum,off,16);
 		  std::cout << idum;
 		  off+=16;
 		}
 		else if (data_types[types[0]] == "DFNT_INT32") {
-		  getBits(buffer,idum,off,32);
+		  get_bits(buffer,idum,off,32);
 		  std::cout << idum;
 		  off+=32;
 		}
 		else if (data_types[types[0]] == "DFNT_FLOAT64") {
-		  getBits(buffer,ldum,off,64);
+		  get_bits(buffer,ldum,off,64);
 		  std::cout << ddum;
 		  off+=64;
 		}
@@ -445,20 +445,20 @@ std::cout << "BLAH!!";
 	  myerror+="Bad data descriptor length";
 	  exit(1);
 	}
-	getBits(buffer,nelements,0,16);
+	get_bits(buffer,nelements,0,16);
 	std::cout << indent << "  #elements: " << nelements << std::endl;
 	off=16;
 	tags=new short[nelements];
-	getBits(buffer,tags,off,16,0,nelements);
+	get_bits(buffer,tags,off,16,0,nelements);
 	off+=16*nelements;
 	ref_nos=new short[nelements];
-	getBits(buffer,ref_nos,off,16,0,nelements);
+	get_bits(buffer,ref_nos,off,16,0,nelements);
 	off+=16*nelements;
 	for (n=0; n < nelements; ++n) {
 	  std::cout << indent << "  Element: " << n << "  ";
 	  reference_table.found(ref_nos[n],re);
 	  re.data_descriptor_table->found(tags[n],dd);
-	  printDataDescriptor(dd,indent+"  ");
+	  print_data_descriptor(dd,indent+"  ");
 	}
 	delete[] tags;
 	delete[] ref_nos;
@@ -468,11 +468,11 @@ std::cout << "BLAH!!";
   }
 }
 
-void InputHDF4Stream::printDataDescriptors(size_t tag_number)
+void InputHDF4Stream::print_data_descriptors(size_t tag_number)
 {
   for (size_t n=0; n < data_descriptors.size(); ++n) {
     if (data_descriptors[n].key == tag_number) {
-	printDataDescriptor(data_descriptors[n]);
+	print_data_descriptor(data_descriptors[n]);
     }
   }
 }
@@ -492,7 +492,7 @@ void InputHDF5Stream::close()
   if (fs.is_open()) {
     fs.close();
   }
-  clearGroups(root_group);
+  clear_groups(root_group);
   if (ref_table != nullptr) {
     ref_table=nullptr;
   }
@@ -655,11 +655,11 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
   if (this == &source) {
     return *this;
   }
-  class_=source.class_;
-  precision=source.precision;
+  _class_=source._class_;
+  precision_=source.precision_;
   size=source.size;
   dim_sizes=source.dim_sizes;
-  switch (class_) {
+  switch (_class_) {
     case 0:
     case 4:
     {
@@ -667,7 +667,7 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
 	}
-	switch (precision) {
+	switch (precision_) {
 	  case 8:
 	    value=new unsigned char[max_cnt];
 	    for (size_t cnt=0; cnt < max_cnt; ++cnt) {
@@ -701,7 +701,7 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
 	}
-	switch (precision) {
+	switch (precision_) {
 	  case 32:
 	  {
 	    value=new float[max_cnt];
@@ -723,9 +723,9 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
     }
     case 3:
     {
-	value=new char[precision+1];
-	std::copy(reinterpret_cast<char *>(source.value),reinterpret_cast<char *>(source.value)+precision,reinterpret_cast<char *>(value));
-	(reinterpret_cast<char *>(value))[precision]='\0';
+	value=new char[precision_+1];
+	std::copy(reinterpret_cast<char *>(source.value),reinterpret_cast<char *>(source.value)+precision_,reinterpret_cast<char *>(value));
+	(reinterpret_cast<char *>(value))[precision_]='\0';
 	break;
     }
     case 6:
@@ -735,7 +735,7 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 	for (size_t n=0; n < compound.members.size(); ++n) {
 	  compound.members[n].name=source.compound.members[n].name;
 	  compound.members[n].class_=source.compound.members[n].class_;
-	  compound.members[n].precision=source.compound.members[n].precision;
+	  compound.members[n].precision_=source.compound.members[n].precision_;
 	  compound.members[n].size=source.compound.members[n].size;
 	  m+=compound.members[n].size;
 	}
@@ -769,10 +769,10 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const DataValu
 void InputHDF5Stream::DataValue::clear()
 {
   if (value != nullptr) {
-    switch (class_) {
+    switch (_class_) {
 	case 0:
 	{
-	  switch (precision) {
+	  switch (precision_) {
 	    case 8:
 	    {
 		delete[] reinterpret_cast<unsigned char *>(value);
@@ -798,7 +798,7 @@ void InputHDF5Stream::DataValue::clear()
 	}
 	case 1:
 	{
-	  switch (precision) {
+	  switch (precision_) {
 	    case 32: 
 	    {
 		delete[] reinterpret_cast<float *>(value);
@@ -839,10 +839,10 @@ void InputHDF5Stream::DataValue::clear()
 void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const
 {
   if (value == nullptr) {
-    ofs << "?????0 (" << class_ << ")";
+    ofs << "?????0 (" << _class_ << ")";
     return;
   }
-  switch (class_) {
+  switch (_class_) {
     case 0:
 // fixed point numbers (integers)
     case 4:
@@ -856,7 +856,7 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	  if (n > 0) {
 	    ofs << ", ";
 	  }
-	  switch (precision) {
+	  switch (precision_) {
 	    case 8:
 	    {
 		ofs << static_cast<int>((reinterpret_cast<unsigned char *>(value))[n]) << "d";
@@ -897,7 +897,7 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	  if (n > 0) {
 	    ofs << ", ";
 	  }
-	  switch (precision) {
+	  switch (precision_) {
 	    case 32:
 	    {
 		ofs << (reinterpret_cast<float *>(value))[n] << "f";
@@ -949,8 +949,8 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 	    if (m > 0) {
 		ofs << ", ";
 	    }
-	    cval->class_=compound.members[m].class_;
-	    cval->precision=compound.members[m].precision;
+	    cval->_class_=compound.members[m].class_;
+	    cval->precision_=compound.members[m].precision_;
 	    cval->size=compound.members[m].size;
 	    cval->value=&(reinterpret_cast<unsigned char *>(value))[off];
 	    cval->print(ofs,ref_table);
@@ -970,12 +970,12 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 // reference
 	if (ref_table != nullptr) {
 	  ReferenceEntry re;
-	  re.key=HDF5::getValue(reinterpret_cast<unsigned char *>(value),size);
+	  re.key=HDF5::value(reinterpret_cast<unsigned char *>(value),size);
 	  ref_table->found(re.key,re);
 	  ofs << re.name;
 	}
 	else {
-	  ofs << HDF5::getValue(reinterpret_cast<unsigned char *>(value),size) << "R";
+	  ofs << HDF5::value(reinterpret_cast<unsigned char *>(value),size) << "R";
 	}
 	break;
     }
@@ -995,7 +995,7 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 		  ofs << ", ";
 		}
 		int len;
-		getBits(&vlen.buffer[off],len,0,32);
+		get_bits(&vlen.buffer[off],len,0,32);
 		ofs << "\"" << std::string(reinterpret_cast<char *>(&vlen.buffer[off+4]),len) << "\"" << std::endl;
 		off+=(4+len);
 	    }
@@ -1012,14 +1012,14 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 		}
 		if (ref_table != nullptr) {
 		  ReferenceEntry re;
-		  re.key=HDF5::getValue(&vlen.buffer[off+4],precision);
+		  re.key=HDF5::value(&vlen.buffer[off+4],precision_);
 		  ref_table->found(re.key,re);
 		  ofs << re.name;
 		}
 		else {
-		  ofs << "(" << HDF5::getValue(&vlen.buffer[off+4],precision) << "R";
+		  ofs << "(" << HDF5::value(&vlen.buffer[off+4],precision_) << "R";
 		}
-                off+=(4+precision);
+                off+=(4+precision_);
 	    }
 	    if (dim_sizes.size() > 0) {
 		ofs << "]";
@@ -1031,7 +1031,7 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
     }
     default:
     {
-	ofs << "?????u (" << class_ << ")";
+	ofs << "?????u (" << _class_ << ")";
     }
   }
 }
@@ -1039,32 +1039,32 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace,bool show_debug)
 {
   clear();
-  class_=datatype.class_;
+  _class_=datatype.class_;
   dim_sizes=dataspace.sizes;
   if (show_debug) {
-    std::cerr << "class: " << class_ << " dim_sizes size: " << dim_sizes.size() << std::endl;
+    std::cerr << "class: " << _class_ << " dim_sizes size: " << dim_sizes.size() << std::endl;
     for (auto& dim_size : dim_sizes) {
 	std::cerr << "  dim_size: " << dim_size << std::endl;
     }
   }
-  switch (class_) {
+  switch (_class_) {
     case 0:
 // fixed point numbers (integers)
     case 4:
 // bitfield
     {
 	short byte_order[2];
-	getBits(datatype.bit_fields,byte_order[0],7,1);
+	get_bits(datatype.bit_fields,byte_order[0],7,1);
 	short lo_pad;
-	getBits(datatype.bit_fields,lo_pad,6,1);
+	get_bits(datatype.bit_fields,lo_pad,6,1);
 	short hi_pad;
-	getBits(datatype.bit_fields,hi_pad,5,1);
+	get_bits(datatype.bit_fields,hi_pad,5,1);
 	short sign;
-	if (class_ == 0) {
-	  getBits(datatype.bit_fields,sign,4,1);
+	if (_class_ == 0) {
+	  get_bits(datatype.bit_fields,sign,4,1);
 	}
-	auto off=HDF5::getValue(&datatype.properties[0],2);
-	precision=HDF5::getValue(&datatype.properties[2],2);
+	auto off=HDF5::value(&datatype.properties[0],2);
+	precision_=HDF5::value(&datatype.properties[2],2);
 	size_t max_cnt=1;
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
@@ -1072,8 +1072,8 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	switch (byte_order[0]) {
 	  case 0:
 	    if (off == 0) {
-		if ( (precision % 8) == 0) {
-		  auto byte_len=precision/8;
+		if ( (precision_ % 8) == 0) {
+		  auto byte_len=precision_/8;
 		  for (size_t n=0; n < max_cnt; ++n) {
 		    switch (byte_len) {
 			case 1:
@@ -1081,7 +1081,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new unsigned char[max_cnt];
 			  }
-			  (reinterpret_cast<unsigned char *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],1);
+			  (reinterpret_cast<unsigned char *>(value))[n]=HDF5::value(&buffer[byte_len*n],1);
 			  break;
 			}
 			case 2:
@@ -1089,7 +1089,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new short[max_cnt];
 			  }
-			  (reinterpret_cast<short *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],2);
+			  (reinterpret_cast<short *>(value))[n]=HDF5::value(&buffer[byte_len*n],2);
 			  break;
 			}
 			case 4:
@@ -1097,7 +1097,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new int[max_cnt];
 			  }
-			  (reinterpret_cast<int *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],4);
+			  (reinterpret_cast<int *>(value))[n]=HDF5::value(&buffer[byte_len*n],4);
 			  break;
 			}
 			case 8:
@@ -1105,7 +1105,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new long long[max_cnt];
 			  }
-			  (reinterpret_cast<long long *>(value))[n]=HDF5::getValue(&buffer[byte_len*n],8);
+			  (reinterpret_cast<long long *>(value))[n]=HDF5::value(&buffer[byte_len*n],8);
 			  break;
 			}
 		    }
@@ -1116,7 +1116,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		  if (!myerror.empty()) {
 		    myerror+=", ";
 		  }
-		  myerror+="unable to decode little-endian integer with precision "+strutils::itos(precision);
+		  myerror+="unable to decode little-endian integer with precision "+strutils::itos(precision_);
 		  return false;
 		}
 	    }
@@ -1130,8 +1130,8 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	    break;
 	  case 1:
 	    if (off == 0) {
-		if ( (precision % 8) == 0) {
-		  auto byte_len=precision/8;
+		if ( (precision_ % 8) == 0) {
+		  auto byte_len=precision_/8;
 		  for (size_t n=0; n < max_cnt; ++n) {
 		    switch (byte_len) {
 			case 1:
@@ -1139,7 +1139,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			  value=new unsigned char[max_cnt];
 			  }
-			  getBits(&buffer[byte_len*n],(reinterpret_cast<unsigned char *>(value))[n],0,precision);
+			  get_bits(&buffer[byte_len*n],(reinterpret_cast<unsigned char *>(value))[n],0,precision_);
 			  break;
 			}
 			case 2:
@@ -1147,7 +1147,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new short[max_cnt];
 			  }
-			  getBits(&buffer[byte_len*n],(reinterpret_cast<short *>(value))[n],0,precision);
+			  get_bits(&buffer[byte_len*n],(reinterpret_cast<short *>(value))[n],0,precision_);
 			  break;
 			}
 			case 4:
@@ -1155,7 +1155,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new int[max_cnt];
 			  }
-			  getBits(&buffer[byte_len*n],(reinterpret_cast<int *>(value))[n],0,precision);
+			  get_bits(&buffer[byte_len*n],(reinterpret_cast<int *>(value))[n],0,precision_);
 			  break;
 			}
 			case 8:
@@ -1163,7 +1163,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 			  if (n == 0) {
 			    value=new long long[max_cnt];
 			  }
-			  getBits(&buffer[byte_len*n],(reinterpret_cast<long long *>(value))[n],0,precision);
+			  get_bits(&buffer[byte_len*n],(reinterpret_cast<long long *>(value))[n],0,precision_);
 			  break;
 			}
 		    }
@@ -1174,7 +1174,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		  if (!myerror.empty()) {
 		    myerror+=", ";
 		  }
-		  myerror+="unable to decode big-endian integer with precision "+strutils::itos(precision);
+		  myerror+="unable to decode big-endian integer with precision "+strutils::itos(precision_);
 		  return false;
 		}
 	    }
@@ -1193,17 +1193,17 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 // floating-point numbers
     {
 	short byte_order[2];
-	getBits(datatype.bit_fields,byte_order[0],1,1);
-	getBits(datatype.bit_fields,byte_order[1],7,1);
+	get_bits(datatype.bit_fields,byte_order[0],1,1);
+	get_bits(datatype.bit_fields,byte_order[1],7,1);
 	short lo_pad;
-	getBits(datatype.bit_fields,lo_pad,6,1);
+	get_bits(datatype.bit_fields,lo_pad,6,1);
 	short hi_pad;
-	getBits(datatype.bit_fields,hi_pad,5,1);
+	get_bits(datatype.bit_fields,hi_pad,5,1);
 	short int_pad;
-	getBits(datatype.bit_fields,int_pad,4,1);
+	get_bits(datatype.bit_fields,int_pad,4,1);
 	short mant_norm;
-	getBits(datatype.bit_fields,mant_norm,2,2);
-	precision=HDF5::getValue(&datatype.properties[2],2);
+	get_bits(datatype.bit_fields,mant_norm,2,2);
+	precision_=HDF5::value(&datatype.properties[2],2);
 	size_t max_cnt=1;
 	if (dim_sizes.size() == 1) {
 	  max_cnt*=dim_sizes[0];
@@ -1212,7 +1212,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  unsigned char v[8];
 	  if (byte_order[0] == 0 && byte_order[1] == 0) {
 // little-endian
-	    size_t byte_len=precision/8;
+	    size_t byte_len=precision_/8;
 	    int idx=byte_len-1;
 	    for (size_t m=0; m < byte_len; ++m) {
 		v[m]=(reinterpret_cast<unsigned char *>(buffer))[byte_len*n+idx];
@@ -1221,7 +1221,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  }
 	  else if (byte_order[0] == 0 && byte_order[1] == 1) {
 // big-endian
-	    auto byte_len=precision/8;
+	    auto byte_len=precision_/8;
 	    auto start=byte_len*n;
 	    std::copy(&buffer[start],&buffer[start+byte_len],v);
 	  }
@@ -1232,14 +1232,14 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	    myerror+="unknown byte order for data value";
 	    return false;
 	  }
-	  if (HDF5::getValue(&datatype.properties[0],2) == 0) {
+	  if (HDF5::value(&datatype.properties[0],2) == 0) {
 	    long long exp,mant;
-	    getBits(reinterpret_cast<unsigned char *>(v),exp,precision-static_cast<int>(datatype.properties[4])-static_cast<int>(datatype.properties[5]),static_cast<int>(datatype.properties[5]));
-	    getBits(reinterpret_cast<unsigned char *>(v),mant,precision-static_cast<int>(datatype.properties[6])-static_cast<int>(datatype.properties[7]),static_cast<int>(datatype.properties[7]));
+	    get_bits(reinterpret_cast<unsigned char *>(v),exp,precision_-static_cast<int>(datatype.properties[4])-static_cast<int>(datatype.properties[5]),static_cast<int>(datatype.properties[5]));
+	    get_bits(reinterpret_cast<unsigned char *>(v),mant,precision_-static_cast<int>(datatype.properties[6])-static_cast<int>(datatype.properties[7]),static_cast<int>(datatype.properties[7]));
 	    short sign;
-	    getBits(reinterpret_cast<unsigned char *>(v),sign,precision-static_cast<int>(datatype.bit_fields[1])-1,1);
+	    get_bits(reinterpret_cast<unsigned char *>(v),sign,precision_-static_cast<int>(datatype.bit_fields[1])-1,1);
 	    if (n == 0) {
-		switch (precision) {
+		switch (precision_) {
 		  case 32:
 		  {
 		    value=new float[max_cnt];
@@ -1255,7 +1255,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		}
 	    }
 	    if (mant == 0 && (mant_norm != 2 || exp == 0)) {
-		switch (precision) {
+		switch (precision_) {
 		  case 32:
 		  {
 		    (reinterpret_cast<float *>(value))[n]=0.;
@@ -1269,9 +1269,9 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		}
 	    }
 	    else {
-		exp-=HDF5::getValue(&datatype.properties[8],4);
+		exp-=HDF5::value(&datatype.properties[8],4);
 		if (mant_norm == 2) {
-		  switch (precision) {
+		  switch (precision_) {
 		    case 32:
 		    {
 		      (reinterpret_cast<float *>(value))[n]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
@@ -1293,15 +1293,15 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
     {
 // strings
 	if (dataspace.dimensionality < 0) {
-	  precision=0;
+	  precision_=0;
 	}
 	else {
-	  precision=datatype.size;
+	  precision_=datatype.size;
 	}
-	size=precision;
-	value=new char[precision+1];
-	getBits(buffer,(reinterpret_cast<char *>(value)),0,8,0,precision);
-	(reinterpret_cast<char *>(value))[precision]='\0';
+	size=precision_;
+	value=new char[precision_+1];
+	get_bits(buffer,(reinterpret_cast<char *>(value)),0,8,0,precision_);
+	(reinterpret_cast<char *>(value))[precision_]='\0';
 	break;
     }
     case 6:
@@ -1310,7 +1310,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	if (show_debug) {
 	  std::cerr << "Setting value for compound type - version: " << datatype.version << std::endl;
 	}
-	compound.members.resize(HDF5::getValue(datatype.bit_fields,2));
+	compound.members.resize(HDF5::value(datatype.bit_fields,2));
 	if (show_debug) {
 	  std::cerr << "  number of members: " << compound.members.size() << " " << datatype.prop_len << std::endl;
 	}
@@ -1340,7 +1340,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		  exit(1);
 		}
 		off+=28;
-		HDF5::decodeDatatype(&datatype.properties[off],l_datatypes[n],show_debug);
+		HDF5::decode_datatype(&datatype.properties[off],l_datatypes[n],show_debug);
 		compound.members[n].class_=l_datatypes[n].class_;
 		compound.members[n].size=l_datatypes[n].size;
 		total_size+=l_datatypes[n].size;
@@ -1368,7 +1368,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 		  s/=256;
 		}
 		off+=len;
-		HDF5::decodeDatatype(&datatype.properties[off],l_datatypes[n],show_debug);
+		HDF5::decode_datatype(&datatype.properties[off],l_datatypes[n],show_debug);
 		compound.members[n].class_=l_datatypes[n].class_;
 		compound.members[n].size=l_datatypes[n].size;
 		total_size+=l_datatypes[n].size;
@@ -1398,7 +1398,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	    DataValue l_value;
 	    l_value.set(fs,&buffer[roff],size_of_offsets,size_of_lengths,l_datatypes[m],dataspace,show_debug);
 	    if (n == 0) {
-		compound.members[m].precision=l_value.precision;
+		compound.members[m].precision_=l_value.precision_;
 	    }
 	    std::copy(reinterpret_cast<unsigned char *>(l_value.value),reinterpret_cast<unsigned char *>(l_value.value)+l_datatypes[m].size,&(reinterpret_cast<unsigned char *>(value))[voff]);
 	    roff+=l_datatypes[m].size;
@@ -1432,15 +1432,15 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
     {
 // variable-length
 	short type,pad,charset;
-	getBits(datatype.bit_fields,type,0,4);
-	getBits(datatype.bit_fields,pad,4,4);
-	getBits(datatype.bit_fields,charset,8,4);
+	get_bits(datatype.bit_fields,type,0,4);
+	get_bits(datatype.bit_fields,pad,4,4);
+	get_bits(datatype.bit_fields,charset,8,4);
 	if (show_debug) {
 	  std::cerr << "decoding data class 9 -  type: " << type << " pad: " << pad << " charset: " << charset << " size: " << datatype.size << " base type class and version: " << static_cast<int>(datatype.properties[0] & 0xf) << "/" << static_cast<int>((datatype.properties[0] & 0xf0) >> 4) << std::endl;
 	}
 	if (type == 0) {
 	  size=datatype.size;
-	  precision=size_of_offsets;
+	  precision_=size_of_offsets;
 	  size_t num_pointers=1;
 	  if (dim_sizes.size() > 0) {	
 	    num_pointers=dim_sizes.front();
@@ -1448,7 +1448,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  }
 	  value=new unsigned char[size];
 	  vlen.class_=(datatype.properties[0] & 0xf);
-	  auto element_size=HDF5::getValue(&datatype.properties[4],4);
+	  auto element_size=HDF5::value(&datatype.properties[4],4);
 // patch for strings stored as sequence of fixed-point numbers
 	  if (vlen.class_ == 0 && datatype.size > 1 && element_size == 1) {
 	    vlen.class_=3;
@@ -1460,9 +1460,9 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  auto off=0;
 	  std::vector<int> lengths;
 	  for (size_t n=0; n < num_pointers; ++n) {
-	    lengths.emplace_back(HDF5::getValue(&buffer[off],4)*element_size);
+	    lengths.emplace_back(HDF5::value(&buffer[off],4)*element_size);
 	    vlen.size+=lengths.back();
-	    off+=(8+precision);
+	    off+=(8+precision_);
 	  }
 	  vlen.size+=4*num_pointers;
 	  vlen.buffer.reset(new unsigned char[vlen.size]);
@@ -1472,21 +1472,21 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	  off=0;
 	  auto voff=0;
 	  for (size_t n=0; n < num_pointers; ++n) {
-	    setBits(&vlen.buffer[voff],lengths[n],0,32);
+	    set_bits(&vlen.buffer[voff],lengths[n],0,32);
 	    unsigned char *buf2=nullptr;
-	    auto len=HDF5::getGlobalHeapObject(fs,size_of_lengths,HDF5::getValue(&buffer[off+4],precision),HDF5::getValue(&buffer[off+4+precision],4),&buf2);
+	    auto len=HDF5::global_heap_object(fs,size_of_lengths,HDF5::value(&buffer[off+4],precision_),HDF5::value(&buffer[off+4+precision_],4),&buf2);
 	    std::copy(&buf2[0],&buf2[lengths[n]],&vlen.buffer[voff+4]);
 	    if (show_debug) {
 		std::cerr << "***LEN=" << len;
 		if (vlen.class_ == 7) {
-		  std::cerr << " " << HDF5::getValue(buf2,size_of_offsets);
+		  std::cerr << " " << HDF5::value(buf2,size_of_offsets);
 		}
 		std::cerr << std::endl;
 	    }
 	    if (len > 0) {
 		delete[] buf2;
 	    }
-	    off+=(8+precision);
+	    off+=(8+precision_);
 	    voff+=(4+lengths[n]);
 	  }
 	  std::copy(&buffer[0],&buffer[off],reinterpret_cast<unsigned char *>(value));
@@ -1512,7 +1512,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
   return true;
 }
 
-InputHDF5Stream::Attribute InputHDF5Stream::getAttribute(std::string xpath)
+InputHDF5Stream::Attribute InputHDF5Stream::attribute(std::string xpath)
 {
   Attribute attr;
 
@@ -1549,7 +1549,7 @@ void InputHDF5Stream::Dataset::free()
   }
 }
 
-InputHDF5Stream::Dataset *InputHDF5Stream::getDataset(std::string xpath)
+InputHDF5Stream::Dataset *InputHDF5Stream::dataset(std::string xpath)
 {
   Group *g=&root_group;
   auto xparts=strutils::split(xpath,"/");
@@ -1575,7 +1575,7 @@ InputHDF5Stream::Dataset *InputHDF5Stream::getDataset(std::string xpath)
   return dse.dataset.get();
 }
 
-std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribute(std::string attribute_path,Group *g)
+std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(std::string attribute_path,Group *g)
 {
   std::list<DatasetEntry> return_list,dse_list;
   std::string attribute,value;
@@ -1593,7 +1593,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribu
   }
   for (auto& key : g->groups.keys()) {
     g->groups.found(key,ge);
-    dse_list=getDatasetsWithAttribute(attribute_path,ge.group.get());
+    dse_list=datasets_with_attribute(attribute_path,ge.group.get());
     return_list.insert(return_list.end(),dse_list.begin(),dse_list.end());
   }
   for (auto& key : g->datasets.keys()) {
@@ -1604,7 +1604,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribu
 	    return_list.emplace_back(dse);
 	  }
 	  else if  (dse.dataset->attributes.found(key2,attr)) {
-	    switch (attr.value.class_) {
+	    switch (attr.value._class_) {
 		case 3:
 		{
 		  if (std::string(reinterpret_cast<char *>(attr.value.value)) == value) {
@@ -1618,7 +1618,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribu
 		    case 3:
 		    {
 			int len;
-			getBits(attr.value.vlen.buffer.get(),len,0,32);
+			get_bits(attr.value.vlen.buffer.get(),len,0,32);
 			if (std::string(reinterpret_cast<char *>(&attr.value.vlen.buffer[4]),len) == value) {
 			  return_list.emplace_back(dse);
 			}
@@ -1639,7 +1639,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::getDatasetsWithAttribu
 		  if (myerror.length() > 0) {
 		    myerror+=", ";
 		  }
-		  myerror+="can't match an attribute value of class "+strutils::itos(attr.value.class_);
+		  myerror+="can't match an attribute value of class "+strutils::itos(attr.value._class_);
 		}
 	    }
 	  }
@@ -1668,14 +1668,14 @@ bool InputHDF5Stream::open(const char *filename)
     return false;
   }
   SymbolTableEntry ste;
-  if (!decodeSuperblock(ste.objhdr_addr)) {
+  if (!decode_superblock(ste.objhdr_addr)) {
     return false;
   }
   if (sb_version == 0 || sb_version == 1) {
-    if (!decodeSymbolTableEntry(ste,NULL))
+    if (!decode_symbol_table_entry(ste,NULL))
 	return false;
   }
-  if (!decodeObjectHeader(ste,NULL)) {
+  if (!decode_object_header(ste,NULL)) {
     return false;
   }
   if (show_debug) {
@@ -1691,7 +1691,7 @@ int InputHDF5Stream::peek()
 return bfstream::error;
 }
 
-void InputHDF5Stream::printFillValue(std::string xpath)
+void InputHDF5Stream::print_fill_value(std::string xpath)
 {
   auto xparts=strutils::split(xpath,"/");
   Group *g=&root_group;
@@ -1710,7 +1710,7 @@ void InputHDF5Stream::printFillValue(std::string xpath)
     return;
   }
   if (dse.dataset->fillvalue.bytes != nullptr) {
-    HDF5::printDataValue(dse.dataset->datatype,dse.dataset->fillvalue.bytes);
+    HDF5::print_data_value(dse.dataset->datatype,dse.dataset->fillvalue.bytes);
   }
   else {
     std::cout << "Fillvalue(s) not defined";
@@ -1722,17 +1722,17 @@ int InputHDF5Stream::read(unsigned char *buffer,size_t buffer_length)
 return bfstream::error;
 }
 
-void InputHDF5Stream::showFileStructure()
+void InputHDF5Stream::show_file_structure()
 {
-  printAGroupTree(root_group);
+  print_a_group_tree(root_group);
 }
 
-void InputHDF5Stream::clearGroups(Group& group)
+void InputHDF5Stream::clear_groups(Group& group)
 {
   for (auto& key : group.groups.keys()) {
     GroupEntry ge;
     group.groups.found(key,ge);
-    clearGroups(*ge.group);
+    clear_groups(*ge.group);
     ge.group=nullptr;
   }
   group.groups.clear();
@@ -1749,7 +1749,7 @@ void InputHDF5Stream::clearGroups(Group& group)
   group.datasets.clear();
 }
 
-bool InputHDF5Stream::decodeAttribute(unsigned char *buffer,Attribute& attribute,int& length,int ohdr_version)
+bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribute,int& length,int ohdr_version)
 {
   struct {
     int name,datatype,dataspace;
@@ -1758,13 +1758,13 @@ bool InputHDF5Stream::decodeAttribute(unsigned char *buffer,Attribute& attribute
   Datatype datatype;
   Dataspace dataspace;
 
-  if ( (l_sizes.name=HDF5::getValue(&buffer[2],2)) == 0) {
+  if ( (l_sizes.name=HDF5::value(&buffer[2],2)) == 0) {
     return false;
   }
-  if ( (l_sizes.datatype=HDF5::getValue(&buffer[4],2)) == 0) {
+  if ( (l_sizes.datatype=HDF5::value(&buffer[4],2)) == 0) {
     return false;
   }
-  if ( (l_sizes.dataspace=HDF5::getValue(&buffer[6],2)) == 0) {
+  if ( (l_sizes.dataspace=HDF5::value(&buffer[6],2)) == 0) {
     return false;
   }
   length=8;
@@ -1780,14 +1780,14 @@ bool InputHDF5Stream::decodeAttribute(unsigned char *buffer,Attribute& attribute
 	if ( (mod=(l_sizes.name % 8)) > 0) {
 	  length+=8-mod;
 	}
-	if (!HDF5::decodeDatatype(&buffer[length],datatype,show_debug)) {
+	if (!HDF5::decode_datatype(&buffer[length],datatype,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.datatype;
 	if ( (mod=(l_sizes.datatype % 8)) > 0) {
 	  length+=8-mod;
 	}
-	if (!HDF5::decodeDataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
+	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.dataspace;
@@ -1813,11 +1813,11 @@ bool InputHDF5Stream::decodeAttribute(unsigned char *buffer,Attribute& attribute
     {
 	name_off=length;
 	length+=l_sizes.name;
-	if (!HDF5::decodeDatatype(&buffer[length],datatype,show_debug)) {
+	if (!HDF5::decode_datatype(&buffer[length],datatype,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.datatype;
-	if (!HDF5::decodeDataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
+	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.dataspace;
@@ -1832,14 +1832,14 @@ bool InputHDF5Stream::decodeAttribute(unsigned char *buffer,Attribute& attribute
 	length++;
 	name_off=length;
 	length+=l_sizes.name;
-	if (!HDF5::decodeDatatype(&buffer[length],datatype,show_debug)) {
+	if (!HDF5::decode_datatype(&buffer[length],datatype,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.datatype;
 	if (show_debug) {
 	  std::cerr << "C offset: " << length << std::endl;
 	}
-	if (!HDF5::decodeDataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
+	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace,show_debug)) {
 	  return false;
 	}
 	length+=l_sizes.dataspace;
@@ -1877,7 +1877,7 @@ dump(buffer,length+64);
   return true;
 }
 
-bool InputHDF5Stream::decodeBTree(Group& group,FractalHeapData *frhp_data)
+bool InputHDF5Stream::decode_Btree(Group& group,FractalHeapData *frhp_data)
 {
   if (show_debug) {
     std::cerr << "seeking " << group.btree_addr << std::endl;
@@ -1894,10 +1894,10 @@ bool InputHDF5Stream::decodeBTree(Group& group,FractalHeapData *frhp_data)
   }
   auto signature=std::string(buf,4);
   if (signature == "TREE") {
-    return decodeV1BTree(group);
+    return decode_V1_Btree(group);
   }
   else if (signature == "BTHD") {
-    return decodeV2BTree(group,frhp_data);
+    return decode_V2_Btree(group,frhp_data);
   }
   else {
     if (myerror.length() > 0) {
@@ -1908,7 +1908,7 @@ bool InputHDF5Stream::decodeBTree(Group& group,FractalHeapData *frhp_data)
   return false;
 }
 
-bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_message_type,FractalHeapData& frhp_data)
+bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_message_type,FractalHeapData& frhp_data)
 {
   if (address == undef_addr) {
     if (header_message_type != 0x0006) {
@@ -1956,16 +1956,16 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     myerror+="read error bytes 6-14 in fractal heap";
     return false;
   }
-  frhp_data.id_len=HDF5::getValue(buf,2);
+  frhp_data.id_len=HDF5::value(buf,2);
   if (show_debug) {
     std::cerr << "id_len: " << frhp_data.id_len << std::endl;
   }
-  frhp_data.io_filter_size=HDF5::getValue(&buf[2],2);
+  frhp_data.io_filter_size=HDF5::value(&buf[2],2);
   if (show_debug) {
     std::cerr << "io_filter_size: " << frhp_data.io_filter_size << std::endl;
   }
   frhp_data.flags=buf[4];
-  frhp_data.max_managed_obj_size=HDF5::getValue(&buf[5],4);
+  frhp_data.max_managed_obj_size=HDF5::value(&buf[5],4);
   if (show_debug) {
     std::cerr << "max size of managed objects: " << frhp_data.max_managed_obj_size << std::endl;
   }
@@ -1993,7 +1993,7 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     myerror+="unable to read managed space data";
     return false;
   }
-  frhp_data.objects.num_managed=HDF5::getValue(&buf[sizes.lengths*3],sizes.lengths);
+  frhp_data.objects.num_managed=HDF5::value(&buf[sizes.lengths*3],sizes.lengths);
   if (show_debug) {
     std::cerr << "number of managed objects in heap: " << frhp_data.objects.num_managed << std::endl;
   }
@@ -2005,8 +2005,8 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     myerror+="unable to read huge/tiny object data";
     return false;
   }
-  frhp_data.objects.num_huge=HDF5::getValue(&buf[sizes.lengths],sizes.lengths);
-  frhp_data.objects.num_tiny=HDF5::getValue(&buf[sizes.lengths*3],sizes.lengths);
+  frhp_data.objects.num_huge=HDF5::value(&buf[sizes.lengths],sizes.lengths);
+  frhp_data.objects.num_tiny=HDF5::value(&buf[sizes.lengths*3],sizes.lengths);
   if (show_debug) {
     std::cerr << "number of huge objects: " << frhp_data.objects.num_huge << std::endl;
     std::cerr << "number of tiny objects: " << frhp_data.objects.num_tiny << std::endl;
@@ -2019,23 +2019,23 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     myerror+="unable to read table width and block size data";
     return false;
   }
-  frhp_data.table_width=HDF5::getValue(buf,2);
+  frhp_data.table_width=HDF5::value(buf,2);
   if (show_debug) {
     std::cerr << "table width=" << frhp_data.table_width << std::endl;
   }
-  frhp_data.start_block_size=HDF5::getValue(&buf[2],sizes.lengths);
+  frhp_data.start_block_size=HDF5::value(&buf[2],sizes.lengths);
   if (show_debug) {
     std::cerr << "starting block size: " << frhp_data.start_block_size << std::endl;
   }
-  frhp_data.max_dblock_size=HDF5::getValue(&buf[2+sizes.lengths],sizes.lengths);
+  frhp_data.max_dblock_size=HDF5::value(&buf[2+sizes.lengths],sizes.lengths);
   if (show_debug) {
     std::cerr << "max direct block size: " << frhp_data.max_dblock_size << std::endl;
   }
-  frhp_data.max_dblock_rows=static_cast<int>(log2(HDF5::getValue(&buf[2+sizes.lengths],sizes.lengths))-log2(HDF5::getValue(&buf[2],sizes.lengths)))+2;
+  frhp_data.max_dblock_rows=static_cast<int>(log2(HDF5::value(&buf[2+sizes.lengths],sizes.lengths))-log2(HDF5::value(&buf[2],sizes.lengths)))+2;
   if (show_debug) {
     std::cerr << "max_dblock_rows=" << frhp_data.max_dblock_rows << std::endl;
   }
-  frhp_data.max_size=HDF5::getValue(&buf[2+sizes.lengths*2],2);
+  frhp_data.max_size=HDF5::value(&buf[2+sizes.lengths*2],2);
   if (show_debug) {
     std::cerr << "max_heap_size: " << frhp_data.max_size << std::endl;
   }
@@ -2048,13 +2048,13 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     return false;
   }
   if (show_debug) {
-    std::cerr << "start # rows: " << HDF5::getValue(buf,2) << std::endl;
+    std::cerr << "start # rows: " << HDF5::value(buf,2) << std::endl;
   }
-  unsigned long long root_block_addr=HDF5::getValue(&buf[2],sizes.offsets);
+  unsigned long long root_block_addr=HDF5::value(&buf[2],sizes.offsets);
   if (show_debug) {
     std::cerr << "address of root block: " << root_block_addr << std::endl;
   }
-  frhp_data.nrows=HDF5::getValue(&buf[2+sizes.offsets],2);
+  frhp_data.nrows=HDF5::value(&buf[2+sizes.offsets],2);
   if (show_debug) {
     std::cerr << "nrows=" << frhp_data.nrows << std::endl;
   }
@@ -2068,14 +2068,14 @@ bool InputHDF5Stream::decodeFractalHeap(unsigned long long address,int header_me
     std::cerr << "K=" << frhp_data.K << " N=" << frhp_data.N << std::endl;
   }
   frhp_data.curr_row=frhp_data.curr_col=1;
-  if (!decodeFractalHeapBlock(root_block_addr,header_message_type,frhp_data)) {
+  if (!decode_fractal_heap_block(root_block_addr,header_message_type,frhp_data)) {
     return false;
   }
   fs.seekg(curr_off,std::ios_base::beg);
   return true;
 }
 
-bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int header_message_type,FractalHeapData& frhp_data)
+bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address,int header_message_type,FractalHeapData& frhp_data)
 {
   if (address == undef_addr) {
     if (myerror.length() > 0) {
@@ -2122,8 +2122,8 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
     }
     size_to_read-=(5+sizes.offsets+idum);
     if (show_debug) {
-	std::cerr << "heap header address: " << HDF5::getValue(reinterpret_cast<unsigned char *>(buf),sizes.offsets) << std::endl;
-	std::cerr << "block offset: " << HDF5::getValue(&(reinterpret_cast<unsigned char *>(buf))[sizes.offsets],idum) << "  flags: " << static_cast<int>(frhp_data.flags) << std::endl;
+	std::cerr << "heap header address: " << HDF5::value(reinterpret_cast<unsigned char *>(buf),sizes.offsets) << std::endl;
+	std::cerr << "block offset: " << HDF5::value(&(reinterpret_cast<unsigned char *>(buf))[sizes.offsets],idum) << "  flags: " << static_cast<int>(frhp_data.flags) << std::endl;
     }
     if ( (frhp_data.flags & 0x2) == 0x2) {
 	fs.read(buf,4);
@@ -2156,7 +2156,7 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
 	  auto local_off=0;
 	  bool is_subgroup=false;
 	  while (buf2[local_off] == 1 && local_off < size_to_read) {
-	    local_off+=decodeHeaderMessage("",0,6,0,0,&buf2[local_off],&root_group,*(frhp_data.dse),is_subgroup);
+	    local_off+=decode_header_message("",0,6,0,0,&buf2[local_off],&root_group,*(frhp_data.dse),is_subgroup);
 	  }
 	  break;
 	}
@@ -2166,7 +2166,7 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
 	  while (local_off < size_to_read) {
 	    Attribute attr;
 	    int n;
-	    if (decodeAttribute(&buf2[local_off],attr,n,2)) {
+	    if (decode_attribute(&buf2[local_off],attr,n,2)) {
 		if (show_debug) {
 		  std::cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->key << "' " << &root_group << " " << frhp_data.dse->dataset << std::endl;
 		  std::cerr << "  name: " << attr.key << "  dataset: " << frhp_data.dse->dataset << std::endl;
@@ -2219,7 +2219,7 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
 	return false;
     }
     if (show_debug) {
-	std::cerr << "heap header address: " << HDF5::getValue(reinterpret_cast<unsigned char *>(buf),sizes.offsets) << std::endl;
+	std::cerr << "heap header address: " << HDF5::value(reinterpret_cast<unsigned char *>(buf),sizes.offsets) << std::endl;
     }
     size_t idum=(frhp_data.max_size+7)/8;
     fs.read(buf,idum);
@@ -2231,7 +2231,7 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
 	return false;
     }
     if (show_debug) {
-	std::cerr << "block offset: " << HDF5::getValue(reinterpret_cast<unsigned char *>(buf),idum) << std::endl;
+	std::cerr << "block offset: " << HDF5::value(reinterpret_cast<unsigned char *>(buf),idum) << std::endl;
     }
     for (int n=0; n < frhp_data.K; ++n) {
 	fs.read(buf,sizes.offsets);
@@ -2242,12 +2242,12 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
 	  myerror+="unable to read FHIB child direct block "+strutils::itos(n);
 	  return false;
 	}
-	unsigned long long block_addr=HDF5::getValue(reinterpret_cast<unsigned char *>(buf),sizes.offsets);
+	unsigned long long block_addr=HDF5::value(reinterpret_cast<unsigned char *>(buf),sizes.offsets);
 	if (show_debug) {
 	  std::cerr << "child direct block " << n << " addr: " << block_addr << std::endl;
 	}
 	if (block_addr != undef_addr) {
-	  decodeFractalHeapBlock(block_addr,header_message_type,frhp_data);
+	  decode_fractal_heap_block(block_addr,header_message_type,frhp_data);
 	}
 	if (frhp_data.io_filter_size > 0) {
 	  fs.read(buf,sizes.offsets+sizes.lengths);
@@ -2272,7 +2272,7 @@ bool InputHDF5Stream::decodeFractalHeapBlock(unsigned long long address,int head
   return true;
 }
 
-bool InputHDF5Stream::decodeHeaderMessages(int ohdr_version,size_t header_size,std::string ident,Group *group,DatasetEntry *dse_in,unsigned char flags)
+bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size,std::string ident,Group *group,DatasetEntry *dse_in,unsigned char flags)
 {
   std::unique_ptr<unsigned char[]> buf;
   size_t hdr_off=0;
@@ -2321,8 +2321,8 @@ bool InputHDF5Stream::decodeHeaderMessages(int ohdr_version,size_t header_size,s
 	std::cerr << "hdr_off: " << hdr_off << " header size: " << header_size << std::endl;
     }
     if (sb_version == 0 || sb_version == 1) {
-	type=HDF5::getValue(&buf[hdr_off],2);
-	len=HDF5::getValue(&buf[hdr_off+2],2);
+	type=HDF5::value(&buf[hdr_off],2);
+	len=HDF5::value(&buf[hdr_off+2],2);
 	if (show_debug) {
 	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+4]) << std::endl;
 	}
@@ -2330,7 +2330,7 @@ bool InputHDF5Stream::decodeHeaderMessages(int ohdr_version,size_t header_size,s
     }
     else if (sb_version == 2) {
 	type=static_cast<int>(buf[hdr_off]);
-	len=HDF5::getValue(&buf[hdr_off+1],2);
+	len=HDF5::value(&buf[hdr_off+1],2);
 	if (show_debug) {
 	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+3]) << std::endl;
 	}
@@ -2351,7 +2351,7 @@ bool InputHDF5Stream::decodeHeaderMessages(int ohdr_version,size_t header_size,s
 	std::cerr << "HEADER MESSAGE TYPE: " << type << " " << " " << len << " " << hdr_off << " header size: " << header_size << " file offset: " << off-header_size << " " << time(NULL) << std::endl;
 	dump(buf.get(),hdr_off+len);
     }
-    hdr_off+=decodeHeaderMessage(ident,ohdr_version,type,len,flags,&buf[hdr_off],group,dse,is_subgroup);
+    hdr_off+=decode_header_message(ident,ohdr_version,type,len,flags,&buf[hdr_off],group,dse,is_subgroup);
   }
   buf=nullptr;
   if (!is_subgroup) {
@@ -2380,7 +2380,7 @@ bool InputHDF5Stream::decodeHeaderMessages(int ohdr_version,size_t header_size,s
   return true;
 }
 
-int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int type,int length,unsigned char flags,unsigned char *buffer,Group *group,DatasetEntry& dse,bool& is_subgroup)
+int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,int type,int length,unsigned char flags,unsigned char *buffer,Group *group,DatasetEntry& dse,bool& is_subgroup)
 {
   unsigned char *buf2=NULL;
   unsigned long long curr_off,ldum;
@@ -2399,7 +2399,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	if (show_debug) {
 	  std::cerr << "DATASPACE" << std::endl;
 	}
-	HDF5::decodeDataspace(buffer,sizes.lengths,dse.dataset->dataspace,show_debug);
+	HDF5::decode_dataspace(buffer,sizes.lengths,dse.dataset->dataspace,show_debug);
 	return length;
     case 0x0002:
 // Link info
@@ -2420,27 +2420,27 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	}
 	if ( (buffer[1] & 0x1) == 0x1) {
 	  if (show_debug) {
-	    std::cerr << "max creation index: " << HDF5::getValue(&buffer[curr_off],8) << std::endl;
+	    std::cerr << "max creation index: " << HDF5::value(&buffer[curr_off],8) << std::endl;
 	  }
 	  curr_off+=8;
 	}
 	if (show_debug) {
-	  std::cerr << "fractal heap addr: " << HDF5::getValue(&buffer[curr_off],sizes.offsets) << std::endl;
+	  std::cerr << "fractal heap addr: " << HDF5::value(&buffer[curr_off],sizes.offsets) << std::endl;
 	}
 	frhp_data=new FractalHeapData;
 	frhp_data->dse=&dse;
-	if (decodeFractalHeap(HDF5::getValue(&buffer[curr_off],sizes.offsets),0x0006,*frhp_data)) {
-	  root_group.btree_addr=HDF5::getValue(&buffer[curr_off+sizes.offsets],sizes.offsets);
+	if (decode_fractal_heap(HDF5::value(&buffer[curr_off],sizes.offsets),0x0006,*frhp_data)) {
+	  root_group.btree_addr=HDF5::value(&buffer[curr_off+sizes.offsets],sizes.offsets);
 	  if (show_debug) {
 	    std::cerr << "b-tree name index addr: " << root_group.btree_addr << std::endl;
 	  }
-	  if (!decodeBTree(root_group,frhp_data)) {
+	  if (!decode_Btree(root_group,frhp_data)) {
 	    exit(1);
 	  }
 	}
 	if (show_debug) {
 	  if ( (buffer[1] & 0x2) == 0x2) {
-	    std::cerr << "b-tree creation order index addr: " << HDF5::getValue(&buffer[curr_off+sizes.offsets*2],sizes.offsets) << std::endl;
+	    std::cerr << "b-tree creation order index addr: " << HDF5::value(&buffer[curr_off+sizes.offsets*2],sizes.offsets) << std::endl;
 	  }
 	}
 	delete frhp_data;
@@ -2450,7 +2450,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	if (show_debug) {
 	  std::cerr << "DATATYPE" << std::endl;
 	}
-	HDF5::decodeDatatype(buffer,dse.dataset->datatype,show_debug);
+	HDF5::decode_datatype(buffer,dse.dataset->datatype,show_debug);
 	return length;
     case 0x0004:
     {
@@ -2459,7 +2459,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	  std::cerr << "FILLVALUE (deprecated) '" << dse.key << "'" << std::endl;
 	}
 	if (dse.dataset->fillvalue.length == 0) {
-	  if ( (dse.dataset->fillvalue.length=HDF5::getValue(&buffer[0],4)) > 0) {
+	  if ( (dse.dataset->fillvalue.length=HDF5::value(&buffer[0],4)) > 0) {
 	    dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
 	    std::copy(buffer+4,buffer+4+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
 	  }
@@ -2475,7 +2475,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	switch (static_cast<int>(buffer[0])) {
 	  case 2:
 	    if (static_cast<int>(buffer[3]) == 1) {
-		dse.dataset->fillvalue.length=HDF5::getValue(&buffer[4],4);
+		dse.dataset->fillvalue.length=HDF5::value(&buffer[4],4);
 		if (dse.dataset->fillvalue.length > 0) {
 		  dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
 		  std::copy(buffer+8,buffer+8+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
@@ -2494,7 +2494,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	    break;
 	  case 3:
 	    if ( (buffer[1] & 0x20) == 0x20) {
-		dse.dataset->fillvalue.length=HDF5::getValue(&buffer[2],4);
+		dse.dataset->fillvalue.length=HDF5::value(&buffer[2],4);
 		if (dse.dataset->fillvalue.length > 0) {
 		  dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
 		  std::copy(buffer+6,buffer+6+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
@@ -2547,15 +2547,15 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	  curr_off++;
 	}
 	else if ( (buffer[1] & 0x3) == 1) {
-	  ldum=HDF5::getValue(&buffer[curr_off],2);
+	  ldum=HDF5::value(&buffer[curr_off],2);
 	  curr_off+=2;
 	}
 	else if ( (buffer[1] & 0x3) == 2) {
-	  ldum=HDF5::getValue(&buffer[curr_off],4);
+	  ldum=HDF5::value(&buffer[curr_off],4);
 	  curr_off+=4;
 	}
 	else if ( (buffer[1] & 0x3) == 3) {
-	  ldum=HDF5::getValue(&buffer[curr_off],8);
+	  ldum=HDF5::value(&buffer[curr_off],8);
 	  curr_off+=8;
 	}
 	ste=new SymbolTableEntry;
@@ -2565,11 +2565,11 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	}
 	curr_off+=ldum;
 	if (link_type == 0) {
-	  ste->objhdr_addr=HDF5::getValue(&buffer[curr_off],sizes.offsets);
+	  ste->objhdr_addr=HDF5::value(&buffer[curr_off],sizes.offsets);
 	  if (show_debug) {
 	    std::cerr << "Address of link object header: " << ste->objhdr_addr << std::endl;
 	  }
-	  if (!decodeObjectHeader(*ste,&root_group)) {
+	  if (!decode_object_header(*ste,&root_group)) {
 	    exit(1);
 	  }
 	  curr_off+=sizes.offsets;
@@ -2595,8 +2595,8 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	    switch (static_cast<int>(buffer[1])) {
 		case 1:
 		{
-		  dse.dataset->data.address=HDF5::getValue(&buffer[2],sizes.offsets);
-		  dse.dataset->data.sizes.emplace_back(HDF5::getValue(&buffer[2+sizes.offsets],sizes.lengths));
+		  dse.dataset->data.address=HDF5::value(&buffer[2],sizes.offsets);
+		  dse.dataset->data.sizes.emplace_back(HDF5::value(&buffer[2+sizes.offsets],sizes.lengths));
 		  if (show_debug) {
 		    std::cerr << "CONTIGUOUS DATA at " << dse.dataset->data.address << " of length " << dse.dataset->data.sizes.back() << std::endl;
 		  }
@@ -2604,23 +2604,23 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 		}
 		case 2:
 		{
-		  dse.dataset->data.address=HDF5::getValue(&buffer[3],sizes.offsets);
+		  dse.dataset->data.address=HDF5::value(&buffer[3],sizes.offsets);
 		  dimensionality=buffer[2]-1;
 		  if (show_debug) {
 		    std::cerr << "CHUNKED DATA of dimensionality " << dimensionality << " at address " << dse.dataset->data.address << std::endl;
 		  }
 		  for (n=0; n < dimensionality; ++n) {
-		    dse.dataset->data.sizes.emplace_back(HDF5::getValue(&buffer[3+sizes.offsets+n*4],4));
+		    dse.dataset->data.sizes.emplace_back(HDF5::value(&buffer[3+sizes.offsets+n*4],4));
 		    if (show_debug) {
 			std::cerr << "  dim: " << n << " size: " << dse.dataset->data.sizes.back() << std::endl;
 		    }
 		  }
-		  dse.dataset->data.size_of_element=HDF5::getValue(&buffer[3+sizes.offsets+dimensionality*4],4);
+		  dse.dataset->data.size_of_element=HDF5::value(&buffer[3+sizes.offsets+dimensionality*4],4);
 		  if (show_debug) {
 		    std::cerr << "  dataset element size: " << dse.dataset->data.size_of_element << " at offset " << 3+sizes.offsets+dimensionality*4 << std::endl;
 		  }
 		  if (dse.dataset->data.address != undef_addr) {
-		    decodeV1BTree(dse.dataset->data.address,*dse.dataset);
+		    decode_V1_Btree(dse.dataset->data.address,*dse.dataset);
 		  }
 		  break;
 		}
@@ -2655,15 +2655,15 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	curr_off=2;
 	if ( (buffer[1] & 0x1) == 0x1) {
 	  if (show_debug) {
-	    std::cerr << "max # compact links: " << HDF5::getValue(&buffer[curr_off],2) << std::endl;
-	    std::cerr << "max # dense links: " << HDF5::getValue(&buffer[curr_off+2],2) << std::endl;
+	    std::cerr << "max # compact links: " << HDF5::value(&buffer[curr_off],2) << std::endl;
+	    std::cerr << "max # dense links: " << HDF5::value(&buffer[curr_off+2],2) << std::endl;
 	  }
 	  curr_off+=4;
 	}
 	if ( (buffer[1] & 0x2) == 0x2) {
 	  if (show_debug) {
-	    std::cerr << "estimated # of entries: " << HDF5::getValue(&buffer[curr_off],2) << std::endl;
-	    std::cerr << "estimated link name length: " << HDF5::getValue(&buffer[curr_off+2],2) << std::endl;
+	    std::cerr << "estimated # of entries: " << HDF5::value(&buffer[curr_off],2) << std::endl;
+	    std::cerr << "estimated link name length: " << HDF5::value(&buffer[curr_off+2],2) << std::endl;
 	  }
 	  curr_off+=4;
 	}
@@ -2685,16 +2685,16 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	    exit(1);
 	}
 	for (n=0; n < static_cast<int>(buffer[1]); ++n) {
-	  dse.dataset->filters.push_front(HDF5::getValue(&buffer[curr_off],2));
+	  dse.dataset->filters.push_front(HDF5::value(&buffer[curr_off],2));
 	  if (buffer[0] == 1 || dse.dataset->filters.front() >= 256) {
 // name length
-	    idum=HDF5::getValue(&buffer[curr_off+2],2);
+	    idum=HDF5::value(&buffer[curr_off+2],2);
 	    curr_off+=2;
 	  }
 	  else {
 	    idum=0;
 	  }
-	  nvals=HDF5::getValue(&buffer[curr_off+4],2);
+	  nvals=HDF5::value(&buffer[curr_off+4],2);
 	  curr_off+=6+idum+4*nvals;
 	  if (buffer[0] == 1 && (nvals % 2) != 0) {
 	    curr_off+=4;
@@ -2713,7 +2713,7 @@ int InputHDF5Stream::decodeHeaderMessage(std::string ident,int ohdr_version,int 
 	if (show_debug) {
 	  std::cerr << "ATTRIBUTE (2) of '" << dse.key << "' " << group << " " << dse.dataset << std::endl;
 	}
-	if (!decodeAttribute(buffer,attr,n,ohdr_version)) {
+	if (!decode_attribute(buffer,attr,n,ohdr_version)) {
 	  exit(1);
 	}
 	if (show_debug) {
@@ -2738,15 +2738,15 @@ return n;
     case 0x0010:
 // Object Header Continuation
 	curr_off=fs.tellg();
-	ldum=HDF5::getValue(buffer,sizes.offsets);
+	ldum=HDF5::value(buffer,sizes.offsets);
 	length=sizes.offsets;
 	fs.seekg(ldum,std::ios_base::beg);
 	if (show_debug) {
 	  std::cerr << "branching to continuation block at " << ldum << " from " << curr_off << std::endl;
 	}
-	ldum=HDF5::getValue(&buffer[length],sizes.offsets);
+	ldum=HDF5::value(&buffer[length],sizes.offsets);
 	length+=sizes.offsets;
-	if (!decodeHeaderMessages(ohdr_version,ldum,ident,group,&dse,flags)) {
+	if (!decode_header_messages(ohdr_version,ldum,ident,group,&dse,flags)) {
 	  exit(1);
 	}
 	fs.seekg(curr_off,std::ios_base::beg);
@@ -2769,13 +2769,13 @@ return n;
 	  group->groups.insert(ge);
 	  g=ge.group.get();
 	}
-	ldum=HDF5::getValue(buffer,sizes.offsets);
+	ldum=HDF5::value(buffer,sizes.offsets);
 	if (show_debug) {
 	  std::cerr << "v1 Btree address: " << ldum << std::endl;
 	}
 	g->btree_addr=ldum;
 	length=sizes.offsets;
-	ldum=HDF5::getValue(&buffer[length],sizes.offsets);
+	ldum=HDF5::value(&buffer[length],sizes.offsets);
 	if (show_debug) {
 	  std::cerr << "local heap address: " << ldum << std::endl;
 	}
@@ -2793,12 +2793,12 @@ return n;
 	  myerror+="read error while trying to get local heap header";
 	  exit(1);
 	}
-	g->local_heap.data_start=HDF5::getValue(&buf2[8+2*sizes.lengths],sizes.offsets);
+	g->local_heap.data_start=HDF5::value(&buf2[8+2*sizes.lengths],sizes.offsets);
 	if (g->local_heap.data_start == 0) {
 	  g->local_heap.data_start=g->local_heap.addr+8+2*sizes.lengths+sizes.offsets;
 	}
 	delete[] buf2;
-	if (!decodeBTree(*g,NULL)) {
+	if (!decode_Btree(*g,NULL)) {
 	    exit(1);
 	}
 	fs.seekg(curr_off,std::ios_base::beg);
@@ -2817,18 +2817,18 @@ return n;
 	if ( (buffer[1] & 0x1) == 0x1) {
 	  n+=2;
 	}
-	ldum=HDF5::getValue(&buffer[n],sizes.offsets);
+	ldum=HDF5::value(&buffer[n],sizes.offsets);
 	if (ldum == undef_addr) {
 	  return length;
 	}
 	if (show_debug) {
 	  dump(buffer,n+sizes.offsets*2);
-	  std::cerr << ldum << " " << HDF5::getValue(&buffer[n+sizes.offsets],sizes.offsets) << std::endl;
+	  std::cerr << ldum << " " << HDF5::value(&buffer[n+sizes.offsets],sizes.offsets) << std::endl;
 	  std::cerr << "****************" << std::endl;
 	}
 	frhp_data=new FractalHeapData;
 	frhp_data->dse=&dse;
-	if (!decodeFractalHeap(ldum,0x000c,*frhp_data)) {
+	if (!decode_fractal_heap(ldum,0x000c,*frhp_data)) {
 	  if (show_debug) {
 	    std::cerr << "compact link" << std::endl;
 	  }
@@ -2847,7 +2847,7 @@ return n;
   }
 }
 
-bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
+bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 {
   unsigned long long start_off,curr_off;
   int version,num_msgs,ref_cnt;
@@ -2888,7 +2888,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	    return false;
 	  }
 	  if (show_debug) {
-	    std::cerr << "access time: " << HDF5::getValue(buf,4) << std::endl;
+	    std::cerr << "access time: " << HDF5::value(buf,4) << std::endl;
 	  }
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
@@ -2899,7 +2899,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	    return false;
 	  }
 	  if (show_debug) {
-	    std::cerr << "mod time: " << HDF5::getValue(buf,4) << std::endl;
+	    std::cerr << "mod time: " << HDF5::value(buf,4) << std::endl;
 	  }
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
@@ -2910,7 +2910,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	    return false;
 	  }
 	  if (show_debug) {
-	    std::cerr << "change time: " << HDF5::getValue(buf,4) << std::endl;
+	    std::cerr << "change time: " << HDF5::value(buf,4) << std::endl;
 	  }
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
@@ -2921,7 +2921,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	    return false;
 	  }
 	  if (show_debug) {
-	    std::cerr << "birth time: " << HDF5::getValue(buf,4) << std::endl;
+	    std::cerr << "birth time: " << HDF5::value(buf,4) << std::endl;
 	  }
 	}
 	if ( (flags & 0x10) == 0x10) {
@@ -2934,8 +2934,8 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	    return false;
 	  }
 	  if (show_debug) {
-	    std::cerr << "max # compact attributes: " << HDF5::getValue(buf,2) << std::endl;
-	    std::cerr << "min # dense attributes: " << HDF5::getValue(&buf[2],2) << std::endl;
+	    std::cerr << "max # compact attributes: " << HDF5::value(buf,2) << std::endl;
+	    std::cerr << "min # dense attributes: " << HDF5::value(&buf[2],2) << std::endl;
 	  }
 	}
 	hdr_size=pow(2.,static_cast<int>(flags & 0x3));
@@ -2947,12 +2947,12 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	  myerror+="unable to read OHDR size of chunk #0";
 	  return false;
 	}
-	hdr_size=HDF5::getValue(buf,hdr_size);
+	hdr_size=HDF5::value(buf,hdr_size);
 	if (show_debug) {
 	  std::cerr << "flags=" << static_cast<int>(flags) << " " << static_cast<int>(flags & 0x3) << " " << pow(2.,static_cast<int>(flags & 0x3)) << " " << hdr_size << std::endl;
 	}
 	curr_off=fs.tellg();
-	if (!decodeHeaderMessages(2,hdr_size,ste.linkname,group,NULL,flags)) {
+	if (!decode_header_messages(2,hdr_size,ste.linkname,group,NULL,flags)) {
 	  return false;
 	}
 	fs.seekg(curr_off+hdr_size,std::ios_base::beg);
@@ -2968,7 +2968,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
   else {
     version=static_cast<int>(buf[0]);
     if (version == 1) {
-	num_msgs=HDF5::getValue(&buf[2],2);
+	num_msgs=HDF5::value(&buf[2],2);
 	fs.read(cbuf,8);
 	if (fs.gcount() != 8) {
 	  if (myerror.length() > 0) {
@@ -2977,14 +2977,14 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
 	  myerror+="unable to decode next 8 bytes of object header";
 	  return false;
 	}
-	ref_cnt=HDF5::getValue(buf,4);
-	hdr_size=HDF5::getValue(&buf[4],4);
+	ref_cnt=HDF5::value(buf,4);
+	hdr_size=HDF5::value(&buf[4],4);
 	if (show_debug) {
 	  std::cerr << "object header version=" << version << " num_msgs=" << num_msgs << " ref_cnt=" << ref_cnt << " hdr_size=" << hdr_size << std::endl;
 	}
 	fs.seekg(4,std::ios_base::cur);
 	curr_off=fs.tellg();
-	if (!decodeHeaderMessages(1,hdr_size,ste.linkname,group,NULL,0)) {
+	if (!decode_header_messages(1,hdr_size,ste.linkname,group,NULL,0)) {
 	  return false;
 	}
 	fs.seekg(curr_off+hdr_size,std::ios_base::beg);
@@ -3001,7 +3001,7 @@ bool InputHDF5Stream::decodeObjectHeader(SymbolTableEntry& ste,Group *group)
   return true;
 }
 
-bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
+bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 {
   unsigned char buf[12];
   char *cbuf=reinterpret_cast<char *>(buf);
@@ -3015,7 +3015,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
     return false;
   }
   unsigned long long magic;
-  getBits(buf,magic,0,64);
+  get_bits(buf,magic,0,64);
   if (magic != 0x894844460d0a1a0a) {
     if (myerror.length() > 0) {
 	myerror+=", ";
@@ -3037,10 +3037,10 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	return false;
     }
     sizes.offsets=static_cast<int>(buf[1]);
-    createMask(undef_addr,sizes.offsets*8);
+    create_mask(undef_addr,sizes.offsets*8);
     sizes.lengths=static_cast<int>(buf[2]);
-    group_K.leaf=HDF5::getValue(&buf[4],2);
-    group_K.internal=HDF5::getValue(&buf[6],2);
+    group_K.leaf=HDF5::value(&buf[4],2);
+    group_K.internal=HDF5::value(&buf[6],2);
     if (show_debug) {
 	std::cerr << sizes.offsets << " " << sizes.lengths << " " << group_K.leaf << " " << group_K.internal << std::endl;
     }
@@ -3062,7 +3062,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V0/1 superblock base address";
 	return false;
     }
-    base_addr=HDF5::getValue(buf,sizes.offsets);
+    base_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "base address: " << base_addr << std::endl;
     }
@@ -3082,7 +3082,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V0/1 superblock end-of-file address";
 	return false;
     }
-    eof_addr=HDF5::getValue(buf,sizes.offsets);
+    eof_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "eof address: " << eof_addr << std::endl;
     }
@@ -3100,7 +3100,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
     if (show_debug) {
 	std::cerr << "size of offsets: " << sizes.offsets << std::endl;
     }
-    createMask(undef_addr,sizes.offsets*8);
+    create_mask(undef_addr,sizes.offsets*8);
     sizes.lengths=static_cast<int>(buf[10]);
     if (show_debug) {
 	std::cerr << "size of lengths: " << sizes.lengths << std::endl;
@@ -3113,7 +3113,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V2 superblock base address";
 	return false;
     }
-    base_addr=HDF5::getValue(buf,sizes.offsets);
+    base_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "base addr: " << base_addr << std::endl;
     }
@@ -3125,7 +3125,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V2 superblock extension address";
 	return false;
     }
-    unsigned long long ext_addr=HDF5::getValue(buf,sizes.offsets);
+    unsigned long long ext_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "ext addr: " << ext_addr << std::endl;
     }
@@ -3144,7 +3144,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V2 superblock end-of-file address";
 	return false;
     }
-    eof_addr=HDF5::getValue(buf,sizes.offsets);
+    eof_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "eof addr: " << eof_addr << std::endl;
     }
@@ -3156,7 +3156,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
 	myerror+="read error for V2 superblock root group object header address";
 	return false;
     }
-    objhdr_addr=HDF5::getValue(buf,sizes.offsets);
+    objhdr_addr=HDF5::value(buf,sizes.offsets);
     if (show_debug) {
 	std::cerr << "root group object header addr=" << objhdr_addr << std::endl;
     }
@@ -3186,7 +3186,7 @@ bool InputHDF5Stream::decodeSuperblock(unsigned long long& objhdr_addr)
   return true;
 }
 
-bool InputHDF5Stream::decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group)
+bool InputHDF5Stream::decode_symbol_table_entry(SymbolTableEntry& ste,Group *group)
 {
   if (show_debug) {
     std::cerr << "SYMBOL TABLE ENTRY " << fs.tellg() << std::endl;
@@ -3201,7 +3201,7 @@ bool InputHDF5Stream::decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group)
     myerror+="read error for symbol table entry link name offset";
     return false;
   }
-  ste.linkname_off=HDF5::getValue(buf,sizes.offsets);
+  ste.linkname_off=HDF5::value(buf,sizes.offsets);
   if (show_debug) {
     std::cerr << "link name offset: " << ste.linkname_off << std::endl;
   }
@@ -3241,7 +3241,7 @@ bool InputHDF5Stream::decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group)
     myerror+="read error for symbol table entry object header address";
     return false;
   }
-  ste.objhdr_addr=HDF5::getValue(buf,sizes.offsets);
+  ste.objhdr_addr=HDF5::value(buf,sizes.offsets);
   if (show_debug) {
     std::cerr << "object header address: " << ste.objhdr_addr << std::endl;
   }
@@ -3253,7 +3253,7 @@ bool InputHDF5Stream::decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group)
     myerror+="read error for symbol table entry cache_type";
     return false;
   }
-  ste.cache_type=HDF5::getValue(buf,4);
+  ste.cache_type=HDF5::value(buf,4);
   fs.read(reinterpret_cast<char *>(ste.scratchpad),16);
   if (fs.gcount() != 16) {
     if (myerror.length() > 0) {
@@ -3268,7 +3268,7 @@ bool InputHDF5Stream::decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group)
   return true;
 }
 
-bool InputHDF5Stream::decodeSymbolTableNode(unsigned long long address,Group& group)
+bool InputHDF5Stream::decode_symbol_table_node(unsigned long long address,Group& group)
 {
   unsigned long long curr_off=fs.tellg();
   fs.seekg(address,std::ios_base::beg);
@@ -3289,13 +3289,13 @@ bool InputHDF5Stream::decodeSymbolTableNode(unsigned long long address,Group& gr
     myerror+="bad signature '"+std::string(cbuf,4)+"' for symbol table node";
     return false;
   }
-  size_t num_symbols=HDF5::getValue(&buf[6],2);
+  size_t num_symbols=HDF5::value(&buf[6],2);
   SymbolTableEntry ste;
   for (size_t n=0; n < num_symbols; ++n) {
-    if (!decodeSymbolTableEntry(ste,&group)) {
+    if (!decode_symbol_table_entry(ste,&group)) {
 	return false;
     }
-    if (!decodeObjectHeader(ste,&group)) {
+    if (!decode_object_header(ste,&group)) {
 	return false;
     }
   }
@@ -3303,7 +3303,7 @@ bool InputHDF5Stream::decodeSymbolTableNode(unsigned long long address,Group& gr
   return true;
 }
 
-bool InputHDF5Stream::decodeV1BTree(Group& group)
+bool InputHDF5Stream::decode_V1_Btree(Group& group)
 {
   auto curr_off=fs.tellg();
   unsigned char buf[8];
@@ -3325,7 +3325,7 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
     return false;
   }
   group.tree.node_level=static_cast<int>(buf[1]);
-  size_t num_children=HDF5::getValue(&buf[2],2);
+  size_t num_children=HDF5::value(&buf[2],2);
   if (show_debug) {
     std::cerr << "V1 Tree GROUP node_type=" << group.tree.node_type << " node_level=" << group.tree.node_level << " num_children=" << num_children << std::endl;
   }
@@ -3337,7 +3337,7 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
     myerror+="read error for address of left sibling";
     return false;
   }
-  group.tree.left_sibling_addr=HDF5::getValue(buf,sizes.offsets);
+  group.tree.left_sibling_addr=HDF5::value(buf,sizes.offsets);
   if (show_debug) {
     std::cerr << "address of left sibling: " << group.tree.left_sibling_addr << std::endl;
   }
@@ -3349,7 +3349,7 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
     myerror+="read error for address of right sibling";
     return false;
   }
-  group.tree.right_sibling_addr=HDF5::getValue(buf,sizes.offsets);
+  group.tree.right_sibling_addr=HDF5::value(buf,sizes.offsets);
   if (show_debug) {
     std::cerr << "address of right sibling: " << group.tree.right_sibling_addr << std::endl;
   }
@@ -3370,7 +3370,7 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
 	myerror+="read error for address of child "+strutils::itos(n);
 	return false;
     }
-    long long chld_p=HDF5::getValue(buf,sizes.offsets);
+    long long chld_p=HDF5::value(buf,sizes.offsets);
     group.tree.child_pointers.emplace_back(chld_p);
     fs.read(cbuf,sizes.lengths);
     if (fs.gcount() != static_cast<int>(sizes.lengths)) {
@@ -3380,8 +3380,8 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
 	myerror+="read error for key "+strutils::itos(n);
 	return false;
     }
-    group.tree.keys.emplace_back(HDF5::getValue(buf,sizes.lengths));
-    if (!decodeSymbolTableNode(chld_p,group)) {
+    group.tree.keys.emplace_back(HDF5::value(buf,sizes.lengths));
+    if (!decode_symbol_table_node(chld_p,group)) {
 	return false;
     }
   }
@@ -3389,7 +3389,7 @@ bool InputHDF5Stream::decodeV1BTree(Group& group)
   return true;
 }
 
-bool InputHDF5Stream::decodeV1BTree(unsigned long long address,Dataset& dataset)
+bool InputHDF5Stream::decode_V1_Btree(unsigned long long address,Dataset& dataset)
 {
   unsigned long long ldum;
   if (address == undef_addr) {
@@ -3428,15 +3428,15 @@ bool InputHDF5Stream::decodeV1BTree(unsigned long long address,Dataset& dataset)
     return false;
   }
   auto node_level=static_cast<int>(buf[5]);
-  size_t num_children=HDF5::getValue(&buf[6],2);
+  size_t num_children=HDF5::value(&buf[6],2);
   if (show_debug) {
     std::cerr << "V1 Tree CHUNK node_type=" << node_type << " node_level=" << node_level << " num_children=" << num_children << std::endl;
   }
-  ldum=HDF5::getValue(&buf[8],sizes.offsets);
+  ldum=HDF5::value(&buf[8],sizes.offsets);
   if (show_debug) {
     std::cerr << "address of left sibling: " << ldum << std::endl;
   }
-  ldum=HDF5::getValue(&buf[8+sizes.offsets],sizes.offsets);
+  ldum=HDF5::value(&buf[8+sizes.offsets],sizes.offsets);
   if (show_debug) {
     std::cerr << "address of right sibling: " << ldum << std::endl;
   }
@@ -3453,7 +3453,7 @@ bool InputHDF5Stream::decodeV1BTree(unsigned long long address,Dataset& dataset)
   }
   auto boff=0;
   for (size_t n=0; n < num_children; ++n) {
-    size_t chunk_size=HDF5::getValue(&buf[boff],4);
+    size_t chunk_size=HDF5::value(&buf[boff],4);
     boff+=8;
     if (show_debug) {
 	std::cerr << "chunk size: " << chunk_size;
@@ -3462,14 +3462,14 @@ bool InputHDF5Stream::decodeV1BTree(unsigned long long address,Dataset& dataset)
     std::vector<size_t> offsets;
     for (size_t m=0; m < dataset.data.sizes.size(); ++m) {
 	chunk_len*=dataset.data.sizes[m];
-	offsets.emplace_back(HDF5::getValue(&buf[boff],8));
+	offsets.emplace_back(HDF5::value(&buf[boff],8));
 	boff+=8;
 	if (show_debug) {
 	  std::cerr << " dimension " << m << " offset: " << offsets.back();
 	}
     }
     chunk_len*=dataset.data.size_of_element;
-    ldum=HDF5::getValue(&buf[boff],sizes.offsets);
+    ldum=HDF5::value(&buf[boff],sizes.offsets);
     boff+=sizes.offsets;
     if (ldum != 0) {
 	if (myerror.length() > 0) {
@@ -3478,7 +3478,7 @@ bool InputHDF5Stream::decodeV1BTree(unsigned long long address,Dataset& dataset)
 	myerror+="datatype offset for child "+strutils::itos(n)+" is NOT zero";
 	return false;
     }
-    ldum=HDF5::getValue(&buf[boff],sizes.offsets);
+    ldum=HDF5::value(&buf[boff],sizes.offsets);
     boff+=sizes.offsets;
     if (show_debug) {
 	std::cerr << " pointer: " << ldum << " chunk length: " << chunk_len << " #filters: " << dataset.filters.size() << " " << time(NULL) << std::endl;
@@ -3500,7 +3500,7 @@ if (node_level == 1) {
 	if (show_debug) {
 	  std::cerr << "ANOTHER TREE" << std::endl;
 	}
-	decodeV1BTree(ldum,dataset);
+	decode_V1_Btree(ldum,dataset);
     }
     else {
 	dataset.data.chunks.emplace_back(ldum,chunk_size,chunk_len,offsets);
@@ -3511,7 +3511,7 @@ if (node_level == 1) {
   return true;
 }
 
-bool InputHDF5Stream::decodeV2BTree(Group& group,FractalHeapData *frhp_data)
+bool InputHDF5Stream::decode_V2_Btree(Group& group,FractalHeapData *frhp_data)
 {
   unsigned long long curr_off;
 
@@ -3528,7 +3528,7 @@ bool InputHDF5Stream::decodeV2BTree(Group& group,FractalHeapData *frhp_data)
   }
   if (show_debug) {
     std::cerr << "V2 BTree:" << std::endl;
-    std::cerr << "version: " << static_cast<int>(buf[0]) << " type: " << static_cast<int>(buf[1]) << " node size: " << HDF5::getValue(&buf[2],4) << " record size: " << HDF5::getValue(&buf[6],2) << " depth: " << HDF5::getValue(&buf[8],2) << " split %: " << static_cast<int>(buf[10]) << " merge %: " << static_cast<int>(buf[11]) << std::endl;
+    std::cerr << "version: " << static_cast<int>(buf[0]) << " type: " << static_cast<int>(buf[1]) << " node size: " << HDF5::value(&buf[2],4) << " record size: " << HDF5::value(&buf[6],2) << " depth: " << HDF5::value(&buf[8],2) << " split %: " << static_cast<int>(buf[10]) << " merge %: " << static_cast<int>(buf[11]) << std::endl;
   }
   fs.read(cbuf,sizes.offsets+2+sizes.lengths);
   if (fs.gcount() != static_cast<int>(sizes.offsets+2+sizes.lengths)) {
@@ -3539,16 +3539,16 @@ bool InputHDF5Stream::decodeV2BTree(Group& group,FractalHeapData *frhp_data)
     return false;
   }
   if (show_debug) {
-    std::cerr << "root address: " << HDF5::getValue(buf,sizes.offsets) << " # recs in root node: " << HDF5::getValue(&buf[sizes.offsets],2) << " # recs in tree: " << HDF5::getValue(&buf[sizes.offsets+2],sizes.lengths) << std::endl;
+    std::cerr << "root address: " << HDF5::value(buf,sizes.offsets) << " # recs in root node: " << HDF5::value(&buf[sizes.offsets],2) << " # recs in tree: " << HDF5::value(&buf[sizes.offsets+2],sizes.lengths) << std::endl;
   }
-  if (!decodeV2BTreeNode(HDF5::getValue(buf,sizes.offsets),HDF5::getValue(&buf[sizes.offsets],2),frhp_data)) {
+  if (!decode_V2_Btree_node(HDF5::value(buf,sizes.offsets),HDF5::value(&buf[sizes.offsets],2),frhp_data)) {
     return false;
   }
   fs.seekg(curr_off,std::ios_base::beg);
   return true;
 }
 
-bool InputHDF5Stream::decodeV2BTreeNode(unsigned long long address,int num_records,FractalHeapData *frhp_data)
+bool InputHDF5Stream::decode_V2_Btree_node(unsigned long long address,int num_records,FractalHeapData *frhp_data)
 {
   int n,max_size,len;
 
@@ -3609,7 +3609,7 @@ bool InputHDF5Stream::decodeV2BTreeNode(unsigned long long address,int num_recor
 		    max_size/=256;
 		  }
 		  if (show_debug) {
-		    std::cerr << "BTLF rec #" << n << "  offset: " << HDF5::getValue(&buf[5],frhp_data->max_size/8) << "  length: " << HDF5::getValue(&buf[5+frhp_data->max_size/8],len) << std::endl;
+		    std::cerr << "BTLF rec #" << n << "  offset: " << HDF5::value(&buf[5],frhp_data->max_size/8) << "  length: " << HDF5::value(&buf[5+frhp_data->max_size/8],len) << std::endl;
 		  }
 		  break;
 		}
@@ -3651,7 +3651,7 @@ std::cerr << "BTIN decode not defined!" << std::endl;
   }
 }
 
-void InputHDF5Stream::printData(Dataset& dataset)
+void InputHDF5Stream::print_data(Dataset& dataset)
 {
   unsigned long long curr_off;
   unsigned char *buf;
@@ -3704,7 +3704,7 @@ if (1) {
 	    std::cout << "Data read error";
 	  }
 	  else {
-	    HDF5::printDataValue(dataset.datatype,buf);
+	    HDF5::print_data_value(dataset.datatype,buf);
 	  }
 	  delete[] buf;
 	}
@@ -3716,7 +3716,7 @@ if (1) {
   fs.seekg(curr_off,std::ios_base::beg);
 }
 
-void InputHDF5Stream::printAGroupTree(Group& group)
+void InputHDF5Stream::print_a_group_tree(Group& group)
 {
   static Group *root=&group;
   static std::string indent="";
@@ -3732,7 +3732,7 @@ void InputHDF5Stream::printAGroupTree(Group& group)
   for (auto& key : group.groups.keys()) {
     std::cout << indent << key << "/" << std::endl;
     group.groups.found(key,ge);
-    printAGroupTree(*ge.group);
+    print_a_group_tree(*ge.group);
     for (auto& key2 : ge.group->datasets.keys()) {
 	ge.group->datasets.found(key2,dse);
 	std::cout << indent;
@@ -3741,12 +3741,12 @@ void InputHDF5Stream::printAGroupTree(Group& group)
 	}
 	else {
 	  std::cout << "  Dataset: " << key2 << std::endl;
-	  std::cout << indent << "    Datatype: " << HDF5::datatypeClassToString(dse.dataset->datatype)<< std::endl;
+	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(dse.dataset->datatype)<< std::endl;
 	}
 	for (auto& key3 : dse.dataset->attributes.keys()) {
 	  dse.dataset->attributes.found(key3,attr);
 	  std::cout << indent << "    ";
-	  HDF5::printAttribute(attr,ref_table);
+	  HDF5::print_attribute(attr,ref_table);
 	  std::cout << std::endl;
 	}
     }
@@ -3757,7 +3757,7 @@ void InputHDF5Stream::printAGroupTree(Group& group)
 	for (auto& key : dse.dataset->attributes.keys()) {
 	  dse.dataset->attributes.found(key,attr);
 	  std::cout << indent << "  ";
-	  HDF5::printAttribute(attr,ref_table);
+	  HDF5::print_attribute(attr,ref_table);
 	  std::cout << std::endl;
 	}
     }
@@ -3769,12 +3769,12 @@ void InputHDF5Stream::printAGroupTree(Group& group)
 	}
 	else {
 	  std::cout << "  Dataset: " << key << std::endl;
-	  std::cout << indent << "    Datatype: " << HDF5::datatypeClassToString(dse.dataset->datatype) << std::endl;
+	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(dse.dataset->datatype) << std::endl;
 	}
 	for (auto& key2 : dse.dataset->attributes.keys()) {
 	  dse.dataset->attributes.found(key2,attr);
 	  std::cout << indent << "    ";
-	  HDF5::printAttribute(attr,ref_table);
+	  HDF5::print_attribute(attr,ref_table);
 	  std::cout << std::endl;
 	}
     }
@@ -3804,10 +3804,10 @@ int data_array_index(size_t chunk_index,const std::deque<size_t>& multipliers,co
 bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number,const std::vector<size_t>& dimensions)
 {
   unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
-  short off=HDF5::getValue(&dataset.datatype.properties[0],2);
-  short bit_length=HDF5::getValue(&dataset.datatype.properties[2],2);
+  short off=HDF5::value(&dataset.datatype.properties[0],2);
+  short bit_length=HDF5::value(&dataset.datatype.properties[2],2);
   short byte_order;
-  getBits(dataset.datatype.bit_fields,byte_order,7,1);
+  get_bits(dataset.datatype.bit_fields,byte_order,7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
   if (off == 0 && (bit_length % 8) == 0) {
     std::deque<size_t> multipliers;
@@ -3831,7 +3831,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 // one-dimension array
 		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
 		  if (m < darray.num_values) {
-		    (reinterpret_cast<unsigned char *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<unsigned char *>(darray.values))[m]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3841,7 +3841,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    (reinterpret_cast<unsigned char *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<unsigned char *>(darray.values))[idx]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3854,14 +3854,14 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		if (end > darray.num_values) {
 		  nvals-=(end-darray.num_values);
 		}
-		getBits(buf,&(reinterpret_cast<unsigned char *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+		get_bits(buf,&(reinterpret_cast<unsigned char *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
 	    }
 	    else {
 // multi-dimensional array
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    getBits(buf,(reinterpret_cast<unsigned char *>(darray.values))[idx],0,bit_length);
+		    get_bits(buf,(reinterpret_cast<unsigned char *>(darray.values))[idx],0,bit_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3884,7 +3884,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 // one-dimension array
 		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
 		  if (m < darray.num_values) {
-		    (reinterpret_cast<short *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<short *>(darray.values))[m]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3894,7 +3894,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    (reinterpret_cast<short *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<short *>(darray.values))[idx]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3907,14 +3907,14 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		if (end > darray.num_values) {
 		  nvals-=(end-darray.num_values);
 		}
-		getBits(buf,&(reinterpret_cast<short *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+		get_bits(buf,&(reinterpret_cast<short *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
 	    }
 	    else {
 // multi-dimensional array
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    getBits(buf,(reinterpret_cast<short *>(darray.values))[idx],0,bit_length);
+		    get_bits(buf,(reinterpret_cast<short *>(darray.values))[idx],0,bit_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3937,7 +3937,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 // one-dimension array
 		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
 		  if (m < darray.num_values) {
-		    (reinterpret_cast<int *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<int *>(darray.values))[m]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3947,7 +3947,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    (reinterpret_cast<int *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<int *>(darray.values))[idx]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3960,14 +3960,14 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		if (end > darray.num_values) {
 		  nvals-=(end-darray.num_values);
 		}
-		getBits(buf,&(reinterpret_cast<int *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+		get_bits(buf,&(reinterpret_cast<int *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
 	    }
 	    else {
 // multi-dimensional array
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    getBits(buf,(reinterpret_cast<int *>(darray.values))[idx],0,bit_length);
+		    get_bits(buf,(reinterpret_cast<int *>(darray.values))[idx],0,bit_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -3990,7 +3990,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 // one-dimension array
 		for (size_t n=0,m=dataset.data.chunks[chunk_number].offsets[0]; n < nvals; ++n,++m) {
 		  if (m < darray.num_values) {
-		    (reinterpret_cast<long long *>(darray.values))[m]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<long long *>(darray.values))[m]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -4000,7 +4000,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    (reinterpret_cast<long long *>(darray.values))[idx]=HDF5::getValue(buf,byte_length);
+		    (reinterpret_cast<long long *>(darray.values))[idx]=HDF5::value(buf,byte_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -4013,14 +4013,14 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 		if (end > darray.num_values) {
 		  nvals-=(end-darray.num_values);
 		}
-		getBits(buf,&(reinterpret_cast<long long *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
+		get_bits(buf,&(reinterpret_cast<long long *>(darray.values)[dataset.data.chunks[chunk_number].offsets[0]]),0,bit_length,0,nvals);
 	    }
 	    else {
 // multi-dimensional array
 		for (size_t n=0; n < nvals; ++n) {
 		  auto idx=data_array_index(n,multipliers,dataset.data.chunks[chunk_number].offsets,dataset.dataspace.sizes);
 		  if (idx >= 0) {
-		    getBits(buf,(reinterpret_cast<long long *>(darray.values))[idx],0,bit_length);
+		    get_bits(buf,(reinterpret_cast<long long *>(darray.values))[idx],0,bit_length);
 		  }
 		  buf+=dataset.data.size_of_element;
 		}
@@ -4043,10 +4043,10 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 bool decode_class1_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number)
 {
   unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
-  short bit_length=HDF5::getValue(&dataset.datatype.properties[2],2);
+  short bit_length=HDF5::value(&dataset.datatype.properties[2],2);
   short byte_order[2];
-  getBits(dataset.datatype.bit_fields,byte_order[0],1,1);
-  getBits(dataset.datatype.bit_fields,byte_order[1],7,1);
+  get_bits(dataset.datatype.bit_fields,byte_order[0],1,1);
+  get_bits(dataset.datatype.bit_fields,byte_order[1],7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
 /*
 if (nvals > darray.num_values) {
@@ -4168,7 +4168,7 @@ darray.num_values=nvals;
   return true;
 }
 
-bool decodeStringArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,size_t num_values,size_t& type,size_t& index,size_t chunk_length)
+bool decode_string_array(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,size_t num_values,size_t& type,size_t& index,size_t chunk_length)
 {
   unsigned char *buf=const_cast<unsigned char *>(buffer);
   if (*values == nullptr) {
@@ -4186,11 +4186,11 @@ bool decodeStringArray(const unsigned char *buffer,const InputHDF5Stream::Dataty
   return true;
 }
 
-bool castValue(const InputHDF5Stream::DataValue& data_value,int idx,void **array_values,int num_array_values,size_t& type,int size_of_element)
+bool cast_value(const InputHDF5Stream::DataValue& data_value,int idx,void **array_values,int num_array_values,size_t& type,int size_of_element)
 {
-  switch (data_value.class_) {
+  switch (data_value._class_) {
     case 0:
-	switch (data_value.precision) {
+	switch (data_value.precision_) {
 	  case 16:
 	    if (*array_values == nullptr) {
 		*array_values=new short[num_array_values];
@@ -4256,7 +4256,7 @@ DataArray& DataArray::operator=(const DataArray& source)
 bool DataArray::fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,size_t compound_member_index)
 {
   clear();
-  if (dataset.data.address == istream.getUndefinedAddress()) {
+  if (dataset.data.address == istream.undefined_address()) {
     return false;
   }
   auto fs=istream.file_stream();
@@ -4270,7 +4270,7 @@ bool DataArray::fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,
   else {
     InputHDF5Stream::CompoundDatatype cdtype;
     if (dataset.datatype.class_ == 6) {
-	decodeCompoundDatatype(dataset.datatype,cdtype,istream.debugIsOn());
+	decode_compound_datatype(dataset.datatype,cdtype,istream.debug_is_on());
     }
     if (std::string(test,4) == "TREE") {
 // chunked data
@@ -4318,11 +4318,11 @@ num_values=dataset.dataspace.sizes[0];
 	    case 3:
 	    {
 		if (dataset.dataspace.dimensionality == 2) {
-		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.dataspace.sizes.back(),&values,dataset.dataspace.sizes.front(),type,idx,dataset.data.chunks[n].length);
+		  decode_string_array(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.dataspace.sizes.back(),&values,dataset.dataspace.sizes.front(),type,idx,dataset.data.chunks[n].length);
 		  num_values=dataset.dataspace.sizes.front();
 		}
 		else {
-		  decodeStringArray(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		  decode_string_array(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
 		}
 		break;
 	    }
@@ -4345,7 +4345,7 @@ num_values=dataset.dataspace.sizes[0];
 		  }
 		  case 3:
 		  {
-		    decodeStringArray(&dataset.data.chunks[n].buffer[off],cdtype.members[compound_member_index].datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+		    decode_string_array(&dataset.data.chunks[n].buffer[off],cdtype.members[compound_member_index].datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
 		    break;
 		  }
 		  default:
@@ -4354,15 +4354,15 @@ std::cerr << "DEFAULT " << cdtype.members[compound_member_index].datatype.class_
 		    InputHDF5Stream::DataValue v;
 		    auto nval=0;
 		    for (size_t m=0; m < dataset.data.chunks[n].length; m+=dataset.data.size_of_element) {
-			v.set(*fs,&dataset.data.chunks[n].buffer[m+off],istream.getSizeOfOffsets(),istream.getSizeOfLengths(),cdtype.members[compound_member_index].datatype,dataset.dataspace,istream.debugIsOn());
+			v.set(*fs,&dataset.data.chunks[n].buffer[m+off],istream.size_of_offsets(),istream.size_of_lengths(),cdtype.members[compound_member_index].datatype,dataset.dataspace,istream.debug_is_on());
 std::cerr << idx+nval << " ";
 v.print(std::cerr,nullptr);
 std::cerr << std::endl;
-			if (!castValue(v,idx+nval,&values,num_values,type,cdtype.members[compound_member_index].datatype.size)) {
+			if (!cast_value(v,idx+nval,&values,num_values,type,cdtype.members[compound_member_index].datatype.size)) {
 			  if (myerror.length() > 0) {
 			    myerror+=", ";
 			  }
-			  myerror+="unable to get data for class "+strutils::itos(cdtype.members[compound_member_index].datatype.class_)+" and precision "+strutils::itos(v.precision);
+			  myerror+="unable to get data for class "+strutils::itos(cdtype.members[compound_member_index].datatype.class_)+" and precision "+strutils::itos(v.precision_);
 			  return false;
 			}
 			++nval;
@@ -4402,8 +4402,8 @@ std::cerr << std::endl;
 	InputHDF5Stream::DataValue v;
 	auto nval=0;
 	for (size_t n=0,m=0; n < num_values; ++n,m+=dataset.datatype.size) {
-	  v.set(*fs,&buffer[m],istream.getSizeOfOffsets(),istream.getSizeOfLengths(),dataset.datatype,dataset.dataspace,istream.debugIsOn());
-	  if (!castValue(v,nval,&values,num_values,type,dataset.data.size_of_element)) {
+	  v.set(*fs,&buffer[m],istream.size_of_offsets(),istream.size_of_lengths(),dataset.datatype,dataset.dataspace,istream.debug_is_on());
+	  if (!cast_value(v,nval,&values,num_values,type,dataset.data.size_of_element)) {
 	    if (myerror.length() > 0) {
 		myerror+=", ";
 	    }
@@ -4546,13 +4546,13 @@ void DataArray::clear()
   }
 }
 
-void printAttribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table)
+void print_attribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table)
 {
   std::cout << "Attribute: " << attribute.key << "  Value: ";
   attribute.value.print(std::cout,ref_table);
 }
 
-void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
+void print_data_value(InputHDF5Stream::Datatype& datatype,void *value)
 {
   int num_members,n,m,off;
   InputHDF5Stream::Datatype *l_datatype;
@@ -4565,7 +4565,7 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
     case 0:
     {
 // fixed point numbers (integers)
-	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	switch (HDF5::value(&datatype.properties[2],2)) {
 	  case 8:
 	  {
 	    std::cout << static_cast<int>(*(reinterpret_cast<unsigned char *>(value)));
@@ -4596,7 +4596,7 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
     case 1:
     {
 // floating point numbers
-	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	switch (HDF5::value(&datatype.properties[2],2)) {
 	  case 32:
 	  {
 	    std::cout << *(reinterpret_cast<float *>(value));
@@ -4623,7 +4623,7 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
     case 6:
     {
 // compound data types
-	num_members=HDF5::getValue(datatype.bit_fields,2);
+	num_members=HDF5::value(datatype.bit_fields,2);
 	switch (datatype.version) {
 	  case 1:
 	  {
@@ -4644,8 +4644,8 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
 		  off+=4;
 		}
 		l_datatype=new InputHDF5Stream::Datatype;
-		HDF5::decodeDatatype(&datatype.properties[off],*l_datatype,false);
-		HDF5::printDataValue(*l_datatype,value);
+		HDF5::decode_datatype(&datatype.properties[off],*l_datatype,false);
+		HDF5::print_data_value(*l_datatype,value);
 		off+=8+l_datatype->prop_len;
 		delete l_datatype;
 	    }
@@ -4665,12 +4665,12 @@ void printDataValue(InputHDF5Stream::Datatype& datatype,void *value)
   }
 }
 
-bool decodeCompoundDatatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype,bool show_debug)
+bool decode_compound_datatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype,bool show_debug)
 {
   int n,m,off=0,num_members;
   InputHDF5Stream::CompoundDatatype::Member member;
 
-  num_members=HDF5::getValue(const_cast<unsigned char *>(datatype.bit_fields),2);
+  num_members=HDF5::value(const_cast<unsigned char *>(datatype.bit_fields),2);
   compound_datatype.members.clear();
   compound_datatype.members.reserve(num_members);
   for (n=0; n < num_members; ++n) {
@@ -4679,26 +4679,26 @@ bool decodeCompoundDatatype(const InputHDF5Stream::Datatype& datatype,InputHDF5S
 	off+=8;
     }
     off+=8;
-    member.byte_offset=HDF5::getValue(&datatype.properties[off],4);
+    member.byte_offset=HDF5::value(&datatype.properties[off],4);
     off+=4;
     off+=12;
     for (m=0; m < 4; ++m) {
 	off+=4;
     }
-    decodeDatatype(&datatype.properties[off],member.datatype,show_debug);
+    decode_datatype(&datatype.properties[off],member.datatype,show_debug);
     off+=8+member.datatype.prop_len;
     compound_datatype.members.emplace_back(member);
   }
   return true;
 }
 
-bool decodeCompoundDataValue(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,void ***values)
+bool decode_compound_data_value(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,void ***values)
 {
   *values=NULL;
 return true;
 }
 
-bool decodeDataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace,bool show_debug)
+bool decode_dataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace,bool show_debug)
 {
   int off,flag;
 
@@ -4712,13 +4712,13 @@ bool decodeDataspace(unsigned char *buffer,unsigned long long size_of_lengths,In
 dataspace.sizes.clear();
 dataspace.sizes.reserve(dataspace.dimensionality);
 	for (int n=0; n < dataspace.dimensionality; ++n) {
-	  dataspace.sizes.emplace_back(getValue(&buffer[off],size_of_lengths));
+	  dataspace.sizes.emplace_back(value(&buffer[off],size_of_lengths));
 	  if (show_debug) {
 	    std::cerr << "  dimension " << n << " size: " << dataspace.sizes[n] << std::endl;
 	  }
 	  off+=size_of_lengths;
 	}
-	getBits(buffer,flag,23,1);
+	get_bits(buffer,flag,23,1);
 	if (flag == 1) {
 	  if (show_debug) {
 	    std::cerr << "max sizes" << std::endl;
@@ -4726,7 +4726,7 @@ dataspace.sizes.reserve(dataspace.dimensionality);
 	  dataspace.max_sizes.clear();
 	  dataspace.max_sizes.reserve(dataspace.dimensionality);
 	  for (int n=0; n < dataspace.dimensionality; ++n) {
-	    dataspace.max_sizes.emplace_back(getValue(&buffer[off],size_of_lengths));
+	    dataspace.max_sizes.emplace_back(value(&buffer[off],size_of_lengths));
 	    if (show_debug) {
 		std::cerr << "  dimension " << n << " max size: " << dataspace.max_sizes[n] << std::endl;
 	    }
@@ -4749,13 +4749,13 @@ dataspace.sizes.reserve(dataspace.dimensionality);
 	  dataspace.sizes.clear();
 	  dataspace.sizes.reserve(dataspace.dimensionality);
 	  for (int n=0; n < dataspace.dimensionality; ++n) {
-	    dataspace.sizes.emplace_back(getValue(&buffer[off],size_of_lengths));
+	    dataspace.sizes.emplace_back(value(&buffer[off],size_of_lengths));
 	    if (show_debug) {
 		std::cerr << "  dimension " << n << " size: " << dataspace.sizes[n] << std::endl;
 	    }
 	    off+=size_of_lengths;
 	  }
-	  getBits(buffer,flag,23,1);
+	  get_bits(buffer,flag,23,1);
 	  if (flag == 1) {
 	    if (show_debug) {
 		std::cerr << "max sizes" << std::endl;
@@ -4763,7 +4763,7 @@ dataspace.sizes.reserve(dataspace.dimensionality);
 dataspace.max_sizes.clear();
 dataspace.max_sizes.reserve(dataspace.dimensionality);
 	    for (int n=0; n < dataspace.dimensionality; ++n) {
-		dataspace.max_sizes.emplace_back(getValue(&buffer[off],size_of_lengths));
+		dataspace.max_sizes.emplace_back(value(&buffer[off],size_of_lengths));
 		if (show_debug) {
 		  std::cerr << "  dimension " << n << " max size: " << dataspace.max_sizes[n] << std::endl;
 		}
@@ -4782,14 +4782,14 @@ dataspace.max_sizes.reserve(dataspace.dimensionality);
   return true;
 }
 
-bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bool show_debug)
+bool decode_datatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bool show_debug)
 {
   int off;
 
-  getBits(buffer,datatype.version,0,4);
-  getBits(buffer,datatype.class_,4,4);
+  get_bits(buffer,datatype.version,0,4);
+  get_bits(buffer,datatype.class_,4,4);
   std::copy(&buffer[1],&buffer[3],datatype.bit_fields);
-  datatype.size=HDF5::getValue(&buffer[4],4);
+  datatype.size=HDF5::value(&buffer[4],4);
   if (show_debug) {
     std::cerr << "Datatype class and version=" << datatype.class_ << "/" << datatype.version << " size: " << datatype.size << std::endl;
     std::cerr << "Size of datatype element is " << datatype.size << std::endl;
@@ -4826,7 +4826,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 	break;
     case 6:
     {
-	int num_members=HDF5::getValue(datatype.bit_fields,2);
+	int num_members=HDF5::value(datatype.bit_fields,2);
 	off=8;
 	switch (datatype.version) {
 	  case 1:
@@ -4844,7 +4844,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 		off+=8;
 		if (show_debug) {
 		  std::cerr << "  name ends at off " << off << std::endl;
-		  std::cerr << "  byte offset of member within data: " << HDF5::getValue(&buffer[off],4) << std::endl;
+		  std::cerr << "  byte offset of member within data: " << HDF5::value(&buffer[off],4) << std::endl;
 		}
 		off+=4;
 		if (show_debug) {
@@ -4853,7 +4853,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 		off+=12;
 		for (int m=0; m < 4; ++m) {
 		  if (show_debug) {
-		    std::cerr << "  dim " << m << " size: " << HDF5::getValue(&buffer[off],4) << std::endl;
+		    std::cerr << "  dim " << m << " size: " << HDF5::value(&buffer[off],4) << std::endl;
 		  }
 		  off+=4;
 		}
@@ -4861,7 +4861,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 		  std::cerr << "  decoding datatype at offset " << off << std::endl;
 		}
 		InputHDF5Stream::Datatype *l_datatype=new InputHDF5Stream::Datatype;
-		decodeDatatype(&buffer[off],*l_datatype,show_debug);
+		decode_datatype(&buffer[off],*l_datatype,show_debug);
 		off+=8+l_datatype->prop_len;
 		delete l_datatype;
 		if (show_debug) {
@@ -4897,14 +4897,14 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
 		}
 		if (show_debug) {
 		  std::cerr << "  datatype size: " << datatype.size << " length of byte offset: " << l << std::endl;
-		  std::cerr << "  byte offset of member within data: " << HDF5::getValue(&buffer[off],l) << std::endl;
+		  std::cerr << "  byte offset of member within data: " << HDF5::value(&buffer[off],l) << std::endl;
 		}
 		off+=l;
 		if (show_debug) {
 		  std::cerr << "  decoding datatype at offset " << off << " class/version: " << static_cast<int>(buffer[off]) << std::endl;
 		}
 		InputHDF5Stream::Datatype *l_datatype=new InputHDF5Stream::Datatype;
-		decodeDatatype(&buffer[off],*l_datatype,show_debug);
+		decode_datatype(&buffer[off],*l_datatype,show_debug);
 		off+=8+l_datatype->prop_len;
 		delete l_datatype;
 		if (show_debug) {
@@ -4950,7 +4950,7 @@ bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bo
   return true;
 }
 
-int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long long address,int index,unsigned char **buffer)
+int global_heap_object(std::fstream& fs,short size_of_lengths,unsigned long long address,int index,unsigned char **buffer)
 {
   int buf_len=0;
   auto curr_off=fs.tellg();
@@ -4980,7 +4980,7 @@ int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long lon
     std::cerr << "unable to read size of global heap collection" << std::endl;
     exit(1);
   }
-  unsigned long long gsize=HDF5::getValue(buf,size_of_lengths);
+  unsigned long long gsize=HDF5::value(buf,size_of_lengths);
   int off=0;
   while (off < static_cast<int>(gsize)) {
     fs.read(cbuf,8+size_of_lengths);
@@ -4988,8 +4988,8 @@ int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long lon
 	std::cerr << "unable to read global heap object" << std::endl;
 	exit(1);
     }
-    int idx=HDF5::getValue(buf,2);
-    unsigned long long osize=HDF5::getValue(&buf[8],size_of_lengths);
+    int idx=HDF5::value(buf,2);
+    unsigned long long osize=HDF5::value(&buf[8],size_of_lengths);
     auto pad=(osize % 8);
     if (pad > 0) {
 	osize+=(8-pad);
@@ -5013,7 +5013,7 @@ int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long lon
   return buf_len;
 }
 
-unsigned long long getValue(const unsigned char *buffer,int num_bytes)
+unsigned long long value(const unsigned char *buffer,int num_bytes)
 {
   unsigned long long val=0,m=1;
   int n;
@@ -5034,7 +5034,7 @@ double decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,d
     case 0:
     {
 // fixed point numbers (integers)
-	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	switch (HDF5::value(&datatype.properties[2],2)) {
 	  case 8:
 	  {
 	    return static_cast<int>(*(reinterpret_cast<unsigned char *>(value)));
@@ -5061,7 +5061,7 @@ double decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,d
     case 1:
     {
 // floating point numbers
-	switch (HDF5::getValue(&datatype.properties[2],2)) {
+	switch (HDF5::value(&datatype.properties[2],2)) {
 	  case 32:
 	  {
 	    return *(reinterpret_cast<float *>(value));
@@ -5097,13 +5097,13 @@ std::string decode_data_value(const InputHDF5Stream::Datatype& datatype,void *va
   return missing_indicator;
 }
 
-std::string datatypeClassToString(const InputHDF5Stream::Datatype& datatype)
+std::string datatype_class_to_string(const InputHDF5Stream::Datatype& datatype)
 {
   switch (datatype.class_) {
     case 0:
-	return "Fixed-Point ("+strutils::itos(HDF5::getValue(&datatype.properties[2],2))+")";
+	return "Fixed-Point ("+strutils::itos(HDF5::value(&datatype.properties[2],2))+")";
     case 1:
-	return "Floating-Point ("+strutils::itos(HDF5::getValue(&datatype.properties[2],2))+")";
+	return "Floating-Point ("+strutils::itos(HDF5::value(&datatype.properties[2],2))+")";
     case 3:
 	return "String";
     case 4:
@@ -5112,12 +5112,12 @@ std::string datatypeClassToString(const InputHDF5Stream::Datatype& datatype)
     {
 	std::string s="Compound [";
 	InputHDF5Stream::CompoundDatatype cdatatype;
-	if (HDF5::decodeCompoundDatatype(datatype,cdatatype,false)) {
+	if (HDF5::decode_compound_datatype(datatype,cdatatype,false)) {
 	  for (auto& member : cdatatype.members) {
 	    if (&member != &cdatatype.members.front()) {
 		s+=", ";
 	    }
-	    s+=datatypeClassToString(member.datatype);
+	    s+=datatype_class_to_string(member.datatype);
 	  }
 	}
 	s+="]";

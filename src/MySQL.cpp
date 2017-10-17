@@ -177,18 +177,17 @@ int Server::_delete(std::string absolute_table,std::string where_conditions)
 
 std::list<std::string> Server::db_names()
 {
-  MYSQL_RES *dbqueryResult;
-  MYSQL_ROW dbrow;
-  std::list<std::string> list;
-
   if (mysql_query(&mysql,"show databases") > 0) {
     std::cerr << "Error: unable to fill database list because " <<  mysql_error(&mysql) << std::endl;
     exit(1);
   }
-  dbqueryResult=mysql_store_result(&mysql);
-  while ( (dbrow=mysql_fetch_row(dbqueryResult)))
-    list.push_back(reinterpret_cast<char *>(*dbrow));
-  mysql_free_result(dbqueryResult);
+  std::list<std::string> list;
+  auto dbquery_result=mysql_store_result(&mysql);
+  MYSQL_ROW dbrow;
+  while ( (dbrow=mysql_fetch_row(dbquery_result))) {
+    list.emplace_back(reinterpret_cast<char *>(*dbrow));
+  }
+  mysql_free_result(dbquery_result);
   return list;
 }
 
@@ -202,12 +201,12 @@ void Server::disconnect()
 
 int Server::insert(const std::string& absolute_table,const std::string& row_specification,const std::string& on_duplicate_key)
 {
-  auto insertString="insert into "+absolute_table+" values ("+row_specification+")";
+  auto insert_string="insert into "+absolute_table+" values ("+row_specification+")";
   if (!on_duplicate_key.empty()) {
-    insertString+=" on duplicate key "+on_duplicate_key;
+    insert_string+=" on duplicate key "+on_duplicate_key;
   }
-  insertString+=";";
-  mysql_query(&mysql,insertString.c_str());
+  insert_string+=";";
+  mysql_query(&mysql,insert_string.c_str());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -225,16 +224,16 @@ int Server::insert(const std::string& absolute_table,std::list<std::string>& row
   const int MAX_QUERY_LENGTH=300000;
   auto len=row_specifications.front().length()*row_specifications.size();
   len= (len < MAX_QUERY_LENGTH) ? len+len/2 : MAX_QUERY_LENGTH+MAX_QUERY_LENGTH/2;
-  std::string insertString;
-  insertString.reserve(len);
+  std::string insert_string;
+  insert_string.reserve(len);
   for (auto& spec : row_specifications) {
-    if (insertString.length() > MAX_QUERY_LENGTH) {
-	insertString="insert into "+absolute_table+" values "+insertString;
+    if (insert_string.length() > MAX_QUERY_LENGTH) {
+	insert_string="insert into "+absolute_table+" values "+insert_string;
 	if (!on_duplicate_key.empty()) {
-	  insertString+=" on duplicate key "+on_duplicate_key;
+	  insert_string+=" on duplicate key "+on_duplicate_key;
 	}
-	insertString+=";";
-	mysql_query(&mysql,insertString.c_str());
+	insert_string+=";";
+	mysql_query(&mysql,insert_string.c_str());
 	_error="";
 	if (mysql_errno(&mysql) > 0) {
 	  _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -242,20 +241,20 @@ int Server::insert(const std::string& absolute_table,std::list<std::string>& row
 	if (!_error.empty()) {
 	  return -1;
 	}
-	insertString="";
+	insert_string="";
     }
-    if (!insertString.empty()) {
-	insertString+=", ";
+    if (!insert_string.empty()) {
+	insert_string+=", ";
     }
-    insertString+="("+spec+")";
+    insert_string+="("+spec+")";
   }
-  if (!insertString.empty()) {
-    insertString="insert into "+absolute_table+" values "+insertString;
+  if (!insert_string.empty()) {
+    insert_string="insert into "+absolute_table+" values "+insert_string;
     if (!on_duplicate_key.empty()) {
-	insertString+=" on duplicate key "+on_duplicate_key;
+	insert_string+=" on duplicate key "+on_duplicate_key;
     }
-    insertString+=";";
-    mysql_query(&mysql,insertString.c_str());
+    insert_string+=";";
+    mysql_query(&mysql,insert_string.c_str());
     _error="";
     if (mysql_errno(&mysql) > 0) {
 	_error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -269,12 +268,12 @@ int Server::insert(const std::string& absolute_table,std::list<std::string>& row
 
 int Server::insert(const std::string& absolute_table,const std::string& column_list,const std::string& value_list,const std::string& on_duplicate_key)
 {
-  auto insertString="insert into "+absolute_table+" ("+column_list+") values ("+value_list+")";
+  auto insert_string="insert into "+absolute_table+" ("+column_list+") values ("+value_list+")";
   if (!on_duplicate_key.empty()) {
-    insertString+=" on duplicate key "+on_duplicate_key;
+    insert_string+=" on duplicate key "+on_duplicate_key;
   }
-  insertString+=";";
-  mysql_query(&mysql,insertString.c_str());
+  insert_string+=";";
+  mysql_query(&mysql,insert_string.c_str());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -294,7 +293,7 @@ int Server::insert(RowInsert& row_insert)
     if (!row_specification.empty()) {
 	row_specification+=",";
     }
-    if (value.isNumeric) {
+    if (value.is_numeric) {
 	row_specification+=value.value;
     }
     else {
@@ -314,12 +313,12 @@ int Server::update(std::string absolute_table,std::string column_name_value_pair
   if (column_name_value_pair.empty()) {
     return -1;
   }
-  auto updateString="update "+absolute_table+" set "+column_name_value_pair;
+  auto update_string="update "+absolute_table+" set "+column_name_value_pair;
   if (!where_conditions.empty()) {
-    updateString+=" where "+where_conditions;
+    update_string+=" where "+where_conditions;
   }
-  updateString+=";";
-  mysql_query(&mysql,updateString.c_str());
+  update_string+=";";
+  mysql_query(&mysql,update_string.c_str());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -336,16 +335,16 @@ int Server::update(std::string absolute_table,std::list<std::string>& column_nam
     return -1;
   }
   auto it=column_name_value_pairs.begin();
-  auto updateString="update "+absolute_table+" set "+*it;
+  auto update_string="update "+absolute_table+" set "+*it;
   auto end=column_name_value_pairs.end();
   for (++it; it != end; ++it) {
-    updateString+=", "+*it;
+    update_string+=", "+*it;
   }
   if (!where_conditions.empty()) {
-    updateString+=" where "+where_conditions;
+    update_string+=" where "+where_conditions;
   }
-  updateString+=";";
-  mysql_query(&mysql,updateString.c_str());
+  update_string+=";";
+  mysql_query(&mysql,update_string.c_str());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -383,20 +382,20 @@ void Query::set(std::string columns,std::string tables,std::string where_conditi
   }
 }
 
-void Query::set(std::string querySpecification)
+void Query::set(std::string query_specification)
 {
-  size_t idx=querySpecification.find("from");
-  if (idx == std::string::npos && querySpecification.find("show") != 0) {
-    std::cerr << "Error: bad query '" << querySpecification << "'" << std::endl;
+  size_t idx=query_specification.find("from");
+  if (idx == std::string::npos && query_specification.find("show") != 0) {
+    std::cerr << "Error: bad query '" << query_specification << "'" << std::endl;
     exit(1);
   }
   if (idx > 0) {
-    auto columns=querySpecification.substr(0,idx-1);
+    auto columns=query_specification.substr(0,idx-1);
     columns=columns.substr(columns.find("select")+7);
     strutils::trim(columns);
     fill_column_list(columns);
   }
-  query=querySpecification;
+  query=query_specification;
 }
 
 int Query::submit(Server& server)
@@ -436,15 +435,15 @@ void Query::fill_column_list(std::string columns)
     columns=columns.substr(idx+8);
     strutils::trim(columns);
   }
-  int inParens=0;
+  int in_parens=0;
   for (size_t n=0; n < columns.length(); ++n) {
     if (columns[n] == '(') {
-	++inParens;
+	++in_parens;
     }
     else if (columns[n] == ')') {
-	--inParens;
+	--in_parens;
     }
-    if (inParens == 0 && columns[n] == ',') {
+    if (in_parens == 0 && columns[n] == ',') {
 	columns=columns.substr(0,n)+";"+columns.substr(n+1);
     }
   }
@@ -540,10 +539,10 @@ bool table_exists(Server& server,std::string absolute_table)
     std::cerr << "Error: bad table specification " << absolute_table << std::endl;
     exit(1);
   }
-  auto dbName=absolute_table.substr(0,absolute_table.find("."));
-  auto tbName=absolute_table.substr(absolute_table.find(".")+1);
+  auto db_name=absolute_table.substr(0,absolute_table.find("."));
+  auto tb_name=absolute_table.substr(absolute_table.find(".")+1);
   LocalQuery query;
-  query.set("show tables from "+dbName+" like '"+tbName+"'");
+  query.set("show tables from "+db_name+" like '"+tb_name+"'");
   if (query.submit(server) < 0) {
     return false;
   }
@@ -589,7 +588,7 @@ std::list<std::string> table_names(Server& server,std::string database,std::stri
   if (query.submit(server) == 0) {
     Row row;
     while (query.fetch_row(row)) {
-	list.push_back(row[0]);
+	list.emplace_back(row[0]);
     }
   }
   else {

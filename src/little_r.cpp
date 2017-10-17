@@ -95,11 +95,11 @@ void LITTLE_RObservation::fill(const unsigned char *stream_buffer,bool fill_head
 {
   int rec_len=(stream_buffer[0] << 24)+(stream_buffer[1] << 16)+(stream_buffer[2] << 8)+stream_buffer[3];
   auto records=strutils::split(std::string(&(reinterpret_cast<const char *>(stream_buffer))[4],rec_len),"\n");
-  loc.latitude=std::stof(records.front().substr(0,20));
-  loc.longitude=std::stof(records.front().substr(20,20));
-  loc.ID=records.front().substr(40,40);
-  if (loc.longitude > 180.) {
-    loc.longitude-=360.;
+  location_.latitude=std::stof(records.front().substr(0,20));
+  location_.longitude=std::stof(records.front().substr(20,20));
+  location_.ID=records.front().substr(40,40);
+  if (location_.longitude > 180.) {
+    location_.longitude-=360.;
   }
   platform_code_=std::stoi(records.front().substr(123,3));
   if (records.front()[279] == 'T') {
@@ -112,7 +112,7 @@ void LITTLE_RObservation::fill(const unsigned char *stream_buffer,bool fill_head
   auto mo=std::stoi(records.front().substr(330,2));
   auto dy=std::stoi(records.front().substr(332,2));
   auto hhmmss=std::stoi(records.front().substr(334,6));
-  date_time.set(yr,mo,dy,hhmmss);
+  date_time_.set(yr,mo,dy,hhmmss);
   if (!fill_header_only) {
     records.pop_front();
     records.pop_back();
@@ -123,12 +123,12 @@ void LITTLE_RObservation::fill(const unsigned char *stream_buffer,bool fill_head
   }
 }
 
-DateTime LITTLE_RObservation::getDateTime() const
+DateTime LITTLE_RObservation::date_time() const
 {
-  return date_time;
+  return date_time_;
 }
 
-Observation::ObservationLocation LITTLE_RObservation::getLocation() const
+Observation::ObservationLocation LITTLE_RObservation::location() const
 {
-  return loc;
+  return location_;
 }
