@@ -21,12 +21,12 @@ class LITTLE_RObservation : public Observation
 public:
   LITTLE_RObservation() : platform_code_(0),data_records_(),is_sounding_(false) {}
   const std::vector<std::tuple<float,int,float,int,float,int,float,int,float,int,float,int,float,int,float,int,float,int,float,int>>& data_records() const { return data_records_; }
+  DateTime date_time() const;
   void fill(const unsigned char *stream_buffer,bool fill_header_only);
-  short platform_code() const { return platform_code_; }
-  DateTime getDateTime() const;
-  ObservationLocation getLocation() const;
-  bool is_sounding() const { return is_sounding_; }
+  ObservationLocation location() const;
   int num_data_records() const { return data_records_.size(); }
+  short platform_code() const { return platform_code_; }
+  bool is_sounding() const { return is_sounding_; }
 
 protected:
   short platform_code_;

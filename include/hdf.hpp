@@ -12,15 +12,15 @@ class HDF4Stream
 {
 public:
   struct TagEntry {
-    TagEntry() : key(),ID(),description() {}
+    TagEntry() : key(),id(),description() {}
 
     size_t key;
-    std::string ID,description;
+    std::string id,description;
   };
 
   HDF4Stream();
   virtual ~HDF4Stream() {}
-  std::string getDataType(int code) const { return data_types[code]; }
+  std::string datatype(int code) const { return data_types[code]; }
 
 protected:
   std::vector<std::string> data_types;
@@ -50,8 +50,8 @@ public:
   int ignore() { return bfstream::error; }
   bool open(const char *filename);
   int peek();
-  void printDataDescriptor(const DataDescriptor& data_descriptor,std::string indent = "");
-  void printDataDescriptors(size_t tag_number);
+  void print_data_descriptor(const DataDescriptor& data_descriptor,std::string indent = "");
+  void print_data_descriptors(size_t tag_number);
   int read(unsigned char *buffer,size_t buffer_length);
 
 protected:
@@ -147,27 +147,27 @@ public:
   };
   class DataValue {
   public:
-    DataValue() : class_(-1),precision(0),size(0),dim_sizes(),value(nullptr),compound(),vlen() {}
+    DataValue() : _class_(-1),precision_(0),size(0),dim_sizes(),value(nullptr),compound(),vlen() {}
     DataValue(const DataValue& source) : DataValue() { *this=source; }
     ~DataValue() { clear(); }
     DataValue& operator=(const DataValue& source);
+    short class_() const { return _class_; }
     void clear();
     void *get() const { return value; }
-    short getClass() const { return class_; }
-    short getPrecision() const { return precision; }
+    short precision() const { return precision_; }
     void print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const;
     bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace,bool show_debug);
 
-    short class_,precision;
+    short _class_,precision_;
     size_t size;
     std::vector<unsigned long long> dim_sizes;
     void *value;
     struct Compound {
 	struct Member {
-	  Member() : name(),class_(-1),precision(0),size(0) {}
+	  Member() : name(),class_(-1),precision_(0),size(0) {}
 
 	  std::string name;
-	  short class_,precision;
+	  short class_,precision_;
 	  int size;
 	};
 	Compound() : members() {}
@@ -249,42 +249,42 @@ public:
   InputHDF5Stream() : sb_version(0),sizes(),group_K(),base_addr(0),eof_addr(0),undef_addr(0),root_group(),ref_table(nullptr),show_debug(false) {}
   ~InputHDF5Stream();
   void close();
-  bool debugIsOn() const { return show_debug; }
-  Attribute getAttribute(std::string xpath);
+  bool debug_is_on() const { return show_debug; }
+  Attribute attribute(std::string xpath);
 //  int getData(Dataset& dataset,void **values);
-  Dataset *getDataset(std::string xpath);
-  std::list<InputHDF5Stream::DatasetEntry> getDatasetsWithAttribute(std::string attribute_path,Group *g = nullptr);
+  Dataset *dataset(std::string xpath);
+  std::list<InputHDF5Stream::DatasetEntry> datasets_with_attribute(std::string attribute_path,Group *g = nullptr);
   std::fstream *file_stream() { return &fs; }
-  std::shared_ptr<my::map<ReferenceEntry>> getReferenceTablePointer() const { return ref_table; }
-  short getSizeOfOffsets() const { return sizes.offsets; }
-  short getSizeOfLengths() const { return sizes.lengths; }
-  unsigned long long getUndefinedAddress() const { return undef_addr; }
+  std::shared_ptr<my::map<ReferenceEntry>> reference_table_pointer() const { return ref_table; }
+  short size_of_offsets() const { return sizes.offsets; }
+  short size_of_lengths() const { return sizes.lengths; }
+  unsigned long long undefined_address() const { return undef_addr; }
   int ignore() { return bfstream::error; }
   bool open(const char *filename);
   int peek();
-  void printData(Dataset& dataset);
-  void printFillValue(std::string xpath);
+  void print_data(Dataset& dataset);
+  void print_fill_value(std::string xpath);
   int read(unsigned char *buffer,size_t buffer_length);
-  void setDebug(bool show_debug_messages) { show_debug=show_debug_messages; }
-  void showFileStructure();
+  void set_debug(bool show_debug_messages) { show_debug=show_debug_messages; }
+  void show_file_structure();
 
 protected:
-  void clearGroups(Group& group);
-  bool decodeAttribute(unsigned char *buffer,Attribute& attribute,int& length,int ohdr_version);
-  bool decodeBTree(Group& group,FractalHeapData *frhp_data);
-  bool decodeFractalHeap(unsigned long long address,int header_message_type,FractalHeapData& frhp_data);
-  bool decodeFractalHeapBlock(unsigned long long address,int header_message_type,FractalHeapData& frhp_data);
-  bool decodeHeaderMessages(int ohdr_version,size_t header_size,std::string ident,Group *group,DatasetEntry *dse_in,unsigned char flags);
-  int decodeHeaderMessage(std::string ident,int ohdr_version,int type,int length,unsigned char flags,unsigned char *buffer,Group *group,DatasetEntry& dse,bool& is_subgroup);
-  bool decodeObjectHeader(SymbolTableEntry& ste,Group *group);
-  bool decodeSuperblock(unsigned long long& objhdr_addr);
-  bool decodeSymbolTableEntry(SymbolTableEntry& ste,Group *group);
-  bool decodeSymbolTableNode(unsigned long long address,Group& group);
-  bool decodeV1BTree(Group& group);
-  bool decodeV1BTree(unsigned long long address,Dataset& dataset);
-  bool decodeV2BTree(Group& group,FractalHeapData *frhp_data);
-  bool decodeV2BTreeNode(unsigned long long address,int num_records,FractalHeapData *frhp_data);
-  void printAGroupTree(Group& group);
+  void clear_groups(Group& group);
+  bool decode_attribute(unsigned char *buffer,Attribute& attribute,int& length,int ohdr_version);
+  bool decode_Btree(Group& group,FractalHeapData *frhp_data);
+  bool decode_fractal_heap(unsigned long long address,int header_message_type,FractalHeapData& frhp_data);
+  bool decode_fractal_heap_block(unsigned long long address,int header_message_type,FractalHeapData& frhp_data);
+  bool decode_header_messages(int ohdr_version,size_t header_size,std::string ident,Group *group,DatasetEntry *dse_in,unsigned char flags);
+  int decode_header_message(std::string ident,int ohdr_version,int type,int length,unsigned char flags,unsigned char *buffer,Group *group,DatasetEntry& dse,bool& is_subgroup);
+  bool decode_object_header(SymbolTableEntry& ste,Group *group);
+  bool decode_superblock(unsigned long long& objhdr_addr);
+  bool decode_symbol_table_entry(SymbolTableEntry& ste,Group *group);
+  bool decode_symbol_table_node(unsigned long long address,Group& group);
+  bool decode_v1_Btree(Group& group);
+  bool decode_v1_Btree(unsigned long long address,Dataset& dataset);
+  bool decode_v2_Btree(Group& group,FractalHeapData *frhp_data);
+  bool decode_v2_Btree_node(unsigned long long address,int num_records,FractalHeapData *frhp_data);
+  void print_a_group_tree(Group& group);
 
   int sb_version;
   struct Sizes {
@@ -307,6 +307,7 @@ namespace HDF5 {
 
 class DataArray {
 public:
+  static const double default_missing_value;
   enum {null_=0,short_,int_,long_long_,float_,double_,string_};
   DataArray() : num_values(0),type(0),values(nullptr),dimensions() {}
   DataArray(const DataArray& source) : DataArray() { *this=source; }
@@ -329,24 +330,24 @@ private:
   void clear();
 };
 
-void printAttribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table);
-void printDataValue(InputHDF5Stream::Datatype& datatype,void *value);
+void print_attribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table);
+void print_data_value(InputHDF5Stream::Datatype& datatype,void *value);
 
-std::string datatypeClassToString(const InputHDF5Stream::Datatype& datatype);
+std::string datatype_class_to_string(const InputHDF5Stream::Datatype& datatype);
 
-bool decodeCompoundDatatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype,bool show_debug);
-bool decodeCompoundDataValue(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,void ***values);
-bool decodeDataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace,bool show_debug);
-bool decodeDatatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bool show_debug);
+bool decode_compound_datatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype,bool show_debug);
+bool decode_compound_data_value(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,void ***values);
+bool decode_dataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace,bool show_debug);
+bool decode_datatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bool show_debug);
 //bool decodeFixedPointNumberArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,int num_values,size_t& index,size_t chunk_length);
 //bool decodeFloatingPointNumberArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,int& precision,int num_values,size_t& index,size_t chunk_length);
 
-int getGlobalHeapObject(std::fstream& fs,short size_of_lengths,unsigned long long address,int index,unsigned char **buffer);
+int global_heap_object(std::fstream& fs,short size_of_lengths,unsigned long long address,int index,unsigned char **buffer);
 
-unsigned long long getValue(const unsigned char *buffer,int num_bytes);
+unsigned long long value(const unsigned char *buffer,int num_bytes);
 
-double decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator);
-std::string decode_data_value(InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator);
+double decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,double missing_indicator);
+std::string decode_data_value(const InputHDF5Stream::Datatype& datatype,void *value,std::string missing_indicator);
 
 }; // end namespace HDF5
 
