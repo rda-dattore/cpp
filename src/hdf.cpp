@@ -38,43 +38,43 @@ HDF4Stream::HDF4Stream() : data_types(),tag_table()
   data_types.emplace_back("DFNT_INT64");
   data_types.emplace_back("DFNT_UINT64");
   te.key=1;
-  te.ID="DFTAG_NULL";
+  te.id="DFTAG_NULL";
   te.description="No data";
   tag_table.insert(te);
   te.key=30;
-  te.ID="DFTAG_VERSION";
+  te.id="DFTAG_VERSION";
   te.description="Library version number";
   tag_table.insert(te);
   te.key=106;
-  te.ID="DFTAG_NT";
+  te.id="DFTAG_NT";
   te.description="Number type";
   tag_table.insert(te);
   te.key=701;
-  te.ID="DFTAG_SDD";
+  te.id="DFTAG_SDD";
   te.description="Scientific data dimension";
   tag_table.insert(te);
   te.key=702;
-  te.ID="DFTAG_SD";
+  te.id="DFTAG_SD";
   te.description="Scientific data";
   tag_table.insert(te);
   te.key=720;
-  te.ID="DFTAG_NDG";
+  te.id="DFTAG_NDG";
   te.description="Numeric data group";
   tag_table.insert(te);
   te.key=721;
-  te.ID="**DUMMY**";
+  te.id="**DUMMY**";
   te.description="Dummy for scientific data - nothing actually written to file";
   tag_table.insert(te);
   te.key=1962;
-  te.ID="DFTAG_VH";
+  te.id="DFTAG_VH";
   te.description="Vdata description";
   tag_table.insert(te);
   te.key=1963;
-  te.ID="DFTAG_VS";
+  te.id="DFTAG_VS";
   te.description="Vdata";
   tag_table.insert(te);
   te.key=1965;
-  te.ID="DFTAG_VG";
+  te.id="DFTAG_VG";
   te.description="Vgroup";
   tag_table.insert(te);
 }
@@ -165,7 +165,7 @@ void InputHDF4Stream::print_data_descriptor(const DataDescriptor& data_descripto
 
   re.data_descriptor_table=NULL;
   if (tag_table.found(data_descriptor.key,te))
-    std::cout << te.ID << "(" << data_descriptor.key << ")/" << data_descriptor.reference_number << " - " << te.description << "  Offset: " << data_descriptor.offset << "  Length: " << data_descriptor.length << std::endl;
+    std::cout << te.id << "(" << data_descriptor.key << ")/" << data_descriptor.reference_number << " - " << te.description << "  Offset: " << data_descriptor.offset << "  Length: " << data_descriptor.length << std::endl;
   else
     std::cout << "**" << data_descriptor.key << "/" << data_descriptor.reference_number << "  Offset: " << data_descriptor.offset << "  Length: " << data_descriptor.length << std::endl;
   switch (data_descriptor.key) {
@@ -274,7 +274,7 @@ void InputHDF4Stream::print_data_descriptor(const DataDescriptor& data_descripto
 	for (n=0; n < data_descriptor.length/2; n+=2) {
 	  std::cout << indent << "  Member: " << n/2 << "  tag/ref#: ";
 	  if (tag_table.found(vals[n],te)) {
-	    std::cout << te.ID << "(" << vals[n] << ")";
+	    std::cout << te.id << "(" << vals[n] << ")";
 	  }
 	  else
 	    std::cout << vals[n];
@@ -1894,10 +1894,10 @@ bool InputHDF5Stream::decode_Btree(Group& group,FractalHeapData *frhp_data)
   }
   auto signature=std::string(buf,4);
   if (signature == "TREE") {
-    return decode_V1_Btree(group);
+    return decode_v1_Btree(group);
   }
   else if (signature == "BTHD") {
-    return decode_V2_Btree(group,frhp_data);
+    return decode_v2_Btree(group,frhp_data);
   }
   else {
     if (myerror.length() > 0) {
@@ -2620,7 +2620,7 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 		    std::cerr << "  dataset element size: " << dse.dataset->data.size_of_element << " at offset " << 3+sizes.offsets+dimensionality*4 << std::endl;
 		  }
 		  if (dse.dataset->data.address != undef_addr) {
-		    decode_V1_Btree(dse.dataset->data.address,*dse.dataset);
+		    decode_v1_Btree(dse.dataset->data.address,*dse.dataset);
 		  }
 		  break;
 		}
@@ -3050,7 +3050,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	  if (myerror.length() > 0) {
 	    myerror+=", ";
 	  }
-	  myerror+="read error for superblock V1 additions";
+	  myerror+="read error for superblock v1 additions";
 	  return false;
 	}
     }
@@ -3110,7 +3110,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
-	myerror+="read error for V2 superblock base address";
+	myerror+="read error for v2 superblock base address";
 	return false;
     }
     base_addr=HDF5::value(buf,sizes.offsets);
@@ -3122,7 +3122,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
-	myerror+="read error for V2 superblock extension address";
+	myerror+="read error for v2 superblock extension address";
 	return false;
     }
     unsigned long long ext_addr=HDF5::value(buf,sizes.offsets);
@@ -3141,7 +3141,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
-	myerror+="read error for V2 superblock end-of-file address";
+	myerror+="read error for v2 superblock end-of-file address";
 	return false;
     }
     eof_addr=HDF5::value(buf,sizes.offsets);
@@ -3153,7 +3153,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
-	myerror+="read error for V2 superblock root group object header address";
+	myerror+="read error for v2 superblock root group object header address";
 	return false;
     }
     objhdr_addr=HDF5::value(buf,sizes.offsets);
@@ -3165,7 +3165,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
-	myerror+="read error for V2 superblock checksum";
+	myerror+="read error for v2 superblock checksum";
 	return false;
     }
   }
@@ -3303,7 +3303,7 @@ bool InputHDF5Stream::decode_symbol_table_node(unsigned long long address,Group&
   return true;
 }
 
-bool InputHDF5Stream::decode_V1_Btree(Group& group)
+bool InputHDF5Stream::decode_v1_Btree(Group& group)
 {
   auto curr_off=fs.tellg();
   unsigned char buf[8];
@@ -3313,7 +3313,7 @@ bool InputHDF5Stream::decode_V1_Btree(Group& group)
     if (myerror.length() > 0) {
 	myerror+=", ";
     }
-    myerror+="read error bytes 5-8 in V1 tree";
+    myerror+="read error bytes 5-8 in v1 tree";
     return false;
   }
   group.tree.node_type=static_cast<int>(buf[0]);
@@ -3327,7 +3327,7 @@ bool InputHDF5Stream::decode_V1_Btree(Group& group)
   group.tree.node_level=static_cast<int>(buf[1]);
   size_t num_children=HDF5::value(&buf[2],2);
   if (show_debug) {
-    std::cerr << "V1 Tree GROUP node_type=" << group.tree.node_type << " node_level=" << group.tree.node_level << " num_children=" << num_children << std::endl;
+    std::cerr << "v1 Tree GROUP node_type=" << group.tree.node_type << " node_level=" << group.tree.node_level << " num_children=" << num_children << std::endl;
   }
   fs.read(cbuf,sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
@@ -3389,7 +3389,7 @@ bool InputHDF5Stream::decode_V1_Btree(Group& group)
   return true;
 }
 
-bool InputHDF5Stream::decode_V1_Btree(unsigned long long address,Dataset& dataset)
+bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& dataset)
 {
   unsigned long long ldum;
   if (address == undef_addr) {
@@ -3409,14 +3409,14 @@ bool InputHDF5Stream::decode_V1_Btree(unsigned long long address,Dataset& datase
     if (myerror.length() > 0) {
 	myerror+=", ";
     }
-    myerror+="error reading V1 B-tree";
+    myerror+="error reading v1 B-tree";
     return false;
   }
   if (std::string(cbuf,4) != "TREE") {
     if (myerror.length() > 0) {
 	myerror+=", ";
     }
-    myerror+="not a V1 B-tree";
+    myerror+="not a v1 B-tree";
     return false;
   }
   auto node_type=static_cast<int>(buf[4]);
@@ -3430,7 +3430,7 @@ bool InputHDF5Stream::decode_V1_Btree(unsigned long long address,Dataset& datase
   auto node_level=static_cast<int>(buf[5]);
   size_t num_children=HDF5::value(&buf[6],2);
   if (show_debug) {
-    std::cerr << "V1 Tree CHUNK node_type=" << node_type << " node_level=" << node_level << " num_children=" << num_children << std::endl;
+    std::cerr << "v1 Tree CHUNK node_type=" << node_type << " node_level=" << node_level << " num_children=" << num_children << std::endl;
   }
   ldum=HDF5::value(&buf[8],sizes.offsets);
   if (show_debug) {
@@ -3448,7 +3448,7 @@ bool InputHDF5Stream::decode_V1_Btree(unsigned long long address,Dataset& datase
     if (!myerror.empty()) {
 	myerror+=", ";
     }
-    myerror+="unable to decode V1 B-tree";
+    myerror+="unable to decode v1 B-tree";
     return false;
   }
   auto boff=0;
@@ -3500,7 +3500,7 @@ if (node_level == 1) {
 	if (show_debug) {
 	  std::cerr << "ANOTHER TREE" << std::endl;
 	}
-	decode_V1_Btree(ldum,dataset);
+	decode_v1_Btree(ldum,dataset);
     }
     else {
 	dataset.data.chunks.emplace_back(ldum,chunk_size,chunk_len,offsets);
@@ -3511,7 +3511,7 @@ if (node_level == 1) {
   return true;
 }
 
-bool InputHDF5Stream::decode_V2_Btree(Group& group,FractalHeapData *frhp_data)
+bool InputHDF5Stream::decode_v2_Btree(Group& group,FractalHeapData *frhp_data)
 {
   unsigned long long curr_off;
 
@@ -3523,11 +3523,11 @@ bool InputHDF5Stream::decode_V2_Btree(Group& group,FractalHeapData *frhp_data)
     if (myerror.length() > 0) {
 	myerror+=", ";
     }
-    myerror+="read error bytes 5-16 in V2 tree";
+    myerror+="read error bytes 5-16 in v2 tree";
     return false;
   }
   if (show_debug) {
-    std::cerr << "V2 BTree:" << std::endl;
+    std::cerr << "v2 BTree:" << std::endl;
     std::cerr << "version: " << static_cast<int>(buf[0]) << " type: " << static_cast<int>(buf[1]) << " node size: " << HDF5::value(&buf[2],4) << " record size: " << HDF5::value(&buf[6],2) << " depth: " << HDF5::value(&buf[8],2) << " split %: " << static_cast<int>(buf[10]) << " merge %: " << static_cast<int>(buf[11]) << std::endl;
   }
   fs.read(cbuf,sizes.offsets+2+sizes.lengths);
@@ -3535,20 +3535,20 @@ bool InputHDF5Stream::decode_V2_Btree(Group& group,FractalHeapData *frhp_data)
     if (myerror.length() > 0) {
 	myerror+=", ";
     }
-    myerror+="unable to read V2 tree root node data";
+    myerror+="unable to read v2 tree root node data";
     return false;
   }
   if (show_debug) {
     std::cerr << "root address: " << HDF5::value(buf,sizes.offsets) << " # recs in root node: " << HDF5::value(&buf[sizes.offsets],2) << " # recs in tree: " << HDF5::value(&buf[sizes.offsets+2],sizes.lengths) << std::endl;
   }
-  if (!decode_V2_Btree_node(HDF5::value(buf,sizes.offsets),HDF5::value(&buf[sizes.offsets],2),frhp_data)) {
+  if (!decode_v2_Btree_node(HDF5::value(buf,sizes.offsets),HDF5::value(&buf[sizes.offsets],2),frhp_data)) {
     return false;
   }
   fs.seekg(curr_off,std::ios_base::beg);
   return true;
 }
 
-bool InputHDF5Stream::decode_V2_Btree_node(unsigned long long address,int num_records,FractalHeapData *frhp_data)
+bool InputHDF5Stream::decode_v2_Btree_node(unsigned long long address,int num_records,FractalHeapData *frhp_data)
 {
   int n,max_size,len;
 
