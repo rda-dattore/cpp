@@ -121,7 +121,7 @@ bool InputGRIBStream::open(std::string filename)
   return true;
 }
 
-int InputGRIBStream::find_GRIB(unsigned char *buffer)
+int InputGRIBStream::find_grib(unsigned char *buffer)
 {
   buffer[0]='X';
   fs.read(reinterpret_cast<char *>(buffer),4);
@@ -155,7 +155,7 @@ int InputGRIBStream::peek()
   unsigned char buffer[16];
   int len=-9;
   while (len == -9) {
-    len=find_GRIB(buffer);
+    len=find_grib(buffer);
     if (len < 0) {
 	return len;
     }
@@ -264,7 +264,7 @@ int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
   int bytes_read=0;
   int len=-9;
   while (len == -9) {
-    bytes_read=find_GRIB(buffer);
+    bytes_read=find_grib(buffer);
     if (bytes_read < 0) {
 	return bytes_read;
     }
@@ -497,7 +497,7 @@ void GRIBMessage::append_grid(const Grid *grid)
   grids.emplace_back(g);
 }
 
-void GRIBMessage::convert_to_GRIB1()
+void GRIBMessage::convert_to_grib1()
 {
   GRIBGrid *g;
 
@@ -549,7 +549,7 @@ void GRIBMessage::pack_length(unsigned char *output_buffer) const
   }
 }
 
-void GRIBMessage::pack_IS(unsigned char *output_buffer,off_t& offset,Grid *g) const
+void GRIBMessage::pack_is(unsigned char *output_buffer,off_t& offset,Grid *g) const
 {
   set_bits(output_buffer,0x47524942,0,32);
   switch (edition_) {
@@ -575,7 +575,7 @@ void GRIBMessage::pack_IS(unsigned char *output_buffer,off_t& offset,Grid *g) co
   }
 }
 
-void GRIBMessage::pack_PDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   unsigned char flag=0x0;
@@ -723,7 +723,7 @@ void GRIBMessage::pack_PDS(unsigned char *output_buffer,off_t& offset,Grid *grid
   }
 }
 
-void GRIBMessage::pack_GDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIBMessage::pack_gds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   short sign;
@@ -900,7 +900,7 @@ set_bits(output_buffer,255,off+32,8);
   }
 }
 
-void GRIBMessage::pack_BMS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIBMessage::pack_bms(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   int ub;
@@ -940,7 +940,7 @@ set_bits(output_buffer,0,off+40,8);
   }
 }
 
-void GRIBMessage::pack_BDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   double d,e,range;
@@ -1059,11 +1059,11 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
 	}
 	default:
 	{
-	  std::cerr << "Warning: pack_BDS does not recognize grid type " << g->grid.grid_type << std::endl;
+	  std::cerr << "Warning: pack_bds does not recognize grid type " << g->grid.grid_type << std::endl;
 	}
     }
     if (cnt != num_packed) {
-	mywarning="pack_BDS: specified number of gridpoints "+strutils::itos(num_packed)+" does not agree with actual number packed "+strutils::itos(cnt)+"  date: "+g->reference_date_time_.to_string()+" "+strutils::itos(g->grid.param);
+	mywarning="pack_bds: specified number of gridpoints "+strutils::itos(num_packed)+" does not agree with actual number packed "+strutils::itos(cnt)+"  date: "+g->reference_date_time_.to_string()+" "+strutils::itos(g->grid.param);
     }
     set_bits(output_buffer,packed,off+88,g->grib.pack_width,0,num_packed);
   }
@@ -1077,7 +1077,7 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
   }
 }
 
-void GRIBMessage::pack_END(unsigned char *output_buffer,off_t& offset) const
+void GRIBMessage::pack_end(unsigned char *output_buffer,off_t& offset) const
 {
   set_bits(output_buffer,0x37373737,offset*8,32);
   offset+=4;
@@ -1087,32 +1087,32 @@ off_t GRIBMessage::copy_to_buffer(unsigned char *output_buffer,const size_t buff
 {
   off_t offset;
 
-  pack_IS(output_buffer,offset,grids.front());
+  pack_is(output_buffer,offset,grids.front());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  pack_PDS(output_buffer,offset,grids.front());
+  pack_pds(output_buffer,offset,grids.front());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
   if (gds_included) {
-    pack_GDS(output_buffer,offset,grids.front());
+    pack_gds(output_buffer,offset,grids.front());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
   }
   if (bms_included) {
-    pack_BMS(output_buffer,offset,grids.front());
+    pack_bms(output_buffer,offset,grids.front());
   }
-  pack_BDS(output_buffer,offset,grids.front());
+  pack_bds(output_buffer,offset,grids.front());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  pack_END(output_buffer,offset);
+  pack_end(output_buffer,offset);
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
@@ -1129,7 +1129,7 @@ void GRIBMessage::clear_grids()
   grids.clear();
 }
 
-void GRIBMessage::unpack_IS(const unsigned char *stream_buffer)
+void GRIBMessage::unpack_is(const unsigned char *stream_buffer)
 {
   int test;
 
@@ -1160,7 +1160,7 @@ void GRIBMessage::unpack_IS(const unsigned char *stream_buffer)
   }
 }
 
-void GRIBMessage::unpack_PDS(const unsigned char *stream_buffer)
+void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   short flag,soff;
@@ -1171,7 +1171,7 @@ void GRIBMessage::unpack_PDS(const unsigned char *stream_buffer)
   offsets_.pds=curr_off;
   g=reinterpret_cast<GRIBGrid *>(grids.back());
   g->ensdata.fcst_type="";
-  g->ensdata.ID="";
+  g->ensdata.id="";
   g->ensdata.total_size=0;
   get_bits(stream_buffer,lengths_.pds,off,24);
   if (edition_ == 1) {
@@ -1485,7 +1485,7 @@ void GRIBMessage::unpack_PDS(const unsigned char *stream_buffer)
     }
   }
   g->forecast_date_time_=g->valid_date_time_=g->reference_date_time_;
-  g->grib.prod_descr=gributils::GRIB_product_description(g,g->forecast_date_time_,g->valid_date_time_,g->grid.fcst_time);
+  g->grib.prod_descr=gributils::grib_product_description(g,g->forecast_date_time_,g->valid_date_time_,g->grid.fcst_time);
 // unpack PDS supplement, if it exists
   if (pds_supp != nullptr) {
     delete[] pds_supp;
@@ -1525,18 +1525,18 @@ void GRIBMessage::unpack_PDS(const unsigned char *stream_buffer)
 	  case 2:
 	  {
 	    g->ensdata.fcst_type="NEG";
-	    g->ensdata.ID=strutils::itos(pds_supp[2]);
+	    g->ensdata.id=strutils::itos(pds_supp[2]);
 	    break;
 	  }
 	  case 3:
 	  {
 	    g->ensdata.fcst_type="POS";
-	    g->ensdata.ID=strutils::itos(pds_supp[2]);
+	    g->ensdata.id=strutils::itos(pds_supp[2]);
 	    break;
 	  }
 	  case 5:
 	  {
-	    g->ensdata.ID="ALL";
+	    g->ensdata.id="ALL";
 	    switch (static_cast<int>(pds_supp[3])) {
 		case 1:
 		{
@@ -1574,7 +1574,7 @@ void GRIBMessage::unpack_PDS(const unsigned char *stream_buffer)
   curr_off+=lengths_.pds;
 }
 
-void GRIBMessage::unpack_GDS(const unsigned char *stream_buffer)
+void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   GRIBGrid *g;
@@ -1598,7 +1598,7 @@ void GRIBMessage::unpack_GDS(const unsigned char *stream_buffer)
 	    PL=PV;
 /*
     if (grib.PL >= grib.lengths_.gds) {
-	std::cerr << "Error in unpack_GDS: grib.PL (" << grib.PL << ") exceeds grib.lengths_.gds (" << grib.lengths_.gds << "); NV=" << grib.NV << ", PV=" << grib.PV << std::endl;
+	std::cerr << "Error in unpack_gds: grib.PL (" << grib.PL << ") exceeds grib.lengths_.gds (" << grib.lengths_.gds << "); NV=" << grib.NV << ", PV=" << grib.PV << std::endl;
 	exit(1);
     }
 */
@@ -1812,13 +1812,13 @@ void GRIBMessage::unpack_GDS(const unsigned char *stream_buffer)
     }
     default:
     {
-	std::cerr << "Warning: unpack_GDS does not recognize data representation " << g->grid.grid_type << std::endl;
+	std::cerr << "Warning: unpack_gds does not recognize data representation " << g->grid.grid_type << std::endl;
     }
   }
   curr_off+=lengths_.gds;
 }
 
-void GRIBMessage::unpack_BMS(const unsigned char *stream_buffer)
+void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   GRIBGrid *g;
@@ -1908,7 +1908,7 @@ get_bits(stream_buffer,g2->bitmap.map,off+48,1,0,len);
   curr_off+=lengths_.bms;
 }
 
-void GRIBMessage::unpack_BDS(const unsigned char *stream_buffer,bool fill_header_only)
+void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header_only)
 {
   off_t off=curr_off*8;
   GRIBGrid *g;
@@ -1953,7 +1953,7 @@ void GRIBMessage::unpack_BDS(const unsigned char *stream_buffer,bool fill_header
 	  num_packed=g->dim.size-g->grid.num_missing;
 	  npoints=((lengths_.bds-11)*8-unused)/g->grib.pack_width;
 	  if (npoints != num_packed && g->dim.size != 0 && npoints != g->dim.size)
-	    std::cerr << "Warning: unpack_BDS: specified # gridpoints " << num_packed << " vs. # packed " << npoints << "  date: " << g->reference_date_time_.to_string() << "  param: " << g->grid.param << "  lengths.bds: " << lengths_.bds << "  ubits: " << unused << "  pack_width: " << g->grib.pack_width << std::endl;
+	    std::cerr << "Warning: unpack_bds: specified # gridpoints " << num_packed << " vs. # packed " << npoints << "  date: " << g->reference_date_time_.to_string() << "  param: " << g->grid.param << "  lengths.bds: " << lengths_.bds << "  ubits: " << unused << "  pack_width: " << g->grib.pack_width << std::endl;
 	}
 	else {
 	}
@@ -2155,7 +2155,7 @@ exit(1);
 	  }
 	  default:
 	  {
-	    std::cerr << "Warning: unpack_BDS does not recognize grid type " << g->grid.grid_type << std::endl;
+	    std::cerr << "Warning: unpack_bds does not recognize grid type " << g->grid.grid_type << std::endl;
 	  }
 	}
 	delete[] pval;
@@ -2325,7 +2325,7 @@ exit(1);
   curr_off+=lengths_.bds;
 }
 
-void GRIBMessage::unpack_END(const unsigned char *stream_buffer)
+void GRIBMessage::unpack_end(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   int test;
@@ -2348,7 +2348,7 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
     exit(1);
   }
   clear_grids();
-  unpack_IS(stream_buffer);
+  unpack_is(stream_buffer);
   if (edition_ > 1) {
     myerror="can't decode edition "+strutils::itos(edition_);
     exit(1);
@@ -2356,12 +2356,12 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
   g=new GRIBGrid;
   g->grid.filled=false;
   grids.emplace_back(g);
-  unpack_PDS(stream_buffer);
+  unpack_pds(stream_buffer);
   if (edition_ == 0) {
     mlength+=lengths_.pds;
   }
   if (gds_included) {
-    unpack_GDS(stream_buffer);
+    unpack_gds(stream_buffer);
     if (edition_ == 0) {
 	mlength+=lengths_.gds;
     }
@@ -2393,16 +2393,16 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
     mywarning="grid dimensions not defined";
   }
   if (bms_included) {
-    unpack_BMS(stream_buffer);
+    unpack_bms(stream_buffer);
     if (edition_ == 0) {
 	mlength+=lengths_.bms;
     }
   }
-  unpack_BDS(stream_buffer,fill_header_only);
+  unpack_bds(stream_buffer,fill_header_only);
   if (edition_ == 0) {
     mlength+=(lengths_.bds+4);
   }
-  unpack_END(stream_buffer);
+  unpack_end(stream_buffer);
 }
 
 Grid *GRIBMessage::grid(size_t grid_number) const
@@ -2413,7 +2413,7 @@ Grid *GRIBMessage::grid(size_t grid_number) const
     return grids[grid_number];
 }
 
-void GRIBMessage::PDS_supplement(unsigned char *pds_supplement,size_t& pds_supplement_length) const
+void GRIBMessage::pds_supplement(unsigned char *pds_supplement,size_t& pds_supplement_length) const
 {
   size_t n;
 
@@ -2490,7 +2490,7 @@ void GRIBMessage::print_header(std::ostream& outs,bool verbose) const
   }
 }
 
-void GRIB2Message::unpack_IDS(const unsigned char *input_buffer)
+void GRIB2Message::unpack_ids(const unsigned char *input_buffer)
 {
   off_t off=curr_off*8;
   short sec_num;
@@ -2520,7 +2520,7 @@ void GRIB2Message::unpack_IDS(const unsigned char *input_buffer)
   curr_off+=lengths_.ids;
 }
 
-void GRIB2Message::pack_IDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_ids(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   short hr,min,sec;
@@ -2548,7 +2548,7 @@ set_bits(output_buffer,21,off,32);
 offset+=21;
 }
 
-void GRIB2Message::unpack_LUS(const unsigned char *stream_buffer)
+void GRIB2Message::unpack_lus(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
 
@@ -2556,11 +2556,11 @@ void GRIB2Message::unpack_LUS(const unsigned char *stream_buffer)
   curr_off+=lus_len;
 }
 
-void GRIB2Message::pack_LUS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_lus(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
 }
 
-void GRIB2Message::unpack_PDS(const unsigned char *stream_buffer)
+void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   short sec_num;
@@ -2692,7 +2692,7 @@ void GRIB2Message::unpack_PDS(const unsigned char *stream_buffer)
 		}
 	    }
 	    get_bits(stream_buffer,dum,off+280,8);
-	    g2->ensdata.ID=strutils::itos(dum);
+	    g2->ensdata.id=strutils::itos(dum);
 	    get_bits(stream_buffer,g2->ensdata.total_size,off+288,8);
 	    switch (g2->grib2.product_type) {
 		case 61:
@@ -2779,7 +2779,7 @@ exit(1);
 		  exit(1);
 		}
 	    }
-	    g2->ensdata.ID="ALL";
+	    g2->ensdata.id="ALL";
 	    get_bits(stream_buffer,g2->ensdata.total_size,off+280,8);
 	    switch (g2->grib2.product_type) {
 		case 12:
@@ -2922,11 +2922,11 @@ else {
   g2->forecast_date_time_=g2->valid_date_time_=g2->reference_date_time_.hours_added(g2->grid.fcst_time);
   g2->grid.fcst_time*=10000;
 }
-  g2->grib.prod_descr=gributils::GRIB2_product_description(g2,g2->forecast_date_time_,g2->valid_date_time_);
+  g2->grib.prod_descr=gributils::grib2_product_description(g2,g2->forecast_date_time_,g2->valid_date_time_);
   curr_off+=lengths_.pds;
 }
 
-void GRIB2Message::pack_PDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   size_t fcst_time;
@@ -3094,7 +3094,7 @@ std::cerr << "unable to finish packing PDS for product type " << g2->grib2.produ
   }
 }
 
-void GRIB2Message::unpack_GDS(const unsigned char *stream_buffer)
+void GRIB2Message::unpack_gds(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   short sec_num;
@@ -3315,7 +3315,7 @@ exit(1);
   curr_off+=lengths_.gds;
 }
 
-void GRIB2Message::pack_GDS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_gds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   long long sdum;
@@ -3391,7 +3391,7 @@ sdum=llround(g2->def.laincrement*1000000.);
   }
 }
 
-void GRIB2Message::unpack_DRS(const unsigned char *stream_buffer)
+void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   short sec_num;
@@ -3472,7 +3472,7 @@ void GRIB2Message::unpack_DRS(const unsigned char *stream_buffer)
   curr_off+=lengths_.drs;
 }
 
-void GRIB2Message::pack_DRS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   union {
@@ -3623,7 +3623,7 @@ extern "C" int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
 }
 #endif
 
-void GRIB2Message::unpack_DS(const unsigned char *stream_buffer,bool fill_header_only)
+void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header_only)
 {
   off_t off=curr_off*8;
   short sec_num;
@@ -4099,7 +4099,7 @@ int enc_jpeg2000(unsigned char *cin,int *pwidth,int *pheight,int *pnbits,
 }
 #endif
 
-void GRIB2Message::pack_DS(unsigned char *output_buffer,off_t& offset,Grid *grid) const
+void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
 {
   off_t off=offset*8;
   int noff,jval,len;
@@ -4185,51 +4185,51 @@ off_t GRIB2Message::copy_to_buffer(unsigned char *output_buffer,const size_t buf
 {
   off_t offset;
 
-  pack_IS(output_buffer,offset,grids.front());
+  pack_is(output_buffer,offset,grids.front());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  pack_IDS(output_buffer,offset,grids.front());
+  pack_ids(output_buffer,offset,grids.front());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
   for (auto grid : grids) {
-    pack_LUS(output_buffer,offset,grid);
+    pack_lus(output_buffer,offset,grid);
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
     if (gds_included) {
-	pack_GDS(output_buffer,offset,grid);
+	pack_gds(output_buffer,offset,grid);
 	if (offset > static_cast<off_t>(buffer_length)) {
 	  myerror="buffer overflow in copy_to_buffer()";
 	  exit(1);
 	}
     }
-    pack_PDS(output_buffer,offset,grid);
+    pack_pds(output_buffer,offset,grid);
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_DRS(output_buffer,offset,grid);
+    pack_drs(output_buffer,offset,grid);
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_BMS(output_buffer,offset,grid);
+    pack_bms(output_buffer,offset,grid);
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_DS(output_buffer,offset,grid);
+    pack_ds(output_buffer,offset,grid);
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
   }
-  pack_END(output_buffer,offset);
+  pack_end(output_buffer,offset);
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
@@ -4250,7 +4250,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
     exit(1);
   }
   clear_grids();
-  unpack_IS(stream_buffer);
+  unpack_is(stream_buffer);
   if (edition_ != 2) {
     myerror="can't decode edition "+strutils::itos(edition_);
     exit(1);
@@ -4286,37 +4286,37 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	switch (sec_num) {
 	  case 1:
 	  {
-	    unpack_IDS(stream_buffer);
+	    unpack_ids(stream_buffer);
 	    break;
 	  }
 	  case 2:
 	  {
-	    unpack_LUS(stream_buffer);
+	    unpack_lus(stream_buffer);
 	    break;
 	  }
 	  case 3:
 	  {
-	    unpack_GDS(stream_buffer);
+	    unpack_gds(stream_buffer);
 	    break;
 	  }
 	  case 4:
 	  {
-	    unpack_PDS(stream_buffer);
+	    unpack_pds(stream_buffer);
 	    break;
 	  }
 	  case 5:
 	  {
-	    unpack_DRS(stream_buffer);
+	    unpack_drs(stream_buffer);
 	    break;
 	  }
 	  case 6:
 	  {
-	    unpack_BMS(stream_buffer);
+	    unpack_bms(stream_buffer);
 	    break;
 	  }
 	  case 7:
 	  {
-	    unpack_DS(stream_buffer,fill_header_only);
+	    unpack_ds(stream_buffer,fill_header_only);
 	    break;
 	  }
 	}
@@ -4434,12 +4434,12 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	}
 	case 5:
 	{
-	  unpack_DRS(stream_buffer);
+	  unpack_drs(stream_buffer);
 	  break;
 	}
 	case 6:
 	{
-unpack_BMS(stream_buffer);
+unpack_bms(stream_buffer);
 /*
 	  off=curr_off*8;
 	  int ind;
@@ -4471,7 +4471,7 @@ unpack_BMS(stream_buffer);
 	}
 	case 7:
 	{
-	  unpack_DS(stream_buffer,false);
+	  unpack_ds(stream_buffer,false);
 	  break;
 	}
     }
@@ -4634,7 +4634,7 @@ void GRIBGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   exit(1);
 }
 
-void GRIBGrid::fill_from_GRIB_data(const GRIBData& source)
+void GRIBGrid::fill_from_grib_data(const GRIBData& source)
 {
   int n,m,cnt=0,avg_cnt=0;
   my::map<Grid::GLatEntry> gaus_lats;
@@ -8787,7 +8787,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
 /*
     if (pds_supp != nullptr)
 	delete[] pds_supp;
-    if (source.ensdata.ID == "ALL") {
+    if (source.ensdata.id == "ALL") {
 	grib.lengths_.pds_supp=ensdata.fcst_type.getLength()+1;
 	pds_supp=new unsigned char[grib.lengths_.pds_supp];
 	memcpy(pds_supp,ensdata.fcst_type.toChar(),ensdata.fcst_type.getLength());
@@ -8795,7 +8795,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
     else {
 	grib.lengths_.pds_supp=ensdata.fcst_type.getLength()+2;
 	pds_supp=new unsigned char[grib.lengths_.pds_supp];
-	memcpy(pds_supp,(ensdata.fcst_type+ensdata.ID).toChar(),ensdata.fcst_type.getLength()+1);
+	memcpy(pds_supp,(ensdata.fcst_type+ensdata.id).toChar(),ensdata.fcst_type.getLength()+1);
     }
     pds_supp[grib.lengths_.pds_supp-1]=(unsigned char)ensdata.total_size;
     grib.lengths_.pds=40+grib.lengths_.pds_supp;
@@ -9126,7 +9126,7 @@ void GRIBGrid::print(std::ostream& outs,float bottom_latitude,float top_latitude
 {
 }
 
-void GRIBGrid::print_ASCII(std::ostream& outs) const
+void GRIBGrid::print_ascii(std::ostream& outs) const
 {
 }
 
@@ -9164,7 +9164,7 @@ std::string GRIBGrid::build_parameter_search_key() const
   return strutils::itos(grid.src)+"-"+strutils::itos(grib.sub_center)+"."+strutils::itos(grib.table);
 }
 
-std::string GRIBGrid::parameter_CF_keyword(xmlutils::ParameterMapper& parameter_mapper) const
+std::string GRIBGrid::parameter_cf_keyword(xmlutils::ParameterMapper& parameter_mapper) const
 {
   short edition;
   if (grib.table < 0) {
@@ -9173,7 +9173,7 @@ std::string GRIBGrid::parameter_CF_keyword(xmlutils::ParameterMapper& parameter_
   else {
     edition=1;
   }
-  return parameter_mapper.CF_keyword("WMO_GRIB"+strutils::itos(edition),build_parameter_search_key()+":"+strutils::itos(grid.param));
+  return parameter_mapper.cf_keyword("WMO_GRIB"+strutils::itos(edition),build_parameter_search_key()+":"+strutils::itos(grid.param));
 }
 
 std::string GRIBGrid::parameter_description(xmlutils::ParameterMapper& parameter_mapper) const
@@ -9239,9 +9239,9 @@ void GRIBGrid::print_header(std::ostream& outs,bool verbose) const
     else {
 	outs << grib.time_unit;
     }
-    if (ensdata.ID.length() > 0) {
-	outs << " Ensemble: " << ensdata.ID;
-	if (ensdata.ID == "ALL" && ensdata.total_size > 0) {
+    if (!ensdata.id.empty()) {
+	outs << " Ensemble: " << ensdata.id;
+	if (ensdata.id == "ALL" && ensdata.total_size > 0) {
 	  outs << "/" << ensdata.total_size;
 	}
 	outs << "/" << ensdata.fcst_type;
@@ -9385,9 +9385,9 @@ void GRIBGrid::print_header(std::ostream& outs,bool verbose) const
     else {
 	outs << grib.time_unit;
     }
-    if (ensdata.ID.length() > 0) {
-	outs << " Ens=" << ensdata.ID;
-	if (ensdata.ID == "ALL" && ensdata.total_size > 0) {
+    if (!ensdata.id.empty()) {
+	outs << " Ens=" << ensdata.id;
+	if (ensdata.id == "ALL" && ensdata.total_size > 0) {
 	  outs << "/" << ensdata.total_size;
 	}
 	outs << "/" << ensdata.fcst_type;
@@ -9634,7 +9634,7 @@ grib_data.gridpoints[n][m]=Grid::missing_value;
 	}
     }
   }
-  latlon_grid.fill_from_GRIB_data(grib_data);
+  latlon_grid.fill_from_grib_data(grib_data);
   return latlon_grid;
 }
 
@@ -10033,13 +10033,13 @@ std::string GRIB2Grid::build_parameter_search_key() const
   return strutils::itos(grid.src)+"-"+strutils::itos(grib.sub_center)+"."+strutils::itos(grib.table)+"-"+strutils::itos(grib2.local_table);
 }
 
-std::string GRIB2Grid::parameter_CF_keyword(xmlutils::ParameterMapper& parameter_mapper) const
+std::string GRIB2Grid::parameter_cf_keyword(xmlutils::ParameterMapper& parameter_mapper) const
 {
   auto level_type=strutils::itos(grid.level1_type);
   if (grid.level2_type > 0 && grid.level2_type < 255) {
     level_type+="-"+strutils::itos(grid.level2_type);
   }
-  return parameter_mapper.CF_keyword("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param),level_type);
+  return parameter_mapper.cf_keyword("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param),level_type);
 }
 
 std::string GRIB2Grid::parameter_description(xmlutils::ParameterMapper& parameter_mapper) const
@@ -10295,7 +10295,7 @@ void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
 	  switch (grib2.product_type) {
 	    case 1:
 	    {
-		outs << "  Ensemble Type/ID/Size: " << ensdata.fcst_type << "/" << ensdata.ID << "/" << ensdata.total_size;
+		outs << "  Ensemble Type/ID/Size: " << ensdata.fcst_type << "/" << ensdata.id << "/" << ensdata.total_size;
 		break;
 	    }
 	    case 8:
@@ -10360,7 +10360,7 @@ void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
 	}
     }
     if (ensdata.fcst_type.length() > 0) {
-	outs << "|E=" << ensdata.fcst_type << "." << ensdata.ID << "." << ensdata.total_size;
+	outs << "|E=" << ensdata.fcst_type << "." << ensdata.id << "." << ensdata.total_size;
 	if (grib2.modelv_date.year() != 0) {
 	  outs << "|Mver=" << grib2.modelv_date.to_string("%Y%m%d%H%MM%SS");
 	}
@@ -11354,7 +11354,7 @@ void set_forecast_date_time(size_t p1,short tunits,const DateTime& reference_dat
   }
 }
 
-std::string GRIB_product_description(GRIBGrid *grid,DateTime& forecast_date_time,DateTime& valid_date_time,size_t& fcst_time)
+std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time,DateTime& valid_date_time,size_t& fcst_time)
 {
   std::string product_description;
 
@@ -11575,43 +11575,43 @@ std::string GRIB_product_description(GRIBGrid *grid,DateTime& forecast_date_time
     case 128:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_128_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_128_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 129:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_129_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_129_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 130:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_130_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_130_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 131:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_131_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_131_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 132:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_132_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_132_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 137:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_137_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_137_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     case 138:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	product_description=time_range_138_to_string("grib",grid->source(),grid->sub_center_ID(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
+	product_description=time_range_138_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
     default:
@@ -11623,7 +11623,7 @@ std::string GRIB_product_description(GRIBGrid *grid,DateTime& forecast_date_time
   return product_description;
 }
 
-std::string GRIB2_product_description(GRIB2Grid *grid,DateTime& forecast_date_time,DateTime& valid_date_time)
+std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_time,DateTime& valid_date_time)
 {
   std::string product_description;
 
@@ -11674,25 +11674,25 @@ std::string GRIB2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
 		    case 195:
 		    {
 // average of foreast accumulations at 24-hour intervals
-			product_description+=time_range_128_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_ID(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
+			product_description+=time_range_128_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
 		    case 197:
 		    {
 // average of foreast averages at 24-hour intervals
-			product_description+=time_range_130_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_ID(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
+			product_description+=time_range_130_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
 		    case 204:
 		    {
 // average of foreast accumulations at 6-hour intervals
-			product_description+=time_range_137_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_ID(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
+			product_description+=time_range_137_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
 		    case 205:
 		    {
 // average of foreast averages at 6-hour intervals
-			product_description+=time_range_138_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_ID(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
+			product_description+=time_range_138_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
 		    case 255:

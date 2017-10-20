@@ -321,10 +321,10 @@ bool DataTypeMap::fill(const std::string& xml_file)
 	    dtme.description_.insert(ae);
 	  }
 	  else if (dt_elem.p->name() == "GCMD") {
-	    dtme.GCMD_list.emplace_back(dt_elem.p->content());
+	    dtme.gcmd_list.emplace_back(dt_elem.p->content());
 	  }
 	  else if (dt_elem.p->name() == "ISO") {
-	    dtme.ISO_topic_list.emplace_back(dt_elem.p->content());
+	    dtme.iso_topic_list.emplace_back(dt_elem.p->content());
 	  }
 	  else if (dt_elem.p->name() == "variable") {
 	    dtme.variable_list.emplace_back(dt_elem.p->content());
@@ -361,26 +361,26 @@ std::string DataTypeMap::description(const std::string& datatype_code,std::strin
   }
 }
 
-std::list<std::string> DataTypeMap::GCMD_keywords(const std::string& datatype_code)
+std::list<std::string> DataTypeMap::gcmd_keywords(const std::string& datatype_code)
 {
   std::list<std::string> empty_list;
   DTMapEntry dtme;
   dtme.key=datatype_code;
   if (datatype_map_table.found(dtme.key,dtme)) {
-    return dtme.GCMD_list;
+    return dtme.gcmd_list;
   }
   else {
     return empty_list;
   }
 }
 
-std::list<std::string> DataTypeMap::ISO_topic_keywords(const std::string& datatype_code)
+std::list<std::string> DataTypeMap::iso_topic_keywords(const std::string& datatype_code)
 {
   std::list<std::string> empty_list;
   DTMapEntry dtme;
   dtme.key=datatype_code;
   if (datatype_map_table.found(dtme.key,dtme)) {
-    return dtme.ISO_topic_list;
+    return dtme.iso_topic_list;
   }
   else {
     return empty_list;
@@ -572,11 +572,11 @@ ParameterMapEntry ParameterMapper::entry(std::string format,std::string paramete
   return pme;
 }
 
-std::string ParameterMapper::CF_keyword(std::string format,std::string parameter_code,std::string level_type)
+std::string ParameterMapper::cf_keyword(std::string format,std::string parameter_code,std::string level_type)
 {
   std::string parameter_map;
   clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->CF_keyword(parameter_code,level_type);
+  return entry(format,parameter_map).p->cf_keyword(parameter_code,level_type);
 }
 
 std::string ParameterMapper::comment(std::string format,std::string parameter_code)
@@ -732,9 +732,9 @@ std::string DataTypeMapper::description(std::string format,std::string dsnum,std
   return entry(format,dsnum).d->description(data_type_code,platform_type);
 }
 
-std::list<std::string> DataTypeMapper::GCMD_keywords(std::string format,std::string dsnum,std::string data_type_code)
+std::list<std::string> DataTypeMapper::gcmd_keywords(std::string format,std::string dsnum,std::string data_type_code)
 { 
-  return entry(format,dsnum).d->GCMD_keywords(data_type_code);
+  return entry(format,dsnum).d->gcmd_keywords(data_type_code);
 }
 
 std::list<std::string> DataTypeMapper::variables(std::string format,std::string dsnum,std::string data_type_code)
