@@ -251,8 +251,7 @@ public:
   void close();
   bool debug_is_on() const { return show_debug; }
   Attribute attribute(std::string xpath);
-//  int getData(Dataset& dataset,void **values);
-  Dataset *dataset(std::string xpath);
+  std::shared_ptr<Dataset> dataset(std::string xpath);
   std::list<InputHDF5Stream::DatasetEntry> datasets_with_attribute(std::string attribute_path,Group *g = nullptr);
   std::fstream *file_stream() { return &fs; }
   std::shared_ptr<my::map<ReferenceEntry>> reference_table_pointer() const { return ref_table; }
