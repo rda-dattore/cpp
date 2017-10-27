@@ -1549,7 +1549,7 @@ void InputHDF5Stream::Dataset::free()
   }
 }
 
-InputHDF5Stream::Dataset *InputHDF5Stream::dataset(std::string xpath)
+std::shared_ptr<InputHDF5Stream::Dataset> InputHDF5Stream::dataset(std::string xpath)
 {
   Group *g=&root_group;
   auto xparts=strutils::split(xpath,"/");
@@ -1572,7 +1572,7 @@ InputHDF5Stream::Dataset *InputHDF5Stream::dataset(std::string xpath)
 	}
     }
   }
-  return dse.dataset.get();
+  return dse.dataset;
 }
 
 std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(std::string attribute_path,Group *g)
