@@ -67,7 +67,7 @@ bool connectToBackupMetadataServer(MySQL::Server& srv_m)
   }
 }
 
-bool connect_to_RDADB_server(MySQL::Server& srv_d)
+bool connect_to_rdadb_server(MySQL::Server& srv_d)
 {
   int num_tries=0;
 
@@ -219,7 +219,7 @@ void read_config(std::string caller,std::string user,std::string args_string,boo
   }
 }
 
-std::list<std::string> CMD_databases(std::string caller,std::string user,std::string args_string)
+std::list<std::string> cmd_databases(std::string caller,std::string user,std::string args_string)
 {
   MySQL::Server server;
   MySQL::Query query;
@@ -231,7 +231,7 @@ std::list<std::string> CMD_databases(std::string caller,std::string user,std::st
   connect_to_metadata_server(server);
   query.set("show databases where `Database` like '%ML' and `Database` not like 'W%'");
   if (query.submit(server) < 0)
-    log_error("CMD_databases() returned error: '"+query.error()+"'",caller,user,args_string);
+    log_error("cmd_databases() returned error: '"+query.error()+"'",caller,user,args_string);
   while (query.fetch_row(row)) {
     databases.push_back(row[0]);
     se.key=row[0];
@@ -239,7 +239,7 @@ std::list<std::string> CMD_databases(std::string caller,std::string user,std::st
   }
   query.set("show databases where `Database` like 'W%ML'");
   if (query.submit(server) < 0)
-    log_error("CMD_databases() returned error: '"+query.error()+"'",caller,user,args_string);
+    log_error("cmd_databases() returned error: '"+query.error()+"'",caller,user,args_string);
   while (query.fetch_row(row)) {
     se.key=row[0].substr(1);
     if (!table.found(se.key,se))
@@ -319,7 +319,7 @@ void check_for_existing_CMD(std::string cmd_type)
 void cmd_register(std::string cmd,std::string user)
 {
   MySQL::Server server_d;
-  connect_to_RDADB_server(server_d);
+  connect_to_rdadb_server(server_d);
   std::string file=args.path+"/"+args.filename;
   if (!args.member_name.empty()) {
     file+="..m.."+args.member_name;
@@ -352,7 +352,7 @@ extern "C" void cmd_unregister()
 {
   MySQL::Server server_d;
 
-  connect_to_RDADB_server(server_d);
+  connect_to_rdadb_server(server_d);
   if (args.reg_key.length() > 0)
     server_d._delete("cmd_reg","regkey = '"+args.reg_key+"'");
   server_d.disconnect();
@@ -513,7 +513,7 @@ void obs_per(std::string observationTypeValue,size_t numObs,DateTime start,DateT
 std::string web_home()
 {
   MySQL::Server server;
-  connect_to_RDADB_server(server);
+  connect_to_rdadb_server(server);
   MySQL::LocalQuery query;
   query.set("webhome","dataset","dsid = 'ds"+args.dsnum+"'");
   std::string webhome;
@@ -533,35 +533,35 @@ std::string web_home()
   return webhome;
 }
 
-std::string relative_web_filename(std::string URL)
+std::string relative_web_filename(std::string url)
 {
-  strutils::replace_all(URL,"https://rda.ucar.edu","");
-  strutils::replace_all(URL,"http://rda.ucar.edu","");
-  strutils::replace_all(URL,"http://dss.ucar.edu","");
-  if (std::regex_search(URL,std::regex("^/dsszone"))) {
-    strutils::replace_all(URL,"/dsszone",directives.data_root_alias);
+  strutils::replace_all(url,"https://rda.ucar.edu","");
+  strutils::replace_all(url,"http://rda.ucar.edu","");
+  strutils::replace_all(url,"http://dss.ucar.edu","");
+  if (std::regex_search(url,std::regex("^/dsszone"))) {
+    strutils::replace_all(url,"/dsszone",directives.data_root_alias);
   }
-  return strutils::substitute(URL,directives.data_root_alias+"/ds"+args.dsnum+"/","");
+  return strutils::substitute(url,directives.data_root_alias+"/ds"+args.dsnum+"/","");
 }
 
-std::string clean_ID(std::string ID)
+std::string clean_id(std::string id)
 {
-  strutils::trim(ID);
-  for (size_t n=0; n < ID.length(); n++) {
-    if (static_cast<int>(ID[n]) < 32 || static_cast<int>(ID[n]) > 127) {
+  strutils::trim(id);
+  for (size_t n=0; n < id.length(); n++) {
+    if (static_cast<int>(id[n]) < 32 || static_cast<int>(id[n]) > 127) {
 	if (n > 0) {
-	  ID=ID.substr(0,n)+"/"+ID.substr(n+1);
+	  id=id.substr(0,n)+"/"+id.substr(n+1);
 	}
 	else {
-	  ID="/"+ID.substr(1);
+	  id="/"+id.substr(1);
 	}
     }
   }
-  strutils::replace_all(ID,"\"","'");
-  strutils::replace_all(ID,"&","&amp;");
-  strutils::replace_all(ID,">","&gt;");
-  strutils::replace_all(ID,"<","&lt;");
-  return strutils::to_upper(ID);
+  strutils::replace_all(id,"\"","'");
+  strutils::replace_all(id,"&","&amp;");
+  strutils::replace_all(id,">","&gt;");
+  strutils::replace_all(id,"<","&lt;");
+  return strutils::to_upper(id);
 }
 
 namespace NcTime {
@@ -624,7 +624,7 @@ error="can't compute dates from fractional months";
   return date_time;
 }
 
-std::string gridded_NetCDF_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string time_method,std::string& error)
+std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string time_method,std::string& error)
 {
   std::string time_range;
   if (static_cast<int>(tre.key) < 0) {
@@ -643,7 +643,7 @@ std::string gridded_NetCDF_time_range_description(const TimeRangeEntry& tre,cons
 	  time_range="Monthly ";
 	}
 	else {
-	  error="gridded_NetCDF_time_range_description(): don't understand time units '"+time_data.units+"' for cell method '"+time_method+"'";
+	  error="gridded_netcdf_time_range_description(): don't understand time units '"+time_data.units+"' for cell method '"+time_method+"'";
 	}
 	time_range+=time_method;
     }
@@ -682,7 +682,7 @@ std::string gridded_NetCDF_time_range_description(const TimeRangeEntry& tre,cons
     else {
 	time_method+="s";
     }
-    switch (*tre.unit) {
+    switch (tre.data->unit) {
 	case 1:
 	{
 	  time_range+="Monthly ";
@@ -1078,7 +1078,7 @@ void matchWebFileToMSSPrimary(std::string URL,std::string& metadata_file)
   MySQL::Query query;
   MySQL::Row row;
 
-  metautils::connect_to_RDADB_server(server);
+  metautils::connect_to_rdadb_server(server);
   query.set("select m.mssfile from wfile as w left join mssfile as m on m.mssid = w.mssid where w.dsid = 'ds"+args.dsnum+"' and w.wfile = '"+metautils::relative_web_filename(URL)+"' and w.property = 'A' and w.type = 'D' and m.data_size = w.data_size");
   if (query.submit(server) < 0) {
     std::cerr << query.error() << std::endl;
