@@ -139,7 +139,7 @@ void read_config(std::string caller,std::string user,std::string args_string,boo
   else if (stat("/glade/u/home/rdadata",&buf) == 0) {
     directives.dss_root="/glade/u/home/rdadata";
   }
-  if (directives.dss_root.length() == 0) {
+  if (directives.dss_root.empty()) {
     std::cerr << "Error locating DSS root directory on " << directives.host << std::endl;
     exit(1);
   }
@@ -192,10 +192,14 @@ void read_config(std::string caller,std::string user,std::string args_string,boo
 	  directives.fallback_database_server=conf_parts[1];
 	}
 	else if (conf_parts[0] == "tempPath") {
-	  if (conf_parts.size() != 2)
+	  if (conf_parts.size() != 2) {
 	    log_error("configuration error on 'tempPath' line",caller,user,args_string);
-	  if (stat(conf_parts[1].c_str(),&buf) == 0)
-	    directives.temp_path=conf_parts[1];
+	  }
+	  if (directives.temp_path.empty()) {
+	    if (stat(conf_parts[1].c_str(),&buf) == 0) {
+		directives.temp_path=conf_parts[1];
+	    }
+	  }
 	}
 	else if (conf_parts[0] == "dataRoot") {
 	  if (conf_parts.size() != 3) {
@@ -353,8 +357,9 @@ extern "C" void cmd_unregister()
   MySQL::Server server_d;
 
   connect_to_rdadb_server(server_d);
-  if (args.reg_key.length() > 0)
+  if (!args.reg_key.empty()) {
     server_d._delete("cmd_reg","regkey = '"+args.reg_key+"'");
+  }
   server_d.disconnect();
 }
 
@@ -628,7 +633,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 {
   std::string time_range;
   if (static_cast<int>(tre.key) < 0) {
-    if (time_method.length() > 0) {
+    if (!time_method.empty()) {
 	auto lmethod=strutils::to_lower(time_method);
 	if (strutils::contains(lmethod,"monthly")) {
 	  time_range="Monthly ";
@@ -686,7 +691,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	case 1:
 	{
 	  time_range+="Monthly ";
-	  if (time_method.length() > 0) {
+	  if (!time_method.empty()) {
 	    time_range+=time_method;
 	  }
 	  else {
@@ -697,7 +702,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	case 2:
 	{
 	  time_range+="Seasonal ";
-	  if (time_method.length() > 0) {
+	  if (!time_method.empty()) {
 	    time_range+=time_method;
 	  }
 	  else {
@@ -708,7 +713,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	case 3:
 	{
 	  time_range+="Annual ";
-	  if (time_method.length() > 0) {
+	  if (!time_method.empty()) {
 	    time_range+=time_method;
 	  }
 	  else {
@@ -733,7 +738,7 @@ std::string time_method_from_cell_methods(std::string cell_methods,std::string t
   strutils::replace_all(cell_methods,"comments: ","");
   strutils::replace_all(cell_methods,"comment:","");
   strutils::replace_all(cell_methods,"comments:","");
-  if (cell_methods.length() > 0 && strutils::contains(cell_methods,timeid+":")) {
+  if (!cell_methods.empty() && strutils::contains(cell_methods,timeid+":")) {
     auto idx=cell_methods.find(timeid+":");
     if (idx == std::string::npos) {
 	return "";
@@ -913,13 +918,13 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
 	if (map_type == "parameter") {
 	  ofs << "  <parameter code=\"" << sp[0] << "\">" << std::endl;
 	  ofs << "    <shortName>" << sp[0] << "</shortName>" << std::endl;
-	  if (sp[1].length() > 0) {
+	  if (!sp[1].empty()) {
 	    ofs << "    <description>" << sp[1] << "</description>" << std::endl;
 	  }
-	  if (sp[2].length() > 0) {
+	  if (!sp[2].empty()) {
 	    ofs << "    <units>" << strutils::substitute(sp[2],"-","^-") << "</units>" << std::endl;
 	  }
-	  if (sp.size() > 3 && sp[3].length() > 0) {
+	  if (sp.size() > 3 && !sp[3].empty()) {
 	    ofs << "    <standardName>" << sp[3] << "</standardName>" << std::endl;
 	  }
 	  ofs << "  </parameter>" << std::endl;
@@ -927,7 +932,7 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
 	else if (map_type == "dataType") {
 	  ofs << "  <dataType code=\"" << sp[0] << "\">" << std::endl;
 	  ofs << "    <description>" << sp[1];
-	  if (sp[2].length() > 0) {
+	  if (!sp[2].empty()) {
 	    ofs << " (" << sp[2] << ")";
 	  }
 	  ofs << "</description>" << std::endl;
@@ -1084,7 +1089,7 @@ void matchWebFileToMSSPrimary(std::string URL,std::string& metadata_file)
     std::cerr << query.error() << std::endl;
     exit(1);
   }
-  if (query.fetch_row(row) && row[0].length() > 0) {
+  if (query.fetch_row(row) && !row[0].empty()) {
     metadata_file=row[0];
     strutils::replace_all(metadata_file,"/FS/DSS/","");
     strutils::replace_all(metadata_file,"/DSS/","");
