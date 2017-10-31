@@ -283,7 +283,7 @@ void check_for_existing_CMD(std::string cmd_type)
     strutils::replace_all(cmd_file,"/FS/DSS/","");
     strutils::replace_all(cmd_file,"/DSS/","");
     strutils::replace_all(cmd_file,"/","%");
-    if (exists_on_server("rda-web-prod.ucar.edu","/SERVER_ROOT/web/datasets/ds"+args.dsnum+"/metadata/"+cmd_dir+"/"+cmd_file+"."+cmd_type)) {
+    if (exists_on_server("rda-web-prod.ucar.edu","/data/web/datasets/ds"+args.dsnum+"/metadata/"+cmd_dir+"/"+cmd_file+"."+cmd_type)) {
 	archive_date.set(std::stoll(strutils::substitute(row[0],"-",""))*1000000+std::stoll(strutils::substitute(row[1],":","")));
 	t=localtime(&tm);
 	if (t->tm_isdst > 0) {
@@ -1097,10 +1097,10 @@ void matchWebFileToMSSPrimary(std::string URL,std::string& metadata_file)
     if (exists_on_server("rda-web-prod.ucar.edu","/data/web/datasets/ds"+args.dsnum+"/metadata/fmd/"+metadata_file+".GrML")) {
 	metadata_file+=".GrML";
     }
-    else if (exists_on_server("rda-web-prod.ucar.edu","/SERVER_ROOT/web/datasets/ds"+args.dsnum+"/metadata/fmd/"+metadata_file+".ObML")) {
+    else if (exists_on_server("rda-web-prod.ucar.edu","/data/web/datasets/ds"+args.dsnum+"/metadata/fmd/"+metadata_file+".ObML")) {
 	metadata_file+=".ObML";
     }
-    else if (exists_on_server("rda-web-prod.ucar.edu","/SERVER_ROOT/web/datasets/ds"+args.dsnum+"/metadata/fmd/"+metadata_file+".SatML")) {
+    else if (exists_on_server("rda-web-prod.ucar.edu","/data/web/datasets/ds"+args.dsnum+"/metadata/fmd/"+metadata_file+".SatML")) {
 	metadata_file+=".SatML";
     }
     else {
