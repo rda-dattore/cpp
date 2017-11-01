@@ -10109,15 +10109,18 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
     {
 	dval=(def.elongitude-def.slongitude)/(dim.x-1);
 // special case of -180 to +180
-	if (static_cast<int>(west_longitude) == -180 && static_cast<int>(east_longitude) == 180)
+	if (static_cast<int>(west_longitude) == -180 && static_cast<int>(east_longitude) == 180) {
 	  east_longitude-=dval;
-	if (def.slongitude >= 0. && def.elongitude >= 0.) {
-	  if (west_longitude < 0.)
-	    west_longitude+=360.;
-	  if (east_longitude < 0.)
-	    east_longitude+=360.;
 	}
-	for (m=0; m < dim.x; m++) {
+	if (def.slongitude >= 0. && def.elongitude >= 0.) {
+	  if (west_longitude < 0.) { { {
+	    west_longitude+=360.;
+	  }
+	  if (east_longitude < 0.) {
+	    east_longitude+=360.;
+	  }
+	}
+	for (m=0; m < dim.x; ++m) {
 	  fdum=def.slongitude+m*dval;
 	  if (start_x < 0 && fdum >= west_longitude) {
 	    start_x=m;
@@ -10128,13 +10131,14 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	    new_grid.def.elongitude=fdum-dval;
 	  }
 	}
-	if (end_x < 0)
+	if (end_x < 0) {
 	  end_x=dim.x-1;
+	}
 	switch (def.type) {
 	  case Grid::latitudeLongitudeType:
 	  {
 	    dval=(def.slatitude-def.elatitude)/(dim.y-1);
-	    for (n=0; n < dim.y; n++) {
+	    for (n=0; n < dim.y; ++n) {
 		fdum=def.slatitude-n*dval;
 		if (start_y < 0 && fdum <= north_latitude) {
 		  start_y=n;
@@ -10178,8 +10182,9 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  new_grid.dim.x=end_x+(dim.x-start_x)+1;
 	  new_grid.def.slongitude-=360.;
 	}
-	else
+	else {
 	  new_grid.dim.x=end_x-start_x+1;
+	}
 	new_grid.dim.y=end_y-start_y+1;
 	new_grid.dim.size=new_grid.dim.x*new_grid.dim.y;
 	new_grid.stats.min_val=Grid::missing_value;
@@ -10187,10 +10192,12 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	x=0;
 	new_grid.grid.num_missing=0;
 	for (n=start_y; n <= end_y; ++n) {
-	  if (crosses_greenwich)
+	  if (crosses_greenwich) {
 	    ex=dim.x-1;
-	  else
+	  }
+	  else {
 	    ex=end_x;
+	  }
 	  for (m=start_x; m <= ex; ++m) {
 	    if (new_grid.bitmap.capacity > 0) {
 		new_grid.bitmap.map[x]=bitmap.map[n*dim.x+m];
@@ -10200,10 +10207,12 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 		++x;
 	    }
 	    new_grid.gridpoints_[n-start_y][m-start_x]=gridpoints_[n][m];
-	    if (gridpoints_[n][m] < new_grid.stats.min_val)
+	    if (gridpoints_[n][m] < new_grid.stats.min_val) {
 		new_grid.stats.min_val=gridpoints_[n][m];
-	    if (gridpoints_[n][m] > new_grid.stats.max_val)
+	    }
+	    if (gridpoints_[n][m] > new_grid.stats.max_val) {
 		new_grid.stats.max_val=gridpoints_[n][m];
+	    }
 	  }
 	  if (crosses_greenwich) {
 	    for (m=0; m <= end_x; ++m) {
@@ -10215,10 +10224,12 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 		  ++x;
 		}
 		new_grid.gridpoints_[n-start_y][m+dim.x-start_x]=gridpoints_[n][m];
-		if (gridpoints_[n][m] < new_grid.stats.min_val)
+		if (gridpoints_[n][m] < new_grid.stats.min_val) {
 		  new_grid.stats.min_val=gridpoints_[n][m];
-		if (gridpoints_[n][m] > new_grid.stats.max_val)
+		}
+		if (gridpoints_[n][m] > new_grid.stats.max_val) {
 		  new_grid.stats.max_val=gridpoints_[n][m];
+		}
 	    }
 	  }
 	}
