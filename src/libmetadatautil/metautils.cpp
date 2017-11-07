@@ -862,19 +862,12 @@ namespace NcParameter {
 
 std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlist,my::map<metautils::StringEntry>& var_changes_table,std::string map_type,std::string map_name,bool found_map,std::string& warning)
 {
-  std::ifstream ifs;
-  std::ofstream ofs;
-  char line[32768];
-  std::stringstream output,error;
-  std::string format,herror;
-  std::list<std::string> map_contents;
-  std::deque<std::string> sp;
-  metautils::StringEntry se;
-  bool no_write;
-
+  std::stringstream oss,ess;
   if (varlist.size() > 0) {
+    std::list<std::string> map_contents;
     if (found_map) {
-	ifs.open(map_name.c_str());
+	std::ifstream ifs(map_name.c_str());
+	char line[32768];
 	ifs.getline(line,32768);
 	while (!ifs.eof()) {
 	  map_contents.emplace_back(line);
@@ -887,7 +880,17 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
     if (!tdir.create(directives.temp_path)) {
 	return "can't create temporary directory for parameter map";
     }
-    ofs.open((tdir.name()+"/"+format+".ds"+dsnum+".xml").c_str());
+    std::string format;
+    if (args.format == "hdf5nc4") {
+	format="netCDF4";
+    }
+    else if (args.format == "hdf5") {
+	format="HDF5";
+    }
+    else {
+	format="netCDF";
+    }
+    std::ofstream ofs((tdir.name()+"/"+format+".ds"+dsnum+".xml").c_str());
     if (!ofs.is_open()) {
         return "can't open parameter map file for output";
     }
@@ -896,11 +899,12 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
 	ofs << "<" << map_type << "Map>" << std::endl;
     }
     else {
-	no_write=false;
+	auto no_write=false;
 	for (const auto& line : map_contents) {
 	  if (strutils::contains(line," code=\"")) {
-	    sp=strutils::split(line,"\"");
-	    se.key=sp[1];
+	    auto parts=strutils::split(line,"\"");
+	    metautils::StringEntry se;
+	    se.key=parts[1];
 	    if (var_changes_table.found(se.key,se)) {
 		no_write=true;
 	    }
@@ -913,27 +917,27 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
 	  }
 	}
     }
-    for (auto& item : varlist) {
-	sp=strutils::split(item,"<!>");
+    for (const auto& item : varlist) {
+	auto var_parts=strutils::split(item,"<!>");
 	if (map_type == "parameter") {
-	  ofs << "  <parameter code=\"" << sp[0] << "\">" << std::endl;
-	  ofs << "    <shortName>" << sp[0] << "</shortName>" << std::endl;
-	  if (!sp[1].empty()) {
-	    ofs << "    <description>" << sp[1] << "</description>" << std::endl;
+	  ofs << "  <parameter code=\"" << var_parts[0] << "\">" << std::endl;
+	  ofs << "    <shortName>" << var_parts[0] << "</shortName>" << std::endl;
+	  if (!var_parts[1].empty()) {
+	    ofs << "    <description>" << var_parts[1] << "</description>" << std::endl;
 	  }
-	  if (!sp[2].empty()) {
-	    ofs << "    <units>" << strutils::substitute(sp[2],"-","^-") << "</units>" << std::endl;
+	  if (!var_parts[2].empty()) {
+	    ofs << "    <units>" << strutils::substitute(var_parts[2],"-","^-") << "</units>" << std::endl;
 	  }
-	  if (sp.size() > 3 && !sp[3].empty()) {
-	    ofs << "    <standardName>" << sp[3] << "</standardName>" << std::endl;
+	  if (var_parts.size() > 3 && !var_parts[3].empty()) {
+	    ofs << "    <standardName>" << var_parts[3] << "</standardName>" << std::endl;
 	  }
 	  ofs << "  </parameter>" << std::endl;
 	}
 	else if (map_type == "dataType") {
-	  ofs << "  <dataType code=\"" << sp[0] << "\">" << std::endl;
-	  ofs << "    <description>" << sp[1];
-	  if (!sp[2].empty()) {
-	    ofs << " (" << sp[2] << ")";
+	  ofs << "  <dataType code=\"" << var_parts[0] << "\">" << std::endl;
+	  ofs << "    <description>" << var_parts[1];
+	  if (!var_parts[2].empty()) {
+	    ofs << " (" << var_parts[2] << ")";
 	  }
 	  ofs << "</description>" << std::endl;
 	  ofs << "  </dataType>" << std::endl;
@@ -941,21 +945,13 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
     }
     ofs << "</" << map_type << "Map>" << std::endl;
     ofs.close();
-    if (args.format == "hdf5nc4") {
-	format="netCDF4";
+    std::string error;
+    if (host_sync(tdir.name(),".","/data/web/metadata/ParameterTables",error) < 0) {
+        warning="parameter map was not synced - error(s): '"+error+"'";
     }
-    else if (args.format == "hdf5") {
-	format="HDF5";
-    }
-    else {
-	format="netCDF";
-    }
-    if (host_sync(tdir.name(),".","/data/web/metadata/ParameterTables",herror) < 0) {
-        warning="parameter map was not synced - error(s): '"+herror+"'";
-    }
-    mysystem2("/bin/cp "+tdir.name()+"/"+format+".ds"+dsnum+".xml /glade/u/home/rdadata/share/metadata/ParameterTables/",output,error);
+    mysystem2("/bin/cp "+tdir.name()+"/"+format+".ds"+dsnum+".xml /glade/u/home/rdadata/share/metadata/ParameterTables/",oss,ess);
   }
-  return error.str();
+  return ess.str();
 }
 
 } // end namespace NcParameter
