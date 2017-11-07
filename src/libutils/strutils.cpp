@@ -26,7 +26,7 @@ void chop(std::string& s,size_t num_chars)
   s.resize(new_length);
 }
 
-void convertUnicode(std::string& s)
+void convert_unicode(std::string& s)
 {
   for (size_t n=0; n < s.length(); n++) {
     if (static_cast<int>(s[n]) == 0xc2 || static_cast<int>(s[n]) == 0xc3) {
