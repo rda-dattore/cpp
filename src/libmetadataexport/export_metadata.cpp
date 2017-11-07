@@ -392,7 +392,7 @@ void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   ofs << indent << "  <dc:subject>" << e.content() << "</dc:subject>" << std::endl;
   e=xdoc.element("dsOverview/summary");
   ofs << indent << "  <dc:description>" << std::endl;
-  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,indent_length+4) << std::endl;
+  ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </dc:description>" << std::endl;
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/contributor@vocabulary=GCMD");
   for (const auto& element : elist) {
@@ -412,13 +412,13 @@ void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,4) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,4) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   ofs << indent << "</oai_dc:dc>" << std::endl;
@@ -707,14 +707,14 @@ void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   if (e.name() == "access") {
     auto access_restrictions=e.to_string();
     ofs << indent << "  <Access_Constraints>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(access_restrictions,80,indent_length+4) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(access_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Access_Constraints>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     auto usage_restrictions=e.to_string();
     ofs << indent << "  <Use_Constraints>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(usage_restrictions,80,indent_length+4) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(usage_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Use_Constraints>" << std::endl;
   }
   ofs << indent << "  <Data_Set_Language>English</Data_Set_Language>" << std::endl;
@@ -822,13 +822,13 @@ void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
 	  reference+=", URL: "+url;
 	}
 	reference+=".</p></reference>";
-	ofs << summary::convert_html_summary_to_ASCII(reference,80,indent_length+4) << std::endl;
+	ofs << summary::convert_html_summary_to_ascii(reference,80,indent_length+4) << std::endl;
     }
     ofs << indent << "  </Reference>" << std::endl;
   }
   ofs << indent << "  <Summary>" << std::endl;
   e=xdoc.element("dsOverview/summary");
-  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),80,indent_length+4) << std::endl;
+  ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </Summary>" << std::endl;
   elist=xdoc.element_list("dsOverview/relatedDataset");
   for (const auto& element : elist) {
@@ -926,7 +926,7 @@ void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     e=xdoc.element("dsOverview/summary");
     auto summary=e.to_string();
     ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(summary,120,indent_length+6) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(summary,120,indent_length+6) << std::endl;
     ofs << indent << "    </description>" << std::endl;
     ofs << indent << "  </descriptions>" << std::endl;
   }
@@ -981,7 +981,7 @@ void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "    <descript>" << std::endl;
   e=xdoc.element("dsOverview/summary");
   ofs << indent << "      <abstract>" << std::endl;
-  ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,indent_length+8) << std::endl;
+  ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,indent_length+8) << std::endl;
   ofs << indent << "      </abstract>" << std::endl;
   ofs << indent << "      <purpose>.</purpose>" << std::endl;
   ofs << indent << "    </descript>" << std::endl;
@@ -1058,7 +1058,7 @@ void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     ofs << indent << "    <accconst>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,6) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </accconst>" << std::endl;
   }
   else
@@ -1066,7 +1066,7 @@ void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     ofs << indent << "    <useconst>" << std::endl;
-    ofs << summary::convert_html_summary_to_ASCII(e.to_string(),120,6) << std::endl;
+    ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </useconst>" << std::endl;
   }
   else {
@@ -1228,7 +1228,7 @@ void export_to_ISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     }
   }
   e=xdoc.element("dsOverview/summary");
-  tokens.replaces.emplace_back("__ABSTRACT__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
+  tokens.replaces.emplace_back("__ABSTRACT__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
 //tokens.replaces.emplace_back("__ABSTRACT__<!>"+e.content());
   e=xdoc.element("dsOverview/continuingUpdate");
   std::string frequency;
@@ -1447,7 +1447,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   if (!e.name().empty()) {
     ife.key="__HAS_USAGE_RESTRICTIONS__";
     tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__USAGE_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
+    tokens.replaces.emplace_back("__USAGE_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   else {
     ife.key="__NO_USAGE_RESTRICTIONS__";
@@ -1457,7 +1457,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   if (!e.name().empty()) {
     ife.key="__HAS_ACCESS_RESTRICTIONS__";
     tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ASCII(e.to_string(),32768,0));
+    tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   else {
     ife.key="__NO_ACCESS_RESTRICTIONS__";
@@ -1881,7 +1881,7 @@ void export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 	ofs << indent << "  <publicationDate>" << row[0] << "</publicationDate>" << std::endl;
     }
   }
-  auto cmd_databases=metautils::CMD_databases("unknown","unknown","unknown");
+  auto cmd_databases=metautils::cmd_databases("unknown","unknown","unknown");
   for (const auto& database : cmd_databases) {
     if (MySQL::table_exists(server,database+".ds"+dsnum2+"_primaries")) {
 	found_content_metadata=true;
@@ -2038,7 +2038,7 @@ void export_to_THREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
     ofs << indent << "        <contact url=\"https://rda.ucar.edu/\" email=\"dssweb@ucar.edu\" />" << std::endl;
     ofs << indent << "      </publisher>" << std::endl;
     ofs << indent << "      <documentation type=\"summary\">" << std::endl;
-    ofs << indent << "        " << summary::convert_html_summary_to_ASCII("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
+    ofs << indent << "        " << summary::convert_html_summary_to_ascii("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
     ofs << indent << "      </documentation>" << std::endl;
     ofs << indent << "    </metadata>" << std::endl;
     ofs << indent << "  </dataset>" << std::endl;
