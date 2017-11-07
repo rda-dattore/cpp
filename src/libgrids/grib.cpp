@@ -10099,10 +10099,12 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
   new_grid=*this;
   new_grid.grid.src=60;
   new_grid.grib.sub_center=1;
-  if (latitude_stride < 1)
+  if (latitude_stride < 1) {
     latitude_stride=1;
-  if (longitude_stride < 1)
+  }
+  if (longitude_stride < 1) {
     longitude_stride=1;
+  }
   switch (def.type) {
     case Grid::latitudeLongitudeType:
     case Grid::gaussianLatitudeLongitudeType:
@@ -10113,7 +10115,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  east_longitude-=dval;
 	}
 	if (def.slongitude >= 0. && def.elongitude >= 0.) {
-	  if (west_longitude < 0.) { { {
+	  if (west_longitude < 0.) {
 	    west_longitude+=360.;
 	  }
 	  if (east_longitude < 0.) {
