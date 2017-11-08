@@ -926,7 +926,9 @@ std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlis
 	    ofs << "    <description>" << var_parts[1] << "</description>" << std::endl;
 	  }
 	  if (!var_parts[2].empty()) {
-	    ofs << "    <units>" << strutils::substitute(var_parts[2],"-","^-") << "</units>" << std::endl;
+	    var_parts[2]=std::regex_replace(var_parts[2],std::regex("\\*\\*"),"^");
+	    var_parts[2]=std::regex_replace(var_parts[2],std::regex("([a-z]{1,})(-){0,1}([0-9]{1,})"),"$1^$2$3");
+	    ofs << "    <units>" << var_parts[2] << "</units>" << std::endl;
 	  }
 	  if (var_parts.size() > 3 && !var_parts[3].empty()) {
 	    ofs << "    <standardName>" << var_parts[3] << "</standardName>" << std::endl;
