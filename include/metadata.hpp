@@ -204,16 +204,21 @@ struct TimeData {
   std::string units,calendar;
 };
 struct TimeRangeEntry {
-  TimeRangeEntry() : key(),unit(nullptr),num_steps(nullptr),instantaneous(nullptr),bounded(nullptr) {}
+  struct Data {
+    Data() : unit(-1),num_steps(0),instantaneous(),bounded() {}
+
+    int unit,num_steps;
+    TimeRange instantaneous,bounded;
+  };
+  TimeRangeEntry() : key(),data(nullptr) {}
 
   size_t key;
-  int *unit,*num_steps;
-  TimeRange *instantaneous,*bounded;
+  std::shared_ptr<Data> data;
 };
 
 DateTime actual_date_time(double time,TimeData& time_data,std::string& error);
 
-std::string gridded_NetCDF_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string method,std::string& error);
+std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string method,std::string& error);
 std::string time_method_from_cell_methods(std::string cell_methods,std::string timeid);
 
 } // end namespace NcTime
@@ -257,14 +262,14 @@ extern void log_warning(std::string warning,std::string caller,std::string user,
 extern void obs_per(std::string observation_type_value,size_t num_obs,DateTime start,DateTime end,double& obsper,std::string& unit);
 extern void read_config(std::string caller,std::string user,std::string args_string,bool restrict_to_user_rdadata = true);
 
-extern std::string clean_ID(std::string ID);
-extern std::string relative_web_filename(std::string URL);
+extern std::string clean_id(std::string id);
+extern std::string relative_web_filename(std::string url);
 extern std::string web_home();
 
-extern std::list<std::string> CMD_databases(std::string caller,std::string user,std::string args);
+extern std::list<std::string> cmd_databases(std::string caller,std::string user,std::string args);
 
 extern bool connect_to_metadata_server(MySQL::Server& srv_m);
-extern bool connect_to_RDADB_server(MySQL::Server& srv_d);
+extern bool connect_to_rdadb_server(MySQL::Server& srv_d);
 
 } // end namespace metautils
 
