@@ -98,7 +98,7 @@ std::string set_date_time_string(std::string datetime,std::string flag,std::stri
   return dt;
 }
 
-CMDDateRange CMD_date_range(std::string start,std::string end,std::string gindex,size_t& precision)
+CMDDateRange cmd_date_range(std::string start,std::string end,std::string gindex,size_t& precision)
 {
   CMDDateRange d;
   d.start=start;
@@ -124,7 +124,7 @@ CMDDateRange CMD_date_range(std::string start,std::string end,std::string gindex
   return d;
 }
 
-void CMD_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& range_list,size_t& precision)
+void cmd_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& range_list,size_t& precision)
 {
   MySQL::Server server;
   metautils::connect_to_metadata_server(server);
@@ -133,7 +133,6 @@ void CMD_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& r
     exit(1);
   }
   std::string table=database+".ds"+strutils::substitute(dsnum,".","")+"_primaries";
-  precision=0;
   if (table_exists(server,table)) {
     MySQL::LocalQuery query("select min(p.start_date) as md,max(p.end_date),m.gindex from "+table+" as p left join dssdb.mssfile as m on m.mssfile = p.mssID where m.dsid = 'ds"+dsnum+"' and m.type = 'P' and m.status = 'P' group by m.gindex having md > 0 union select min(p.start_date) as md,max(p.end_date),h.gindex from "+table+" as p left join (select concat(m.mssfile,\"..m..\",h.hfile) as member,m.gindex as gindex from dssdb.htarfile as h left join dssdb.mssfile as m on m.mssid = h.mssid where h.dsid = 'ds"+dsnum+"' and m.type = 'P' and m.status = 'P') as h on h.member = p.mssID where !isnull(h.member) group by h.gindex having md > 0");
     if (query.submit(server) < 0) {
@@ -152,7 +151,7 @@ void CMD_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& r
 	  std::vector<CMDDateRange> darray;
 	  darray.reserve(query.num_rows());
 	  while (query.fetch_row(row)) {
-	    darray.emplace_back(CMD_date_range(row[0],row[1],row[2],precision));
+	    darray.emplace_back(cmd_date_range(row[0],row[1],row[2],precision));
 	  }
 	  binary_sort(darray,
 	  [](CMDDateRange& left,CMDDateRange& right) -> int
@@ -191,7 +190,7 @@ void CMD_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& r
     else {
 	query.rewind();
 	while (query.fetch_row(row)) {
-	  range_list.emplace_back(CMD_date_range(row[0],row[1],row[2],precision));
+	  range_list.emplace_back(cmd_date_range(row[0],row[1],row[2],precision));
 	}
     }
   }
@@ -204,10 +203,10 @@ void summarize_dates(std::string dsnum,std::string caller,std::string user,std::
   bool foundGroups=false;
 
   std::list<CMDDateRange> range_list;
-  size_t precision;
-  CMD_dates("GrML",dsnum,range_list,precision);
-  CMD_dates("ObML",dsnum,range_list,precision);
-  CMD_dates("FixML",dsnum,range_list,precision);
+  size_t precision=0;
+  cmd_dates("GrML",dsnum,range_list,precision);
+  cmd_dates("ObML",dsnum,range_list,precision);
+  cmd_dates("FixML",dsnum,range_list,precision);
   MySQL::Server dssdb_server;
   metautils::connect_to_rdadb_server(dssdb_server);
   if (range_list.size() > 0) {
