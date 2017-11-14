@@ -314,7 +314,7 @@ bool DataTypeMap::fill(const std::string& xml_file)
 	  AttributeEntry ae;
 	  if (dt_elem.p->name() == "description") {
 	    ae.key=dt_elem.p->attribute_value("ifPlatformType");
-	    if (ae.key.length() == 0) {
+	    if (ae.key.empty()) {
 		ae.key="x";
 	    }
 	    ae.value=dt_elem.p->content();
@@ -698,7 +698,7 @@ int LevelMapper::level_is_a_layer(std::string format,std::string level_type,std:
 DataTypeMapEntry DataTypeMapper::entry(std::string format,std::string dsnum)
 {
   DataTypeMapEntry dtme;
-  dtme.key=format+"."+dsnum;
+  dtme.key=format+".ds"+dsnum;
   if (!datatype_map_table->found(dtme.key,dtme)) {
     TempDir temp_dir;
     temp_dir.create("/tmp");
