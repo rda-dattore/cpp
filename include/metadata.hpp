@@ -15,10 +15,10 @@
 namespace metautils {
 
 struct Directives {
-  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),fallback_database_server(),metadata_manager(),server_root(),dss_root(),local_root(),dss_bindir() {}
+  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),rdadb_username(),rdadb_password(),metadb_username(),metadb_password(),metadata_manager(),server_root(),dss_root(),local_root(),dss_bindir() {}
 
   std::string temp_path,data_root,data_root_alias;
-  std::string host,web_server,database_server,fallback_database_server;
+  std::string host,web_server,database_server,rdadb_username,rdadb_password,metadb_username,metadb_password;
   std::string metadata_manager;
   std::string server_root,dss_root,local_root;
   std::string dss_bindir;
