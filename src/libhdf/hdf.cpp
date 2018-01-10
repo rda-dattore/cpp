@@ -2320,31 +2320,38 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
     if (show_debug) {
 	std::cerr << "hdr_off: " << hdr_off << " header size: " << header_size << std::endl;
     }
-    if (sb_version == 0 || sb_version == 1) {
-	type=HDF5::value(&buf[hdr_off],2);
-	len=HDF5::value(&buf[hdr_off+2],2);
-	if (show_debug) {
-	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+4]) << std::endl;
+    switch (ohdr_version) {
+	case 1:
+	{
+	  type=HDF5::value(&buf[hdr_off],2);
+	  len=HDF5::value(&buf[hdr_off+2],2);
+	  if (show_debug) {
+	    std::cerr << "flags: " << static_cast<int>(buf[hdr_off+4]) << std::endl;
+	  }
+	  hdr_off+=8;
+	  break;
 	}
-	hdr_off+=8;
-    }
-    else if (sb_version == 2) {
-	type=static_cast<int>(buf[hdr_off]);
-	len=HDF5::value(&buf[hdr_off+1],2);
-	if (show_debug) {
-	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+3]) << std::endl;
+	case 2:
+	{
+	  type=static_cast<int>(buf[hdr_off]);
+	  len=HDF5::value(&buf[hdr_off+1],2);
+	  if (show_debug) {
+	    std::cerr << "flags: " << static_cast<int>(buf[hdr_off+3]) << std::endl;
+	  }
+	  hdr_off+=4;
+	  if ( (flags & 0x4) == 0x4) {
+	    hdr_off+=2;
+	  }
+	  break;
 	}
-	hdr_off+=4;
-	if ( (flags & 0x4) == 0x4) {
-	  hdr_off+=2;
+	default:
+	{
+	  if (!myerror.empty()) {
+	    myerror+=", ";
+	  }
+	  myerror+="unable to read header messages for version "+strutils::itos(ohdr_version);
+	  return false;
 	}
-    }
-    else {
-	if (myerror.length() > 0) {
-	  myerror+=", ";
-	}
-	myerror+="unable to read header messages for version "+strutils::itos(sb_version);
-	return false;
     }
     if (show_debug) {
 	long long off=fs.tellg();
@@ -2393,15 +2400,20 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 
   switch (type) {
     case 0x0000:
+    {
 	return length;
+    }
     case 0x0001:
+    {
 // Dataspace
 	if (show_debug) {
 	  std::cerr << "DATASPACE" << std::endl;
 	}
 	HDF5::decode_dataspace(buffer,sizes.lengths,dse.dataset->dataspace,show_debug);
 	return length;
+    }
     case 0x0002:
+    {
 // Link info
  	if (buffer[0] != 0) {
 	    if (myerror.length() > 0) {
@@ -2445,13 +2457,16 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	}
 	delete frhp_data;
 	return length;
+    }
     case 0x0003:
+    {
 // Datatype
 	if (show_debug) {
 	  std::cerr << "DATATYPE" << std::endl;
 	}
 	HDF5::decode_datatype(buffer,dse.dataset->datatype,show_debug);
 	return length;
+    }
     case 0x0004:
     {
 // Fill value (deprecated)
@@ -2474,6 +2489,7 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	}
 	switch (static_cast<int>(buffer[0])) {
 	  case 2:
+	  {
 	    if (static_cast<int>(buffer[3]) == 1) {
 		dse.dataset->fillvalue.length=HDF5::value(&buffer[4],4);
 		if (dse.dataset->fillvalue.length > 0) {
@@ -2492,7 +2508,9 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 		exit(1);
 	    }
 	    break;
+	  }
 	  case 3:
+	  {
 	    if ( (buffer[1] & 0x20) == 0x20) {
 		dse.dataset->fillvalue.length=HDF5::value(&buffer[2],4);
 		if (dse.dataset->fillvalue.length > 0) {
@@ -2508,16 +2526,20 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 		dse.dataset->fillvalue.bytes=NULL;
 	    }
 	    break;
+	  }
 	  default:
+	  {
 	    if (myerror.length() > 0) {
 		myerror+=", ";
 	    }
 	    myerror+="unable to decode version "+strutils::itos(static_cast<int>(buffer[0]))+" Fill Value message";
 	    exit(1);
+	  }
 	}
 	return length;
     }
     case 0x0006:
+    {
 // Link message
 	int link_type;
 	curr_off=2;
@@ -2585,13 +2607,16 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	delete ste;
 	return curr_off;
 	break;
+    }
     case 0x0008:
+    {
 // Layout
 	if (show_debug) {
 	  std::cerr << "LAYOUT" << std::endl;
 	}
 	switch (static_cast<int>(buffer[0])) {
 	  case 3:
+	  {
 	    switch (static_cast<int>(buffer[1])) {
 		case 1:
 		{
@@ -2634,14 +2659,19 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 		}
 	    }
 	    break;
+	  }
 	  default:
+	  {
 	    if (myerror.length() > 0)
 		myerror+=", ";
 	    myerror+="unable to decode layout version "+strutils::itos(static_cast<int>(buffer[0]));
 	    exit(1);
+	  }
 	}
 	return length;
+    }
     case 0x000a:
+    {
 // Group info
  	if (buffer[0] != 0) {
 	    if (myerror.length() > 0)
@@ -2668,21 +2698,29 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  curr_off+=4;
 	}
 	return length;
+    }
     case 0x000b:
+    {
 // Filter pipeline
 	switch(buffer[0]) {
 	  case 1:
+	  {
 	    curr_off=8;
 	    break;
+	  }
 	  case 2:
+	  {
 	    curr_off=2;
 	    break;
+	  }
 	  default:
+	  {
 	    if (myerror.length() > 0) {
 		myerror+=", ";
 	    }
 	    myerror+="unable to decode filter pipeline version "+strutils::itos(buffer[0]);
 	    exit(1);
+	  }
 	}
 	for (n=0; n < static_cast<int>(buffer[1]); ++n) {
 	  dse.dataset->filters.push_front(HDF5::value(&buffer[curr_off],2));
@@ -2708,7 +2746,9 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  dump(buffer,length);
 	}
 	return length;
+    }
     case 0x000c:
+    {
 // Attribute
 	if (show_debug) {
 	  std::cerr << "ATTRIBUTE (2) of '" << dse.key << "' " << group << " " << dse.dataset << std::endl;
@@ -2735,7 +2775,9 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	}
 //	return length;
 return n;
+    }
     case 0x0010:
+    {
 // Object Header Continuation
 	curr_off=fs.tellg();
 	ldum=HDF5::value(buffer,sizes.offsets);
@@ -2754,7 +2796,9 @@ return n;
 	  std::cerr << "done with continuation block, back to " << fs.tellg() << std::endl;
 	}
 	return length;
-    case 0x0011: {
+    }
+    case 0x0011:
+    {
 	Group *g;
 	GroupEntry ge;
 	if (group == nullptr) {
@@ -2806,12 +2850,15 @@ return n;
 	return length;
     }
     case 0x0012:
+    {
 // Modification time
 	if (show_debug) {
 	  std::cerr << "WARNING: ignoring object modification time" << std::endl;
 	}
 	return length;
+    }
     case 0x0015:
+    {
 // Attribute info
 	n=2;
 	if ( (buffer[1] & 0x1) == 0x1) {
@@ -2838,12 +2885,15 @@ return n;
 	}
 	delete frhp_data;
 	return length;
+    }
     default:
+    {
 	if (myerror.length() > 0) {
 	  myerror+=", ";
 	}
 	myerror+="unknown message header type "+strutils::itos(type)+" of length "+strutils::itos(length);
 	exit(1);
+    }
   }
 }
 
