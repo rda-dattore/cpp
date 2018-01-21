@@ -1058,120 +1058,110 @@ void FixML_file_data(std::string file_type,my::map<XEntry>& gindex_table,my::map
   server.disconnect();
 }
 
-void write_GrML_parameters(std::string& file_type,std::string& tindex,std::ofstream& ofs,std::string& caller,std::string& user,std::string& args_string,std::string& min,std::string& max,std::string& init_date_selection)
+void write_grml_parameters(std::string& file_type,std::string& tindex,std::ofstream& ofs,std::string& caller,std::string& user,std::string& args_string,std::string& min,std::string& max,std::string& init_date_selection)
 {
   std::string dsnum2=strutils::substitute(args.dsnum,".","");
   MySQL::Server server;
-  MySQL::LocalQuery query;
-  MySQL::Row row;
-  std::string db_prefix,dssdb_filetable,metadata_filetable,ID_type,where_conditions;
-  my::map<XEntry> formats_table,rda_files(99999),inv_codes(99999),metadata_files(99999);
-  XEntry xe;
-  my::map<Entry> unique_parameters;
-  Entry e;
-  my::map<ParameterEntry> parameterDescriptionTable;
-  ParameterEntry pe;
-  std::vector<ParameterEntry> parray;
-  std::string sdum;
-  int len,n;
-  xmlutils::ParameterMapper parameter_mapper;
-
   metautils::connect_to_metadata_server(server);
   if (!server)
-    metautils::log_error("write_GrML_parameters() returned error: "+server.error()+" while trying to connect",caller,user,args_string);
+    metautils::log_error("write_grml_parameters() returned error: "+server.error()+" while trying to connect",caller,user,args_string);
+  std::string db_prefix,dssdb_filetable,metadata_filetable,where_conditions,id_type;
   if (file_type == "MSS") {
     db_prefix="";
     dssdb_filetable="mssfile";
     metadata_filetable="_primaries";
     where_conditions="type = 'P' and status = 'P'";
-    ID_type="mss";
+    id_type="mss";
   }
   else if (file_type == "Web" || file_type == "inv") {
     db_prefix="W";
     dssdb_filetable="wfile";
     metadata_filetable="_webfiles";
     where_conditions="type = 'D' and status = 'P'";
-    ID_type="web";
+    id_type="web";
   }
-  query.set("code,format",db_prefix+"GrML.formats");
-  if (query.submit(server) < 0)
-    metautils::log_error("write_GrML_parameters() returned error: "+query.error()+" while trying to get formats",caller,user,args_string);
+  MySQL::LocalQuery query("code,format",db_prefix+"GrML.formats");
+  if (query.submit(server) < 0) {
+    metautils::log_error("write_grml_parameters() returned error: "+query.error()+" while trying to get formats",caller,user,args_string);
+  }
+  std::unordered_map<std::string,std::string> formats_table;
+  MySQL::Row row;
   while (query.fetch_row(row)) {
-    xe.key=row[0];
-    xe.strings.reset(new std::vector<std::string>);
-    xe.strings.get()->emplace_back(row[1]);
-    formats_table.insert(xe);
+    formats_table.emplace(row[0],row[1]);
   }
-  if (tindex.length() > 0) {
+  std::unordered_set<std::string> rda_files;
+  if (!tindex.empty()) {
     query.set(dssdb_filetable,"dssdb."+dssdb_filetable,"dsid = 'ds"+args.dsnum+"' and tindex = "+tindex+" and "+where_conditions);
     if (query.submit(server) < 0)
-	metautils::log_error("write_GrML_parameters() returned error: "+query.error()+" while trying to get RDA files from dssdb."+dssdb_filetable,caller,user,args_string);
+	metautils::log_error("write_grml_parameters() returned error: "+query.error()+" while trying to get RDA files from dssdb."+dssdb_filetable,caller,user,args_string);
     while (query.fetch_row(row)) {
-	xe.key=row[0];
-	rda_files.insert(xe);
+	rda_files.emplace(row[0]);
     }
   }
+  std::unordered_set<std::string> inv_codes;
   if (file_type == "inv") {
     query.set("webID_code,dupe_vdates","IGrML.ds"+dsnum2+"_inventory_summary");
     if (query.submit(server) < 0) {
-	metautils::log_error("write_GrML_parameters() returned error: "+query.error()+" while trying to get inventory file codes",caller,user,args_string);
+	metautils::log_error("write_grml_parameters() returned error: "+query.error()+" while trying to get inventory file codes",caller,user,args_string);
     }
     init_date_selection="";
     while (query.fetch_row(row)) {
-	xe.key=row[0];
-	inv_codes.insert(xe);
+	inv_codes.emplace(row[0]);
 	if (init_date_selection.empty() && row[1] == "Y") {
 	  init_date_selection="I";
 	}
     }
   }
-  query.set("code,"+ID_type+"ID,format_code",db_prefix+"GrML.ds"+dsnum2+metadata_filetable);
-  if (query.submit(server) < 0) {
-    metautils::log_error("write_GrML_parameters() returned error: "+query.error()+" while trying to get metadata files from "+db_prefix+"GrML.ds"+dsnum2+metadata_filetable,caller,user,args_string);
+  MySQL::Query s_query("code,"+id_type+"ID,format_code",db_prefix+"GrML.ds"+dsnum2+metadata_filetable);
+  if (s_query.submit(server) < 0) {
+    metautils::log_error("write_grml_parameters() returned error: "+s_query.error()+" while trying to get metadata files from "+db_prefix+"GrML.ds"+dsnum2+metadata_filetable,caller,user,args_string);
   }
-  while (query.fetch_row(row)) {
-    if ((rda_files.size() == 0 || rda_files.found(row[1],xe)) && (inv_codes.size() == 0 || inv_codes.found(row[0],xe))) {
-	xe.key=row[0];
-	xe.strings.reset(new std::vector<std::string>);
-	xe.strings.get()->emplace_back(row[1]);
-	xe.strings.get()->emplace_back(row[2]);
-	metadata_files.insert(xe);
+  std::unordered_map<std::string,std::string> metadata_files;
+  while (s_query.fetch_row(row)) {
+    if ((rda_files.size() == 0 || rda_files.find(row[1]) != rda_files.end()) && (inv_codes.size() == 0 || inv_codes.find(row[0]) != inv_codes.end())) {
+	metadata_files.emplace(row[0],row[2]);
     }
   }
-  query.set("parameter,start_date,end_date,"+ID_type+"ID_code",db_prefix+"GrML.ds"+dsnum2+"_agrids");
-  if (query.submit(server) < 0) {
-    metautils::log_error("write_GrML_parameters() returned error: "+query.error()+" while trying to get agrids data",caller,user,args_string);
+  s_query.set("parameter,start_date,end_date,"+id_type+"ID_code",db_prefix+"GrML.ds"+dsnum2+"_agrids");
+  if (s_query.submit(server) < 0) {
+    metautils::log_error("write_grml_parameters() returned error: "+s_query.error()+" while trying to get agrids data",caller,user,args_string);
   }
-  len=0;
-  parray.resize(query.num_rows());
-  while (query.fetch_row(row)) {
-    if (metadata_files.found(row[3],xe)) {
-	e.key=xe.strings->at(1)+"!"+row[0];
-	if (!unique_parameters.found(e.key,e)) {
-	  formats_table.found(xe.strings->at(1),xe);
-	  pe.key=parameter_mapper.description(xe.strings->at(0),row[0]);
-	  if (!parameterDescriptionTable.found(pe.key,pe)) {
+  std::unordered_set<std::string> unique_parameters;
+  my::map<ParameterEntry> parameter_description_table;
+  xmlutils::ParameterMapper parameter_mapper;
+  std::vector<ParameterEntry> parray;
+  auto len=0;
+  while (s_query.fetch_row(row)) {
+    auto mf_elem=metadata_files.find(row[3]); 
+    if (mf_elem != metadata_files.end()) {
+	auto u_param=mf_elem->second+"!"+row[0];
+	if (unique_parameters.find(u_param) == unique_parameters.end()) {
+	  auto format=formats_table[mf_elem->second];
+	  ParameterEntry pe;
+	  pe.key=parameter_mapper.description(format,row[0]);
+	  if (!parameter_description_table.found(pe.key,pe)) {
 	    pe.count=len;
-	    parray[len].key=xe.key+"!"+row[0];
-	    if (strutils::contains(parray[len].key,"@")) {
-		parray[len].key=parray[len].key.substr(0,parray[len].key.find("@"));
+	    parray.emplace_back();
+	    parray.back().key=mf_elem->second+"!"+row[0];
+	    if (strutils::contains(parray.back().key,"@")) {
+		parray.back().key=parray.back().key.substr(0,parray.back().key.find("@"));
 	    }
-	    parray[len].description=pe.key;
-	    strutils::replace_all(parray[len].description,"<br />"," ");
-	    parray[len].short_name=parameter_mapper.short_name(xe.strings->at(0),row[0]);
-	    parameterDescriptionTable.insert(pe);
+	    parray.back().description=pe.key;
+	    strutils::replace_all(parray.back().description,"<br />"," ");
+	    parray.back().short_name=parameter_mapper.short_name(format,row[0]);
+	    parameter_description_table.insert(pe);
 	    ++len;
 	  }
 	  else {
-	    sdum=xe.key+"!"+row[0];
-	    if (std::regex_search(sdum,std::regex("@"))) {
-		sdum=sdum.substr(0,sdum.find("@"));
+	    auto pcode=mf_elem->second+"!"+row[0];
+	    if (std::regex_search(pcode,std::regex("@"))) {
+		pcode=pcode.substr(0,pcode.find("@"));
 	    }
-	    if (!strutils::contains(parray[pe.count].key,sdum)) {
-		parray[pe.count].key+=","+sdum;
+	    if (!strutils::contains(parray[pe.count].key,pcode)) {
+		parray[pe.count].key+=","+pcode;
 	    }
 	  }
-	  unique_parameters.insert(e);
+	  unique_parameters.emplace(u_param);
 	}
 	if (row[1] < min) {
 	  min=row[1];
@@ -1194,19 +1184,8 @@ void write_GrML_parameters(std::string& file_type,std::string& tindex,std::ofstr
     }
   });
   ofs << len << std::endl;
-  for (n=0; n < len; ++n) {
-    ofs << parray[n].key << "<!>" << parray[n].description << "<!>" << parray[n].short_name << std::endl;
-  }
-  for (const auto& key : formats_table.keys()) {
-    formats_table.found(key,xe);
-    xe.strings->at(0).clear();
-    xe.strings.reset();
-  }
-  for (const auto& key : metadata_files.keys()) {
-    metadata_files.found(key,xe);
-    xe.strings->at(0).clear();
-    xe.strings->at(1).clear();
-    xe.strings.reset();
+  for (const auto& p : parray) {
+    ofs << p.key << "<!>" << p.description << "<!>" << p.short_name << std::endl;
   }
 }
 
@@ -1338,7 +1317,7 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
 	GrML_file_data(file_type,gindex_table,rda_files_table,GrML_file_data_table,caller,user,args_string);
 	can_customize_GrML=true;
     }
-   if (table_exists(server,"ObML.ds"+dsnum2+"_primaries")) {
+    if (table_exists(server,"ObML.ds"+dsnum2+"_primaries")) {
 	ObML_file_data(file_type,gindex_table,rda_files_table,ObML_file_data_table,caller,user,args_string);
 	if (tindex.empty()) {
 	  ocustom.set("select min(start_date),max(end_date) from ObML.ds"+dsnum2+"_primaries where start_date > 0");
@@ -1404,7 +1383,7 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
     }
     if (ext.length() > 0) {
 	filename="customize."+ext;
-	if (tindex.length() > 0) {
+	if (!tindex.empty()) {
 	  filename+="."+tindex;
 	}
 	TempDir tdir;
@@ -1426,13 +1405,13 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
 	min="99999999999999";
 	max="0";
 	std::string init_date_selection;
-	write_GrML_parameters(file_type,tindex,ofs,caller,user,args_string,min,max,init_date_selection);
+	write_grml_parameters(file_type,tindex,ofs,caller,user,args_string,min,max,init_date_selection);
 	ofs << min << " " << max;
 	if (!init_date_selection.empty()) {
 	  ofs << " " << init_date_selection;
 	}
 	ofs << std::endl;
-	if (tindex.length() == 0) {
+	if (tindex.empty()) {
 	  write_groups(file_type,"GrML",ofs,caller,user,args_string);
 	}
 	ofs.close();
