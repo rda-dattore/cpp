@@ -12,6 +12,7 @@
 #include <citation.hpp>
 #include <hereDoc.hpp>
 #include <tokendoc.hpp>
+#include <myerror.hpp>
 
 namespace metadataExport {
 
@@ -368,7 +369,7 @@ void add_replace_from_element_content(XMLDocument& xdoc,std::string xpath,std::s
   }
 }
 
-void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
@@ -422,10 +423,48 @@ void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   ofs << indent << "</oai_dc:dc>" << std::endl;
+  return true;
 }
 
-XMLDocument *old_gcmd=nullptr;
-void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+{
+  ofs << "<meta name=\"DC.type\" content=\"Dataset\" />" << std::endl;
+  ofs << "<meta name=\"DC.identifier\" content=\"";
+  MySQL::Server server;
+  metautils::connect_to_metadata_server(server);
+  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  MySQL::Row row;
+  if (query.submit(server) == 0 && query.fetch_row(row)) {
+    ofs << "https://doi.org/" << row[0];
+  }
+  else {
+    ofs << "https://rda.ucar.edu/datasets/ds" << dsnum << "/";
+  }
+  ofs << "\" />" << std::endl;
+  auto elist=xdoc.element_list("dsOverview/author");
+  if (elist.size() > 0) {
+    for (const auto& author : elist) {
+	ofs << "<meta name=\"DC.creator\" content=\"" << author.attribute_value("lname") << ", " << author.attribute_value("fname") << "\" />" << std::endl;
+    }
+  }
+  else {
+  }
+  ofs << "<meta name=\"DC.title\" content=\"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\" />" << std::endl;
+  ofs << "<meta name=\"DC.date\" content=\"" << xdoc.element("dsOverview/publicationDate").content() << "\" scheme=\"DCTERMS.W3CDTF\" />" << std::endl;
+  ofs << "<meta name=\"DC.publisher\" content=\"" << PUBLISHER << "\" />" << std::endl;
+  auto summary=summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
+  strutils::replace_all(summary,"\n","\\n");
+  ofs << "<meta name=\"DC.description\" content=\"" << strutils::substitute(summary,"\"","\\\"") << "\" />" << std::endl;
+  query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  if (query.submit(server) == 0) {
+    while (query.fetch_row(row)) {
+	ofs << "<meta name=\"DC.subject\" content=\"" << row[0] << "\" />" << std::endl;
+    }
+  }
+  return true;
+}
+
+bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::LocalQuery query;
   MySQL::Row row;
@@ -856,9 +895,10 @@ void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "  <Metadata_Version>9.7</Metadata_Version>" << std::endl;
   ofs << indent << "</DIF>" << std::endl;                    
   server.disconnect();
+  return true;
 }
 
-void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   metautils::connect_to_metadata_server(server);
@@ -866,22 +906,66 @@ void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
   }
-  ofs << indent << "<resource xmlns=\"http://datacite.org/schema/kernel-2.2\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://datacite.org/schema/kernel-2.2 http://schema.datacite.org/meta/kernel-2.2/metadata.xsd\">" << std::endl;
-  MySQL::LocalQuery query;
-  query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  ofs << indent << "<resource xmlns=\"http://datacite.org/schema/kernel-3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://datacite.org/schema/kernel-3 http://schema.datacite.org/meta/kernel-3/metadata.xsd\">" << std::endl;
+  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "  <identifier identifierType=\"DOI\">" << row[0] << "</identifier>" << std::endl;
   }
-  XMLElement e=xdoc.element("dsOverview/title");
   ofs << indent << "  <creators>" << std::endl;
-  ofs << indent << "    <creator>YYYYY, XXXXX</creator>" << std::endl;
+  auto elist=xdoc.element_list("dsOverview/author");
+  if (elist.size() > 0) {
+    for (const auto& author : elist) {
+	ofs << indent << "    <creator>" << std::endl;
+	ofs << indent << "      <creatorName>" << author.attribute_value("lname") << ", " << author.attribute_value("fname");
+	auto mname=author.attribute_value("mname");
+	if (!mname.empty()) {
+	  ofs << " " << mname;
+	}
+	ofs << "</creatorName>" << std::endl;
+	ofs << indent << "    </creator>" << std::endl;
+    }
+  }
+  else {
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    if (query.submit(server) < 0) {
+	myerror="database error: "+server.error();
+	return false;
+    }
+    if (query.num_rows() == 0) {
+	myerror="no contributors were found for ds"+dsnum;
+	return false;
+    }
+    auto n=0;
+    while (query.fetch_row(row)) {
+	auto name_parts=strutils::split(row[0]," > ");
+	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+	  auto contact_parts=strutils::split(row[1],",");
+	  if (contact_parts.size() > 0) {
+	    name_parts.back()=strutils::capitalize(strutils::substitute(strutils::to_lower(name_parts.back())," ","_"))+", "+contact_parts.front();
+	  }
+	  else {
+	    name_parts.back()="";
+	  }
+	}
+	if (!name_parts.back().empty()) {
+	  ofs << indent << "    <creator>" << std::endl;
+	  ofs << indent << "      <creatorName>" << strutils::substitute(name_parts.back(),", ","/") << "</creatorName>" << std::endl;
+	  ofs << indent << "    <creator>" << std::endl;
+	  ++n;
+	}
+    }
+    if (n == 0) {
+	myerror="no useable contributors were found for ds"+dsnum;
+	return false;
+    }
+  }
   ofs << indent << "  </creators>" << std::endl;
   ofs << indent << "  <titles>" << std::endl;
-  e=xdoc.element("dsOverview/title");
+  auto e=xdoc.element("dsOverview/title");
   ofs << indent << "    <title>" << e.content() << "</title>" << std::endl;
   ofs << indent << "  </titles>" << std::endl;
-  ofs << indent << "  <publisher>University Corporation For Atmospheric Research (UCAR):National Center for Atmospheric Research (NCAR):Computational and Information Systems Laboratory (CISL):Operations and Services Division (OSD):Data Support Section (DSS)</publisher>" << std::endl;
+  ofs << indent << "  <publisher>" << PUBLISHER << "</publisher>" << std::endl;
   e=xdoc.element("dsOverview/publicationDate");
   ofs << indent << "  <publicationYear>" << e.content().substr(0,4) << "</publicationYear>" << std::endl;
   ofs << indent << "  <subjects>" << std::endl;
@@ -893,6 +977,9 @@ void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   }
   ofs << indent << "  </subjects>" << std::endl;
   ofs << indent << "  <contributors>" << std::endl;
+  ofs << indent << "    <contributor contributorType=\"HostingInstitution\">" << std::endl;
+  ofs << indent << "      <contributorName>" << DATACITE_HOSTING_INSTITUTION << "</contributorName>" << std::endl;
+  ofs << indent << "    </contributor>" << std::endl;
   ofs << indent << "  </contributors>" << std::endl;
   query.set("select min(concat(date_start,' ',time_start)),min(start_flag),max(concat(date_end,' ',time_end)),min(end_flag),time_zone from dssdb.dsperiod where dsid = 'ds"+dsnum+"' and date_start > '0000-00-00' and date_start < '3000-01-01' and date_end > '0000-00-00' and date_end < '3000-01-01'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -901,40 +988,43 @@ void export_to_DataCite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     ofs << indent << "  </dates>" << std::endl;
   }
   ofs << indent << "  <language>eng</language>" << std::endl;
-  ofs << indent << "  <resourceType resourceTypeGeneral=\"Dataset\">XXXXX</resourceType>" << std::endl;
+  ofs << indent << "  <resourceType resourceTypeGeneral=\"Dataset\" />" << std::endl;
   ofs << indent << "  <alternateIdentifiers>" << std::endl;
   ofs << indent << "    <alternateIdentifier alternateIdentifierType=\"Local\">ds" << dsnum << "</alternateIdentifier>" << std::endl;
   ofs << indent << "  </alternateIdentifiers>" << std::endl;
+  elist=xdoc.element_list("dsOverview/relatedDOI");
+  if (elist.size() > 0) {
+    ofs << indent << "  <relatedIdentifiers>" << std::endl;
+    for (const auto& doi : elist) {
+	ofs << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\" relationType=\"" << doi.attribute_value("relationType") << "\">" << doi.content() << "</relatedIdentifier>" << std::endl;
+    }
+    ofs << indent << "  </relatedIdentifiers>" << std::endl;
+  }
   auto size=primary_size(dsnum,server);
   if (!size.empty()) {
-    ofs << indent << "  <relatedIdentifiers>" << std::endl;
-    ofs << indent << "  </relatedIdentifiers>" << std::endl;
     ofs << indent << "  <sizes>" << std::endl;
     ofs << indent << "    <size>" << size << "</size>" << std::endl;
     ofs << indent << "  </sizes>" << std::endl;
-    query.set("keyword","search.formats","dsid = '"+dsnum+"'");
-    if (query.submit(server) == 0 && query.num_rows() > 0) {
-	ofs << indent << "  <formats>" << std::endl;
-	while (query.fetch_row(row)) {
-	  ofs << indent << "    <format>" << strutils::substitute(row[0],"_"," ") << "</format>" << std::endl;
-	}
-	ofs << indent << "  </formats>" << std::endl;
-    }
-    ofs << indent << "  <version>XXXXX</version>" << std::endl;
-    ofs << indent << "  <rights>XXXXX</rights>" << std::endl;
-    ofs << indent << "  <descriptions>" << std::endl;
-    e=xdoc.element("dsOverview/summary");
-    auto summary=e.to_string();
-    ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(summary,120,indent_length+6) << std::endl;
-    ofs << indent << "    </description>" << std::endl;
-    ofs << indent << "  </descriptions>" << std::endl;
   }
+  query.set("distinct keyword","search.formats","dsid = '"+dsnum+"'");
+  if (query.submit(server) == 0 && query.num_rows() > 0) {
+    ofs << indent << "  <formats>" << std::endl;
+    while (query.fetch_row(row)) {
+	ofs << indent << "    <format>" << strutils::substitute(row[0],"_"," ") << "</format>" << std::endl;
+    }
+    ofs << indent << "  </formats>" << std::endl;
+  }
+  ofs << indent << "  <descriptions>" << std::endl;
+  ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
+  ofs << summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),120,indent_length+6) << std::endl;
+  ofs << indent << "    </description>" << std::endl;
+  ofs << indent << "  </descriptions>" << std::endl;
   ofs << indent << "</resource>" << std::endl;
   server.disconnect();
+  return true;
 }
 
-void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   metautils::connect_to_metadata_server(server);
@@ -1144,9 +1234,10 @@ void export_to_FGDC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "  </metainfo>" << std::endl;
   ofs << indent << "</metadata>" << std::endl;
   server.disconnect();
+  return true;
 }
 
-void export_to_ISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_iso19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   MySQL::LocalQuery query;
@@ -1154,7 +1245,6 @@ void export_to_ISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   hereDoc::Tokens tokens;
   hereDoc::IfEntry ife;
   hereDoc::RepeatEntry re;
-  my::map<Entry> unique_places_table;
 
   metautils::connect_to_metadata_server(server);
   tokens.replaces.emplace_back("__DSNUM__<!>"+dsnum);
@@ -1254,7 +1344,7 @@ void export_to_ISO19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   }
   tokens.replaces.emplace_back("__UPDATE_FREQUENCY__<!>"+frequency);
   e=xdoc.element("dsOverview/logo");
-  if (e.name().length() > 0) {
+  if (!e.name().empty()) {
     ife.key="__HAS_LOGO__";
     tokens.ifs.insert(ife);
     tokens.replaces.emplace_back("__LOGO_URL__<!>https://rda.ucar.edu/images/ds_logos/"+e.content());
@@ -1335,6 +1425,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
   std::deque<HResEntry> hres_list;
+  my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
     ife.key="__IS_GRID__";
@@ -1464,9 +1555,10 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     tokens.ifs.insert(ife);
   }
   hereDoc::print("/usr/local/www/server_root/web/html/oai/iso19139.xml",&tokens,ofs,indent_length);
+  return true;
 }
 
-void export_to_ISO19115_dash_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   if (token_doc == nullptr) {
     token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/iso19115-3.xml"));
@@ -1718,6 +1810,7 @@ void export_to_ISO19115_dash_3(std::unique_ptr<TokenDocument>& token_doc,std::os
   }
   server.disconnect();
   ofs << *token_doc << std::endl;
+  return true;
 }
 
 void add_frequency(my::map<Entry>& frequency_table,size_t frequency,std::string unit)
@@ -1760,7 +1853,200 @@ extern "C" void *run_query(void *ts)
   return NULL;
 }
 
-void export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+{
+  ofs << "<script type=\"application/ld+json\">" << std::endl;
+  ofs << "  {" << std::endl;
+  ofs << "    \"@context\": \"http://schema.org\"," << std::endl;
+  ofs << "    \"@type\": \"Dataset\"," << std::endl;
+  ofs << "    \"@id\": \"";
+  MySQL::Server server;
+  metautils::connect_to_metadata_server(server);
+  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  MySQL::Row row;
+  if (query.submit(server) == 0 && query.fetch_row(row)) {
+    ofs << "https://doi.org/" << row[0];
+  }
+  else {
+    ofs << "https://rda.ucar.edu/datasets/ds" << dsnum << "/";
+  }
+  ofs << "\"," << std::endl;
+  ofs << "    \"name\": \"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\"," << std::endl;
+  auto summary=summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
+  strutils::replace_all(summary,"\n","\\n");
+  ofs << "    \"description\": \"" << strutils::substitute(summary,"\"","\\\"") << "\"," << std::endl;
+  auto elist=xdoc.element_list("dsOverview/author");
+  if (elist.size() > 0) {
+    ofs << "    \"author\": [" << std::endl;
+    for (const auto& author : elist) {
+	ofs << "      {" << std::endl;
+	ofs << "        \"@type\": \"Person\"," << std::endl;
+	ofs << "        \"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
+	ofs << "        \"familyName\": \"" << author.attribute_value("lname") << "\"" << std::endl;
+	ofs << "      }";
+	if (&author != &elist.back()) {
+	  ofs << ",";
+	}
+	ofs << std::endl;
+    }
+    ofs  << "    ]," << std::endl;
+  }
+  else {
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    if (query.submit(server) < 0) {
+	myerror="database error: "+server.error();
+	return false;
+    }
+    if (query.num_rows() == 0) {
+	myerror="no contributors were found for ds"+dsnum;
+	return false;
+    }
+    ofs << "    \"author\": ";
+    if (query.num_rows() > 1) {
+	ofs << "[" << std::endl;
+    }
+    else {
+	ofs << "{" << std::endl;
+    }
+    size_t num_contributors=0,num_rows=1;
+    while (query.fetch_row(row)) {
+	auto name_parts=strutils::split(row[0]," > ");
+	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+	  auto contact_parts=strutils::split(row[1],",");
+	  if (contact_parts.size() > 0) {
+	    std::string local_indent="";
+	    if (query.num_rows() > 1) {
+		local_indent="  ";
+		ofs << "    " << local_indent << "{" << std::endl;
+	    }
+	    ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
+	    ofs << "      " << local_indent << "\"name\": \"" << contact_parts.front() << "\"" << std::endl;
+	    if (query.num_rows() > 1) {
+		ofs << "    " << local_indent << "}";
+		if (num_rows < query.num_rows()) {
+		  ofs << ",";
+		}
+		ofs << std::endl;
+	    }
+	    ++num_contributors;
+	  }
+	}
+	else {
+	  std::string local_indent="";
+	  if (query.num_rows() > 1) {
+	    local_indent="  ";
+	    ofs << "    " << local_indent << "{" << std::endl;
+	  }
+	  ofs << "      " << local_indent << "\"@type\": \"Organization\"," << std::endl;
+	  ofs << "      " << local_indent << "\"name\": \"" << strutils::substitute(name_parts.back(),", ","/") << "\"" << std::endl;
+	  if (query.num_rows() > 1) {
+	    ofs << "    " << local_indent << "}";
+	    if (num_rows < query.num_rows()) {
+		ofs << ",";
+	    }
+	    ofs << std::endl;
+	  }
+	  ++num_contributors;
+	}
+	++num_rows;
+    }
+    if (num_contributors == 0) {
+	myerror="no useable contributors were found for ds"+dsnum;
+	return false;
+    }
+    if (query.num_rows() > 1) {
+	ofs  << "    ]," << std::endl;
+    }
+    else {
+	ofs  << "    }," << std::endl;
+    }
+  }
+  query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  if (query.submit(server) == 0) {
+    ofs << "    \"keywords\": ";
+    if (query.num_rows() == 1) {
+	query.fetch_row(row);
+	ofs << "\"" << row[0] << "\"," << std::endl;
+    }
+    else {
+	ofs << "[" << std::endl;;
+	size_t n=1;
+	while (query.fetch_row(row)) {
+	  ofs << "      \"" << row[0] << "\"";
+	  if (n < query.num_rows()) {
+	    ofs << ",";
+	  }
+	  ofs << std::endl;
+	  ++n;
+	}
+ 	ofs << "    ]," << std::endl;
+    }
+  }
+  query.set("select min(date_start),min(time_start),max(date_end),max(time_end),min(start_flag),any_value(time_zone) from dssdb.dsperiod where dsid = 'ds"+dsnum+"' and date_start < '9998-01-01' and date_end < '9998-01-01' group by dsid");
+  if (query.submit(server) == 0 && query.fetch_row(row)) {
+    auto num_parts=std::stoi(row[4]);
+    auto sdate=row[0];
+    auto edate=row[2];
+    if (num_parts < 3) {
+	strutils::chop(sdate,3*(3-num_parts));
+	strutils::chop(edate,3*(3-num_parts));
+    }
+    else {
+	sdate+="T"+row[1];
+	edate+="T"+row[3];
+	if (num_parts < 6) {
+	  strutils::chop(sdate,3*(6-num_parts));
+	  strutils::chop(edate,3*(6-num_parts));
+	}
+    }
+    ofs << "    \"temporalCoverage\": \"" << sdate << "/" << edate << "\"," << std::endl;
+  }
+  double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
+  bool is_grid;
+  std::deque<HResEntry> hres_list;
+  my::map<Entry> unique_places_table;
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  if (is_grid) {
+    ofs << "    \"spatialCoverage\": {" << std::endl;
+    ofs << "      \"@type\": \"Place\"," << std::endl;
+    ofs << "      \"geo\": {" << std::endl;
+    if (min_west_lon < 9999.) {
+	if (myequalf(min_west_lon,max_east_lon) && myequalf(min_south_lat,max_north_lat)) {
+	  ofs << "        \"@type\": \"GeoCoordinates\"," << std::endl;
+	  ofs << "        \"latitude\": " << min_south_lat << std::endl;
+	  ofs << "        \"longitude\": " << min_west_lon << std::endl;
+	}
+	else {
+	  ofs << "        \"@type\": \"GeoShape\"," << std::endl;
+	  ofs << "        \"box\": \"" << min_south_lat << "," << min_west_lon << " " << max_north_lat << "," << max_east_lon << "\"" << std::endl;
+	}
+    }
+    ofs << "      }" << std::endl;
+    ofs << "    }," << std::endl;
+  }
+  else if (unique_places_table.size() > 0) {
+/*
+    ife.key="__HAS_GEOGRAPHIC_IDENTIFIERS__";
+    tokens.ifs.insert(ife);
+    re.key="__GEOGRAPHIC_IDENTIFIER__";
+    re.list.reset(new std::deque<std::string>);
+    tokens.repeats.insert(re);
+    for (const auto& key : unique_places_table.keys()) {
+	re.list->emplace_back(key);
+    }
+*/
+  }
+  ofs << "    \"publisher\": {" << std::endl;
+  ofs << "      \"@type\": \"Organization\"," << std::endl;
+  ofs << "      \"name\": \"" << PUBLISHER << "\"" << std::endl;
+  ofs << "    }," << std::endl;
+  ofs << "    \"datePublished\": \"" << xdoc.element("dsOverview/publicationDate").content() << "\"" << std::endl;
+  ofs << "  }" << std::endl;
+  ofs << "</script>" << std::endl;
+  return true;
+}
+
+bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   std::string indent;
   bool found_content_metadata=false;
@@ -2001,9 +2287,10 @@ void export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   }
   ofs << indent << "</dsOverview>" << std::endl;
   server.disconnect();
+  return true;
 }
 
-void export_to_THREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
+bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server;
   MySQL::LocalQuery query;
@@ -2096,50 +2383,59 @@ void export_to_THREDDS(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
   }
   ofs << indent << "</catalog>" << std::endl;
   server.disconnect();
+  return true;
 }
 
-void export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string ident,size_t initial_indent_length)
+bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string ident,size_t initial_indent_length)
 {
-  XMLDocument xdoc;
+  bool exported=false;
   TempDir temp_dir;
-  struct stat buf;
-
   temp_dir.create("/tmp");
-  if (ident.length() == 5 && ident[3] == '.' && strutils::is_numeric(strutils::substitute(ident,".",""))) {
+  if (std::regex_search(ident,std::regex("^[0-9][0-9][0-9]\\.[0-9]$"))) {
     std::string ds_overview;
+    struct stat buf;
     if (stat((directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
 	ds_overview=directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
     }
     else {
 	ds_overview=remote_web_file("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
     }
-    xdoc.open(ds_overview);
+    XMLDocument xdoc(ds_overview);
+    if (xdoc.is_open()) {
+	if (format == "oai_dc") {
+	  exported=export_to_oai_dc(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "datacite") {
+	  exported=export_to_data_cite(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "dc-meta-tags") {
+	  exported=export_to_dc_meta_tags(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "dif") {
+	  exported=export_to_dif(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "fgdc") {
+	  exported=export_to_fgdc(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "iso19139") {
+	  exported=export_to_iso19139(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "iso19115-3") {
+	  exported=export_to_iso19115_3(token_doc,ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "json-ld") {
+	  exported=export_to_json_ld(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "native") {
+	  exported=export_to_native(ofs,ident,xdoc,initial_indent_length);
+	}
+	else if (format == "thredds") {
+	  exported=export_to_thredds(ofs,ident,xdoc,initial_indent_length);
+	}
+	xdoc.close();
+    }
   }
-  if (format == "oai_dc") {
-    export_to_OAI_DC(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "datacite") {
-    export_to_DataCite(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "dif") {
-    export_to_DIF(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "fgdc") {
-    export_to_FGDC(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "iso19139") {
-    export_to_ISO19139(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "iso19115-3") {
-    export_to_ISO19115_dash_3(token_doc,ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "native") {
-    export_to_native(ofs,ident,xdoc,initial_indent_length);
-  }
-  else if (format == "thredds") {
-    export_to_THREDDS(ofs,ident,xdoc,initial_indent_length);
-  }
-  xdoc.close();
+  return exported;
 }
 
 } // end namespace metadataExport
