@@ -448,6 +448,34 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
     }
   }
   else {
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    if (query.submit(server) < 0) {
+	myerror="database error: "+server.error();
+	return false;
+    }
+    if (query.num_rows() == 0) {
+	myerror="no contributors were found for ds"+dsnum;
+	return false;
+    }
+    auto num_contributors=0;
+    while (query.fetch_row(row)) {
+	auto name_parts=strutils::split(row[0]," > ");
+	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+	  auto contact_parts=strutils::split(row[1],",");
+	  if (contact_parts.size() > 0) {
+	    ofs << "<meta name=\"DC.creator\" content\"" << contact_parts.front() << "\" />" << std::endl;
+	    ++num_contributors;
+	  }
+	}
+	else {
+	  ofs << "<meta name=\"DC.creator\" content=\"" << strutils::substitute(name_parts.back(),", ","/") << "\" />" << std::endl;
+	  ++num_contributors;
+	}
+    }
+    if (num_contributors == 0) {
+	myerror="no useable contributors were found for ds"+dsnum;
+	return false;
+    }
   }
   ofs << "<meta name=\"DC.title\" content=\"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\" />" << std::endl;
   ofs << "<meta name=\"DC.date\" content=\"" << xdoc.element("dsOverview/publicationDate").content() << "\" scheme=\"DCTERMS.W3CDTF\" />" << std::endl;
