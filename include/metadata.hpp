@@ -758,6 +758,9 @@ extern bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std
 
 namespace metadataExport {
 
+const std::string DATACITE_HOSTING_INSTITUTION="University Corporation For Atmospheric Research (UCAR):National Center for Atmospheric Research (NCAR):Computational and Information Systems Laboratory (CISL):Operations and Services Division (OSD):Data Support Section (DSS)";
+const std::string PUBLISHER="UCAR/NCAR - Research Data Archive";
+
 struct Entry {
   Entry() : key(),min_lon(0.),min_lat(0.) {}
 
@@ -773,10 +776,12 @@ struct PThreadStruct {
 
 extern "C" void *runQuery(void *ts);
 
-extern void export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,size_t initial_indent_length = 0);
-extern void export_to_DIF(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern void export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern void export_to_OAI_DC(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,size_t initial_indent_length = 0);
+extern bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 
 } // end namespace metadataExport
 
