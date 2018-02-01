@@ -1905,19 +1905,34 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   ofs << "    \"description\": \"" << strutils::substitute(summary,"\"","\\\"") << "\"," << std::endl;
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
-    ofs << "    \"author\": [" << std::endl;
-    for (const auto& author : elist) {
-	ofs << "      {" << std::endl;
-	ofs << "        \"@type\": \"Person\"," << std::endl;
-	ofs << "        \"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
-	ofs << "        \"familyName\": \"" << author.attribute_value("lname") << "\"" << std::endl;
-	ofs << "      }";
-	if (&author != &elist.back()) {
-	  ofs << ",";
-	}
-	ofs << std::endl;
+    ofs << "    \"author\": ";
+    std::string local_indent="";
+    if (elist.size() > 1) {
+	ofs << "[" << std::endl;
+	local_indent="  ";
     }
-    ofs  << "    ]," << std::endl;
+    else {
+	ofs << "{" << std::endl;
+    }
+    for (const auto& author : elist) {
+	if (elist.size() > 1) {
+	  ofs << "    " << local_indent << "{" << std::endl;
+	}
+	ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
+	ofs << "      " << local_indent << "\"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
+	ofs << "      " << local_indent << "\"familyName\": \"" << author.attribute_value("lname") << "\"" << std::endl;
+	ofs << "    " << local_indent << "}";
+	if (elist.size() > 1) {
+	  if (&author != &elist.back()) {
+	    ofs << ",";
+	  }
+	  ofs << std::endl;
+	}
+    }
+    if (elist.size() > 1) {
+	ofs  << "    ]";
+    }
+    ofs << "," << std::endl;
   }
   else {
     query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
