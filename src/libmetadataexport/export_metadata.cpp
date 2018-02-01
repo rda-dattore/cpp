@@ -1904,19 +1904,16 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   strutils::replace_all(summary,"\n","\\n");
   ofs << "    \"description\": \"" << strutils::substitute(summary,"\"","\\\"") << "\"," << std::endl;
   auto elist=xdoc.element_list("dsOverview/author");
+  ofs << "    \"author\": {" << std::endl;
   if (elist.size() > 0) {
-    ofs << "    \"author\": ";
     std::string local_indent="";
     if (elist.size() > 1) {
-	ofs << "[" << std::endl;
-	local_indent="  ";
-    }
-    else {
-	ofs << "{" << std::endl;
+	ofs << "      \"@list\": [" << std::endl;
+	local_indent="    ";
     }
     for (const auto& author : elist) {
 	if (elist.size() > 1) {
-	  ofs << "    " << local_indent << "{" << std::endl;
+	  ofs << "        " << "{" << std::endl;
 	}
 	ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
 	ofs << "      " << local_indent << "\"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
@@ -1930,7 +1927,8 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
 	}
     }
     if (elist.size() > 1) {
-	ofs  << "    ]";
+	ofs << "      ]" << std::endl;
+	ofs << "    }";
     }
     ofs << "," << std::endl;
   }
@@ -1944,28 +1942,24 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
 	myerror="no contributors were found for ds"+dsnum;
 	return false;
     }
-    ofs << "    \"author\": ";
+    std::string local_indent="";
     if (query.num_rows() > 1) {
-	ofs << "[" << std::endl;
-    }
-    else {
-	ofs << "{" << std::endl;
+	ofs << "      \"@list\": [" << std::endl;
+	local_indent="    ";
     }
     size_t num_contributors=0,num_rows=1;
     while (query.fetch_row(row)) {
+	if (query.num_rows() > 1) {
+	  ofs << "        " << "{" << std::endl;
+	}
 	auto name_parts=strutils::split(row[0]," > ");
 	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
 	  auto contact_parts=strutils::split(row[1],",");
 	  if (contact_parts.size() > 0) {
-	    std::string local_indent="";
-	    if (query.num_rows() > 1) {
-		local_indent="  ";
-		ofs << "    " << local_indent << "{" << std::endl;
-	    }
 	    ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
 	    ofs << "      " << local_indent << "\"name\": \"" << contact_parts.front() << "\"" << std::endl;
+	    ofs << "    " << local_indent << "}";
 	    if (query.num_rows() > 1) {
-		ofs << "    " << local_indent << "}";
 		if (num_rows < query.num_rows()) {
 		  ofs << ",";
 		}
@@ -1975,15 +1969,10 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
 	  }
 	}
 	else {
-	  std::string local_indent="";
-	  if (query.num_rows() > 1) {
-	    local_indent="  ";
-	    ofs << "    " << local_indent << "{" << std::endl;
-	  }
 	  ofs << "      " << local_indent << "\"@type\": \"Organization\"," << std::endl;
 	  ofs << "      " << local_indent << "\"name\": \"" << strutils::substitute(name_parts.back(),", ","/") << "\"" << std::endl;
+	  ofs << "    " << local_indent << "}";
 	  if (query.num_rows() > 1) {
-	    ofs << "    " << local_indent << "}";
 	    if (num_rows < query.num_rows()) {
 		ofs << ",";
 	    }
@@ -1998,11 +1987,10 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
 	return false;
     }
     if (query.num_rows() > 1) {
-	ofs  << "    ]," << std::endl;
+	ofs << "      ]" << std::endl;
+	ofs << "    }";
     }
-    else {
-	ofs  << "    }," << std::endl;
-    }
+    ofs << "," << std::endl;
   }
   query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
