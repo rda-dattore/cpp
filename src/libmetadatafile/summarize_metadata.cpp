@@ -207,6 +207,7 @@ void summarize_dates(std::string dsnum,std::string caller,std::string user,std::
   cmd_dates("GrML",dsnum,range_list,precision);
   cmd_dates("ObML",dsnum,range_list,precision);
   cmd_dates("FixML",dsnum,range_list,precision);
+  cmd_dates("SatML",dsnum,range_list,precision);
   MySQL::Server dssdb_server;
   metautils::connect_to_rdadb_server(dssdb_server);
   if (range_list.size() > 0) {
