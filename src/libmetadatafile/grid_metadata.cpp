@@ -65,13 +65,13 @@ void summarize_grid_levels(std::string dsnum,std::string database,std::string ca
 
 namespace grids {
 
-int compare_values(const size_t& left,const size_t& right)
+bool compare_values(const size_t& left,const size_t& right)
 {
   if (left <= right) {
-    return -1;
+    return true;
   }
   else {
-    return 1;
+    return false;
   }
 }
 

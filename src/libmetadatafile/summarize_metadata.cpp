@@ -154,12 +154,14 @@ void cmd_dates(std::string database,std::string dsnum,std::list<CMDDateRange>& r
 	    darray.emplace_back(cmd_date_range(row[0],row[1],row[2],precision));
 	  }
 	  binary_sort(darray,
-	  [](CMDDateRange& left,CMDDateRange& right) -> int
+	  [](CMDDateRange& left,CMDDateRange& right) -> bool
 	  {
-	    if (left.start <= right.start)
-		return -1;
-	    else
-		return 1;
+	    if (left.start <= right.start) {
+		return true;
+	    }
+	    else {
+		return false;
+	    }
 	  });
 	  CMDDateRange d;
 	  d.gindex="0";
@@ -239,20 +241,20 @@ void summarize_dates(std::string dsnum,std::string caller,std::string user,std::
     }
     else {
 	binary_sort(darray,
-	[](CMDDateRange& left,CMDDateRange& right) -> int
+	[](CMDDateRange& left,CMDDateRange& right) -> bool
 	{
 	  if (left.end > right.end) {
-	    return -1;
+	    return true;
 	  }
 	  else if (left.end < right.end) {
-	    return 1;
+	    return false;
 	  }
 	  else {
 	    if (left.gindex <= right.gindex) {
-	        return -1;
+	        return true;
 	    }
 	    else {
-	        return 1;
+	        return false;
 	    }
 	  }
 	});
@@ -1175,13 +1177,13 @@ void write_grml_parameters(std::string& file_type,std::string& tindex,std::ofstr
   server.disconnect();
   parray.resize(len);
   binary_sort(parray,
-  [](ParameterEntry& left,ParameterEntry& right) -> int
+  [](ParameterEntry& left,ParameterEntry& right) -> bool
   {
     if (strutils::to_lower(left.description) <= strutils::to_lower(right.description)) {
-	return -1;
+	return true;
     }
     else {
-	return 1;
+	return false;
     }
   });
   ofs << len << std::endl;
@@ -1265,20 +1267,20 @@ void write_groups(std::string& file_type,std::string db,std::ofstream& ofs,std::
     }
     array.resize(n);
     binary_sort(array,
-    [](XEntry& left,XEntry& right) -> int
+    [](XEntry& left,XEntry& right) -> bool
     {
 	if (left.key.length() < right.key.length()) {
-	  return -1;
+	  return true;
 	}
 	else if (left.key.length() > right.key.length()) {
-	  return 1;
+	  return false;
 	}
 	else {
 	  if (left.key <= right.key) {
-	    return -1;
+	    return true;
 	  }
 	  else {
-	    return 1;
+	    return false;
 	  }
 	}
     });
@@ -1678,28 +1680,28 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
 	++n;
     }
     binary_sort(array,
-    [](const FileEntry& left,const FileEntry& right) -> int
+    [](const FileEntry& left,const FileEntry& right) -> bool
     {
 	if (left.start < right.start) {
-	  return -1;
+	  return true;
 	}
 	else if (left.start > right.start) {
-	  return 1;
+	  return false;
 	}
 	else {
 	  if (left.end == right.end) {
 	    if (left.key <= right.key) {
-		return -1;
+		return true;
 	    }
 	    else {
-		return 1;
+		return false;
 	    }
 	  }
 	  else if (left.end < right.end) {
-	    return -1;
+	    return true;
 	  }
 	  else {
-	    return 1;
+	    return false;
 	  }
 	}
     });
