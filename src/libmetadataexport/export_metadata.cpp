@@ -1459,6 +1459,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     ife.key="__IS_GRID__";
     tokens.ifs.insert(ife);
   }
+  auto has_any_extent=false;
   if (min_west_lon < 9999.) {
     if (myequalf(min_west_lon,max_east_lon) && myequalf(min_south_lat,max_north_lat)) {
 	ife.key="__HAS_POINT__";
@@ -1473,6 +1474,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	tokens.replaces.emplace_back("__NORTH_LAT__<!>"+strutils::ftos(max_north_lat,10));
     }
     tokens.ifs.insert(ife);
+    has_any_extent=true;
   }
   if (unique_places_table.size() > 0) {
     ife.key="__HAS_GEOGRAPHIC_IDENTIFIERS__";
@@ -1483,6 +1485,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     for (const auto& key : unique_places_table.keys()) {
 	re.list->emplace_back(key);
     }
+    has_any_extent=true;
   }
   query.set("select min(date_start),min(time_start),max(date_end),max(time_end),min(start_flag),any_value(time_zone) from dssdb.dsperiod where dsid = 'ds"+dsnum+"' and date_start < '9998-01-01' and date_end < '9998-01-01' group by dsid");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -1561,6 +1564,13 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	}
     }
     tokens.replaces.emplace_back("__END_DATE__<!>"+s);
+    ife.key="__HAS_TEMPORAL_EXTENT__";
+    tokens.ifs.insert(ife);
+    has_any_extent=true;
+  }
+  if (has_any_extent) {
+    ife.key="__HAS_ANY_EXTENT__";
+    tokens.ifs.insert(ife);
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (!e.name().empty()) {
