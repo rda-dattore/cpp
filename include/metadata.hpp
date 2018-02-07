@@ -413,7 +413,7 @@ extern void aggregate_grids(std::string dsnum,std::string database,std::string c
 extern void summarize_grids(std::string dsnum,std::string database,std::string caller,std::string user,std::string args,std::string file_ID_code = "");
 extern void summarize_grid_resolutions(std::string dsnum,std::string caller,std::string user,std::string args,std::string mss_ID_code = "");
 
-extern int compare_values(const size_t& left,const size_t& right);
+extern bool compare_values(const size_t& left,const size_t& right);
 
 } // end namespace summarizeMetadata::grids
 
@@ -739,10 +739,10 @@ extern std::string detailed_datatype(xmlutils::DataTypeMapper& data_type_mapper,
 extern std::string detailed_level(xmlutils::LevelMapper& level_mapper,const std::string& format,const std::string& map,const std::string& type,const std::string& value,bool htmlify_units,std::string caller = "",std::string user = "",std::string args = "");
 extern std::string detailed_parameter(xmlutils::ParameterMapper& parameter_mapper,const std::string& format,const std::string& code,std::string caller = "",std::string user = "",std::string args = "");
 
-extern int compare_grid_definitions(const std::string& left,const std::string& right);
-extern int compare_levels(const std::string& left,const std::string& right);
-extern int compare_time_ranges(const std::string& left,const std::string& right);
-extern int default_compare(const std::string& left,const std::string& right);
+extern bool compare_grid_definitions(const std::string& left,const std::string& right);
+extern bool compare_levels(const std::string& left,const std::string& right);
+extern bool compare_time_ranges(const std::string& left,const std::string& right);
+extern bool default_compare(const std::string& left,const std::string& right);
 
 } // end namespace metadata
 
