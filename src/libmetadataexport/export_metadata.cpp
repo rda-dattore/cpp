@@ -1538,7 +1538,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     token_doc->add_if("__HAS_ACCESS_RESTRICTIONS__");
     token_doc->add_replacement("__ACCESS_RESTRICTIONS__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
-  query.set("primary_size/1000000","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+  query.set("select if(primary_size > 999999999,round(primary_size/1000000,0),if(primary_size > 999999,round(primary_size/1000000,2),if(primary_size > 9999,truncate(round(primary_size/10000,0)/100,2),truncate(round(primary_size/100,0)/10000,2)))) from dssdb.dataset where dsid = 'ds"+dsnum+"'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     token_doc->add_if("__VOLUME_SPECIFIED__");
     token_doc->add_replacement("__MB_VOLUME__",row[0]);
