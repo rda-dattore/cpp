@@ -16,17 +16,17 @@
 
 namespace metadataExport {
 
-int compare_references(XMLElement& left,XMLElement& right)
+bool compare_references(XMLElement& left,XMLElement& right)
 {
   auto e=left.element("year");
   auto l=e.content();
   e=right.element("year");
   auto r=e.content();
   if (l > r) {
-    return -1;
+    return true;
   }
   else {
-    return 1;
+    return false;
   }
 }
 
@@ -1591,6 +1591,12 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   else {
     ife.key="__NO_ACCESS_RESTRICTIONS__";
     tokens.ifs.insert(ife);
+  }
+  query.set("primary_size/1000000","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+  if (query.submit(server) == 0 && query.fetch_row(row)) {
+    ife.key="__VOLUME_SPECIFIED__";
+    tokens.ifs.insert(ife);
+    tokens.replaces.emplace_back("__MB_VOLUME__<!>"+row[0]);
   }
   hereDoc::print("/usr/local/www/server_root/web/html/oai/iso19139.xml",&tokens,ofs,indent_length);
   return true;
