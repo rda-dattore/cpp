@@ -1265,20 +1265,18 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   return true;
 }
 
-bool export_to_iso19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
+  if (token_doc == nullptr) {
+    token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/iso19139.xml",indent_length));
+  }
   MySQL::Server server;
-  MySQL::LocalQuery query;
-  MySQL::Row row;
-  hereDoc::Tokens tokens;
-  hereDoc::IfEntry ife;
-  hereDoc::RepeatEntry re;
-
   metautils::connect_to_metadata_server(server);
-  tokens.replaces.emplace_back("__DSNUM__<!>"+dsnum);
+  token_doc->add_replacement("__DSNUM__",dsnum);
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
-  query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+  MySQL::LocalQuery query("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+  MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     if (row[0] > mdate) {
 	mdate=row[0]+"T00:00:00";
@@ -1292,9 +1290,9 @@ bool export_to_iso19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     mdate[10]='T';
     mdate.erase(19);
   }
-  tokens.replaces.emplace_back("__MDATE__<!>"+mdate);
+  token_doc->add_replacement("__MDATE__",mdate);
   e=xdoc.element("dsOverview/title");
-  tokens.replaces.emplace_back("__TITLE__<!>"+e.content());
+  token_doc->add_replacement("__TITLE__",e.content());
   e=xdoc.element("dsOverview/publicationDate");
   auto pub_date=e.content();
   if (pub_date.empty()) {
@@ -1304,54 +1302,40 @@ bool export_to_iso19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     }
   }
   if (!pub_date.empty()) {
-    tokens.replaces.emplace_back("__PUBLICATION_DATE_XML__<!><gmd:date><gco:Date>"+pub_date+"</gco:Date></gmd:date>");
+    token_doc->add_replacement("__PUBLICATION_DATE_XML__","<gmd:date><gco:Date>"+pub_date+"</gco:Date></gmd:date>");
   }
   else {
-    tokens.replaces.emplace_back("__PUBLICATION_DATE_XML__<!><gmd:date gco:nilReason=\"unknown\" />");
+    token_doc->add_replacement("__PUBLICATION_DATE_XML__","<gmd:date gco:nilReason=\"unknown\" />");
   }
   query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
-    ife.key="__HAS_DOI__";
-    tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__DOI__<!>"+row[0]);
-  }
-  else {
-    ife.key="__NO_DOI__";
-    tokens.ifs.insert(ife);
+    token_doc->add_if("__HAS_DOI__");
+    token_doc->add_replacement("__DOI__",row[0]);
   }
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
-    ife.key="__HAS_AUTHOR_PERSONS__";
-    tokens.ifs.insert(ife);
-    re.key="__AUTHOR_PERSON__";
-    re.list.reset(new std::deque<std::string>);
-    tokens.repeats.insert(re);
+    token_doc->add_if("__HAS_AUTHOR_PERSONS__");
     for (const auto& e : elist) {
 	std::string author=e.attribute_value("lname")+", "+e.attribute_value("fname")+" "+e.attribute_value("mname");
 	strutils::trim(author);
-	re.list->emplace_back(author);
+	token_doc->add_repeat("__AUTHOR_PERSON__",author);
     }
   }
   else {
     query.set("select g.path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
-	ife.key="__HAS_AUTHOR_ORGS__";
-	tokens.ifs.insert(ife);
-	re.key="__AUTHOR_ORG__";
-	re.list.reset(new std::deque<std::string>);
-	tokens.repeats.insert(re);
+	token_doc->add_if("__HAS_AUTHOR_ORGS__");
 	while (query.fetch_row(row)) {
-	  re.list->emplace_back(strutils::substitute(row[0].substr(row[0].find(" > ")+3),"&","&amp;"));
+	  token_doc->add_repeat("__AUTHOR_ORG__",strutils::substitute(row[0].substr(row[0].find(" > ")+3),"&","&amp;"));
 	}
     }
   }
   e=xdoc.element("dsOverview/summary");
-  tokens.replaces.emplace_back("__ABSTRACT__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
-//tokens.replaces.emplace_back("__ABSTRACT__<!>"+e.content());
+  token_doc->add_replacement("__ABSTRACT__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   e=xdoc.element("dsOverview/continuingUpdate");
   std::string frequency;
   if (e.attribute_value("value") == "yes") {
-    tokens.replaces.emplace_back("__PROGRESS_STATUS__<!>onGoing");
+    token_doc->add_replacement("__PROGRESS_STATUS__","onGoing");
     frequency=e.attribute_value("frequency");
     if (frequency == "bi-monthly") {
 	frequency="monthly";
@@ -1367,123 +1351,97 @@ bool export_to_iso19139(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     }
   }
   else {
-    tokens.replaces.emplace_back("__PROGRESS_STATUS__<!>completed");
+    token_doc->add_replacement("__PROGRESS_STATUS__","completed");
     frequency="notPlanned";
   }
-  tokens.replaces.emplace_back("__UPDATE_FREQUENCY__<!>"+frequency);
+  token_doc->add_replacement("__UPDATE_FREQUENCY__",frequency);
   e=xdoc.element("dsOverview/logo");
   if (!e.name().empty()) {
-    ife.key="__HAS_LOGO__";
-    tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__LOGO_URL__<!>https://rda.ucar.edu/images/ds_logos/"+e.content());
-    tokens.replaces.emplace_back("__LOGO_IMAGE_FORMAT__<!>"+strutils::to_upper(e.content().substr(e.content().rfind(".")+1)));
+    token_doc->add_if("__HAS_LOGO__");
+    token_doc->add_replacement("__LOGO_URL__","https://rda.ucar.edu/images/ds_logos/"+e.content());
+    token_doc->add_replacement("__LOGO_IMAGE_FORMAT__",strutils::to_upper(e.content().substr(e.content().rfind(".")+1)));
   }
   elist=xdoc.element_list("dsOverview/contact");
-  tokens.replaces.emplace_back("__SPECIALIST_NAME__<!>"+elist.front().content());
+  token_doc->add_replacement("__SPECIALIST_NAME__",elist.front().content());
   std::deque<std::string> sp=strutils::split(elist.front().content());
   query.set("logname,phoneno","dssdb.dssgrp","fstname = '"+sp[0]+"' and lstname = '"+sp[1]+"'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
-    tokens.replaces.emplace_back("__SPECIALIST_PHONE__<!>"+row[1]);
-    tokens.replaces.emplace_back("__SPECIALIST_EMAIL__<!>"+row[0]+"@ucar.edu");
+    token_doc->add_replacement("__SPECIALIST_PHONE__",row[1]);
+    token_doc->add_replacement("__SPECIALIST_EMAIL__",row[0]+"@ucar.edu");
   }
   query.set("keyword","search.formats","dsid = '"+dsnum+"'");
   if (query.submit(server) == 0 && query.num_rows() > 0) {
-    ife.key="__HAS_FORMATS__";
-    tokens.ifs.insert(ife);
-    re.key="__FORMAT__";
-    re.list.reset(new std::deque<std::string>);
-    tokens.repeats.insert(re);
+    token_doc->add_if("__HAS_FORMATS__");
     while (query.fetch_row(row)) {
-	re.list->emplace_back(strutils::to_capital(strutils::substitute(row[0],"proprietary_","")));
+	token_doc->add_repeat("__FORMAT__",strutils::to_capital(strutils::substitute(row[0],"proprietary_","")));
     }
   }
   query.set("select concept_scheme,version,revision_date from search.GCMD_versions");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	auto concept_scheme=strutils::to_upper(row[0]);
-	tokens.replaces.emplace_back("__"+concept_scheme+"_VERSION__<!>"+row[1]);
-	tokens.replaces.emplace_back("__"+concept_scheme+"_REVISION_DATE__<!>"+row[2]);
+	token_doc->add_replacement("__"+concept_scheme+"_VERSION__",row[1]);
+	token_doc->add_replacement("__"+concept_scheme+"_REVISION_DATE__",row[2]);
     }
     query.set("select g.path from search.platforms_new as p left join search.GCMD_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
-	ife.key="__HAS_PLATFORMS__";
-	tokens.ifs.insert(ife);
-	re.key="__PLATFORM__";
-	re.list.reset(new std::deque<std::string>);
-	tokens.repeats.insert(re);
+	token_doc->add_if("__HAS_PLATFORMS__");
 	while (query.fetch_row(row)) {
-	  re.list->emplace_back(strutils::substitute(row[0],"&","&amp;"));
+	  token_doc->add_repeat("__PLATFORM__",strutils::substitute(row[0],"&","&amp;"));
 	}
     }
     query.set("select g.path from search.instruments_new as i left join search.GCMD_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
-	ife.key="__HAS_INSTRUMENTS__";
-	tokens.ifs.insert(ife);
-	re.key="__INSTRUMENT__";
-	re.list.reset(new std::deque<std::string>);
-	tokens.repeats.insert(re);
+	token_doc->add_if("__HAS_INSTRUMENTS__");
 	while (query.fetch_row(row)) {
-	  re.list->emplace_back(row[0]);
+	  token_doc->add_repeat("__INSTRUMENT__",row[0]);
 	}
     }
 //    query.set("select g.path from search.projects_new as p left join search.GCMD_projects as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
 query.set("select distinct g.path from (select keyword from search.projects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD' union select keyword from search.supportedProjects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD') as p left join search.GCMD_projects as g on g.uuid = p.keyword");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
-	ife.key="__HAS_PROJECTS__";
-	tokens.ifs.insert(ife);
-	re.key="__PROJECT__";
-	re.list.reset(new std::deque<std::string>);
-	tokens.repeats.insert(re);
+	token_doc->add_if("__HAS_PROJECTS__");
 	while (query.fetch_row(row)) {
-	  re.list->emplace_back(row[0]);
+	  token_doc->add_repeat("__PROJECT__",row[0]);
 	}
     }
     query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
-	re.key="__SCIENCEKEYWORD__";
-	re.list.reset(new std::deque<std::string>);
-	tokens.repeats.insert(re);
 	while (query.fetch_row(row)) {
-	  re.list->emplace_back(row[0]);
+	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);
 	}
     }
   }
   e=xdoc.element("dsOverview/topic@vocabulary=ISO");
-  tokens.replaces.emplace_back("__ISO_TOPIC__<!>"+e.content());
+  token_doc->add_replacement("__ISO_TOPIC__",e.content());
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
   std::deque<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
-    ife.key="__IS_GRID__";
-    tokens.ifs.insert(ife);
+    token_doc->add_if("__IS_GRID__");
   }
   auto has_any_extent=false;
   if (min_west_lon < 9999.) {
     if (myequalf(min_west_lon,max_east_lon) && myequalf(min_south_lat,max_north_lat)) {
-	ife.key="__HAS_POINT__";
-	tokens.replaces.emplace_back("__LAT__<!>"+strutils::ftos(min_south_lat,10));
-	tokens.replaces.emplace_back("__LON__<!>"+strutils::ftos(min_west_lon,10));
+	token_doc->add_if("__HAS_POINT__");
+	token_doc->add_replacement("__LAT__",strutils::ftos(min_south_lat,10));
+	token_doc->add_replacement("__LON__",strutils::ftos(min_west_lon,10));
     }
     else {
-	ife.key="__HAS_BOUNDING_BOX__";
-	tokens.replaces.emplace_back("__WEST_LON__<!>"+strutils::ftos(min_west_lon,10));
-	tokens.replaces.emplace_back("__EAST_LON__<!>"+strutils::ftos(max_east_lon,10));
-	tokens.replaces.emplace_back("__SOUTH_LAT__<!>"+strutils::ftos(min_south_lat,10));
-	tokens.replaces.emplace_back("__NORTH_LAT__<!>"+strutils::ftos(max_north_lat,10));
+	token_doc->add_if("__HAS_BOUNDING_BOX__");
+	token_doc->add_replacement("__WEST_LON__",strutils::ftos(min_west_lon,10));
+	token_doc->add_replacement("__EAST_LON__",strutils::ftos(max_east_lon,10));
+	token_doc->add_replacement("__SOUTH_LAT__",strutils::ftos(min_south_lat,10));
+	token_doc->add_replacement("__NORTH_LAT__",strutils::ftos(max_north_lat,10));
     }
-    tokens.ifs.insert(ife);
     has_any_extent=true;
   }
   if (unique_places_table.size() > 0) {
-    ife.key="__HAS_GEOGRAPHIC_IDENTIFIERS__";
-    tokens.ifs.insert(ife);
-    re.key="__GEOGRAPHIC_IDENTIFIER__";
-    re.list.reset(new std::deque<std::string>);
-    tokens.repeats.insert(re);
+    token_doc->add_if("__HAS_GEOGRAPHIC_IDENTIFIERS__");
     for (const auto& key : unique_places_table.keys()) {
-	re.list->emplace_back(key);
+	token_doc->add_repeat("__GEOGRAPHIC_IDENTIFIER__",key);
     }
     has_any_extent=true;
   }
@@ -1526,7 +1484,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	  s+=row[5].substr(0,3)+":"+row[5].substr(3);
 	}
     }
-    tokens.replaces.emplace_back("__BEGIN_DATE__<!>"+s);
+    token_doc->add_replacement("__BEGIN_DATE__",s);
     parts=strutils::split(row[2],"-");
     s="";
     m= (max_parts < 3) ? max_parts : 3;
@@ -1563,42 +1521,34 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	  s+=row[5].substr(0,3)+":"+row[5].substr(3);
 	}
     }
-    tokens.replaces.emplace_back("__END_DATE__<!>"+s);
-    ife.key="__HAS_TEMPORAL_EXTENT__";
-    tokens.ifs.insert(ife);
+    token_doc->add_replacement("__END_DATE__",s);
+    token_doc->add_if("__HAS_TEMPORAL_EXTENT__");
     has_any_extent=true;
   }
   if (has_any_extent) {
-    ife.key="__HAS_ANY_EXTENT__";
-    tokens.ifs.insert(ife);
+    token_doc->add_if("__HAS_ANY_EXTENT__");
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (!e.name().empty()) {
-    ife.key="__HAS_USAGE_RESTRICTIONS__";
-    tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__USAGE_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
-  }
-  else {
-    ife.key="__NO_USAGE_RESTRICTIONS__";
-    tokens.ifs.insert(ife);
+    token_doc->add_if("__HAS_USAGE_RESTRICTIONS__");
+    token_doc->add_replacement("__USAGE_RESTRICTIONS__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   e=xdoc.element("dsOverview/restrictions/access");
   if (!e.name().empty()) {
-    ife.key="__HAS_ACCESS_RESTRICTIONS__";
-    tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__ACCESS_RESTRICTIONS__<!>"+summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
-  }
-  else {
-    ife.key="__NO_ACCESS_RESTRICTIONS__";
-    tokens.ifs.insert(ife);
+    token_doc->add_if("__HAS_ACCESS_RESTRICTIONS__");
+    token_doc->add_replacement("__ACCESS_RESTRICTIONS__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   query.set("primary_size/1000000","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
-    ife.key="__VOLUME_SPECIFIED__";
-    tokens.ifs.insert(ife);
-    tokens.replaces.emplace_back("__MB_VOLUME__<!>"+row[0]);
+    token_doc->add_if("__VOLUME_SPECIFIED__");
+    token_doc->add_replacement("__MB_VOLUME__",row[0]);
   }
-  hereDoc::print("/usr/local/www/server_root/web/html/oai/iso19139.xml",&tokens,ofs,indent_length);
+  elist=xdoc.element_list("dsOverview/relatedResource");
+  for (const auto& e : elist) {
+    auto url=e.attribute_value("url");
+    token_doc->add_repeat("__RELATED_RESOURCE__","URL[!]"+url+"<!>PROTOCOL[!]"+url.substr(0,url.find("://"))+"<!>DESCRIPTION[!]"+e.content());
+  }
+  ofs << *token_doc << std::endl;
   return true;
 }
 
@@ -2465,7 +2415,7 @@ bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_do
 	  exported=export_to_fgdc(ofs,ident,xdoc,initial_indent_length);
 	}
 	else if (format == "iso19139") {
-	  exported=export_to_iso19139(ofs,ident,xdoc,initial_indent_length);
+	  exported=export_to_iso19139(token_doc,ofs,ident,xdoc,initial_indent_length);
 	}
 	else if (format == "iso19115-3") {
 	  exported=export_to_iso19115_3(token_doc,ofs,ident,xdoc,initial_indent_length);
