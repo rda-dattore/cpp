@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <regex>
+#include <unordered_set>
 #include <sys/stat.h>
 #include <pthread.h>
 #include <xml.hpp>
@@ -187,13 +188,14 @@ void convert_box_data(const std::string& row,const std::string& col,double& comp
 }
 
 struct HResEntry {
-  HResEntry() : res(0.),uom() {}
+  HResEntry() : key(),res(0.),uom() {}
 
+  std::string key;
   double res;
   std::string uom;
 };
 
-void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocument& xdoc,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::deque<HResEntry>& hres_list,my::map<Entry>& unique_places_table)
+void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocument& xdoc,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::vector<HResEntry>& hres_list,my::map<Entry>& unique_places_table)
 {
   min_west_lon=min_south_lat=9999.;
   max_east_lon=max_north_lat=-9999.;
@@ -202,6 +204,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
   query.submit(server);
   if (query.num_rows() > 0) {
     is_grid=true;
+    std::unordered_set<std::string> unique_hres_set;
     MySQL::Row row;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
@@ -223,12 +226,17 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
 	  if (row[0] == "polarStereographic" || row[0] == "lambertConformal") {
 	    he.res=std::stod(parts[7])*1000;
 	    he.uom="m";
+	    he.key=parts[7]+he.uom;
 	  }
 	  else {
 	    he.res=std::stod(parts[6]);
 	    he.uom="degree";
+	    he.key=parts[6]+he.uom;
 	  }
-	  hres_list.emplace_back(he);
+	  if (unique_hres_set.find(he.key) == unique_hres_set.end()) {
+	    hres_list.emplace_back(he);
+	    unique_hres_set.emplace(he.key);
+	  }
 	}
     }
   }
@@ -281,11 +289,19 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
   std::sort(hres_list.begin(),hres_list.end(),
   [](const HResEntry& left,const HResEntry& right) -> bool
   {
-    if (left.res <= right.res) {
+    if (left.res < right.res) {
 	return true;
     }
-    else {
+    else if (left.res > right.res) {
 	return false;
+    }
+    else {
+	if (left.uom <= right.uom) {
+	  return true;
+	}
+	else {
+	  return false;
+	}
     }
   });
   if (MySQL::table_exists(server,"ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
@@ -1134,7 +1150,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "    </status>" << std::endl;
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::deque<HResEntry> hres_list;
+  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (max_north_lat > -999.) {
@@ -1416,9 +1432,12 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   token_doc->add_replacement("__ISO_TOPIC__",e.content());
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::deque<HResEntry> hres_list;
+  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  for (const auto& hres : hres_list) {
+    token_doc->add_repeat("__SPATIAL_RESOLUTION__","UOM[!]"+hres.uom+"<!>RESOLUTION[!]"+strutils::dtos(hres.res,10));
+  }
   if (is_grid) {
     token_doc->add_if("__IS_GRID__");
   }
@@ -1544,9 +1563,10 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
     token_doc->add_replacement("__MB_VOLUME__",row[0]);
   }
   elist=xdoc.element_list("dsOverview/relatedResource");
+  auto n=1;
   for (const auto& e : elist) {
     auto url=e.attribute_value("url");
-    token_doc->add_repeat("__RELATED_RESOURCE__","URL[!]"+url+"<!>PROTOCOL[!]"+url.substr(0,url.find("://"))+"<!>DESCRIPTION[!]"+e.content());
+    token_doc->add_repeat("__RELATED_RESOURCE__","URL[!]"+url+"<!>PROTOCOL[!]"+url.substr(0,url.find("://"))+"<!>NAME[!]Related Resource #"+strutils::itos(n++)+"<!>DESCRIPTION[!]"+e.content());
   }
   ofs << *token_doc << std::endl;
   return true;
@@ -1641,7 +1661,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid=false;
-  std::deque<HResEntry> hres_list;
+  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
@@ -2000,7 +2020,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   }
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::deque<HResEntry> hres_list;
+  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
   fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
   if (is_grid) {
