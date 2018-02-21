@@ -2,9 +2,11 @@
 #include <fstream>
 #include <memory>
 #include <list>
+#include <regex>
 #include <zlib.h>
 #include <xml.hpp>
 #include <strutils.hpp>
+#include <utils.hpp>
 
 XMLElement& XMLElement::operator=(const XMLElement& e)
 {
@@ -147,7 +149,7 @@ void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname
 	parent_elements.emplace_back(eaddr.p);
     }
     eaddr.p=new XMLElement;
-    element_addresses[element_addresses.size()].p=eaddr.p;
+    element_addresses.emplace_back(eaddr);
     parent_elements.back()->element_address_list.emplace_back(eaddr);
   }
   eaddr.p->name_=s;
@@ -252,7 +254,7 @@ void XMLSnippet::parse(std::string& xml_element)
     else if (xml_element[off] == '"') {
 	if (in_attribute && !in_single_quotes) {
 	  attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
-	  eaddr.p->attr_list.push_back(attr);
+	  eaddr.p->attr_list.emplace_back(attr);
 	  in_attribute=false;
 	  in_double_quotes=false;
 	}
@@ -260,7 +262,7 @@ void XMLSnippet::parse(std::string& xml_element)
     else if (xml_element[off] == '\'') {
 	if (in_attribute && !in_double_quotes) {
 	  attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
-	  eaddr.p->attr_list.push_back(attr);
+	  eaddr.p->attr_list.emplace_back(attr);
 	  in_attribute=false;
 	  in_single_quotes=false;
 	}
@@ -356,7 +358,7 @@ void XMLSnippet::parse(std::string& xml_element)
 	  }
 	  if (in_tag) {
 	    in_tag=false;
-	    content_starts.push_back(off+1);
+	    content_starts.emplace_back(off+1);
 	  }
 	}
     }
@@ -426,46 +428,58 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
   outs << "</" << element.name_ << ">" << std::endl;
 }
 
+z_stream *zs=nullptr;
+Buffer zbuf;
 size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::unique_ptr<char[]>& uncompressed)
 {
-  z_stream zs;
-  zs.zalloc=Z_NULL;
-  zs.zfree=Z_NULL;
-  zs.opaque=Z_NULL;
-  zs.next_in=new unsigned char[compressed_length];
-  std::copy(&compressed[0],&compressed[compressed_length-1],zs.next_in);
-  zs.avail_in=compressed_length;
-  if (inflateInit2(&zs,MAX_WBITS+32) != Z_OK) {
+  if (zs == nullptr) {
+    zs=new z_stream;
+    zs->zalloc=Z_NULL;
+    zs->zfree=Z_NULL;
+    zs->opaque=Z_NULL;
+    zs->next_in=Z_NULL;
+    zs->avail_in=0;
+    if (inflateInit2(zs,MAX_WBITS+32) != Z_OK) {
+	delete zs;
+	zs=nullptr;
+	return 0;
+    }
+  }
+  else {
+    inflateReset2(zs,MAX_WBITS+32);
+  }
+  zbuf.allocate(compressed_length);
+  std::copy(compressed,compressed+compressed_length,&zbuf[0]);
+  zs->next_in=&zbuf[0];
+  zs->avail_in=compressed_length;
+  zs->avail_out=(compressed[compressed_length-1] << 24)+(compressed[compressed_length-2] << 16)+(compressed[compressed_length-3] << 8)+compressed[compressed_length-4];
+  uncompressed.reset(new char[zs->avail_out]);
+  zs->next_out=reinterpret_cast<unsigned char *>(uncompressed.get());
+  if (inflate(zs,Z_FINISH) != Z_STREAM_END) {
+    delete zs;
+    zs=nullptr;
     return 0;
   }
-  zs.avail_out=(compressed[compressed_length-1] << 24)+(compressed[compressed_length-2] << 16)+(compressed[compressed_length-3] << 8)+compressed[compressed_length-4];
-  uncompressed.reset(new char[zs.avail_out]);
-  zs.next_out=reinterpret_cast<unsigned char *>(uncompressed.get());
-  if (inflate(&zs,Z_FINISH) != Z_STREAM_END) {
-    return 0;
-  }
-  inflateEnd(&zs);
-  return zs.total_out;
+  return zs->total_out;
 }
 
 bool XMLDocument::open(const std::string& filename)
 {
-  std::ifstream ifs;
   std::string sline;
-  std::unique_ptr<char[]> buffer;
   char c;
   size_t idx;
 
   if (!name_.empty() || !version_.empty()) {
     return false;
   }
-  ifs.open(filename);
+  std::ifstream ifs(filename);
   if (!ifs.is_open()) {
     return false;
   }
   name_=filename;
   ifs.seekg(0,std::ios::end);
   size_t buf_len=ifs.tellg();
+  std::unique_ptr<char[]> buffer;
   buffer.reset(new char[buf_len]);
   ifs.seekg(0,std::ios::beg);
   ifs.read(buffer.get(),buf_len);
@@ -473,29 +487,29 @@ bool XMLDocument::open(const std::string& filename)
   unsigned char *b=reinterpret_cast<unsigned char *>(buffer.get());
   if (b[0] == 0x1f && b[1] == 0x8b) {
 // gzipped
-    buf_len=gunzip(b,buf_len,buffer);
+    if ( (buf_len=gunzip(b,buf_len,buffer)) == 0) {
+	return false;
+    }
   }
   sline.assign(buffer.get(),256);
-  if (!strutils::has_beginning(sline,"<?xml")) {
-    parse_error_="Document does not begin with '<?xml'";
-    return false;
-  }
-  strutils::replace_all(sline,"<?xml","");
-  while (strutils::has_beginning(sline," ")) {
+  if (std::regex_search(sline,std::regex("^<\\?xml"))) {
+    strutils::replace_all(sline,"<?xml","");
+    while (strutils::has_beginning(sline," ")) {
+	sline=sline.substr(1);
+    }
+    if (!std::regex_search(sline,std::regex("^version="))) {
+	parse_error_="Unable to determine XML version";
+	return false;
+    }
+    strutils::replace_all(sline,"version=","");
+    c=sline[0];
+    if (c != '"' && c != '\'') {
+	parse_error_="Bad version attribute";
+	return false;
+    }
     sline=sline.substr(1);
+    version_=sline.substr(0,sline.find(std::string(1,c)));
   }
-  if (!strutils::has_beginning(sline,"version=")) {
-    parse_error_="Unable to determine XML version";
-    return false;
-  }
-  strutils::replace_all(sline,"version=","");
-  c=sline[0];
-  if (c != '"' && c != '\'') {
-    parse_error_="Bad version attribute";
-    return false;
-  }
-  sline=sline.substr(1);
-  version_=sline.substr(0,sline.find(std::string(1,c)));
   sline.assign(buffer.get(),buf_len);
   auto n=0;
   while ( (idx=sline.substr(n).find("?>",n)) != std::string::npos) {
@@ -538,7 +552,7 @@ void XMLDocument::show_tree()
   showXMLSubTree(root_element,0);
 }
 
-void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)
+void check(const XMLElement& root,const std::vector<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)
 {
   auto tc=comps[this_comp];
   strutils::replace_all(tc,"$SLASH$","/");
@@ -559,7 +573,7 @@ void check(const XMLElement& root,const std::deque<std::string>& comps,size_t th
 		check(*address.p,comps,this_comp+1,element_list);
 	  }
 	  else
-	    element_list.push_back(root);
+	    element_list.emplace_back(root);
 	}
     }
   }
@@ -571,7 +585,7 @@ void check(const XMLElement& root,const std::deque<std::string>& comps,size_t th
 	  }
 	}
 	else {
-	  element_list.push_back(root);
+	  element_list.emplace_back(root);
 	}
     }
   }
