@@ -6,7 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <list>
-#include <deque>
+#include <vector>
 #include <stack>
 #include <buffer.hpp>
 
@@ -47,7 +47,7 @@ public:
 
   friend class XMLSnippet;
   friend class XMLDocument;
-  friend void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
+  friend void check(const XMLElement& root,const std::vector<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
 
 private:
   std::string name_;
@@ -71,7 +71,7 @@ public:
   void show_tree();
   std::string untagged();
 
-  friend void check(XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
+  friend void check(XMLElement& root,const std::vector<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
 
 protected:
   void process_new_tag_name(const std::string& xml_element,int tagname_start,int off,std::list<std::string>& tagnames,XMLElementAddress& eaddr,std::list<XMLElement *>& parent_elements);
@@ -80,7 +80,7 @@ protected:
 
   XMLElement root_element;
   bool parsed;
-  std::deque<XMLElementAddress> element_addresses;
+  std::vector<XMLElementAddress> element_addresses;
   std::string parse_error_;
   Buffer untag_buffer;
   int untag_buffer_off;
