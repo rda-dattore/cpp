@@ -6,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include <unordered_set>
-#include <deque>
 #include <regex>
 #include <cstring>
 #include <cmath>
@@ -28,7 +27,7 @@ void chop(std::string& s,size_t num_chars)
 
 void convert_unicode(std::string& s)
 {
-  for (size_t n=0; n < s.length(); n++) {
+  for (size_t n=0; n < s.length(); ++n) {
     if (static_cast<int>(s[n]) == 0xc2 || static_cast<int>(s[n]) == 0xc3) {
 	switch (static_cast<int>(s[n+1])) {
 	  case 0x80:
@@ -128,7 +127,7 @@ void replace_all(std::string& s,const std::string& old_s,const std::string& new_
 {
   size_t pos=0,index;
 
-  if (s.length() == 0 || old_s == new_s)
+  if (s.empty() || old_s == new_s)
     return;
   while (pos < s.length() && (index=s.find(old_s,pos)) != std::string::npos) {
     s.replace(index,old_s.length(),new_s);
@@ -191,7 +190,7 @@ void trim_back(std::string& s)
 {
   int beg,end;
 
-  if (s.length() == 0) {
+  if (s.empty()) {
     return;
   }
   beg=end=s.length()-1;
@@ -207,7 +206,7 @@ void trim_front(std::string& s)
 {
   size_t n;
 
-  if (s.length() == 0) {
+  if (s.empty()) {
     return;
   }
   n=0;
@@ -227,7 +226,7 @@ void trim(std::string& s)
 
 bool contains(const std::string& s,const std::string& sub_s)
 {
-  if (sub_s.length() == 0) {
+  if (sub_s.empty()) {
     return false;
   }
   if (s.find(sub_s,0) != std::string::npos) {
@@ -240,7 +239,7 @@ bool contains(const std::string& s,const std::string& sub_s)
 
 bool has_beginning(const std::string& s,const std::string& beginning)
 {
-  if (s.length() == 0 || beginning.length() == 0 || beginning.length() > s.length())
+  if (s.empty() || beginning.empty() || beginning.length() > s.length())
     return false;
   else {
     if (s.compare(0,beginning.size(),beginning) == 0) {
@@ -254,7 +253,7 @@ bool has_beginning(const std::string& s,const std::string& beginning)
 
 bool has_ending(const std::string& s,const std::string& ending)
 {
-  if (s.length() == 0 || ending.length() == 0 || ending.length() > s.length()) {
+  if (s.empty() || ending.empty() || ending.length() > s.length()) {
     return false;
   }
   else {
@@ -326,10 +325,10 @@ size_t occurs(const std::string& s,const std::string& find_s)
   return num_occurs;
 }
 
-std::deque<std::string> split(const std::string& s,const std::string& separator)
+std::vector<std::string> split(const std::string& s,const std::string& separator)
 {
-  std::deque<std::string> parts;
-  if (s.length() == 0) {
+  std::vector<std::string> parts;
+  if (s.empty()) {
     return parts;
   }
   int check_len=s.length()-separator.length()+1;
@@ -339,8 +338,8 @@ std::deque<std::string> split(const std::string& s,const std::string& separator)
   }
   size_t start=0,end=0;
   auto in_white_space=false;
-  while (end < static_cast<size_t>(check_len)) {
-    if (separator.length() == 0) {
+  while (static_cast<int>(end) < check_len) {
+    if (separator.empty()) {
 	if (s[end] == ' ') {
 	  if (!in_white_space) {
 	    parts.emplace_back(s.substr(start,end-start));
@@ -386,8 +385,8 @@ std::vector<std::pair<std::string,size_t>> split_index(const std::string& s,cons
   }
   size_t start=0,end=0;
   auto in_white_space=false;
-  while (end < static_cast<size_t>(check_len)) {
-    if (separator.length() == 0) {
+  while (static_cast<int>(end) < check_len) {
+    if (separator.empty()) {
 	if (s[end] == ' ') {
 	  if (!in_white_space) {
 	    parts.emplace_back(std::make_pair(s.substr(start,end-start),start));
@@ -593,7 +592,7 @@ std::string soundex(const std::string& s)
   std::string head,tail;
   int n;
 
-  if (s.length() == 0 || !is_alpha(s))
+  if (s.empty() || !is_alpha(s))
     return "";
   head=s.substr(0,1);
   head=to_upper(head);
