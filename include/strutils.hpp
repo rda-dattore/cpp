@@ -2,6 +2,7 @@
 #define   STRUTILS_HPP
 
 #include <string>
+#include <deque>
 #include <vector>
 #include <complex>
 
@@ -25,7 +26,7 @@ extern bool is_numeric(const std::string& s);
 
 extern size_t occurs(const std::string& s,const std::string& find_s);
 
-extern std::vector<std::string> split(const std::string& s,const std::string& separator = "");
+extern std::deque<std::string> split(const std::string& s,const std::string& separator = "");
 extern std::vector<std::pair<std::string,size_t>> split_index(const std::string& s,const std::string& separator = "");
 
 extern std::string btos(bool b);
