@@ -328,7 +328,7 @@ size_t occurs(const std::string& s,const std::string& find_s)
 
 std::deque<std::string> split(const std::string& s,const std::string& separator)
 {
-  std::vector<std::string> parts;
+  std::deque<std::string> parts;
   if (s.empty()) {
     return parts;
   }
