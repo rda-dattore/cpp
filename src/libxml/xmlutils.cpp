@@ -742,9 +742,9 @@ std::list<std::string> DataTypeMapper::variables(std::string format,std::string 
   return entry(format,dsnum).d->variables(data_type_code);
 }
 
-std::vector<std::string> split(const std::string& s)
+std::deque<std::string> split(const std::string& s)
 {
-  std::vector<std::string> parts;
+  std::deque<std::string> parts;
   size_t pos=0;
   auto bindex=s.find("<",pos);
   if (bindex != 0) {
