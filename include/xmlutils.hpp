@@ -266,7 +266,7 @@ extern void clean_parameter_code(std::string& parameter_code,std::string& parame
 extern std::string map_filename(std::string directory,std::string file_base_name,std::string temp_dir_name);
 extern std::string to_plain_text(const XMLElement& e,size_t wrap_width = 80,size_t indent_width = 0);
 
-extern std::vector<std::string> split(const std::string& s);
+extern std::deque<std::string> split(const std::string& s);
 
 } // end namespace xmlutils
 
