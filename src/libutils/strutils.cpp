@@ -6,6 +6,7 @@
 #include <string>
 #include <sstream>
 #include <unordered_set>
+#include <deque>
 #include <regex>
 #include <cstring>
 #include <cmath>
@@ -325,7 +326,7 @@ size_t occurs(const std::string& s,const std::string& find_s)
   return num_occurs;
 }
 
-std::vector<std::string> split(const std::string& s,const std::string& separator)
+std::deque<std::string> split(const std::string& s,const std::string& separator)
 {
   std::vector<std::string> parts;
   if (s.empty()) {
