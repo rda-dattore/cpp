@@ -47,7 +47,7 @@ public:
 
   friend class XMLSnippet;
   friend class XMLDocument;
-  friend void check(const XMLElement& root,const std::vector<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
+  friend void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list);
 
 private:
   std::string name_;
