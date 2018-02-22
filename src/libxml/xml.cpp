@@ -465,10 +465,6 @@ size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::uniq
 
 bool XMLDocument::open(const std::string& filename)
 {
-  std::string sline;
-  char c;
-  size_t idx;
-
   if (!name_.empty() || !version_.empty()) {
     return false;
   }
@@ -491,6 +487,7 @@ bool XMLDocument::open(const std::string& filename)
 	return false;
     }
   }
+  std::string sline;
   sline.assign(buffer.get(),256);
   if (std::regex_search(sline,std::regex("^<\\?xml"))) {
     strutils::replace_all(sline,"<?xml","");
@@ -502,7 +499,7 @@ bool XMLDocument::open(const std::string& filename)
 	return false;
     }
     strutils::replace_all(sline,"version=","");
-    c=sline[0];
+    auto c=sline.front();
     if (c != '"' && c != '\'') {
 	parse_error_="Bad version attribute";
 	return false;
@@ -511,6 +508,7 @@ bool XMLDocument::open(const std::string& filename)
     version_=sline.substr(0,sline.find(std::string(1,c)));
   }
   sline.assign(buffer.get(),buf_len);
+  size_t idx;
   auto n=0;
   while ( (idx=sline.substr(n).find("?>",n)) != std::string::npos) {
     n+=(idx+2);
@@ -552,7 +550,7 @@ void XMLDocument::show_tree()
   showXMLSubTree(root_element,0);
 }
 
-void check(const XMLElement& root,const std::vector<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)
+void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)
 {
   auto tc=comps[this_comp];
   strutils::replace_all(tc,"$SLASH$","/");
