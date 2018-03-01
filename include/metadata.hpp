@@ -50,19 +50,6 @@ struct InformationEntry {
   std::shared_ptr<my::map<StringEntry>> unique_info_table;
   std::shared_ptr<bool> marked;
 };
-/*
-struct ThreadStruct {
-  ThreadStruct() : query(),db(),p(nullptr),tid(0),status(0),start(),end(),error() {}
-
-  MySQLQuery query;
-  std::string db;
-  void **p;
-  pthread_t tid;
-  int status;
-  time_t start,end;
-  std::string error;
-};
-*/
 struct GrMLQueryStruct {
   struct Lists {
     Lists() : parameter_codes(nullptr),level_codes(nullptr),gindexes(nullptr),file_IDs(nullptr),parameters(nullptr),levels(nullptr),formats(nullptr),products(nullptr),grid_definitions(nullptr),processes(nullptr) {}
@@ -268,10 +255,10 @@ extern std::string web_home();
 
 extern std::list<std::string> cmd_databases(std::string caller,std::string user,std::string args);
 
-extern bool connect_to_metadata_server(MySQL::Server& srv_m);
-extern bool connect_to_rdadb_server(MySQL::Server& srv_d);
-
 } // end namespace metautils
+
+extern metautils::Directives meta_directives;
+extern metautils::Args meta_args;
 
 namespace summarizeMetadata {
 
@@ -801,8 +788,7 @@ extern std::string html_text_to_ASCII(std::string& element_copy,size_t wrap_leng
 
 } // end namespace html
 
-extern metautils::Directives directives;
-extern metautils::Args args;
+namespace metatranslations {
 
 extern void decode_grid_definition_parameters(std::string definition,std::string def_params,Grid::GridDimensions& grid_dim,Grid::GridDefinition& grid_def);
 
@@ -810,9 +796,10 @@ extern std::string convert_grid_definition(std::string d,XMLElement e);
 extern std::string convert_meta_format_to_link(std::string format);
 extern std::string convert_meta_grid_definition(std::string grid_definition,std::string definition_parameters,const char *separator);
 extern std::string convert_meta_parameter_map(std::string format,std::string map,bool verbose_output);
-//extern std::string translateGridDefinition(std::string definition,bool getAbbreviation = false);
 extern std::string translate_platform(std::string definition);
 
 extern bool fill_spatial_domain_from_grid_definition(std::string definition,std::string center,double& west_lon,double& south_lat,double& east_lon,double& north_lat);
+
+} // end namespace metatranslations
 
 #endif
