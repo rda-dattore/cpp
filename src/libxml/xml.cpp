@@ -6,7 +6,6 @@
 #include <zlib.h>
 #include <xml.hpp>
 #include <strutils.hpp>
-#include <utils.hpp>
 
 XMLElement& XMLElement::operator=(const XMLElement& e)
 {
@@ -82,10 +81,10 @@ std::string XMLElement::to_string() const
 
 void XMLSnippet::fill(std::string string)
 {
-  root_element.name_="";
-  root_element.element_address_list.clear();
-  root_element.attr_list.clear();
-  root_element.content_s="";
+  root_element_.name_="";
+  root_element_.element_address_list.clear();
+  root_element_.attr_list.clear();
+  root_element_.content_s="";
   for (size_t n=0; n < element_addresses.size(); ++n) {
     delete element_addresses[n].p;
   }
@@ -114,7 +113,7 @@ std::list<XMLElement> XMLSnippet::element_list(const std::string& xpath)
     auto s=xpath;
     strutils::replace_all(s,"\\/","$SLASH$");
     auto sp=strutils::split(s,"/");
-    check(root_element,sp,0,element_list);
+    check(root_element_,sp,0,element_list);
   }
   return element_list;
 }
@@ -122,13 +121,13 @@ std::list<XMLElement> XMLSnippet::element_list(const std::string& xpath)
 void XMLSnippet::print_tree(std::ostream& outs)
 {
   outs << "<?xml version=\"1.0\" ?>" << std::endl;
-  printElement(outs,root_element,true,0);
+  printElement(outs,root_element_,true,0);
 }
 
 void XMLSnippet::show_tree()
 {
-  std::cout << "Root: " << root_element.name_ << std::endl;
-  showXMLSubTree(root_element,0);
+  std::cout << "Root: " << root_element_.name_ << std::endl;
+  showXMLSubTree(root_element_,0);
 }
 
 std::string XMLSnippet::untagged()
@@ -141,8 +140,8 @@ void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname
   auto s=xml_element.substr(tagname_start,off-tagname_start);
   strutils::trim(s);
   tagnames.emplace_back(s);
-  if (root_element.name_.empty()) {
-    eaddr.p=&root_element;
+  if (root_element_.name_.empty()) {
+    eaddr.p=&root_element_;
   }
   else {
     if (parent_elements.size() == 0 || eaddr.p != parent_elements.back()) {
@@ -304,11 +303,11 @@ void XMLSnippet::parse(std::string& xml_element)
 		  eaddr.p=parent_elements.back();
 		}
 		else {
-		  eaddr.p=&root_element;
+		  eaddr.p=&root_element_;
 		}
 	    }
 	    else {
-		eaddr.p=&root_element;
+		eaddr.p=&root_element_;
 	    }
 	    ++off;
 	  }
@@ -343,11 +342,11 @@ void XMLSnippet::parse(std::string& xml_element)
 			eaddr.p=parent_elements.back();
 		    }
 		    else {
-			eaddr.p=&root_element;
+			eaddr.p=&root_element_;
 		    }
 		  }
 		  else {
-		    eaddr.p=&root_element;
+		    eaddr.p=&root_element_;
 		  }
 		}
 		else {
@@ -529,10 +528,10 @@ void XMLDocument::close()
   if (parsed) {
     name_="";
     version_="";
-    root_element.name_="";
-    root_element.element_address_list.clear();
-    root_element.attr_list.clear();
-    root_element.content_s="";
+    root_element_.name_="";
+    root_element_.element_address_list.clear();
+    root_element_.attr_list.clear();
+    root_element_.content_s="";
     parsed=false;
     parse_error_="";
     for (size_t n=0; n < element_addresses.size(); ++n) {
@@ -546,8 +545,8 @@ void XMLDocument::show_tree()
 {
   std::cout << "XML Document: " << name_ << std::endl;
   std::cout << "  version=" << version_ << std::endl << std::endl;
-  std::cout << "Root: " << root_element.name_ << std::endl;
-  showXMLSubTree(root_element,0);
+  std::cout << "Root: " << root_element_.name_ << std::endl;
+  showXMLSubTree(root_element_,0);
 }
 
 void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)

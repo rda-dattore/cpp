@@ -512,58 +512,57 @@ std::string GridMap::pole_point_location(const std::string& grid_code)
 
 namespace xmlutils {
 
-void clean_parameter_code(std::string& parameter_code,std::string& parameter_map)
+void clean_parameter_code(std::string& parameter_code,std::string& format_specialization)
 {
   if (strutils::contains(parameter_code,"@")) {
     parameter_code=parameter_code.substr(0,parameter_code.find("@"));
   }
   auto idx=parameter_code.find(":");
   if (idx != std::string::npos) {
-    parameter_map=parameter_code.substr(0,idx);
+    format_specialization=parameter_code.substr(0,idx);
     parameter_code=parameter_code.substr(idx+1);
   }
 }
 
-std::string map_filename(std::string directory,std::string file_base_name,std::string temp_dir_name)
+std::string map_filename(std::string path_to_map,std::string file_base_name,std::string temp_dir_name)
 {
   struct stat buf;
-  std::string map_filename;
-  if (stat(("/glade/u/home/rdadata/share/metadata/"+directory+"/"+file_base_name+".xml").c_str(),&buf) == 0) {
-    map_filename="/glade/u/home/rdadata/share/metadata/"+directory+"/"+file_base_name+".xml";
-  }
-  else if (stat(("/usr/local/www/server_root/web/metadata/"+directory+"/"+file_base_name+".xml").c_str(),&buf) == 0) {
-    map_filename="/usr/local/www/server_root/web/metadata/"+directory+"/"+file_base_name+".xml";
+  std::string map_filename=path_to_map+"/"+file_base_name+".xml";
+  if (stat(map_filename.c_str(),&buf) != 0) {
+    map_filename="";
   }
   return map_filename;
 }
 
-ParameterMapEntry ParameterMapper::entry(std::string format,std::string parameter_map)
+ParameterMapEntry ParameterMapper::entry(std::string data_format,std::string format_specialization)
 {
   ParameterMapEntry pme;
-  pme.key=format;
-  if (parameter_map.length() > 0) {
-    pme.key+="."+parameter_map;
-  }
-  if (!parameter_map_table->found(pme.key,pme)) {
-    TempDir temp_dir;
-    temp_dir.create("/tmp");
-    auto map_name=map_filename("ParameterTables",pme.key,temp_dir.name());
-    pme.p.reset(new ParameterMap);
-    if (pme.p->fill(map_name)) {
-	ParameterMapEntry pme2;
-	if (!parameter_map_table->found(pme.key,pme2)) {
-	  parameter_map_table->insert(pme);
-	}
+  if (!_path_to_map.empty()) {
+    pme.key=data_format;
+    if (!format_specialization.empty()) {
+	pme.key+="."+format_specialization;
     }
-    else {
-	pme.key=format;
-	if (!parameter_map_table->found(pme.key,pme)) {
-	  map_name=map_filename("ParameterTables",pme.key,temp_dir.name());
-	  pme.p.reset(new ParameterMap);
-	  if (pme.p->fill(map_name)) {
-	    ParameterMapEntry pme2;
-	    if (!parameter_map_table->found(pme.key,pme2)) {
-		parameter_map_table->insert(pme);
+    if (!parameter_map_table->found(pme.key,pme)) {
+	TempDir temp_dir;
+	temp_dir.create("/tmp");
+	auto map_name=map_filename(_path_to_map,pme.key,temp_dir.name());
+	pme.p.reset(new ParameterMap);
+	if (pme.p->fill(map_name)) {
+	  ParameterMapEntry pme2;
+	  if (!parameter_map_table->found(pme.key,pme2)) {
+	    parameter_map_table->insert(pme);
+	  }
+	}
+	else {
+	  pme.key=data_format;
+	  if (!parameter_map_table->found(pme.key,pme)) {
+	    map_name=map_filename(_path_to_map,pme.key,temp_dir.name());
+	    pme.p.reset(new ParameterMap);
+	    if (pme.p->fill(map_name)) {
+		ParameterMapEntry pme2;
+		if (!parameter_map_table->found(pme.key,pme2)) {
+		  parameter_map_table->insert(pme);
+		}
 	    }
 	  }
 	}
@@ -572,87 +571,89 @@ ParameterMapEntry ParameterMapper::entry(std::string format,std::string paramete
   return pme;
 }
 
-std::string ParameterMapper::cf_keyword(std::string format,std::string parameter_code,std::string level_type)
+std::string ParameterMapper::cf_keyword(std::string data_format,std::string parameter_code,std::string level_type)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->cf_keyword(parameter_code,level_type);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->cf_keyword(parameter_code,level_type);
 }
 
-std::string ParameterMapper::comment(std::string format,std::string parameter_code)
+std::string ParameterMapper::comment(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->comment(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->comment(parameter_code);
 }
 
-std::string ParameterMapper::description(std::string format,std::string parameter_code)
+std::string ParameterMapper::description(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->description(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->description(parameter_code);
 }
 
-std::string ParameterMapper::title(std::string format,std::string parameter_map)
+std::string ParameterMapper::title(std::string data_format,std::string format_specialization)
 {
-  return entry(format,parameter_map).p->title();
+  return entry(data_format,format_specialization).p->title();
 }
 
-std::string ParameterMapper::long_name(std::string format,std::string parameter_code)
+std::string ParameterMapper::long_name(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->long_name(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->long_name(parameter_code);
 }
 
-std::string ParameterMapper::short_name(std::string format,std::string parameter_code)
+std::string ParameterMapper::short_name(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->short_name(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->short_name(parameter_code);
 }
 
-std::string ParameterMapper::standard_name(std::string format,std::string parameter_code)
+std::string ParameterMapper::standard_name(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->standard_name(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->standard_name(parameter_code);
 }
 
-std::string ParameterMapper::units(std::string format,std::string parameter_code)
+std::string ParameterMapper::units(std::string data_format,std::string parameter_code)
 {
-  std::string parameter_map;
-  clean_parameter_code(parameter_code,parameter_map);
-  return entry(format,parameter_map).p->units(parameter_code);
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->units(parameter_code);
 }
 
-LevelMapEntry LevelMapper::entry(std::string format,std::string level_type,std::string level_map)
+LevelMapEntry LevelMapper::entry(std::string data_format,std::string format_specialization)
 {
   LevelMapEntry lme;
-  lme.key=format;
-  if (level_map.length() > 0) {
-    lme.key+="."+level_map;
-  }
-  if (!level_map_table->found(lme.key,lme)) {
-    TempDir temp_dir;
-    temp_dir.create("/tmp");
-    auto map_name=map_filename("LevelTables",lme.key,temp_dir.name());
-    lme.l.reset(new LevelMap);
-    if (lme.l->fill(map_name)) {
-	LevelMapEntry lme2;
-	if (!level_map_table->found(lme.key,lme2)) {
-	  level_map_table->insert(lme);
-	}
+  if (!_path_to_map.empty()) {
+    lme.key=data_format;
+    if (!format_specialization.empty()) {
+	lme.key+="."+format_specialization;
     }
-    else {
-	lme.key=format;
-	if (!level_map_table->found(lme.key,lme)) {
-	  map_name=map_filename("LevelTables",lme.key,temp_dir.name());
-	  lme.l.reset(new LevelMap);
-	  if (lme.l->fill(map_name)) {
-	    LevelMapEntry lme2;
-	    if (!level_map_table->found(lme.key,lme2)) {
-		level_map_table->insert(lme);
+    if (!level_map_table->found(lme.key,lme)) {
+	TempDir temp_dir;
+	temp_dir.create("/tmp");
+	auto map_name=map_filename(_path_to_map,lme.key,temp_dir.name());
+	lme.l.reset(new LevelMap);
+	if (lme.l->fill(map_name)) {
+	  LevelMapEntry lme2;
+	  if (!level_map_table->found(lme.key,lme2)) {
+	    level_map_table->insert(lme);
+	  }
+	}
+	else {
+	  lme.key=data_format;
+	  if (!level_map_table->found(lme.key,lme)) {
+	    map_name=map_filename(_path_to_map,lme.key,temp_dir.name());
+	    lme.l.reset(new LevelMap);
+	    if (lme.l->fill(map_name)) {
+		LevelMapEntry lme2;
+		if (!level_map_table->found(lme.key,lme2)) {
+		  level_map_table->insert(lme);
+		}
 	    }
 	  }
 	}
@@ -661,12 +662,12 @@ LevelMapEntry LevelMapper::entry(std::string format,std::string level_type,std::
   return lme;
 }
 
-std::string LevelMapper::description(std::string format,std::string level_type,std::string level_map)
+std::string LevelMapper::description(std::string data_format,std::string level_type,std::string format_specialization)
 {
   if (strutils::contains(level_type,"-")) {
     auto level_types=strutils::split(level_type,"-");
-    auto d1=entry(format,level_type,level_map).l->description(level_types[0]);
-    auto d2=entry(format,level_type,level_map).l->description(level_types[1]);
+    auto d1=entry(data_format,format_specialization).l->description(level_types[0]);
+    auto d2=entry(data_format,format_specialization).l->description(level_types[1]);
     if (d1 == d2) {
 	return "Layer between two '"+d1+"'";
     }
@@ -675,50 +676,52 @@ std::string LevelMapper::description(std::string format,std::string level_type,s
     }
   }
   else {
-    return entry(format,level_type,level_map).l->description(level_type);
+    return entry(data_format,format_specialization).l->description(level_type);
   }
 }
 
-std::string LevelMapper::short_name(std::string format,std::string level_type,std::string level_map)
+std::string LevelMapper::short_name(std::string data_format,std::string level_type,std::string format_specialization)
 {
   auto level_types=strutils::split(level_type,"-");
-  return entry(format,level_type,level_map).l->short_name(level_types[0]);
+  return entry(data_format,format_specialization).l->short_name(level_types[0]);
 }
 
-std::string LevelMapper::units(std::string format,std::string level_type,std::string level_map)
+std::string LevelMapper::units(std::string data_format,std::string level_type,std::string format_specialization)
 { 
-  return entry(format,level_type,level_map).l->units(level_type);
+  return entry(data_format,format_specialization).l->units(level_type);
 }
 
-int LevelMapper::level_is_a_layer(std::string format,std::string level_type,std::string level_map)
+int LevelMapper::level_is_a_layer(std::string data_format,std::string level_type,std::string format_specialization)
 {
-  return entry(format,level_type,level_map).l->is_layer(level_type);
+  return entry(data_format,format_specialization).l->is_layer(level_type);
 }
 
-DataTypeMapEntry DataTypeMapper::entry(std::string format,std::string dsnum)
+DataTypeMapEntry DataTypeMapper::entry(std::string data_format,std::string format_specialization)
 {
   DataTypeMapEntry dtme;
-  dtme.key=format+".ds"+dsnum;
-  if (!datatype_map_table->found(dtme.key,dtme)) {
-    TempDir temp_dir;
-    temp_dir.create("/tmp");
-    auto map_name=map_filename("ParameterTables",dtme.key,temp_dir.name());
-    dtme.d.reset(new DataTypeMap);
-    if (dtme.d->fill(map_name)) {
-	DataTypeMapEntry dtme2;
-	if (!datatype_map_table->found(dtme.key,dtme2)) {
-	  datatype_map_table->insert(dtme);
+  if (!_path_to_map.empty()) {
+    dtme.key=data_format+".ds"+format_specialization;
+    if (!datatype_map_table->found(dtme.key,dtme)) {
+	TempDir temp_dir;
+	temp_dir.create("/tmp");
+	auto map_name=map_filename(_path_to_map,dtme.key,temp_dir.name());
+	dtme.d.reset(new DataTypeMap);
+	if (dtme.d->fill(map_name)) {
+	  DataTypeMapEntry dtme2;
+	  if (!datatype_map_table->found(dtme.key,dtme2)) {
+	    datatype_map_table->insert(dtme);
+	  }
 	}
-    }
-    else {
-	dtme.key=format;
-	if (!datatype_map_table->found(dtme.key,dtme)) {
-	  map_name=map_filename("ParameterTables",dtme.key,temp_dir.name());
-	  dtme.d.reset(new DataTypeMap);
-	  if (dtme.d->fill(map_name)) {
-	    DataTypeMapEntry dtme2;
-	    if (!datatype_map_table->found(dtme.key,dtme2)) {
-		datatype_map_table->insert(dtme);
+	else {
+	  dtme.key=data_format;
+	  if (!datatype_map_table->found(dtme.key,dtme)) {
+	    map_name=map_filename(_path_to_map,dtme.key,temp_dir.name());
+	    dtme.d.reset(new DataTypeMap);
+	    if (dtme.d->fill(map_name)) {
+		DataTypeMapEntry dtme2;
+		if (!datatype_map_table->found(dtme.key,dtme2)) {
+		  datatype_map_table->insert(dtme);
+		}
 	    }
 	  }
 	}
@@ -727,19 +730,19 @@ DataTypeMapEntry DataTypeMapper::entry(std::string format,std::string dsnum)
   return dtme;
 }
 
-std::string DataTypeMapper::description(std::string format,std::string dsnum,std::string data_type_code,std::string platform_type)
+std::string DataTypeMapper::description(std::string data_format,std::string format_specialization,std::string data_type_code,std::string platform_type)
 {
-  return entry(format,dsnum).d->description(data_type_code,platform_type);
+  return entry(data_format,format_specialization).d->description(data_type_code,platform_type);
 }
 
-std::list<std::string> DataTypeMapper::gcmd_keywords(std::string format,std::string dsnum,std::string data_type_code)
+std::list<std::string> DataTypeMapper::gcmd_keywords(std::string data_format,std::string format_specialization,std::string data_type_code)
 { 
-  return entry(format,dsnum).d->gcmd_keywords(data_type_code);
+  return entry(data_format,format_specialization).d->gcmd_keywords(data_type_code);
 }
 
-std::list<std::string> DataTypeMapper::variables(std::string format,std::string dsnum,std::string data_type_code)
+std::list<std::string> DataTypeMapper::variables(std::string data_format,std::string format_specialization,std::string data_type_code)
 { 
-  return entry(format,dsnum).d->variables(data_type_code);
+  return entry(data_format,format_specialization).d->variables(data_type_code);
 }
 
 std::deque<std::string> split(const std::string& s)
