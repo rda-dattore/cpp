@@ -2,6 +2,7 @@
 #include <string>
 #include <list>
 #include <grid.hpp>
+#include <gridutils.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <bits.hpp>
@@ -12,6 +13,352 @@
 #include <myerror.hpp>
 #include <tempfile.hpp>
 
+bool InputGRIBStream::open(std::string filename)
+{
+  icstream chkstream;
+
+  if (is_open()) {
+    myerror="currently connected to another file stream";
+    exit(1);
+  } 
+  num_read=0;
+// test for COS-blocking
+  if (!chkstream.open(filename))
+    return false;
+  if (chkstream.ignore() > 0) {
+    myerror="COS-blocking must be removed from GRIB files before reading";
+    exit(1);
+  }
+  fs.open(filename.c_str(),std::ios::in);
+  if (!fs.is_open()) {
+    return false;
+  }
+  file_name=filename;
+  return true;
+}
+
+int InputGRIBStream::find_grib(unsigned char *buffer)
+{
+  buffer[0]='X';
+  fs.read(reinterpret_cast<char *>(buffer),4);
+  while (buffer[0] != 'G' || buffer[1] != 'R' || buffer[2] != 'I' || buffer[3] != 'B') {
+    if (fs.eof() || !fs.good()) {
+	if (num_read == 0) {
+	  myerror="not a GRIB file";
+	  exit(1);
+	}
+	else {
+	  return (fs.eof()) ? bfstream::eof : bfstream::error;
+	}
+    }
+    buffer[0]=buffer[1];
+    buffer[1]=buffer[2];
+    buffer[2]=buffer[3];
+    fs.read(reinterpret_cast<char *>(&buffer[3]),1);
+    if (fs.eof()) {
+	return bfstream::eof;
+    }
+    else if (!fs.good()) {
+	return bfstream::error;
+    }
+  }
+  curr_offset=static_cast<off_t>(fs.tellg())-4;
+  return 4;
+}
+
+int InputGRIBStream::peek()
+{
+  unsigned char buffer[16];
+  int len=-9;
+  while (len == -9) {
+    len=find_grib(buffer);
+    if (len < 0) {
+	return len;
+    }
+    fs.read(reinterpret_cast<char *>(&buffer[4]),12);
+    len+=fs.gcount();
+    if (len != 16) {
+	return bfstream::error;
+    }
+    switch (static_cast<int>(buffer[7])) {
+	case 0:
+	{
+	  len=4;
+	  fs.seekg(curr_offset+4,std::ios_base::beg);
+	  fs.read(reinterpret_cast<char *>(buffer),3);
+	  if (fs.eof()) {
+	    return bfstream::eof;
+	  }
+	  else if (!fs.good()) {
+	    return bfstream::error;
+	  }
+	  while (buffer[0] != '7' && buffer[1] != '7' && buffer[2] != '7') {
+	    int llen;
+	    bits::get(buffer,llen,0,24);
+	    if (llen <= 0) {
+		return bfstream::error;
+	    }
+	    len+=llen;
+	    fs.seekg(llen-3,std::ios_base::cur);
+	    fs.read(reinterpret_cast<char *>(buffer),3);
+	    if (fs.eof()) {
+		return bfstream::eof;
+	    }
+	    else if (!fs.good()) {
+		return bfstream::error;
+	    }
+	  }
+	  len+=4;
+	  break;
+	}
+	case 1:
+	{
+	  bits::get(buffer,len,32,24);
+	  if (len >= 0x800000) {
+// check for ECMWF large-file
+	    int computed_len=0,sec_len,flag;
+// PDS length
+	    bits::get(buffer,sec_len,64,24);
+	    bits::get(buffer,flag,120,8);
+	    computed_len=8+sec_len;
+	    fs.seekg(curr_offset+computed_len,std::ios_base::beg);
+	    if ( (flag & 0x80) == 0x80) {
+// GDS included
+		fs.read(reinterpret_cast<char *>(buffer),3);
+		bits::get(buffer,sec_len,0,24);
+		fs.seekg(sec_len-3,std::ios_base::cur);
+		computed_len+=sec_len;
+	    }
+	    if ( (flag & 0x40) == 0x40) {
+// BMS included
+		fs.read(reinterpret_cast<char *>(buffer),3);
+		bits::get(buffer,sec_len,0,24);
+		fs.seekg(sec_len-3,std::ios_base::cur);
+		computed_len+=sec_len;
+	    }
+	    fs.read(reinterpret_cast<char *>(buffer),3);
+// BDS length
+	    bits::get(buffer,sec_len,0,24);
+	    if (sec_len < 120) {
+		len&=0x7fffff;
+		len*=120;
+		len-=sec_len;
+		fs.seekg(curr_offset+len,std::ios_base::beg);
+		len+=4;
+	    }
+	    else {
+		fs.seekg(sec_len-3,std::ios_base::cur);
+	    }
+	  }
+	  else {
+	    fs.seekg(len-20,std::ios_base::cur);
+	  }
+	  fs.read(reinterpret_cast<char *>(buffer),4);
+	  if (std::string(reinterpret_cast<char *>(buffer),4) != "7777") {
+	    len=-9;
+	    fs.seekg(curr_offset+4,std::ios_base::beg);
+	  }
+	  break;
+	}
+	case 2:
+	{
+	  bits::get(buffer,len,96,32);
+	  break;
+	}
+	default:
+	{
+	  return peek();
+	}
+    }
+  }
+  fs.seekg(curr_offset,std::ios_base::beg);
+  return len;
+}
+
+int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
+{
+  int bytes_read=0;
+  int len=-9;
+  while (len == -9) {
+    bytes_read=find_grib(buffer);
+    if (bytes_read < 0) {
+	return bytes_read;
+    }
+    fs.read(reinterpret_cast<char *>(&buffer[4]),12);
+    bytes_read+=fs.gcount();
+    if (bytes_read != 16) {
+	if (fs.eof()) {
+	  return bfstream::eof;
+	}
+	else {
+	  return bfstream::error;
+	}
+    }
+    switch (static_cast<int>(buffer[7])) {
+	case 0:
+	{
+	  fs.read(reinterpret_cast<char *>(&buffer[16]),15);
+	  bytes_read+=fs.gcount();
+	  if (bytes_read != 31) {
+	    return bfstream::eof;
+	  }
+	  len=28;
+	  while (buffer[bytes_read-3] != '7' && buffer[bytes_read-2] != '7' && buffer[bytes_read-1] != '7') {
+	    int llen;
+	    bits::get(buffer,llen,len*8,24);
+	    if (llen <= 0) {
+		return bfstream::error;
+	    }
+	    len+=llen;
+	    if (len > static_cast<int>(buffer_length)) {
+		myerror="GRIB0 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
+		exit(1);
+	    }
+	    fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),llen);
+	    bytes_read+=fs.gcount();
+	    if (bytes_read != len+3) {
+		if (fs.eof()) {
+		  return bfstream::eof;
+		}
+		else {
+		  return bfstream::error;
+		}
+	    }
+	  }
+	  fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),1);
+	  bytes_read+=fs.gcount();
+	  break;
+	}
+	case 1:
+	{
+	  bits::get(buffer,len,32,24);
+	  if (len > static_cast<int>(buffer_length)) {
+	    myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
+	    exit(1);
+	  }
+	  fs.read(reinterpret_cast<char *>(&buffer[16]),len-16);
+	  bytes_read+=fs.gcount();
+	  if (bytes_read != len) {
+	    if (fs.eof()) {
+		return bfstream::eof;
+	    }
+	    else {
+		return bfstream::error;
+	    }
+	  }
+	  if (len >= 0x800000) {
+// check for ECMWF large-file
+	    int computed_len=0,sec_len,flag;
+// PDS length
+	    bits::get(buffer,sec_len,64,24);
+	    bits::get(buffer,flag,120,8);
+	    computed_len=8+sec_len;
+	    if ( (flag & 0x80) == 0x80) {
+// GDS included
+		bits::get(buffer,sec_len,computed_len*8,24);
+		computed_len+=sec_len;
+	    }
+	    if ( (flag & 0x40) == 0x40) {
+// BMS included
+		bits::get(buffer,sec_len,computed_len*8,24);
+		computed_len+=sec_len;
+	    }
+// BDS length
+	    bits::get(buffer,sec_len,computed_len*8,24);
+	    if (sec_len < 120) {
+		len&=0x7fffff;
+		len*=120;
+		len-=sec_len;
+		len+=4;
+		if (len > static_cast<int>(buffer_length)) {
+		  myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
+		  exit(1);
+		}
+		fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),len-bytes_read);
+		bytes_read+=fs.gcount();
+	    }
+	  }
+	  if (std::string(reinterpret_cast<char *>(&buffer[len-4]),4) != "7777") {
+/*
+	    if (len > 0x800000) {
+// check for ECMWF large-file
+		int computed_len=0,sec_len,flag;
+// PDS length
+		bits::get(buffer,sec_len,64,24);
+		bits::get(buffer,flag,120,8);
+		computed_len=8+sec_len;
+		if ( (flag & 0x80) == 0x80) {
+// GDS included
+		  bits::get(buffer,sec_len,computed_len*8,24);
+		  computed_len+=sec_len;
+		}
+		if ( (flag & 0x40) == 0x40) {
+// BMS included
+		  bits::get(buffer,sec_len,computed_len*8,24);
+		  computed_len+=sec_len;
+		}
+// BDS length
+		bits::get(buffer,sec_len,computed_len*8,24);
+		len&=0x7fffff;
+		len*=120;
+		len-=sec_len;
+		len+=4;
+		if (len > static_cast<int>(buffer_length)) {
+		  myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
+		  exit(1);
+		}
+		bytesRead+=fread(&buffer[bytesRead],1,len-bytesRead,fp);
+		if (std::string(reinterpret_cast<char *>(&buffer[len-4]),4) != "7777") {
+		  len=-9;
+		  fseeko(fp,curr_offset+4,SEEK_SET);
+		}
+	    }
+	    else {
+*/
+		len=-9;
+		fs.seekg(curr_offset+4,std::ios_base::beg);
+//	    }
+	  }
+	  break;
+	}
+	case 2:
+	{
+	  bits::get(buffer,len,96,32);
+	  if (len > static_cast<int>(buffer_length)) {
+	    myerror="GRIB2 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
+	    exit(1);
+	  }
+	  fs.read(reinterpret_cast<char *>(&buffer[16]),len-16);
+	  bytes_read+=fs.gcount();
+	  if (bytes_read != len) {
+	    if (fs.eof()) {
+		return bfstream::eof;
+	    }
+	    else {
+		return bfstream::error;
+	    }
+	  }
+	  if (std::string(reinterpret_cast<char *>(buffer)+len-4,4) != "7777") {
+/*
+	    len=-9;
+	    fs.seekg(curr_offset+4,std::ios_base::beg);
+*/
+myerror="missing END section";
+exit(1);
+	  }
+	  break;
+	}
+	default:
+	{
+	  return read(buffer,buffer_length);
+	}
+    }
+  }
+  ++num_read;
+  return bytes_read;
+}
+
+#ifndef __cosutils
 const char *GRIBGrid::level_type_short_name[]={
 "0Reserved","SFC" ,"CBL" ,"CTL" ,"0DEG","ADCL","MWSL","TRO" ,"NTAT","SEAB",""    ,
 ""    ,""    ,""    ,""    ,""    ,""    ,""    ,""    ,""    ,"TMPL",""    ,
@@ -96,351 +443,6 @@ const short GRIBGrid::on84_grid_parameter_map[]={  0,  7,  0,  0,  0,  0,  0,  0
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 11,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
-
-bool InputGRIBStream::open(std::string filename)
-{
-  icstream chkstream;
-
-  if (is_open()) {
-    myerror="currently connected to another file stream";
-    exit(1);
-  } 
-  num_read=0;
-// test for COS-blocking
-  if (!chkstream.open(filename))
-    return false;
-  if (chkstream.ignore() > 0) {
-    myerror="COS-blocking must be removed from GRIB files before reading";
-    exit(1);
-  }
-  fs.open(filename.c_str(),std::ios::in);
-  if (!fs.is_open()) {
-    return false;
-  }
-  file_name=filename;
-  return true;
-}
-
-int InputGRIBStream::find_grib(unsigned char *buffer)
-{
-  buffer[0]='X';
-  fs.read(reinterpret_cast<char *>(buffer),4);
-  while (buffer[0] != 'G' || buffer[1] != 'R' || buffer[2] != 'I' || buffer[3] != 'B') {
-    if (fs.eof() || !fs.good()) {
-	if (num_read == 0) {
-	  myerror="not a GRIB file";
-	  exit(1);
-	}
-	else {
-	  return (fs.eof()) ? bfstream::eof : bfstream::error;
-	}
-    }
-    buffer[0]=buffer[1];
-    buffer[1]=buffer[2];
-    buffer[2]=buffer[3];
-    fs.read(reinterpret_cast<char *>(&buffer[3]),1);
-    if (fs.eof()) {
-	return bfstream::eof;
-    }
-    else if (!fs.good()) {
-	return bfstream::error;
-    }
-  }
-  curr_offset=static_cast<off_t>(fs.tellg())-4;
-  return 4;
-}
-
-int InputGRIBStream::peek()
-{
-  unsigned char buffer[16];
-  int len=-9;
-  while (len == -9) {
-    len=find_grib(buffer);
-    if (len < 0) {
-	return len;
-    }
-    fs.read(reinterpret_cast<char *>(&buffer[4]),12);
-    len+=fs.gcount();
-    if (len != 16) {
-	return bfstream::error;
-    }
-    switch (static_cast<int>(buffer[7])) {
-	case 0:
-	{
-	  len=4;
-	  fs.seekg(curr_offset+4,std::ios_base::beg);
-	  fs.read(reinterpret_cast<char *>(buffer),3);
-	  if (fs.eof()) {
-	    return bfstream::eof;
-	  }
-	  else if (!fs.good()) {
-	    return bfstream::error;
-	  }
-	  while (buffer[0] != '7' && buffer[1] != '7' && buffer[2] != '7') {
-	    int llen;
-	    get_bits(buffer,llen,0,24);
-	    if (llen <= 0) {
-		return bfstream::error;
-	    }
-	    len+=llen;
-	    fs.seekg(llen-3,std::ios_base::cur);
-	    fs.read(reinterpret_cast<char *>(buffer),3);
-	    if (fs.eof()) {
-		return bfstream::eof;
-	    }
-	    else if (!fs.good()) {
-		return bfstream::error;
-	    }
-	  }
-	  len+=4;
-	  break;
-	}
-	case 1:
-	{
-	  get_bits(buffer,len,32,24);
-	  if (len >= 0x800000) {
-// check for ECMWF large-file
-	    int computed_len=0,sec_len,flag;
-// PDS length
-	    get_bits(buffer,sec_len,64,24);
-	    get_bits(buffer,flag,120,8);
-	    computed_len=8+sec_len;
-	    fs.seekg(curr_offset+computed_len,std::ios_base::beg);
-	    if ( (flag & 0x80) == 0x80) {
-// GDS included
-		fs.read(reinterpret_cast<char *>(buffer),3);
-		get_bits(buffer,sec_len,0,24);
-		fs.seekg(sec_len-3,std::ios_base::cur);
-		computed_len+=sec_len;
-	    }
-	    if ( (flag & 0x40) == 0x40) {
-// BMS included
-		fs.read(reinterpret_cast<char *>(buffer),3);
-		get_bits(buffer,sec_len,0,24);
-		fs.seekg(sec_len-3,std::ios_base::cur);
-		computed_len+=sec_len;
-	    }
-	    fs.read(reinterpret_cast<char *>(buffer),3);
-// BDS length
-	    get_bits(buffer,sec_len,0,24);
-	    if (sec_len < 120) {
-		len&=0x7fffff;
-		len*=120;
-		len-=sec_len;
-		fs.seekg(curr_offset+len,std::ios_base::beg);
-		len+=4;
-	    }
-	    else {
-		fs.seekg(sec_len-3,std::ios_base::cur);
-	    }
-	  }
-	  else {
-	    fs.seekg(len-20,std::ios_base::cur);
-	  }
-	  fs.read(reinterpret_cast<char *>(buffer),4);
-	  if (std::string(reinterpret_cast<char *>(buffer),4) != "7777") {
-	    len=-9;
-	    fs.seekg(curr_offset+4,std::ios_base::beg);
-	  }
-	  break;
-	}
-	case 2:
-	{
-	  get_bits(buffer,len,96,32);
-	  break;
-	}
-	default:
-	{
-	  return peek();
-	}
-    }
-  }
-  fs.seekg(curr_offset,std::ios_base::beg);
-  return len;
-}
-
-int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
-{
-  int bytes_read=0;
-  int len=-9;
-  while (len == -9) {
-    bytes_read=find_grib(buffer);
-    if (bytes_read < 0) {
-	return bytes_read;
-    }
-    fs.read(reinterpret_cast<char *>(&buffer[4]),12);
-    bytes_read+=fs.gcount();
-    if (bytes_read != 16) {
-	if (fs.eof()) {
-	  return bfstream::eof;
-	}
-	else {
-	  return bfstream::error;
-	}
-    }
-    switch (static_cast<int>(buffer[7])) {
-	case 0:
-	{
-	  fs.read(reinterpret_cast<char *>(&buffer[16]),15);
-	  bytes_read+=fs.gcount();
-	  if (bytes_read != 31) {
-	    return bfstream::eof;
-	  }
-	  len=28;
-	  while (buffer[bytes_read-3] != '7' && buffer[bytes_read-2] != '7' && buffer[bytes_read-1] != '7') {
-	    int llen;
-	    get_bits(buffer,llen,len*8,24);
-	    if (llen <= 0) {
-		return bfstream::error;
-	    }
-	    len+=llen;
-	    if (len > static_cast<int>(buffer_length)) {
-		myerror="GRIB0 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
-		exit(1);
-	    }
-	    fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),llen);
-	    bytes_read+=fs.gcount();
-	    if (bytes_read != len+3) {
-		if (fs.eof()) {
-		  return bfstream::eof;
-		}
-		else {
-		  return bfstream::error;
-		}
-	    }
-	  }
-	  fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),1);
-	  bytes_read+=fs.gcount();
-	  break;
-	}
-	case 1:
-	{
-	  get_bits(buffer,len,32,24);
-	  if (len > static_cast<int>(buffer_length)) {
-	    myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
-	    exit(1);
-	  }
-	  fs.read(reinterpret_cast<char *>(&buffer[16]),len-16);
-	  bytes_read+=fs.gcount();
-	  if (bytes_read != len) {
-	    if (fs.eof()) {
-		return bfstream::eof;
-	    }
-	    else {
-		return bfstream::error;
-	    }
-	  }
-	  if (len >= 0x800000) {
-// check for ECMWF large-file
-	    int computed_len=0,sec_len,flag;
-// PDS length
-	    get_bits(buffer,sec_len,64,24);
-	    get_bits(buffer,flag,120,8);
-	    computed_len=8+sec_len;
-	    if ( (flag & 0x80) == 0x80) {
-// GDS included
-		get_bits(buffer,sec_len,computed_len*8,24);
-		computed_len+=sec_len;
-	    }
-	    if ( (flag & 0x40) == 0x40) {
-// BMS included
-		get_bits(buffer,sec_len,computed_len*8,24);
-		computed_len+=sec_len;
-	    }
-// BDS length
-	    get_bits(buffer,sec_len,computed_len*8,24);
-	    if (sec_len < 120) {
-		len&=0x7fffff;
-		len*=120;
-		len-=sec_len;
-		len+=4;
-		if (len > static_cast<int>(buffer_length)) {
-		  myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
-		  exit(1);
-		}
-		fs.read(reinterpret_cast<char *>(&buffer[bytes_read]),len-bytes_read);
-		bytes_read+=fs.gcount();
-	    }
-	  }
-	  if (std::string(reinterpret_cast<char *>(&buffer[len-4]),4) != "7777") {
-/*
-	    if (len > 0x800000) {
-// check for ECMWF large-file
-		int computed_len=0,sec_len,flag;
-// PDS length
-		get_bits(buffer,sec_len,64,24);
-		get_bits(buffer,flag,120,8);
-		computed_len=8+sec_len;
-		if ( (flag & 0x80) == 0x80) {
-// GDS included
-		  get_bits(buffer,sec_len,computed_len*8,24);
-		  computed_len+=sec_len;
-		}
-		if ( (flag & 0x40) == 0x40) {
-// BMS included
-		  get_bits(buffer,sec_len,computed_len*8,24);
-		  computed_len+=sec_len;
-		}
-// BDS length
-		get_bits(buffer,sec_len,computed_len*8,24);
-		len&=0x7fffff;
-		len*=120;
-		len-=sec_len;
-		len+=4;
-		if (len > static_cast<int>(buffer_length)) {
-		  myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
-		  exit(1);
-		}
-		bytesRead+=fread(&buffer[bytesRead],1,len-bytesRead,fp);
-		if (std::string(reinterpret_cast<char *>(&buffer[len-4]),4) != "7777") {
-		  len=-9;
-		  fseeko(fp,curr_offset+4,SEEK_SET);
-		}
-	    }
-	    else {
-*/
-		len=-9;
-		fs.seekg(curr_offset+4,std::ios_base::beg);
-//	    }
-	  }
-	  break;
-	}
-	case 2:
-	{
-	  get_bits(buffer,len,96,32);
-	  if (len > static_cast<int>(buffer_length)) {
-	    myerror="GRIB2 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
-	    exit(1);
-	  }
-	  fs.read(reinterpret_cast<char *>(&buffer[16]),len-16);
-	  bytes_read+=fs.gcount();
-	  if (bytes_read != len) {
-	    if (fs.eof()) {
-		return bfstream::eof;
-	    }
-	    else {
-		return bfstream::error;
-	    }
-	  }
-	  if (std::string(reinterpret_cast<char *>(buffer)+len-4,4) != "7777") {
-/*
-	    len=-9;
-	    fs.seekg(curr_offset+4,std::ios_base::beg);
-*/
-myerror="missing END section";
-exit(1);
-	  }
-	  break;
-	}
-	default:
-	{
-	  return read(buffer,buffer_length);
-	}
-    }
-  }
-  ++num_read;
-  return bytes_read;
-}
 
 GRIBMessage::~GRIBMessage()
 {
@@ -538,12 +540,12 @@ void GRIBMessage::pack_length(unsigned char *output_buffer) const
   switch (edition_) {
     case 1:
     {
-	set_bits(output_buffer,mlength,32,24);
+	bits::set(output_buffer,mlength,32,24);
 	break;
     }
     case 2:
     {
-	set_bits(output_buffer,mlength,64,64);
+	bits::set(output_buffer,mlength,64,64);
 	break;
     }
   }
@@ -551,19 +553,19 @@ void GRIBMessage::pack_length(unsigned char *output_buffer) const
 
 void GRIBMessage::pack_is(unsigned char *output_buffer,off_t& offset,Grid *g) const
 {
-  set_bits(output_buffer,0x47524942,0,32);
+  bits::set(output_buffer,0x47524942,0,32);
   switch (edition_) {
     case 1:
     {
-	set_bits(output_buffer,edition_,56,8);
+	bits::set(output_buffer,edition_,56,8);
 	offset=8;
 	break;
     }
     case 2:
     {
-	set_bits(output_buffer,0,32,16);
-	set_bits(output_buffer,(reinterpret_cast<GRIB2Grid *>(g))->discipline(),48,8);
-	set_bits(output_buffer,edition_,56,8);
+	bits::set(output_buffer,0,32,16);
+	bits::set(output_buffer,(reinterpret_cast<GRIB2Grid *>(g))->discipline(),48,8);
+	bits::set(output_buffer,edition_,56,8);
 	offset=16;
 	break;
     }
@@ -585,84 +587,84 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
 
   g=reinterpret_cast<GRIBGrid *>(grid);
   if (lengths_.pds_supp > 0) {
-    set_bits(output_buffer,41+lengths_.pds_supp,off,24);
+    bits::set(output_buffer,41+lengths_.pds_supp,off,24);
     offset+=(41+lengths_.pds_supp);
   }
   else {
-    set_bits(output_buffer,28,off,24);
+    bits::set(output_buffer,28,off,24);
     if ((g->reference_date_time_.year() % 100) != 0) {
-	set_bits(output_buffer,g->reference_date_time_.year() % 100,off+96,8);
+	bits::set(output_buffer,g->reference_date_time_.year() % 100,off+96,8);
     }
     else {
-	set_bits(output_buffer,100,off+96,8);
+	bits::set(output_buffer,100,off+96,8);
     }
     offset+=28;
   }
   if (edition_ == 0) {
-    set_bits(output_buffer,edition_,off+24,8);
-    set_bits(output_buffer,g->reference_date_time_.year(),off+96,8);
+    bits::set(output_buffer,edition_,off+24,8);
+    bits::set(output_buffer,g->reference_date_time_.year(),off+96,8);
   }
   else {
-    set_bits(output_buffer,g->grib.table,off+24,8);
+    bits::set(output_buffer,g->grib.table,off+24,8);
   }
-  set_bits(output_buffer,g->grid.src,off+32,8);
-  set_bits(output_buffer,g->grib.process,off+40,8);
-  set_bits(output_buffer,g->grib.grid_catalog_id,off+48,8);
+  bits::set(output_buffer,g->grid.src,off+32,8);
+  bits::set(output_buffer,g->grib.process,off+40,8);
+  bits::set(output_buffer,g->grib.grid_catalog_id,off+48,8);
   if (gds_included) {
     flag|=0x80;
   }
   if (bms_included) {
     flag|=0x40;
   }
-  set_bits(output_buffer,flag,off+56,8);
-  set_bits(output_buffer,g->grid.param,off+64,8);
-  set_bits(output_buffer,g->grid.level1_type,off+72,8);
+  bits::set(output_buffer,flag,off+56,8);
+  bits::set(output_buffer,g->grid.param,off+64,8);
+  bits::set(output_buffer,g->grid.level1_type,off+72,8);
   switch (g->grid.level1_type) {
     case 101:
     {
 	dum=g->grid.level1/10.;
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2/10.;
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     case 107:
     case 119:
     {
 	dum=g->grid.level1*10000.;
-	set_bits(output_buffer,dum,off+80,16);
+	bits::set(output_buffer,dum,off+80,16);
 	break;
     }
     case 108:
     {
 	dum=g->grid.level1*100.;
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2*100.;
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     case 114:
     {
 	dum=475.-(g->grid.level1);
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=475.-(g->grid.level2);
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     case 128:
     {
 	dum=(1.1-(g->grid.level1))*1000.;
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=(1.1-(g->grid.level2))*1000.;
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     case 141:
     {
 	dum=g->grid.level1/10.;
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=1100.-(g->grid.level2);
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     case 104:
@@ -674,52 +676,52 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
     case 121:
     {
 	dum=g->grid.level1;
-	set_bits(output_buffer,dum,off+80,8);
+	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2;
-	set_bits(output_buffer,dum,off+88,8);
+	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
     default:
     {
 	dum=g->grid.level1;
-	set_bits(output_buffer,dum,off+80,16);
+	bits::set(output_buffer,dum,off+80,16);
     }
   }
-  set_bits(output_buffer,g->reference_date_time_.month(),off+104,8);
-  set_bits(output_buffer,g->reference_date_time_.day(),off+112,8);
+  bits::set(output_buffer,g->reference_date_time_.month(),off+104,8);
+  bits::set(output_buffer,g->reference_date_time_.day(),off+112,8);
   hr=g->reference_date_time_.time()/10000;
   min=(g->reference_date_time_.time() % 10000)/100;
-  set_bits(output_buffer,hr,off+120,8);
-  set_bits(output_buffer,min,off+128,8);
-  set_bits(output_buffer,g->grib.time_unit,off+136,8);
+  bits::set(output_buffer,hr,off+120,8);
+  bits::set(output_buffer,min,off+128,8);
+  bits::set(output_buffer,g->grib.time_unit,off+136,8);
   if (g->grib.t_range != 10) {
-    set_bits(output_buffer,g->grib.p1,off+144,8);
-    set_bits(output_buffer,g->grib.p2,off+152,8);
+    bits::set(output_buffer,g->grib.p1,off+144,8);
+    bits::set(output_buffer,g->grib.p2,off+152,8);
   }
   else {
-    set_bits(output_buffer,g->grib.p1,off+144,16);
+    bits::set(output_buffer,g->grib.p1,off+144,16);
   }
-  set_bits(output_buffer,g->grib.t_range,off+160,8);
-  set_bits(output_buffer,g->grid.nmean,off+168,16);
-  set_bits(output_buffer,g->grib.nmean_missing,off+184,8);
+  bits::set(output_buffer,g->grib.t_range,off+160,8);
+  bits::set(output_buffer,g->grid.nmean,off+168,16);
+  bits::set(output_buffer,g->grib.nmean_missing,off+184,8);
   if (edition_ == 1) {
     if ((g->reference_date_time_.year() % 100) != 0) {
-	set_bits(output_buffer,g->reference_date_time_.year()/100+1,off+192,8);
+	bits::set(output_buffer,g->reference_date_time_.year()/100+1,off+192,8);
     }
     else {
-	set_bits(output_buffer,g->reference_date_time_.year()/100,off+192,8);
+	bits::set(output_buffer,g->reference_date_time_.year()/100,off+192,8);
     }
-    set_bits(output_buffer,g->grib.sub_center,off+200,8);
+    bits::set(output_buffer,g->grib.sub_center,off+200,8);
     if (g->grib.D < 0) {
-	set_bits(output_buffer,-(g->grib.D)+0x8000,off+208,16);
+	bits::set(output_buffer,-(g->grib.D)+0x8000,off+208,16);
     }
     else {
-	set_bits(output_buffer,g->grib.D,off+208,16);
+	bits::set(output_buffer,g->grib.D,off+208,16);
     }
   }
 // pack the PDS supplement, if it exists
   if (lengths_.pds_supp > 0) {
-    set_bits(output_buffer,pds_supp,off+320,8,0,lengths_.pds_supp);
+    bits::set(output_buffer,pds_supp,off+320,8,0,lengths_.pds_supp);
   }
 }
 
@@ -731,17 +733,17 @@ void GRIBMessage::pack_gds(unsigned char *output_buffer,off_t& offset,Grid *grid
   GRIBGrid *g;
 
   g=reinterpret_cast<GRIBGrid *>(grid);
-set_bits(output_buffer,255,off+24,8);
-set_bits(output_buffer,255,off+32,8);
-  set_bits(output_buffer,g->grid.grid_type,off+40,8);
+bits::set(output_buffer,255,off+24,8);
+bits::set(output_buffer,255,off+32,8);
+  bits::set(output_buffer,g->grid.grid_type,off+40,8);
   switch (g->grid.grid_type) {
     case 0:
     case 4:
     {
 // Latitude/Longitude
 // Gaussian Lat/Lon
-	set_bits(output_buffer,g->dim.x,off+48,16);
-	set_bits(output_buffer,g->dim.y,off+64,16);
+	bits::set(output_buffer,g->dim.x,off+48,16);
+	bits::set(output_buffer,g->dim.y,off+64,16);
 	dum=lround(g->def.slatitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -749,8 +751,8 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+80,1);
-	set_bits(output_buffer,dum,off+81,23);
+	bits::set(output_buffer,sign,off+80,1);
+	bits::set(output_buffer,dum,off+81,23);
 	dum=lround(g->def.slongitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -758,18 +760,19 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+104,1);
-	set_bits(output_buffer,dum,off+105,23);
-	set_bits(output_buffer,g->grib.rescomp,off+128,8);
+	bits::set(output_buffer,sign,off+104,1);
+	bits::set(output_buffer,dum,off+105,23);
+	bits::set(output_buffer,g->grib.rescomp,off+128,8);
 	dum=lround(g->def.elatitude*1000.);
 	if (dum < 0) {
 	  sign=1;
 	  dum=-dum;
 	}
-	else
+	else {
 	  sign=0;
-	set_bits(output_buffer,sign,off+136,1);
-	set_bits(output_buffer,dum,off+137,23);
+	}
+	bits::set(output_buffer,sign,off+136,1);
+	bits::set(output_buffer,dum,off+137,23);
 	dum=lround(g->def.elongitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -777,15 +780,17 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+160,1);
-	set_bits(output_buffer,dum,off+161,23);
-	if (myequalf(g->def.loincrement,-99.999))
+	bits::set(output_buffer,sign,off+160,1);
+	bits::set(output_buffer,dum,off+161,23);
+	if (floatutils::myequalf(g->def.loincrement,-99.999)) {
 	  dum=0xffff;
-	else
+	}
+	else {
 	  dum=lround(g->def.loincrement*1000.);
-	set_bits(output_buffer,dum,off+184,16);
+	}
+	bits::set(output_buffer,dum,off+184,16);
 	if (g->grid.grid_type == 0) {
-	  if (myequalf(g->def.laincrement,-99.999)) {
+	  if (floatutils::myequalf(g->def.laincrement,-99.999)) {
 	    dum=0xffff;
 	  }
 	  else {
@@ -800,10 +805,10 @@ set_bits(output_buffer,255,off+32,8);
 	    dum=g->def.num_circles;
 	  }
 	}
-	set_bits(output_buffer,dum,off+200,16);
-	set_bits(output_buffer,g->grib.scan_mode,off+216,8);
-	set_bits(output_buffer,0,off+224,32);
-	set_bits(output_buffer,32,off,24);
+	bits::set(output_buffer,dum,off+200,16);
+	bits::set(output_buffer,g->grib.scan_mode,off+216,8);
+	bits::set(output_buffer,0,off+224,32);
+	bits::set(output_buffer,32,off,24);
 	offset+=32;
 	break;
     }
@@ -812,8 +817,8 @@ set_bits(output_buffer,255,off+32,8);
     {
 // Lambert Conformal
 // Polar Stereographic
-	set_bits(output_buffer,g->dim.x,off+48,16);
-	set_bits(output_buffer,g->dim.y,off+64,16);
+	bits::set(output_buffer,g->dim.x,off+48,16);
+	bits::set(output_buffer,g->dim.y,off+64,16);
 	dum=lround(g->def.slatitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -821,8 +826,8 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+80,1);
-	set_bits(output_buffer,dum,off+81,23);
+	bits::set(output_buffer,sign,off+80,1);
+	bits::set(output_buffer,dum,off+81,23);
 	dum=lround(g->def.slongitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -830,9 +835,9 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+104,1);
-	set_bits(output_buffer,dum,off+105,23);
-	set_bits(output_buffer,g->grib.rescomp,off+128,8);
+	bits::set(output_buffer,sign,off+104,1);
+	bits::set(output_buffer,dum,off+105,23);
+	bits::set(output_buffer,g->grib.rescomp,off+128,8);
 	dum=lround(g->def.olongitude*1000.);
 	if (dum < 0) {
 	  sign=1;
@@ -840,14 +845,14 @@ set_bits(output_buffer,255,off+32,8);
 	}
 	else
 	  sign=0;
-	set_bits(output_buffer,sign,off+136,1);
-	set_bits(output_buffer,dum,off+137,23);
+	bits::set(output_buffer,sign,off+136,1);
+	bits::set(output_buffer,dum,off+137,23);
 	dum=lround(g->def.dx*1000.);
-	set_bits(output_buffer,dum,off+160,24);
+	bits::set(output_buffer,dum,off+160,24);
 	dum=lround(g->def.dy*1000.);
-	set_bits(output_buffer,dum,off+184,24);
-	set_bits(output_buffer,g->def.projection_flag,off+208,8);
-	set_bits(output_buffer,g->grib.scan_mode,off+216,8);
+	bits::set(output_buffer,dum,off+184,24);
+	bits::set(output_buffer,g->def.projection_flag,off+208,8);
+	bits::set(output_buffer,g->grib.scan_mode,off+216,8);
 	if (g->grid.grid_type == 3) {
 	  dum=lround(g->def.stdparallel1*1000.);
 	  if (dum < 0) {
@@ -857,8 +862,8 @@ set_bits(output_buffer,255,off+32,8);
 	  else {
 	    sign=0;
 	  }
-	  set_bits(output_buffer,sign,off+224,1);
-	  set_bits(output_buffer,dum,off+225,23);
+	  bits::set(output_buffer,sign,off+224,1);
+	  bits::set(output_buffer,dum,off+225,23);
 	  dum=lround(g->def.stdparallel2*1000.);
 	  if (dum < 0) {
 	    sign=1;
@@ -867,8 +872,8 @@ set_bits(output_buffer,255,off+32,8);
 	  else {
 	    sign=0;
 	  }
-	  set_bits(output_buffer,sign,off+248,1);
-	  set_bits(output_buffer,dum,off+249,23);
+	  bits::set(output_buffer,sign,off+248,1);
+	  bits::set(output_buffer,dum,off+249,23);
 	  dum=lround(g->grib.sp_lat*1000.);
 	  if (dum < 0) {
 		sign=1;
@@ -876,8 +881,8 @@ set_bits(output_buffer,255,off+32,8);
 	  }
 	  else
 		sign=0;
-	  set_bits(output_buffer,sign,off+272,1);
-	  set_bits(output_buffer,dum,off+273,23);
+	  bits::set(output_buffer,sign,off+272,1);
+	  bits::set(output_buffer,dum,off+273,23);
 	  dum=lround(g->grib.sp_lon*1000.);
 	  if (dum < 0) {
 		sign=1;
@@ -885,14 +890,14 @@ set_bits(output_buffer,255,off+32,8);
 	  }
 	  else
 		sign=0;
-	  set_bits(output_buffer,sign,off+296,1);
-	  set_bits(output_buffer,dum,off+297,23);
-	  set_bits(output_buffer,40,off,24);
+	  bits::set(output_buffer,sign,off+296,1);
+	  bits::set(output_buffer,dum,off+297,23);
+	  bits::set(output_buffer,40,off,24);
 	  offset+=40;
 	}
 	else {
-	  set_bits(output_buffer,0,off+224,32);
-	  set_bits(output_buffer,32,off,24);
+	  bits::set(output_buffer,0,off+224,32);
+	  bits::set(output_buffer,32,off,24);
 	  offset+=32;
 	}
 	break;
@@ -913,26 +918,26 @@ void GRIBMessage::pack_bms(unsigned char *output_buffer,off_t& offset,Grid *grid
     {
 	g=reinterpret_cast<GRIBGrid *>(grid);
 	ub=8-(g->dim.size % 8);
-	set_bits(output_buffer,ub,off+24,8);
-set_bits(output_buffer,0,off+32,16);
-	set_bits(output_buffer,g->bitmap.map,off+48,1,0,g->dim.size);
-	set_bits(output_buffer,(g->dim.size+7)/8+6,off,24);
+	bits::set(output_buffer,ub,off+24,8);
+bits::set(output_buffer,0,off+32,16);
+	bits::set(output_buffer,g->bitmap.map,off+48,1,0,g->dim.size);
+	bits::set(output_buffer,(g->dim.size+7)/8+6,off,24);
 	offset+=(g->dim.size+7)/8+6;
 	break;
     }
     case 2:
     {
 	g2=reinterpret_cast<GRIB2Grid *>(grid);
-	set_bits(output_buffer,6,off+32,8);
+	bits::set(output_buffer,6,off+32,8);
 	if (g2->bitmap.applies) {
-set_bits(output_buffer,0,off+40,8);
-	  set_bits(output_buffer,g2->bitmap.map,off+48,1,0,g2->dim.size);
-	  set_bits(output_buffer,(g2->dim.size+7)/8+6,off,32);
+bits::set(output_buffer,0,off+40,8);
+	  bits::set(output_buffer,g2->bitmap.map,off+48,1,0,g2->dim.size);
+	  bits::set(output_buffer,(g2->dim.size+7)/8+6,off,32);
 	  offset+=(g2->dim.size+7)/8;
 	}
 	else {
-	  set_bits(output_buffer,255,off+40,8);
-	  set_bits(output_buffer,6,off,32);
+	  bits::set(output_buffer,255,off+40,8);
+	  bits::set(output_buffer,6,off,32);
 	}
 	offset+=6;
 	break;
@@ -945,7 +950,7 @@ void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid
   off_t off=offset*8;
   double d,e,range;
   int E=0,n,m,len;
-  int cnt=0,num_packed=0,ibm_rep,*packed,max_pack;
+  int cnt=0,num_packed=0,*packed,max_pack;
   short ub,flag;
   GRIBGrid *g=reinterpret_cast<GRIBGrid *>(grid);
 
@@ -957,7 +962,7 @@ void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid
   range=(g->stats.max_val-g->stats.min_val)*d;
   if (range > 0.) {
     max_pack=pow(2.,g->grib.pack_width)-1;
-    if (!myequalf(range,0.)) {
+    if (!floatutils::myequalf(range,0.)) {
 	while (lround(range) <= max_pack) {
 	  range*=2.;
 	  E--;
@@ -969,28 +974,28 @@ void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid
     }
     num_packed=g->dim.size-(g->grid.num_missing);
     len=num_packed*g->grib.pack_width;
-    set_bits(output_buffer,(len+7)/8+11,off,24);
+    bits::set(output_buffer,(len+7)/8+11,off,24);
     if ( (ub=(len % 8)) > 0) {
 	ub=8-ub;
     }
-    set_bits(output_buffer,ub,off+28,4);
-    set_bits(output_buffer,0,off+88+len,ub);
+    bits::set(output_buffer,ub,off+28,4);
+    bits::set(output_buffer,0,off+88+len,ub);
     offset+=(len+7)/8+11;
   }
   else {
-    set_bits(output_buffer,11,off,24);
+    bits::set(output_buffer,11,off,24);
     g->grib.pack_width=0;
     offset+=11;
   }
-  set_bits(output_buffer,g->grib.pack_width,off+80,8);
+  bits::set(output_buffer,g->grib.pack_width,off+80,8);
   flag=0x0;
-  set_bits(output_buffer,flag,off+24,4);
-  ibm_rep=ibmconv(g->stats.min_val*d);
-  set_bits(output_buffer,abs(E),off+32,16);
+  bits::set(output_buffer,flag,off+24,4);
+  auto ibm_rep=floatutils::ibmconv(g->stats.min_val*d);
+  bits::set(output_buffer,abs(E),off+32,16);
   if (E < 0) {
-    set_bits(output_buffer,1,off+32,1);
+    bits::set(output_buffer,1,off+32,1);
   }
-  set_bits(output_buffer,ibm_rep,off+48,32);
+  bits::set(output_buffer,ibm_rep,off+48,32);
   if (g->grib.pack_width == 0) {
     return;
   }
@@ -1021,10 +1026,10 @@ packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 	{
 	  for (n=0; n < g->dim.y; n++) {
 	    for (m=0; m < g->dim.x; m++) {
-		if (!myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
+		if (!floatutils::myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
 //		  packed[cnt]=lroundf(((double)g->gridpoints_[n][m]-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e);
-		  cnt++;
+		  ++cnt;
 		}
 	    }
 	  }
@@ -1048,7 +1053,7 @@ packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 	{
 	  for (n=0; n < g->dim.y; ++n) {
 	    for (m=0; m < g->dim.x; ++m) {
-		if (!myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
+		if (!floatutils::myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
 //		  packed[cnt]=lroundf(((double)g->gridpoints_[n][m]-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e);
 		  ++cnt;
@@ -1065,7 +1070,7 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
     if (cnt != num_packed) {
 	mywarning="pack_bds: specified number of gridpoints "+strutils::itos(num_packed)+" does not agree with actual number packed "+strutils::itos(cnt)+"  date: "+g->reference_date_time_.to_string()+" "+strutils::itos(g->grid.param);
     }
-    set_bits(output_buffer,packed,off+88,g->grib.pack_width,0,num_packed);
+    bits::set(output_buffer,packed,off+88,g->grib.pack_width,0,num_packed);
   }
   else {
 // second-order packing
@@ -1079,7 +1084,7 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
 
 void GRIBMessage::pack_end(unsigned char *output_buffer,off_t& offset) const
 {
-  set_bits(output_buffer,0x37373737,offset*8,32);
+  bits::set(output_buffer,0x37373737,offset*8,32);
   offset+=4;
 }
 
@@ -1133,12 +1138,12 @@ void GRIBMessage::unpack_is(const unsigned char *stream_buffer)
 {
   int test;
 
-  get_bits(stream_buffer,test,0,32);
+  bits::get(stream_buffer,test,0,32);
   if (test != 0x47524942) {
     myerror="not a GRIB message";
     exit(1);
   }
-  get_bits(stream_buffer,edition_,56,8);
+  bits::get(stream_buffer,edition_,56,8);
   switch (edition_) {
     case 0:
     {
@@ -1147,13 +1152,13 @@ void GRIBMessage::unpack_is(const unsigned char *stream_buffer)
     }
     case 1:
     {
-	get_bits(stream_buffer,mlength,32,24);
+	bits::get(stream_buffer,mlength,32,24);
 	lengths_.is=offsets_.is=curr_off=8;
 	break;
     }
     case 2:
     {
-	get_bits(stream_buffer,mlength,64,64);
+	bits::get(stream_buffer,mlength,64,64);
 	lengths_.is=offsets_.is=curr_off=16;
 	break;
     }
@@ -1173,14 +1178,14 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->ensdata.fcst_type="";
   g->ensdata.id="";
   g->ensdata.total_size=0;
-  get_bits(stream_buffer,lengths_.pds,off,24);
+  bits::get(stream_buffer,lengths_.pds,off,24);
   if (edition_ == 1) {
-    get_bits(stream_buffer,g->grib.table,off+24,8);
+    bits::get(stream_buffer,g->grib.table,off+24,8);
   }
   g->grib.last_src=g->grid.src;
-  get_bits(stream_buffer,g->grid.src,off+32,8);
-  get_bits(stream_buffer,g->grib.process,off+40,8);
-  get_bits(stream_buffer,g->grib.grid_catalog_id,off+48,8);
+  bits::get(stream_buffer,g->grid.src,off+32,8);
+  bits::get(stream_buffer,g->grib.process,off+40,8);
+  bits::get(stream_buffer,g->grib.grid_catalog_id,off+48,8);
   g->grib.scan_mode=0x40;
   if (g->grid.src == 7) {
     switch (g->grib.grid_catalog_id) {
@@ -1320,7 +1325,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	}
     }
   }
-  get_bits(stream_buffer,flag,off+56,8);
+  bits::get(stream_buffer,flag,off+56,8);
   if ( (flag & 0x80) == 0x80) {
     gds_included=true;
   }
@@ -1335,8 +1340,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     bms_included=false;
     lengths_.bms=0;
   }
-  get_bits(stream_buffer,g->grid.param,off+64,8);
-  get_bits(stream_buffer,g->grid.level1_type,off+72,8);
+  bits::get(stream_buffer,g->grid.param,off+64,8);
+  bits::get(stream_buffer,g->grid.level1_type,off+72,8);
   switch (g->grid.level1_type) {
     case 100:
     case 103:
@@ -1350,7 +1355,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     case 200:
     case 201:
     {
-	get_bits(stream_buffer,dum,off+80,16);
+	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum;
 	g->grid.level2=0.;
 	g->grid.level2_type=-1;
@@ -1358,9 +1363,9 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     }
     case 101:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=dum*10.;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
@@ -1368,7 +1373,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     case 107:
     case 119:
     {
-	get_bits(stream_buffer,dum,off+80,16);
+	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum/10000.;
 	g->grid.level2=0.;
 	g->grid.level2_type=-1;
@@ -1377,65 +1382,65 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     case 108:
     case 120:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum/100.;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=dum/100.;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
     case 114:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=475.-dum;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=475.-dum;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
     case 121:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1100.-dum;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=1100.-dum;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
     case 128:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1.1-dum/1000.;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=1.1-dum/1000.;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
     case 141:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=1100.-dum;
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
     default:
     {
-	get_bits(stream_buffer,dum,off+80,8);
+	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum;
-	get_bits(stream_buffer,dum,off+88,8);
+	bits::get(stream_buffer,dum,off+88,8);
 	g->grid.level2=dum;
 	g->grid.level2_type=g->grid.level1_type;
      }
   }
-  get_bits(stream_buffer,yr,off+96,8);
-  get_bits(stream_buffer,mo,off+104,8);
-  get_bits(stream_buffer,dy,off+112,8);
-  get_bits(stream_buffer,hr,off+120,8);
-  get_bits(stream_buffer,min,off+128,8);
+  bits::get(stream_buffer,yr,off+96,8);
+  bits::get(stream_buffer,mo,off+104,8);
+  bits::get(stream_buffer,dy,off+112,8);
+  bits::get(stream_buffer,hr,off+120,8);
+  bits::get(stream_buffer,min,off+128,8);
   hr=hr*100+min;
-  get_bits(stream_buffer,g->grib.time_unit,off+136,8);
+  bits::get(stream_buffer,g->grib.time_unit,off+136,8);
   switch (edition_) {
     case 0:
     {
@@ -1451,10 +1456,10 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     }
     case 1:
     {
-	get_bits(stream_buffer,g->grib.century,off+192,8);
+	bits::get(stream_buffer,g->grib.century,off+192,8);
 	yr=yr+(g->grib.century-1)*100;
-	get_bits(stream_buffer,g->grib.sub_center,off+200,8);
-	get_bits(stream_buffer,g->grib.D,off+208,16);
+	bits::get(stream_buffer,g->grib.sub_center,off+200,8);
+	bits::get(stream_buffer,g->grib.D,off+208,16);
 	if (g->grib.D > 0x8000) {
 	  g->grib.D=0x8000-g->grib.D;
 	}
@@ -1462,24 +1467,24 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     }
   }
   g->reference_date_time_.set(yr,mo,dy,hr*100);
-  get_bits(stream_buffer,g->grib.t_range,off+160,8);
+  bits::get(stream_buffer,g->grib.t_range,off+160,8);
   g->grid.nmean=g->grib.nmean_missing=0;
   g->grib.p2=0;
   switch (g->grib.t_range) {
     case 10:
     {
-	get_bits(stream_buffer,g->grib.p1,off+144,16);
+	bits::get(stream_buffer,g->grib.p1,off+144,16);
 	break;
     }
     default:
     {
-	get_bits(stream_buffer,g->grib.p1,off+144,8);
-	get_bits(stream_buffer,g->grib.p2,off+152,8);
-	get_bits(stream_buffer,g->grid.nmean,off+168,16);
-	get_bits(stream_buffer,g->grib.nmean_missing,off+184,8);
+	bits::get(stream_buffer,g->grib.p1,off+144,8);
+	bits::get(stream_buffer,g->grib.p2,off+152,8);
+	bits::get(stream_buffer,g->grid.nmean,off+168,16);
+	bits::get(stream_buffer,g->grib.nmean_missing,off+184,8);
 	if (g->grib.t_range >= 113 && g->grib.time_unit == 1 && g->grib.p2 > 24) {
 	  std::cerr << "Warning: invalid P2 " << g->grib.p2;
-	  get_bits(stream_buffer,g->grib.p2,off+152,4);
+	  bits::get(stream_buffer,g->grib.p2,off+152,4);
 	  std::cerr << " re-read as " << g->grib.p2 << " for time range " << g->grib.t_range << std::endl;
 	}
     }
@@ -1502,7 +1507,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	soff=40;
     }
     pds_supp=new unsigned char[lengths_.pds_supp];
-    memcpy(pds_supp,&stream_buffer[lengths_.is+soff],lengths_.pds_supp);
+//    memcpy(pds_supp,&stream_buffer[lengths_.is+soff],lengths_.pds_supp);
+std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengths_.pds_supp],pds_supp);
 // NCEP ensemble grids are described in the PDS extension
     if (g->grid.src == 7 && g->grib.sub_center == 2 && pds_supp[0] == 1) {
 	switch (pds_supp[1]) {
@@ -1584,14 +1590,14 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 
   offsets_.gds=curr_off;
   g=reinterpret_cast<GRIBGrid *>(grids.back());
-  get_bits(stream_buffer,lengths_.gds,off,24);
+  bits::get(stream_buffer,lengths_.gds,off,24);
   PL=0xff;
   switch (edition_) {
     case 1:
     {
-	get_bits(stream_buffer,PV,off+32,8);
+	bits::get(stream_buffer,PV,off+32,8);
 	if (PV != 0xff) {
-	  get_bits(stream_buffer,NV,off+24,8);
+	  bits::get(stream_buffer,NV,off+24,8);
 	  if (NV > 0)
 	    PL=(4*NV)+PV;
 	  else
@@ -1609,15 +1615,15 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	    if (g->plist != nullptr) {
 		delete[] g->plist;
 	    }
-	    get_bits(stream_buffer,g->dim.y,off+64,16);
+	    bits::get(stream_buffer,g->dim.y,off+64,16);
 	    g->plist=new int[g->dim.y];
-	    get_bits(stream_buffer,g->plist,(PL+curr_off-1)*8,16,0,g->dim.y);
+	    bits::get(stream_buffer,g->plist,(PL+curr_off-1)*8,16,0,g->dim.y);
 	  }
 	}
 	break;
     }
   }
-  get_bits(stream_buffer,g->grid.grid_type,off+40,8);
+  bits::get(stream_buffer,g->grid.grid_type,off+40,8);
   switch (g->grid.grid_type) {
     case 0:
     {
@@ -1659,13 +1665,13 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 // Latitude/Longitude
 // Gaussian Lat/Lon
 // Rotated Lat/Lon
-	get_bits(stream_buffer,g->dim.x,off+48,16);
-	get_bits(stream_buffer,g->dim.y,off+64,16);
+	bits::get(stream_buffer,g->dim.x,off+48,16);
+	bits::get(stream_buffer,g->dim.y,off+64,16);
 	if (g->dim.x == -1 && PL != 0xff) {
 	  noff=off+(PL-1)*8;
 	  g->dim.size=0;
 	  for (n=PL; n < lengths_.gds; n+=2) {
-	    get_bits(stream_buffer,dum,noff,16);
+	    bits::get(stream_buffer,dum,noff,16);
 	    g->dim.size+=dum;
 	    noff+=16;
 	  }
@@ -1673,12 +1679,12 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	else {
 	  g->dim.size=g->dim.x*g->dim.y;
 	}
-	get_bits(stream_buffer,dum,off+80,24);
+	bits::get(stream_buffer,dum,off+80,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.slatitude=dum/1000.;
-	get_bits(stream_buffer,dum,off+104,24);
+	bits::get(stream_buffer,dum,off+104,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
@@ -1687,21 +1693,21 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	dum=lround(64.*g->def.slongitude);
 	g->def.slongitude=dum/64.;
 */
-	get_bits(stream_buffer,g->grib.rescomp,off+128,8);
-	get_bits(stream_buffer,dum,off+136,24);
+	bits::get(stream_buffer,g->grib.rescomp,off+128,8);
+	bits::get(stream_buffer,dum,off+136,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.elatitude=dum/1000.;
-	get_bits(stream_buffer,sl_sign,off+160,1);
+	bits::get(stream_buffer,sl_sign,off+160,1);
 	sl_sign= (sl_sign == 0) ? 1 : -1;
-	get_bits(stream_buffer,dum,off+161,23);
+	bits::get(stream_buffer,dum,off+161,23);
 	g->def.elongitude=(dum/1000.)*sl_sign;
 /*
 	dum=lround(64.*g->def.elongitude);
 	g->def.elongitude=dum/64.;
 */
-	get_bits(stream_buffer,dum,off+184,16);
+	bits::get(stream_buffer,dum,off+184,16);
 	if (dum == 0xffff) {
 	  dum=-99000;
 	}
@@ -1710,7 +1716,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	dum=lround(64.*g->def.loincrement);
 	g->def.loincrement=dum/64.;
 */
-	get_bits(stream_buffer,dum,off+200,16);
+	bits::get(stream_buffer,dum,off+200,16);
 	if (dum == 0xffff) {
 	  dum=-99999;
 	}
@@ -1720,7 +1726,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	else {
 	  g->def.num_circles=dum;
 	}
-	get_bits(stream_buffer,g->grib.scan_mode,off+216,8);
+	bits::get(stream_buffer,g->grib.scan_mode,off+216,8);
 /*
 	if (g->def.elongitude < g->def.slongitude && g->grib.scan_mode < 0x80) {
 	  g->def.elongitude+=360.;
@@ -1733,53 +1739,53 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
     {
 // Lambert Conformal
 // Polar Stereographic
-	get_bits(stream_buffer,g->dim.x,off+48,16);
-	get_bits(stream_buffer,g->dim.y,off+64,16);
+	bits::get(stream_buffer,g->dim.x,off+48,16);
+	bits::get(stream_buffer,g->dim.y,off+64,16);
 	g->dim.size=g->dim.x*g->dim.y;
-	get_bits(stream_buffer,dum,off+80,24);
+	bits::get(stream_buffer,dum,off+80,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.slatitude=dum/1000.;
-	get_bits(stream_buffer,dum,off+104,24);
+	bits::get(stream_buffer,dum,off+104,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.slongitude=dum/1000.;
-	get_bits(stream_buffer,dum,off+104,24);
+	bits::get(stream_buffer,dum,off+104,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.slongitude=dum/1000.;
-	get_bits(stream_buffer,g->grib.rescomp,off+128,8);
-	get_bits(stream_buffer,dum,off+136,24);
+	bits::get(stream_buffer,g->grib.rescomp,off+128,8);
+	bits::get(stream_buffer,dum,off+136,24);
 	if (dum > 0x800000) {
 	  dum=0x800000-dum;
 	}
 	g->def.olongitude=dum/1000.;
-	get_bits(stream_buffer,dum,off+160,24);
+	bits::get(stream_buffer,dum,off+160,24);
 	g->def.dx=dum/1000.;
-	get_bits(stream_buffer,dum,off+184,24);
+	bits::get(stream_buffer,dum,off+184,24);
 	g->def.dy=dum/1000.;
-	get_bits(stream_buffer,g->def.projection_flag,off+208,8);
-	get_bits(stream_buffer,g->grib.scan_mode,off+216,8);
+	bits::get(stream_buffer,g->def.projection_flag,off+208,8);
+	bits::get(stream_buffer,g->grib.scan_mode,off+216,8);
 	if (g->grid.grid_type == 3) {
-	  get_bits(stream_buffer,dum,off+224,24);
+	  bits::get(stream_buffer,dum,off+224,24);
 	  if (dum > 0x800000) {
 	    dum=0x800000-dum;
 	  }
 	  g->def.stdparallel1=dum/1000.;
-	  get_bits(stream_buffer,dum,off+248,24);
+	  bits::get(stream_buffer,dum,off+248,24);
 	  if (dum > 0x800000) {
 	    dum=0x800000-dum;
 	  }
 	  g->def.stdparallel2=dum/1000.;
-	  get_bits(stream_buffer,dum,off+272,24);
+	  bits::get(stream_buffer,dum,off+272,24);
 	  if (dum > 0x800000) {
 	    dum=0x800000-dum;
 	  }
 	  g->grib.sp_lat=dum/1000.;
-	  get_bits(stream_buffer,dum,off+296,24);
+	  bits::get(stream_buffer,dum,off+296,24);
 	  if (dum > 0x800000) {
 	    dum=0x800000-dum;
 	  }
@@ -1805,9 +1811,9 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
     case 50:
     {
 	g->dim.x=g->dim.y=g->dim.size=1;
-	get_bits(stream_buffer,g->def.trunc1,off+48,16);
-	get_bits(stream_buffer,g->def.trunc2,off+64,16);
-	get_bits(stream_buffer,g->def.trunc3,off+80,16);
+	bits::get(stream_buffer,g->def.trunc1,off+48,16);
+	bits::get(stream_buffer,g->def.trunc2,off+64,16);
+	bits::get(stream_buffer,g->def.trunc3,off+80,16);
 	break;
     }
     default:
@@ -1831,8 +1837,8 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
     case 1:
     {
 	g=reinterpret_cast<GRIBGrid *>(grids.back());
-	get_bits(stream_buffer,lengths_.bms,off,24);
-	get_bits(stream_buffer,ind,off+32,16);
+	bits::get(stream_buffer,lengths_.bms,off,24);
+	bits::get(stream_buffer,ind,off+32,16);
 	if (ind == 0) {
 	  if (g->dim.size > g->bitmap.capacity) {
 	    if (g->bitmap.map != nullptr) {
@@ -1841,7 +1847,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 	    g->bitmap.capacity=g->dim.size;
 	    g->bitmap.map=new unsigned char[g->bitmap.capacity];
 	  }
-	  get_bits(stream_buffer,g->bitmap.map,off+48,1,0,g->dim.size);
+	  bits::get(stream_buffer,g->bitmap.map,off+48,1,0,g->dim.size);
 	  for (n=0; n < static_cast<int>(g->dim.size); n++) {
 	    if (g->bitmap.map[n] == 0)
 		g->grid.num_missing++;
@@ -1852,12 +1858,12 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
     case 2:
     {
 	g2=reinterpret_cast<GRIB2Grid *>(grids.back());
-	get_bits(stream_buffer,lengths_.bms,off,32);
-	get_bits(stream_buffer,sec_num,off+32,8);
+	bits::get(stream_buffer,lengths_.bms,off,32);
+	bits::get(stream_buffer,sec_num,off+32,8);
 	if (sec_num != 6) {
 	  mywarning="may not be unpacking the Bitmap Section";
 	}
-	get_bits(stream_buffer,ind,off+40,8);
+	bits::get(stream_buffer,ind,off+40,8);
 	switch (ind) {
 	  case 0:
 	  {
@@ -1872,11 +1878,11 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 		}
 /*
 		for (n=0; n < len; n++) {
-		  get_bits(stream_buffer,bit,off+48+n,1);
+		  bits::get(stream_buffer,bit,off+48+n,1);
 		  g2->bitmap.map[n]=bit;
 		}
 */
-get_bits(stream_buffer,g2->bitmap.map,off+48,1,0,len);
+bits::get(stream_buffer,g2->bitmap.map,off+48,1,0,len);
 		g2->bitmap.applies=true;
 	    }
 	    else {
@@ -1923,7 +1929,7 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
 
   offsets_.bds=curr_off;
   g=reinterpret_cast<GRIBGrid *>(grids.back());
-  get_bits(stream_buffer,lengths_.bds,off,24);
+  bits::get(stream_buffer,lengths_.bds,off,24);
   if (mlength >= 0x800000 && lengths_.bds < 120) {
 // ECMWF large-file
     mlength&=0x7fffff;
@@ -1932,18 +1938,18 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
     mlength+=4;
     lengths_.bds=mlength-curr_off-4;
   }
-  get_bits(stream_buffer,bds_flag,off+24,4);
+  bits::get(stream_buffer,bds_flag,off+24,4);
   if ((bds_flag & 0x4) == 0x4) {
     simple_packing=false;
   }
-  get_bits(stream_buffer,unused,off+28,4);
+  bits::get(stream_buffer,unused,off+28,4);
   d=pow(10.,g->grib.D);
-  g->stats.min_val=ibmconv(stream_buffer,off+48)/d;
+  g->stats.min_val=floatutils::ibmconv(stream_buffer,off+48)/d;
   if ((bds_flag & 0x2) == 0x2) {
     g->stats.min_val=lround(g->stats.min_val);
   }
-  get_bits(stream_buffer,g->grib.pack_width,off+80,8);
-  get_bits(stream_buffer,g->grib.E,off+32,16);
+  bits::get(stream_buffer,g->grib.pack_width,off+80,8);
+  bits::get(stream_buffer,g->grib.E,off+32,16);
   if (g->grib.E > 0x8000) {
     g->grib.E=0x8000-g->grib.E;
   }
@@ -1980,7 +1986,7 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
     g->galloc();
     if (simple_packing) {
 	pval=new int[num_packed];
-	get_bits(stream_buffer,pval,off+88,g->grib.pack_width,0,num_packed);
+	bits::get(stream_buffer,pval,off+88,g->grib.pack_width,0,num_packed);
 	g->stats.min_i=-1;
 	if (g->grid.num_in_pole_sum < 0) {
 	  pole_at=-(g->grid.num_in_pole_sum+1);
@@ -2144,10 +2150,10 @@ exit(1);
 		}
 	    }
 	    else {
-		if (myequalf(g->def.slatitude,90.)) {
+		if (floatutils::myequalf(g->def.slatitude,90.)) {
 		  g->grid.pole=g->gridpoints_[0][0];
 		}
-		else if (myequalf(g->def.elatitude,90.)) {
+		else if (floatutils::myequalf(g->def.elatitude,90.)) {
 		  g->grid.pole=g->gridpoints_[ydim-1][0];
 		}
 	    }
@@ -2166,13 +2172,13 @@ exit(1);
 	  if ((bds_flag & 0xc) == 0xc) {
 /*
 std::cerr << "here" << std::endl;
-get_bits(input_buffer,n,off+88,16);
+bits::get(input_buffer,n,off+88,16);
 std::cerr << "n=" << n << std::endl;
-get_bits(input_buffer,n,off+104,16);
+bits::get(input_buffer,n,off+104,16);
 std::cerr << "p=" << n << std::endl;
-get_bits(input_buffer,n,off+120,8);
-get_bits(input_buffer,m,off+128,8);
-get_bits(input_buffer,cnt,off+136,8);
+bits::get(input_buffer,n,off+120,8);
+bits::get(input_buffer,m,off+128,8);
+bits::get(input_buffer,cnt,off+136,8);
 std::cerr << "j,k,m=" << n << "," << m << "," << cnt << std::endl;
 */
 	  }
@@ -2182,31 +2188,31 @@ myerror="unable to decode complex packing with bitmap defined";
 exit(1);
 }
 	    short n1,ext_flg,n2,p1,p2;
-	    get_bits(stream_buffer,n1,off+88,16);
-	    get_bits(stream_buffer,ext_flg,off+104,8);
+	    bits::get(stream_buffer,n1,off+88,16);
+	    bits::get(stream_buffer,ext_flg,off+104,8);
 if ( (ext_flg & 0x20) == 0x20) {
 myerror="unable to decode complex packing with secondary bitmap defined";
 exit(1);
 }
-	    get_bits(stream_buffer,n2,off+112,16);
-	    get_bits(stream_buffer,p1,off+128,16);
-	    get_bits(stream_buffer,p2,off+144,16);
+	    bits::get(stream_buffer,n2,off+112,16);
+	    bits::get(stream_buffer,p1,off+128,16);
+	    bits::get(stream_buffer,p2,off+144,16);
 	    if ( (ext_flg & 0x8) == 0x8) {
 // ECMWF extension for complex packing with spatial differencing
 		short width_pack_width,length_pack_width,nl,order_vals_width;
-		get_bits(stream_buffer,width_pack_width,off+168,8);
-		get_bits(stream_buffer,length_pack_width,off+176,8);
-		get_bits(stream_buffer,nl,off+184,16);
-		get_bits(stream_buffer,order_vals_width,off+200,8);
+		bits::get(stream_buffer,width_pack_width,off+168,8);
+		bits::get(stream_buffer,length_pack_width,off+176,8);
+		bits::get(stream_buffer,nl,off+184,16);
+		bits::get(stream_buffer,order_vals_width,off+200,8);
 		auto norder=(ext_flg & 0x3);
 		std::unique_ptr<int []> first_vals;
 		first_vals.reset(new int[norder]);
-		get_bits(stream_buffer,first_vals.get(),off+208,order_vals_width,0,norder);
+		bits::get(stream_buffer,first_vals.get(),off+208,order_vals_width,0,norder);
 		short sign;
 		int omin=0;
 		auto noff=off+208+norder*order_vals_width;
-		get_bits(stream_buffer,sign,noff,1);
-		get_bits(stream_buffer,omin,noff+1,order_vals_width-1);
+		bits::get(stream_buffer,sign,noff,1);
+		bits::get(stream_buffer,omin,noff+1,order_vals_width-1);
 		if (sign == 1) {
 		  omin=-omin;
 		}
@@ -2217,8 +2223,8 @@ exit(1);
 		}
 		noff+=pad;
 		std::unique_ptr<int []> widths(new int[p1]),lengths(new int[p1]);
-		get_bits(stream_buffer,widths.get(),noff,width_pack_width,0,p1);
-		get_bits(stream_buffer,lengths.get(),off+(nl-1)*8,length_pack_width,0,p1);
+		bits::get(stream_buffer,widths.get(),noff,width_pack_width,0,p1);
+		bits::get(stream_buffer,lengths.get(),off+(nl-1)*8,length_pack_width,0,p1);
 		int max_length=0,lsum=0;
 		for (auto n=0; n < p1; ++n) {
 		  if (lengths[n] > max_length) {
@@ -2231,7 +2237,7 @@ exit(1);
 		  exit(1);
 		}
 		std::unique_ptr<int []> group_ref_vals(new int[p1]);
-		get_bits(stream_buffer,group_ref_vals.get(),off+(n1-1)*8,8,0,p1);
+		bits::get(stream_buffer,group_ref_vals.get(),off+(n1-1)*8,8,0,p1);
 		std::unique_ptr<int []> pvals(new int[max_length]);
 		noff=off+(n2-1)*8;
 		for (auto n=0; n < norder; ++n) {
@@ -2247,7 +2253,7 @@ exit(1);
 // unpack the field of differences
 		for (int n=0,l=norder; n < p1; ++n) {
 		  if (widths[n] > 0) {
-		    get_bits(stream_buffer,pvals.get(),noff,widths[n],0,lengths[n]);
+		    bits::get(stream_buffer,pvals.get(),noff,widths[n],0,lengths[n]);
 		    noff+=widths[n]*lengths[n];
  		    for (auto m=0; m < lengths[n]; ++m) {
 			auto j=l/g->dim.x;
@@ -2305,7 +2311,7 @@ exit(1);
 		std::unique_ptr<short []> p2_widths;
 		if ((ext_flg & 0x10) == 0x10) {
 		  p2_widths.reset(new short[p1]);
-		  get_bits(stream_buffer,p2_widths.get(),off+168,8,0,p1);
+		  bits::get(stream_buffer,p2_widths.get(),off+168,8,0,p1);
 		}
 		else {
 		  p2_widths.reset(new short[1]);
@@ -2329,8 +2335,7 @@ void GRIBMessage::unpack_end(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
   int test;
-
-  get_bits(stream_buffer,test,off,32);
+  bits::get(stream_buffer,test,off,32);
   if (test != 0x37373737) {
     myerror="bad END Section - found *"+std::string(reinterpret_cast<char *>(const_cast<unsigned char *>(&stream_buffer[curr_off])),4)+"*";
     exit(1);
@@ -2339,10 +2344,6 @@ void GRIBMessage::unpack_end(const unsigned char *stream_buffer)
 
 void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
 {
-  GRIBGrid *g;
-  xmlutils::GridMapEntry gme;
-  std::string sdum;
-
   if (stream_buffer == nullptr) {
     myerror="empty file stream";
     exit(1);
@@ -2353,7 +2354,7 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
     myerror="can't decode edition "+strutils::itos(edition_);
     exit(1);
   }
-  g=new GRIBGrid;
+  auto g=new GRIBGrid;
   g->grid.filled=false;
   grids.emplace_back(g);
   unpack_pds(stream_buffer);
@@ -2368,24 +2369,25 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
   }
   else {
     static my::map<xmlutils::GridMapEntry> grid_map_table;
+    xmlutils::GridMapEntry gme;
     gme.key=strutils::itos(g->grid.src)+"-"+strutils::itos(g->grib.sub_center);
     if (!grid_map_table.found(gme.key,gme)) {
 	static TempDir *temp_dir=nullptr;
 	if (temp_dir == nullptr) {
 	  temp_dir=new TempDir;
 	  if (!temp_dir->create("/tmp")) {
-	    myerror="unable to create temporary directory";
+	    myerror="GRIBMessage::fill(): unable to create temporary directory";
 	    exit(1);
 	  }
 	}
 	gme.g.fill(xmlutils::map_filename("GridTables",gme.key,temp_dir->name()));
 	grid_map_table.insert(gme);
     }
-    sdum=strutils::itos(g->grib.grid_catalog_id);
-    g->def=gme.g.grid_definition(sdum);
-    g->dim=gme.g.grid_dimensions(sdum);
-    if (gme.g.is_single_pole_point(sdum)) {
-	g->grid.num_in_pole_sum=-std::stoi(gme.g.pole_point_location(sdum));
+    auto catalog_id=strutils::itos(g->grib.grid_catalog_id);
+    g->def=gme.g.grid_definition(catalog_id);
+    g->dim=gme.g.grid_dimensions(catalog_id);
+    if (gme.g.is_single_pole_point(catalog_id)) {
+	g->grid.num_in_pole_sum=-std::stoi(gme.g.pole_point_location(catalog_id));
     }
     g->grib.scan_mode=0x40;
   }
@@ -2407,19 +2409,19 @@ void GRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_only)
 
 Grid *GRIBMessage::grid(size_t grid_number) const
 {
-  if (grids.size() == 0 || grid_number >= grids.size())
+  if (grids.size() == 0 || grid_number >= grids.size()) {
     return nullptr;
-  else
+  }
+  else {
     return grids[grid_number];
+  }
 }
 
 void GRIBMessage::pds_supplement(unsigned char *pds_supplement,size_t& pds_supplement_length) const
 {
-  size_t n;
-
   pds_supplement_length=lengths_.pds_supp;
   if (pds_supplement_length > 0) {
-    for (n=0; n < pds_supplement_length; ++n) {
+    for (size_t n=0; n < pds_supplement_length; ++n) {
 	pds_supplement[n]=pds_supp[n];
     }
   }
@@ -2459,7 +2461,8 @@ void GRIBMessage::initialize(short edition_number,unsigned char *pds_supplement,
   else {
     pds_supp=nullptr;
   }
-  memcpy(pds_supp,pds_supplement,lengths_.pds_supp);
+//  memcpy(pds_supp,pds_supplement,lengths_.pds_supp);
+std::copy(pds_supplement,pds_supplement+lengths_.pds_supp,pds_supp);
   gds_included=gds_is_included;
   bms_included=bms_is_included;
   clear_grids();
@@ -2467,13 +2470,11 @@ void GRIBMessage::initialize(short edition_number,unsigned char *pds_supplement,
 
 void GRIBMessage::print_header(std::ostream& outs,bool verbose) const
 {
-  int n;
-
   if (verbose) {
     outs << "  GRIB Ed: " << edition_ << "  Length: " << mlength << std::endl;
     if (lengths_.pds_supp > 0) {
 	outs << "\n  Supplement to the PDS:";
-	for (n=0; n < lengths_.pds_supp; ++n) {
+	for (int n=0; n < lengths_.pds_supp; ++n) {
 	  if (pds_supp[n] < 32 || pds_supp[n] > 127) {
 	    outs << " \\" << std::setw(3) << std::setfill('0') << std::oct << static_cast<int>(pds_supp[n]) << std::setfill(' ') << std::dec;
 	  }
@@ -2493,30 +2494,29 @@ void GRIBMessage::print_header(std::ostream& outs,bool verbose) const
 void GRIB2Message::unpack_ids(const unsigned char *input_buffer)
 {
   off_t off=curr_off*8;
-  short sec_num;
-  short yr,mo,dy,hr,min,sec;
   GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back());
-
   offsets_.ids=curr_off;
-  get_bits(input_buffer,lengths_.ids,off,32);
-  get_bits(input_buffer,sec_num,off+32,8);
+  bits::get(input_buffer,lengths_.ids,off,32);
+  short sec_num;
+  bits::get(input_buffer,sec_num,off+32,8);
   if (sec_num != 1) {
     mywarning="may not be unpacking the Identification Section";
   }
-  get_bits(input_buffer,g2->grid.src,off+40,16);
-  get_bits(input_buffer,g2->grib.sub_center,off+56,16);
-  get_bits(input_buffer,g2->grib.table,off+72,8);
-  get_bits(input_buffer,g2->grib2.local_table,off+80,8);
-  get_bits(input_buffer,g2->grib2.time_sig,off+88,8);
-  get_bits(input_buffer,yr,off+96,16);
-  get_bits(input_buffer,mo,off+112,8);
-  get_bits(input_buffer,dy,off+120,8);
-  get_bits(input_buffer,hr,off+128,8);
-  get_bits(input_buffer,min,off+136,8);
-  get_bits(input_buffer,sec,off+144,8);
+  bits::get(input_buffer,g2->grid.src,off+40,16);
+  bits::get(input_buffer,g2->grib.sub_center,off+56,16);
+  bits::get(input_buffer,g2->grib.table,off+72,8);
+  bits::get(input_buffer,g2->grib2.local_table,off+80,8);
+  bits::get(input_buffer,g2->grib2.time_sig,off+88,8);
+  short yr,mo,dy,hr,min,sec;
+  bits::get(input_buffer,yr,off+96,16);
+  bits::get(input_buffer,mo,off+112,8);
+  bits::get(input_buffer,dy,off+120,8);
+  bits::get(input_buffer,hr,off+128,8);
+  bits::get(input_buffer,min,off+136,8);
+  bits::get(input_buffer,sec,off+144,8);
   g2->reference_date_time_.set(yr,mo,dy,hr*10000+min*100+sec);
-  get_bits(input_buffer,g2->grib2.prod_status,off+152,8);
-  get_bits(input_buffer,g2->grib2.data_type,off+160,8);
+  bits::get(input_buffer,g2->grib2.prod_status,off+152,8);
+  bits::get(input_buffer,g2->grib2.data_type,off+160,8);
   curr_off+=lengths_.ids;
 }
 
@@ -2527,24 +2527,24 @@ void GRIB2Message::pack_ids(unsigned char *output_buffer,off_t& offset,Grid *gri
   GRIB2Grid *g2;
 
   g2=reinterpret_cast<GRIB2Grid *>(grid);
-set_bits(output_buffer,21,off,32);
-  set_bits(output_buffer,1,off+32,8);
-  set_bits(output_buffer,g2->grid.src,off+40,16);
-  set_bits(output_buffer,g2->grib.sub_center,off+56,16);
-  set_bits(output_buffer,g2->grib.table,off+72,8);
-  set_bits(output_buffer,g2->grib2.local_table,off+80,8);
-  set_bits(output_buffer,g2->grib2.time_sig,off+88,8);
-  set_bits(output_buffer,g2->reference_date_time_.year(),off+96,16);
-  set_bits(output_buffer,g2->reference_date_time_.month(),off+112,8);
-  set_bits(output_buffer,g2->reference_date_time_.day(),off+120,8);
+bits::set(output_buffer,21,off,32);
+  bits::set(output_buffer,1,off+32,8);
+  bits::set(output_buffer,g2->grid.src,off+40,16);
+  bits::set(output_buffer,g2->grib.sub_center,off+56,16);
+  bits::set(output_buffer,g2->grib.table,off+72,8);
+  bits::set(output_buffer,g2->grib2.local_table,off+80,8);
+  bits::set(output_buffer,g2->grib2.time_sig,off+88,8);
+  bits::set(output_buffer,g2->reference_date_time_.year(),off+96,16);
+  bits::set(output_buffer,g2->reference_date_time_.month(),off+112,8);
+  bits::set(output_buffer,g2->reference_date_time_.day(),off+120,8);
   hr=g2->reference_date_time_.time()/10000;
   min=(g2->reference_date_time_.time()/100 % 100);
   sec=(g2->reference_date_time_.time() % 100);
-  set_bits(output_buffer,hr,off+128,8);
-  set_bits(output_buffer,min,off+136,8);
-  set_bits(output_buffer,sec,off+144,8);
-  set_bits(output_buffer,g2->grib2.prod_status,off+152,8);
-  set_bits(output_buffer,g2->grib2.data_type,off+160,8);
+  bits::set(output_buffer,hr,off+128,8);
+  bits::set(output_buffer,min,off+136,8);
+  bits::set(output_buffer,sec,off+144,8);
+  bits::set(output_buffer,g2->grib2.prod_status,off+152,8);
+  bits::set(output_buffer,g2->grib2.data_type,off+160,8);
 offset+=21;
 }
 
@@ -2552,7 +2552,7 @@ void GRIB2Message::unpack_lus(const unsigned char *stream_buffer)
 {
   off_t off=curr_off*8;
 
-  get_bits(stream_buffer,lus_len,off,32);
+  bits::get(stream_buffer,lus_len,off,32);
   curr_off+=lus_len;
 }
 
@@ -2574,17 +2574,17 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 
   offsets_.pds=curr_off;
   g2=reinterpret_cast<GRIB2Grid *>(grids.back());
-  get_bits(stream_buffer,lengths_.pds,off,32);
-  get_bits(stream_buffer,sec_num,off+32,8);
+  bits::get(stream_buffer,lengths_.pds,off,32);
+  bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 4) {
     mywarning="may not be unpacking the Product Description Section";
   }
-  get_bits(stream_buffer,g2->grib2.num_coord_vals,off+40,16);
+  bits::get(stream_buffer,g2->grib2.num_coord_vals,off+40,16);
   g2->grid.fcst_time=0;
   g2->ensdata.fcst_type="";
   g2->grib2.stat_process_ranges.clear();
 // template number
-  get_bits(stream_buffer,g2->grib2.product_type,off+56,16);
+  bits::get(stream_buffer,g2->grib2.product_type,off+56,16);
   switch (g2->grib2.product_type) {
     case 0:
     case 1:
@@ -2595,22 +2595,22 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
     case 15:
     case 61:
     {
-	get_bits(stream_buffer,g2->grib2.param_cat,off+72,8);
-	get_bits(stream_buffer,g2->grid.param,off+80,8);
-	get_bits(stream_buffer,g2->grib.process,off+88,8);
-	get_bits(stream_buffer,g2->grib2.backgen_process,off+96,8);
-	get_bits(stream_buffer,g2->grib2.fcstgen_process,off+104,8);
-	get_bits(stream_buffer,g2->grib.time_unit,off+136,8);
-	get_bits(stream_buffer,g2->grid.fcst_time,off+144,32);
-	get_bits(stream_buffer,g2->grid.level1_type,off+176,8);
-	get_bits(stream_buffer,sign,off+192,1);
-	get_bits(stream_buffer,dum,off+193,31);
+	bits::get(stream_buffer,g2->grib2.param_cat,off+72,8);
+	bits::get(stream_buffer,g2->grid.param,off+80,8);
+	bits::get(stream_buffer,g2->grib.process,off+88,8);
+	bits::get(stream_buffer,g2->grib2.backgen_process,off+96,8);
+	bits::get(stream_buffer,g2->grib2.fcstgen_process,off+104,8);
+	bits::get(stream_buffer,g2->grib.time_unit,off+136,8);
+	bits::get(stream_buffer,g2->grid.fcst_time,off+144,32);
+	bits::get(stream_buffer,g2->grid.level1_type,off+176,8);
+	bits::get(stream_buffer,sign,off+192,1);
+	bits::get(stream_buffer,dum,off+193,31);
 	if (dum != 0x7fffffff || sign != 1) {
 	  if (sign == 1) {
 	    dum=-dum;
 	  }
-	  get_bits(stream_buffer,sign,off+184,1);
-	  get_bits(stream_buffer,scale,off+185,7);
+	  bits::get(stream_buffer,sign,off+184,1);
+	  bits::get(stream_buffer,scale,off+185,7);
 	  if (sign == 1) {
 	    scale=-scale;
 	  }
@@ -2625,16 +2625,16 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 	else {
 	  g2->grid.level1=Grid::missing_value;
 	}
-	get_bits(stream_buffer,g2->grid.level2_type,off+224,8);
+	bits::get(stream_buffer,g2->grid.level2_type,off+224,8);
 	if (g2->grid.level2_type != 255) {
-	  get_bits(stream_buffer,sign,off+240,1);
-	  get_bits(stream_buffer,dum,off+241,31);
+	  bits::get(stream_buffer,sign,off+240,1);
+	  bits::get(stream_buffer,dum,off+241,31);
 	  if (dum != 0x7fffffff || sign != 1) {
 	    if (sign == 1) {
 		dum=-dum;
 	    }
-	    get_bits(stream_buffer,sign,off+232,1);
-	    get_bits(stream_buffer,scale,off+233,7);
+	    bits::get(stream_buffer,sign,off+232,1);
+	    bits::get(stream_buffer,scale,off+233,7);
 	    if (sign == 1) {
 		scale=-scale;
 	    }
@@ -2658,7 +2658,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 	  case 11:
 	  case 61:
 	  {
-	    get_bits(stream_buffer,dum,off+272,8);
+	    bits::get(stream_buffer,dum,off+272,8);
 	    switch (dum) {
 		case 0:
 		{
@@ -2691,42 +2691,42 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 		  exit(1);
 		}
 	    }
-	    get_bits(stream_buffer,dum,off+280,8);
+	    bits::get(stream_buffer,dum,off+280,8);
 	    g2->ensdata.id=strutils::itos(dum);
-	    get_bits(stream_buffer,g2->ensdata.total_size,off+288,8);
+	    bits::get(stream_buffer,g2->ensdata.total_size,off+288,8);
 	    switch (g2->grib2.product_type) {
 		case 61:
 		{
-		  get_bits(stream_buffer,yr,off+296,16);
-		  get_bits(stream_buffer,mo,off+312,8);
-		  get_bits(stream_buffer,dy,off+320,8);
-		  get_bits(stream_buffer,hr,off+328,8);
-		  get_bits(stream_buffer,min,off+336,8);
-		  get_bits(stream_buffer,sec,off+344,8);
+		  bits::get(stream_buffer,yr,off+296,16);
+		  bits::get(stream_buffer,mo,off+312,8);
+		  bits::get(stream_buffer,dy,off+320,8);
+		  bits::get(stream_buffer,hr,off+328,8);
+		  bits::get(stream_buffer,min,off+336,8);
+		  bits::get(stream_buffer,sec,off+344,8);
 		  g2->grib2.modelv_date.set(yr,mo,dy,hr*10000+min*100+sec);
 		  off+=56;
 		}
 		case 11:
 		{
-		  get_bits(stream_buffer,yr,off+296,16);
-		  get_bits(stream_buffer,mo,off+312,8);
-		  get_bits(stream_buffer,dy,off+320,8);
-		  get_bits(stream_buffer,hr,off+328,8);
-		  get_bits(stream_buffer,min,off+336,8);
-		  get_bits(stream_buffer,sec,off+344,8);
+		  bits::get(stream_buffer,yr,off+296,16);
+		  bits::get(stream_buffer,mo,off+312,8);
+		  bits::get(stream_buffer,dy,off+320,8);
+		  bits::get(stream_buffer,hr,off+328,8);
+		  bits::get(stream_buffer,min,off+336,8);
+		  bits::get(stream_buffer,sec,off+344,8);
 		  g2->grib2.stat_period_end.set(yr,mo,dy,hr*10000+min*100+sec);
-get_bits(stream_buffer,dum,off+352,8);
+bits::get(stream_buffer,dum,off+352,8);
 if (dum > 1) {
 myerror="error processing multiple ("+strutils::itos(dum)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
 exit(1);
 }
-		  get_bits(stream_buffer,g2->grib2.stat_process_nmissing,off+360,32);
-		  get_bits(stream_buffer,stat_process_range.type,off+392,8);
-		  get_bits(stream_buffer,stat_process_range.time_increment_type,off+400,8);
-		  get_bits(stream_buffer,stat_process_range.period_length.unit,off+408,8);
-		  get_bits(stream_buffer,stat_process_range.period_length.value,off+416,32);
-		  get_bits(stream_buffer,stat_process_range.period_time_increment.unit,off+448,8);
-		  get_bits(stream_buffer,stat_process_range.period_time_increment.value,off+456,32);
+		  bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+360,32);
+		  bits::get(stream_buffer,stat_process_range.type,off+392,8);
+		  bits::get(stream_buffer,stat_process_range.time_increment_type,off+400,8);
+		  bits::get(stream_buffer,stat_process_range.period_length.unit,off+408,8);
+		  bits::get(stream_buffer,stat_process_range.period_length.value,off+416,32);
+		  bits::get(stream_buffer,stat_process_range.period_time_increment.unit,off+448,8);
+		  bits::get(stream_buffer,stat_process_range.period_time_increment.value,off+456,32);
 		  g2->grib2.stat_process_ranges.emplace_back(stat_process_range);
 		  break;
 		}
@@ -2736,7 +2736,7 @@ exit(1);
 	  case 2:
 	  case 12:
 	  {
-	    get_bits(stream_buffer,dum,off+272,8);
+	    bits::get(stream_buffer,dum,off+272,8);
 	    switch (dum) {
 		case 0:
 		{
@@ -2780,29 +2780,29 @@ exit(1);
 		}
 	    }
 	    g2->ensdata.id="ALL";
-	    get_bits(stream_buffer,g2->ensdata.total_size,off+280,8);
+	    bits::get(stream_buffer,g2->ensdata.total_size,off+280,8);
 	    switch (g2->grib2.product_type) {
 		case 12:
 		{
-		  get_bits(stream_buffer,yr,off+288,16);
-		  get_bits(stream_buffer,mo,off+304,8);
-		  get_bits(stream_buffer,dy,off+312,8);
-		  get_bits(stream_buffer,hr,off+320,8);
-		  get_bits(stream_buffer,min,off+328,8);
-		  get_bits(stream_buffer,sec,off+336,8);
+		  bits::get(stream_buffer,yr,off+288,16);
+		  bits::get(stream_buffer,mo,off+304,8);
+		  bits::get(stream_buffer,dy,off+312,8);
+		  bits::get(stream_buffer,hr,off+320,8);
+		  bits::get(stream_buffer,min,off+328,8);
+		  bits::get(stream_buffer,sec,off+336,8);
 		  g2->grib2.stat_period_end.set(yr,mo,dy,hr*10000+min*100+sec);
-get_bits(stream_buffer,dum,off+344,8);
+bits::get(stream_buffer,dum,off+344,8);
 if (dum > 1) {
 myerror="error processing multiple ("+strutils::itos(dum)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
 exit(1);
 }
-		  get_bits(stream_buffer,g2->grib2.stat_process_nmissing,off+352,32);
-		  get_bits(stream_buffer,stat_process_range.type,off+384,8);
-		  get_bits(stream_buffer,stat_process_range.time_increment_type,off+392,8);
-		  get_bits(stream_buffer,stat_process_range.period_length.unit,off+400,8);
-		  get_bits(stream_buffer,stat_process_range.period_length.value,off+408,32);
-		  get_bits(stream_buffer,stat_process_range.period_time_increment.unit,off+440,8);
-		  get_bits(stream_buffer,stat_process_range.period_time_increment.value,off+448,32);
+		  bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+352,32);
+		  bits::get(stream_buffer,stat_process_range.type,off+384,8);
+		  bits::get(stream_buffer,stat_process_range.time_increment_type,off+392,8);
+		  bits::get(stream_buffer,stat_process_range.period_length.unit,off+400,8);
+		  bits::get(stream_buffer,stat_process_range.period_length.value,off+408,32);
+		  bits::get(stream_buffer,stat_process_range.period_time_increment.unit,off+440,8);
+		  bits::get(stream_buffer,stat_process_range.period_time_increment.value,off+448,32);
 		  g2->grib2.stat_process_ranges.emplace_back(stat_process_range);
 		  break;
 		}
@@ -2811,19 +2811,19 @@ exit(1);
 	  }
 	  case 8:
 	  {
-	    get_bits(stream_buffer,yr,off+272,16);
-	    get_bits(stream_buffer,mo,off+288,8);
-	    get_bits(stream_buffer,dy,off+296,8);
-	    get_bits(stream_buffer,hr,off+304,8);
-	    get_bits(stream_buffer,min,off+312,8);
-	    get_bits(stream_buffer,sec,off+320,8);
+	    bits::get(stream_buffer,yr,off+272,16);
+	    bits::get(stream_buffer,mo,off+288,8);
+	    bits::get(stream_buffer,dy,off+296,8);
+	    bits::get(stream_buffer,hr,off+304,8);
+	    bits::get(stream_buffer,min,off+312,8);
+	    bits::get(stream_buffer,sec,off+320,8);
 	    g2->grib2.stat_period_end.set(yr,mo,dy,hr*10000+min*100+sec);
-	    get_bits(stream_buffer,num_ranges,off+328,8);
+	    bits::get(stream_buffer,num_ranges,off+328,8);
 // patch
 	    if (num_ranges == 0) {
 		num_ranges=(lengths_.pds-46)/12;
 	    }
-	    get_bits(stream_buffer,g2->grib2.stat_process_nmissing,off+336,32);
+	    bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+336,32);
 /*
 if (num_ranges > 1) {
 myerror="error processing multiple ("+strutils::itos(num_ranges)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
@@ -2832,12 +2832,12 @@ exit(1);
 */
 	    noff=368;
 	    for (n=0; n < num_ranges; n++) {
-		get_bits(stream_buffer,stat_process_range.type,off+noff,8);
-		get_bits(stream_buffer,stat_process_range.time_increment_type,off+noff+8,8);
-		get_bits(stream_buffer,stat_process_range.period_length.unit,off+noff+16,8);
-		get_bits(stream_buffer,stat_process_range.period_length.value,off+noff+24,32);
-		get_bits(stream_buffer,stat_process_range.period_time_increment.unit,off+noff+56,8);
-		get_bits(stream_buffer,stat_process_range.period_time_increment.value,off+noff+64,32);
+		bits::get(stream_buffer,stat_process_range.type,off+noff,8);
+		bits::get(stream_buffer,stat_process_range.time_increment_type,off+noff+8,8);
+		bits::get(stream_buffer,stat_process_range.period_length.unit,off+noff+16,8);
+		bits::get(stream_buffer,stat_process_range.period_length.value,off+noff+24,32);
+		bits::get(stream_buffer,stat_process_range.period_time_increment.unit,off+noff+56,8);
+		bits::get(stream_buffer,stat_process_range.period_time_increment.value,off+noff+64,32);
 		g2->grib2.stat_process_ranges.emplace_back(stat_process_range);
 		noff+=96;
 	    }
@@ -2845,9 +2845,9 @@ exit(1);
 	  }
 	  case 15:
 	  {
-	    get_bits(stream_buffer,g2->grib2.spatial_process.stat_process,off+272,8);
-	    get_bits(stream_buffer,g2->grib2.spatial_process.type,off+280,8);
-	    get_bits(stream_buffer,g2->grib2.spatial_process.num_points,off+288,8);
+	    bits::get(stream_buffer,g2->grib2.spatial_process.stat_process,off+272,8);
+	    bits::get(stream_buffer,g2->grib2.spatial_process.type,off+280,8);
+	    bits::get(stream_buffer,g2->grib2.spatial_process.num_points,off+288,8);
 	    break;
 	  }
 	}
@@ -2938,11 +2938,11 @@ void GRIB2Message::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *gri
   GRIB2Grid *g2;
 
   g2=reinterpret_cast<GRIB2Grid *>(grid);
-  set_bits(output_buffer,4,off+32,8);
-set_bits(output_buffer,0,off+40,16);
+  bits::set(output_buffer,4,off+32,8);
+bits::set(output_buffer,0,off+40,16);
   fcst_time=g2->grid.fcst_time/10000;
 // template number
-  set_bits(output_buffer,g2->grib2.product_type,off+56,16);
+  bits::set(output_buffer,g2->grib2.product_type,off+56,16);
   switch (g2->grib2.product_type) {
     case 0:
     case 1:
@@ -2951,17 +2951,17 @@ set_bits(output_buffer,0,off+40,16);
     case 11:
     case 12:
     {
-	set_bits(output_buffer,g2->grib2.param_cat,off+72,8);
-	set_bits(output_buffer,g2->grid.param,off+80,8);
-	set_bits(output_buffer,g2->grib.process,off+88,8);
-	set_bits(output_buffer,g2->grib2.backgen_process,off+96,8);
-	set_bits(output_buffer,g2->grib2.fcstgen_process,off+104,8);
-	set_bits(output_buffer,g2->grib.time_unit,off+136,8);
-	set_bits(output_buffer,fcst_time,off+144,32);
-	set_bits(output_buffer,g2->grid.level1_type,off+176,8);
+	bits::set(output_buffer,g2->grib2.param_cat,off+72,8);
+	bits::set(output_buffer,g2->grid.param,off+80,8);
+	bits::set(output_buffer,g2->grib.process,off+88,8);
+	bits::set(output_buffer,g2->grib2.backgen_process,off+96,8);
+	bits::set(output_buffer,g2->grib2.fcstgen_process,off+104,8);
+	bits::set(output_buffer,g2->grib.time_unit,off+136,8);
+	bits::set(output_buffer,fcst_time,off+144,32);
+	bits::set(output_buffer,g2->grid.level1_type,off+176,8);
 	if (g2->grid.level1 == Grid::missing_value) {
-	  set_bits(output_buffer,0xff,off+184,8);
-	  set_bits(output_buffer,static_cast<size_t>(0xffffffff),off+192,32);
+	  bits::set(output_buffer,0xff,off+184,8);
+	  bits::set(output_buffer,static_cast<size_t>(0xffffffff),off+192,32);
 	}
 	else {
 	  lval=g2->grid.level1;
@@ -2974,78 +2974,83 @@ set_bits(output_buffer,0,off+40,16);
 	  else if (g2->grid.level1_type == 109)
 	    lval/=1000000000.;
 	  scale=0;
-	  if (myequalf(lval,static_cast<long long>(lval),0.00000000001)) {
+	  if (floatutils::myequalf(lval,static_cast<long long>(lval),0.00000000001)) {
 	    ldum=lval;
 	    while (ldum > 0 && (ldum % 10) == 0) {
-		scale++;
+		++scale;
 		ldum/=10;
 	    }
-	    set_bits(output_buffer,ldum,off+193,31);
+	    bits::set(output_buffer,ldum,off+193,31);
 	  }
 	  else {
 	    lval*=10.;
-	    scale--;
-	    while (!myequalf(lval,llround(lval),0.00000000001)) {
-		scale--;
+	    --scale;
+	    while (!floatutils::myequalf(lval,llround(lval),0.00000000001)) {
+		--scale;
 		lval*=10.;
 	    }
-	    set_bits(output_buffer,llround(lval),off+193,31);
+	    bits::set(output_buffer,llround(lval),off+193,31);
 	  }
-	  if (scale > 0)
-	    set_bits(output_buffer,1,off+184,1);
+	  if (scale > 0) {
+	    bits::set(output_buffer,1,off+184,1);
+	  }
 	  else {
-	    set_bits(output_buffer,0,off+184,1);
+	    bits::set(output_buffer,0,off+184,1);
 	    scale=-scale;
 	  }
-	  set_bits(output_buffer,scale,off+185,7);
-	  set_bits(output_buffer,sign,off+192,1);
+	  bits::set(output_buffer,scale,off+185,7);
+	  bits::set(output_buffer,sign,off+192,1);
 	}
-	set_bits(output_buffer,g2->grid.level2_type,off+224,8);
+	bits::set(output_buffer,g2->grid.level2_type,off+224,8);
 	if (g2->grid.level2 == Grid::missing_value) {
-	  set_bits(output_buffer,0xff,off+232,8);
-	  set_bits(output_buffer,static_cast<size_t>(0xffffffff),off+240,32);
+	  bits::set(output_buffer,0xff,off+232,8);
+	  bits::set(output_buffer,static_cast<size_t>(0xffffffff),off+240,32);
 	}
 	else {
 	  lval=g2->grid.level2;
-	  if (lval < 0.)
+	  if (lval < 0.) {
 	    sign=1;
-	  else
+	  }
+	  else {
 	    sign=0;
-	  if (g2->grid.level2_type == 100 || g2->grid.level2_type == 108)
+	  }
+	  if (g2->grid.level2_type == 100 || g2->grid.level2_type == 108) {
 	    lval*=100.;
-	  else if (g2->grid.level2_type == 109)
+	  }
+	  else if (g2->grid.level2_type == 109) {
 	    lval/=1000000000.;
+	  }
 	  scale=0;
-	  if (myequalf(lval,static_cast<long long>(lval),0.00000000001)) {
+	  if (floatutils::myequalf(lval,static_cast<long long>(lval),0.00000000001)) {
 	    ldum=lval;
 	    while (ldum > 0 && (ldum % 10) == 0) {
-		scale++;
+		++scale;
 		ldum/=10;
 	    }
-	    set_bits(output_buffer,ldum,off+241,31);
+	    bits::set(output_buffer,ldum,off+241,31);
 	  }
 	  else {
 	    lval*=10.;
-	    scale--;
-	    while (!myequalf(lval,llround(lval),0.00000000001)) {
-		scale--;
+	    --scale;
+	    while (!floatutils::myequalf(lval,llround(lval),0.00000000001)) {
+		--scale;
 		lval*=10.;
 	    }
-	    set_bits(output_buffer,llround(lval),off+241,31);
+	    bits::set(output_buffer,llround(lval),off+241,31);
 	  }
 	  if (scale > 0)
-	    set_bits(output_buffer,1,off+232,1);
+	    bits::set(output_buffer,1,off+232,1);
 	  else {
-	    set_bits(output_buffer,0,off+232,1);
+	    bits::set(output_buffer,0,off+232,1);
 	    scale=-scale;
 	  }
-	  set_bits(output_buffer,scale,off+233,7);
-	  set_bits(output_buffer,sign,off+240,1);
+	  bits::set(output_buffer,scale,off+233,7);
+	  bits::set(output_buffer,sign,off+240,1);
 	}
 	switch (g2->grib2.product_type) {
 	  case 0:
 	  {
-	    set_bits(output_buffer,34,off,32);
+	    bits::set(output_buffer,34,off,32);
 	    offset+=34;
 	    break;
 	  }
@@ -3063,28 +3068,28 @@ std::cerr << "unable to finish packing PDS for product type " << g2->grib2.produ
 	  }
 	  case 8:
 	  {
-	    set_bits(output_buffer,g2->grib2.stat_period_end.year(),off+272,16);
-	    set_bits(output_buffer,g2->grib2.stat_period_end.month(),off+288,8);
-	    set_bits(output_buffer,g2->grib2.stat_period_end.day(),off+296,8);
+	    bits::set(output_buffer,g2->grib2.stat_period_end.year(),off+272,16);
+	    bits::set(output_buffer,g2->grib2.stat_period_end.month(),off+288,8);
+	    bits::set(output_buffer,g2->grib2.stat_period_end.day(),off+296,8);
 	    hr=g2->grib2.stat_period_end.time()/10000;
 	    min=(g2->grib2.stat_period_end.time()/100 % 100);
 	    sec=(g2->grib2.stat_period_end.time() % 100);
-	    set_bits(output_buffer,hr,off+304,8);
-	    set_bits(output_buffer,min,off+312,8);
-	    set_bits(output_buffer,sec,off+320,8);
-	    set_bits(output_buffer,g2->grib2.stat_process_ranges.size(),off+328,8);
-	    set_bits(output_buffer,g2->grib2.stat_process_nmissing,off+336,32);
+	    bits::set(output_buffer,hr,off+304,8);
+	    bits::set(output_buffer,min,off+312,8);
+	    bits::set(output_buffer,sec,off+320,8);
+	    bits::set(output_buffer,g2->grib2.stat_process_ranges.size(),off+328,8);
+	    bits::set(output_buffer,g2->grib2.stat_process_nmissing,off+336,32);
 	    noff=368;
 	    for (n=0; n < static_cast<int>(g2->grib2.stat_process_ranges.size()); n++) {
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].type,off+noff,8);
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].time_increment_type,off+noff+8,8);
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].period_length.unit,off+noff+16,8);
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].period_length.value,off+noff+24,32);
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].period_time_increment.unit,off+noff+56,8);
-		set_bits(output_buffer,g2->grib2.stat_process_ranges[n].period_time_increment.value,off+noff+64,32);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].type,off+noff,8);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].time_increment_type,off+noff+8,8);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].period_length.unit,off+noff+16,8);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].period_length.value,off+noff+24,32);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].period_time_increment.unit,off+noff+56,8);
+		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].period_time_increment.value,off+noff+64,32);
 		noff+=96;
 	    }
-	    set_bits(output_buffer,noff/8,off,32);
+	    bits::set(output_buffer,noff/8,off,32);
 	    offset+=noff/8;
 	    break;
 	  }
@@ -3105,24 +3110,24 @@ void GRIB2Message::unpack_gds(const unsigned char *stream_buffer)
 
   offsets_.gds=curr_off;
   g2=reinterpret_cast<GRIB2Grid *>(grids.back());
-  get_bits(stream_buffer,lengths_.gds,off,32);
-  get_bits(stream_buffer,sec_num,off+32,8);
+  bits::get(stream_buffer,lengths_.gds,off,32);
+  bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 3) {
     mywarning="may not be unpacking the Grid Description Section";
   }
-  get_bits(stream_buffer,dum,off+40,8);
+  bits::get(stream_buffer,dum,off+40,8);
 if (dum != 0) {
 myerror="grid has no template";
 exit(1);
 }
-  get_bits(stream_buffer,g2->dim.size,off+48,32);
-  get_bits(stream_buffer,g2->grib2.lp_width,off+80,8);
+  bits::get(stream_buffer,g2->dim.size,off+48,32);
+  bits::get(stream_buffer,g2->grib2.lp_width,off+80,8);
   if (g2->grib2.lp_width != 0)
-    get_bits(stream_buffer,g2->grib2.lpi,off+88,8);
+    bits::get(stream_buffer,g2->grib2.lpi,off+88,8);
   else
     g2->grib2.lpi=0;
 // template number
-  get_bits(stream_buffer,g2->grid.grid_type,off+96,16);
+  bits::get(stream_buffer,g2->grid.grid_type,off+96,16);
   switch (g2->grid.grid_type) {
     case 0:
     {
@@ -3154,38 +3159,38 @@ exit(1);
     case 0:
     case 40:
     {
-	get_bits(stream_buffer,g2->grib2.earth_shape,off+112,8);
-	get_bits(stream_buffer,g2->dim.x,off+256,16);
-	get_bits(stream_buffer,g2->dim.y,off+288,16);
-	get_bits(stream_buffer,sdum,off+369,31);
+	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
+	bits::get(stream_buffer,g2->dim.x,off+256,16);
+	bits::get(stream_buffer,g2->dim.y,off+288,16);
+	bits::get(stream_buffer,sdum,off+369,31);
 	g2->def.slatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+368,1);
+	bits::get(stream_buffer,sign,off+368,1);
 	if (sign == 1) {
 	  g2->def.slatitude=-(g2->def.slatitude);
 	}
-	get_bits(stream_buffer,sdum,off+401,31);
+	bits::get(stream_buffer,sdum,off+401,31);
 	g2->def.slongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+400,1);
+	bits::get(stream_buffer,sign,off+400,1);
 	if (sign == 1) {
 	  g2->def.slongitude=-(g2->def.slongitude);
 	}
-	get_bits(stream_buffer,g2->grib.rescomp,off+432,8);
-	get_bits(stream_buffer,sdum,off+441,31);
+	bits::get(stream_buffer,g2->grib.rescomp,off+432,8);
+	bits::get(stream_buffer,sdum,off+441,31);
 	g2->def.elatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+440,1);
+	bits::get(stream_buffer,sign,off+440,1);
 	if (sign == 1) {
 	  g2->def.elatitude=-(g2->def.elatitude);
 	}
-	get_bits(stream_buffer,sdum,off+473,31);
+	bits::get(stream_buffer,sdum,off+473,31);
 	g2->def.elongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+472,1);
+	bits::get(stream_buffer,sign,off+472,1);
 	if (sign == 1) {
 	  g2->def.elongitude=-(g2->def.elongitude);
 	}
-	get_bits(stream_buffer,sdum,off+504,32);
+	bits::get(stream_buffer,sdum,off+504,32);
 	g2->def.loincrement=sdum/1000000.;
-	get_bits(stream_buffer,g2->def.num_circles,off+536,32);
-	get_bits(stream_buffer,g2->grib.scan_mode,off+568,8);
+	bits::get(stream_buffer,g2->def.num_circles,off+536,32);
+	bits::get(stream_buffer,g2->grib.scan_mode,off+568,8);
 	if (g2->grid.grid_type == 0) {
 	  g2->def.laincrement=g2->def.num_circles/1000000.;
 	}
@@ -3194,104 +3199,104 @@ exit(1);
     }
     case 10:
     {
-	get_bits(stream_buffer,g2->grib2.earth_shape,off+112,8);
-	get_bits(stream_buffer,g2->dim.x,off+256,16);
-	get_bits(stream_buffer,g2->dim.y,off+288,16);
-	get_bits(stream_buffer,sdum,off+305,31);
+	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
+	bits::get(stream_buffer,g2->dim.x,off+256,16);
+	bits::get(stream_buffer,g2->dim.y,off+288,16);
+	bits::get(stream_buffer,sdum,off+305,31);
 	g2->def.slatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+304,1);
+	bits::get(stream_buffer,sign,off+304,1);
 	if (sign == 1) {
 	  g2->def.slatitude=-(g2->def.slatitude);
 	}
-	get_bits(stream_buffer,sdum,off+337,31);
+	bits::get(stream_buffer,sdum,off+337,31);
 	g2->def.slongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+336,1);
+	bits::get(stream_buffer,sign,off+336,1);
 	if (sign == 1) {
 	  g2->def.slongitude=-(g2->def.slongitude);
 	}
-	get_bits(stream_buffer,g2->grib.rescomp,off+368,8);
-	get_bits(stream_buffer,sdum,off+377,31);
+	bits::get(stream_buffer,g2->grib.rescomp,off+368,8);
+	bits::get(stream_buffer,sdum,off+377,31);
 	g2->def.stdparallel1=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+376,1);
+	bits::get(stream_buffer,sign,off+376,1);
 	if (sign == 1) {
 	  g2->def.stdparallel1=-(g2->def.stdparallel1);
 	}
-	get_bits(stream_buffer,sdum,off+409,31);
+	bits::get(stream_buffer,sdum,off+409,31);
 	g2->def.elatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+408,1);
+	bits::get(stream_buffer,sign,off+408,1);
 	if (sign == 1) {
 	  g2->def.elatitude=-(g2->def.elatitude);
 	}
-	get_bits(stream_buffer,sdum,off+441,31);
+	bits::get(stream_buffer,sdum,off+441,31);
 	g2->def.elongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+440,1);
+	bits::get(stream_buffer,sign,off+440,1);
 	if (sign == 1) {
 	  g2->def.elongitude=-(g2->def.elongitude);
 	}
-	get_bits(stream_buffer,g2->grib.scan_mode,off+472,8);
-	get_bits(stream_buffer,sdum,off+512,32);
+	bits::get(stream_buffer,g2->grib.scan_mode,off+472,8);
+	bits::get(stream_buffer,sdum,off+512,32);
 	g2->def.dx=sdum/1000000.;
-	get_bits(stream_buffer,sdum,off+544,32);
+	bits::get(stream_buffer,sdum,off+544,32);
 	g2->def.dy=sdum/1000000.;
 	break;
     }
     case 30:
     {
-	get_bits(stream_buffer,g2->grib2.earth_shape,off+112,8);
-	get_bits(stream_buffer,g2->dim.x,off+256,16);
-	get_bits(stream_buffer,g2->dim.y,off+288,16);
-	get_bits(stream_buffer,sdum,off+305,31);
+	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
+	bits::get(stream_buffer,g2->dim.x,off+256,16);
+	bits::get(stream_buffer,g2->dim.y,off+288,16);
+	bits::get(stream_buffer,sdum,off+305,31);
 	g2->def.slatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+304,1);
+	bits::get(stream_buffer,sign,off+304,1);
 	if (sign == 1) {
 	  g2->def.slatitude=-(g2->def.slatitude);
 	}
-	get_bits(stream_buffer,sdum,off+337,31);
+	bits::get(stream_buffer,sdum,off+337,31);
 	g2->def.slongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+336,1);
+	bits::get(stream_buffer,sign,off+336,1);
 	if (sign == 1) {
 	  g2->def.slongitude=-(g2->def.slongitude);
 	}
-	get_bits(stream_buffer,g2->grib.rescomp,off+368,8);
-	get_bits(stream_buffer,sdum,off+377,31);
+	bits::get(stream_buffer,g2->grib.rescomp,off+368,8);
+	bits::get(stream_buffer,sdum,off+377,31);
 	g2->def.llatitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+376,1);
+	bits::get(stream_buffer,sign,off+376,1);
 	if (sign == 1) {
 	  g2->def.llatitude=-(g2->def.llatitude);
 	}
-	get_bits(stream_buffer,sdum,off+409,31);
+	bits::get(stream_buffer,sdum,off+409,31);
 	g2->def.olongitude=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+408,1);
+	bits::get(stream_buffer,sign,off+408,1);
 	if (sign == 1) {
 	  g2->def.olongitude=-(g2->def.olongitude);
 	}
-	get_bits(stream_buffer,sdum,off+440,32);
+	bits::get(stream_buffer,sdum,off+440,32);
 	g2->def.dx=sdum/1000000.;
-	get_bits(stream_buffer,sdum,off+472,32);
+	bits::get(stream_buffer,sdum,off+472,32);
 	g2->def.dy=sdum/1000000.;
-	get_bits(stream_buffer,g2->def.projection_flag,off+504,8);
-	get_bits(stream_buffer,g2->grib.scan_mode,off+512,8);
-	get_bits(stream_buffer,sdum,off+521,31);
+	bits::get(stream_buffer,g2->def.projection_flag,off+504,8);
+	bits::get(stream_buffer,g2->grib.scan_mode,off+512,8);
+	bits::get(stream_buffer,sdum,off+521,31);
 	g2->def.stdparallel1=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+520,1);
+	bits::get(stream_buffer,sign,off+520,1);
 	if (sign == 1) {
 	  g2->def.stdparallel1=-(g2->def.stdparallel1);
 	}
-	get_bits(stream_buffer,sdum,off+553,31);
+	bits::get(stream_buffer,sdum,off+553,31);
 	g2->def.stdparallel2=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+552,1);
+	bits::get(stream_buffer,sign,off+552,1);
 	if (sign == 1) {
 	  g2->def.stdparallel2=-(g2->def.stdparallel2);
 	}
-	get_bits(stream_buffer,sdum,off+585,31);
+	bits::get(stream_buffer,sdum,off+585,31);
 	g2->grib.sp_lat=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+584,1);
+	bits::get(stream_buffer,sign,off+584,1);
 	if (sign == 1) {
 	  g2->grib.sp_lat=-(g2->grib.sp_lat);
 	}
-	get_bits(stream_buffer,sdum,off+617,31);
+	bits::get(stream_buffer,sdum,off+617,31);
 	g2->grib.sp_lon=sdum/1000000.;
-	get_bits(stream_buffer,sign,off+616,1);
+	bits::get(stream_buffer,sign,off+616,1);
 	if (sign == 1) {
 	  g2->grib.sp_lon=-(g2->grib.sp_lon);
 	}
@@ -3308,10 +3313,10 @@ exit(1);
     if (g2->plist != nullptr)
 	delete[] g2->plist;
     g2->plist=new int[g2->dim.y];
-    get_bits(stream_buffer,g2->plist,off,g2->grib2.lp_width*8,0,g2->dim.y);
+    bits::get(stream_buffer,g2->plist,off,g2->grib2.lp_width*8,0,g2->dim.y);
     g2->def.loincrement=(g2->def.elongitude-g2->def.slongitude)/(g2->plist[g2->dim.y/2]-1);
   }
-  g2->def=fix_grid_definition(g2->def,g2->dim);
+  g2->def=gridutils::fix_grid_definition(g2->def,g2->dim);
   curr_off+=lengths_.gds;
 }
 
@@ -3322,64 +3327,64 @@ void GRIB2Message::pack_gds(unsigned char *output_buffer,off_t& offset,Grid *gri
   GRIB2Grid *g2;
 
   g2=reinterpret_cast<GRIB2Grid *>(grid);
-  set_bits(output_buffer,3,off+32,8);
-set_bits(output_buffer,0,off+40,8);
-  set_bits(output_buffer,g2->dim.size,off+48,32);
-  set_bits(output_buffer,g2->grib2.lp_width,off+80,8);
-  set_bits(output_buffer,g2->grib2.lpi,off+88,8);
+  bits::set(output_buffer,3,off+32,8);
+bits::set(output_buffer,0,off+40,8);
+  bits::set(output_buffer,g2->dim.size,off+48,32);
+  bits::set(output_buffer,g2->grib2.lp_width,off+80,8);
+  bits::set(output_buffer,g2->grib2.lpi,off+88,8);
 // template number
-  set_bits(output_buffer,g2->grid.grid_type,off+96,16);
+  bits::set(output_buffer,g2->grid.grid_type,off+96,16);
   switch (g2->grid.grid_type) {
     case 0:
     case 40:
     {
-	set_bits(output_buffer,g2->grib2.earth_shape,off+112,8);
-	set_bits(output_buffer,0,off+240,16);
-	set_bits(output_buffer,g2->dim.x,off+256,16);
-	set_bits(output_buffer,0,off+272,16);
-	set_bits(output_buffer,g2->dim.y,off+288,16);
-set_bits(output_buffer,0,off+304,32);
-set_bits(output_buffer,0xffffffff,off+336,32);
+	bits::set(output_buffer,g2->grib2.earth_shape,off+112,8);
+	bits::set(output_buffer,0,off+240,16);
+	bits::set(output_buffer,g2->dim.x,off+256,16);
+	bits::set(output_buffer,0,off+272,16);
+	bits::set(output_buffer,g2->dim.y,off+288,16);
+bits::set(output_buffer,0,off+304,32);
+bits::set(output_buffer,0xffffffff,off+336,32);
 	sdum=g2->def.slatitude*1000000.;
 	if (sdum < 0)
 	  sdum=-sdum;
-	set_bits(output_buffer,sdum,off+369,31);
+	bits::set(output_buffer,sdum,off+369,31);
 	if (g2->def.slatitude < 0.)
-	  set_bits(output_buffer,1,off+368,1);
+	  bits::set(output_buffer,1,off+368,1);
 	else
-	  set_bits(output_buffer,0,off+368,1);
+	  bits::set(output_buffer,0,off+368,1);
 	sdum=g2->def.slongitude*1000000.;
 	if (sdum < 0)
 	  sdum+=360000000;
-	set_bits(output_buffer,sdum,off+400,32);
-	set_bits(output_buffer,g2->grib.rescomp,off+432,8);
+	bits::set(output_buffer,sdum,off+400,32);
+	bits::set(output_buffer,g2->grib.rescomp,off+432,8);
 	sdum=g2->def.elatitude*1000000.;
 	if (sdum < 0)
 	  sdum=-sdum;
-	set_bits(output_buffer,sdum,off+441,31);
+	bits::set(output_buffer,sdum,off+441,31);
 	if (g2->def.elatitude < 0.)
-	  set_bits(output_buffer,1,off+440,1);
+	  bits::set(output_buffer,1,off+440,1);
 	else
-	  set_bits(output_buffer,0,off+440,1);
+	  bits::set(output_buffer,0,off+440,1);
 	sdum=g2->def.elongitude*1000000.;
 	if (sdum < 0)
 	  sdum=-sdum;
-	set_bits(output_buffer,sdum,off+473,31);
+	bits::set(output_buffer,sdum,off+473,31);
 	if (g2->def.elongitude < 0.)
-	  set_bits(output_buffer,1,off+472,1);
+	  bits::set(output_buffer,1,off+472,1);
 	else
-	  set_bits(output_buffer,0,off+472,1);
+	  bits::set(output_buffer,0,off+472,1);
 //	sdum=(long long)(g2->def.loincrement*1000000.);
 sdum=llround(g2->def.loincrement*1000000.);
-	set_bits(output_buffer,sdum,off+504,32);
+	bits::set(output_buffer,sdum,off+504,32);
 	if (g2->grid.grid_type == 0)
 //	  sdum=(long long)(g2->def.laincrement*1000000.);
 sdum=llround(g2->def.laincrement*1000000.);
 	else
 	  sdum=g2->def.num_circles;
-	set_bits(output_buffer,sdum,off+536,32);
-	set_bits(output_buffer,g2->grib.scan_mode,off+568,8);
-	set_bits(output_buffer,72,off,32);
+	bits::set(output_buffer,sdum,off+536,32);
+	bits::set(output_buffer,g2->grib.scan_mode,off+568,8);
+	bits::set(output_buffer,72,off,32);
 	offset+=72;
 	break;
     }
@@ -3404,15 +3409,15 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
 
   offsets_.drs=curr_off;
   g2=reinterpret_cast<GRIB2Grid *>(grids.back());
-  get_bits(stream_buffer,lengths_.drs,off,32);
-  get_bits(stream_buffer,sec_num,off+32,8);
+  bits::get(stream_buffer,lengths_.drs,off,32);
+  bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 5) {
     mywarning="may not be unpacking the Data Representation Section";
   }
-  get_bits(stream_buffer,num_packed,off+40,32);
+  bits::get(stream_buffer,num_packed,off+40,32);
   g2->grid.num_missing=g2->dim.size-num_packed;
 // template number
-  get_bits(stream_buffer,g2->grib2.data_rep,off+72,16);
+  bits::get(stream_buffer,g2->grib2.data_rep,off+72,16);
   switch (g2->grib2.data_rep) {
     case 0:
     case 2:
@@ -3420,45 +3425,45 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
     case 40:
     case 40000:
     {
-	get_bits(stream_buffer,idum,off+88,32);
-	get_bits(stream_buffer,g2->grib.E,off+120,16);
+	bits::get(stream_buffer,idum,off+88,32);
+	bits::get(stream_buffer,g2->grib.E,off+120,16);
 	if (g2->grib.E > 0x8000)
 	  g2->grib.E=0x8000-g2->grib.E;
-	get_bits(stream_buffer,g2->grib.D,off+136,16);
+	bits::get(stream_buffer,g2->grib.D,off+136,16);
 	if (g2->grib.D > 0x8000)
 	  g2->grib.D=0x8000-g2->grib.D;
 	g2->stats.min_val=dum/pow(10.,g2->grib.D);
-	get_bits(stream_buffer,g2->grib.pack_width,off+152,8);
-	get_bits(stream_buffer,g2->grib2.orig_val_type,off+160,8);
+	bits::get(stream_buffer,g2->grib.pack_width,off+152,8);
+	bits::get(stream_buffer,g2->grib2.orig_val_type,off+160,8);
 	if (g2->grib2.data_rep == 2 || g2->grib2.data_rep == 3) {
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.split_method,off+168,8);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.miss_val_mgmt,off+176,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.split_method,off+168,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.miss_val_mgmt,off+176,8);
 	  if (g2->grib2.orig_val_type == 0) {
-	    get_bits(stream_buffer,idum,off+184,32);
+	    bits::get(stream_buffer,idum,off+184,32);
 	    g2->grib2.complex_pack.grid_point.primary_miss_sub=dum;
-	    get_bits(stream_buffer,idum,off+216,32);
+	    bits::get(stream_buffer,idum,off+216,32);
 	    g2->grib2.complex_pack.grid_point.secondary_miss_sub=dum;
 	  }
 	  else if (g2->grib2.orig_val_type == 1) {
-	    get_bits(stream_buffer,idum,off+184,32);
+	    bits::get(stream_buffer,idum,off+184,32);
 	    g2->grib2.complex_pack.grid_point.primary_miss_sub=idum;
-	    get_bits(stream_buffer,idum,off+216,32);
+	    bits::get(stream_buffer,idum,off+216,32);
 	    g2->grib2.complex_pack.grid_point.secondary_miss_sub=idum;
 	  }
 	  else {
 	    myerror="unable to decode missing value substitutes for original value type of "+strutils::itos(g2->grib2.orig_val_type);
 	    exit(1);
 	  }
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.num_groups,off+248,32);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.width_ref,off+280,8);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.width_pack_width,off+288,8);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.length_ref,off+296,32);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.length_incr,off+328,8);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.last_length,off+336,32);
-	  get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.length_pack_width,off+368,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.num_groups,off+248,32);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.width_ref,off+280,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.width_pack_width,off+288,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.length_ref,off+296,32);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.length_incr,off+328,8);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.last_length,off+336,32);
+	  bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.length_pack_width,off+368,8);
 	  if (g2->grib2.data_rep == 3) {
-	    get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.spatial_diff.order,off+376,8);
-	    get_bits(stream_buffer,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width,off+384,8);
+	    bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.spatial_diff.order,off+376,8);
+	    bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width,off+384,8);
 	  }
 	}
 	break;
@@ -3481,10 +3486,10 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
   };
   GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grid);
 
-  set_bits(output_buffer,5,off+32,8);
-  set_bits(output_buffer,g2->dim.size-(g2->grid.num_missing),off+40,32);
+  bits::set(output_buffer,5,off+32,8);
+  bits::set(output_buffer,g2->dim.size-(g2->grid.num_missing),off+40,32);
 // template number
-  set_bits(output_buffer,g2->grib2.data_rep,off+72,16);
+  bits::set(output_buffer,g2->grib2.data_rep,off+72,16);
   switch (g2->grib2.data_rep) {
     case 0:
     case 2:
@@ -3493,38 +3498,38 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
     case 40000:
     {
 	dum=lroundf(g2->stats.min_val*pow(10.,g2->grib.D));
-	set_bits(output_buffer,idum,off+88,32);
+	bits::set(output_buffer,idum,off+88,32);
 	idum=g2->grib.E;
 	if (idum < 0)
 	  idum=0x8000-idum;
-	set_bits(output_buffer,idum,off+120,16);
+	bits::set(output_buffer,idum,off+120,16);
 	idum=g2->grib.D;
 	if (idum < 0)
 	  idum=0x8000-idum;
-	set_bits(output_buffer,idum,off+136,16);
-	set_bits(output_buffer,g2->grib.pack_width,off+152,8);
-	set_bits(output_buffer,g2->grib2.orig_val_type,off+160,8);
+	bits::set(output_buffer,idum,off+136,16);
+	bits::set(output_buffer,g2->grib.pack_width,off+152,8);
+	bits::set(output_buffer,g2->grib2.orig_val_type,off+160,8);
 	switch (g2->grib2.data_rep) {
 	  case 0:
 	  {
-	    set_bits(output_buffer,21,off,32);
+	    bits::set(output_buffer,21,off,32);
 	    offset+=21;
 	    break;
 	  }
 	  case 2:
 	  case 3:
 	  {
-	    set_bits(output_buffer,g2->grib2.complex_pack.grid_point.split_method,off+168,8);
-	    set_bits(output_buffer,g2->grib2.complex_pack.grid_point.miss_val_mgmt,off+176,8);
-	    set_bits(output_buffer,23,off,32);
+	    bits::set(output_buffer,g2->grib2.complex_pack.grid_point.split_method,off+168,8);
+	    bits::set(output_buffer,g2->grib2.complex_pack.grid_point.miss_val_mgmt,off+176,8);
+	    bits::set(output_buffer,23,off,32);
 	    offset+=23;
 	    break;
 	  }
 	  case 40:
 	  {
-	    set_bits(output_buffer,0,off+168,8);
-	    set_bits(output_buffer,0xff,off+176,8);
-	    set_bits(output_buffer,23,off,32);
+	    bits::set(output_buffer,0,off+168,8);
+	    bits::set(output_buffer,0xff,off+176,8);
+	    bits::set(output_buffer,23,off,32);
 	    offset+=23;
 	    break;
 	  }
@@ -3538,90 +3543,6 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
     }
   }
 }
-
-#ifdef __JASPER
-extern "C" int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
-/*$$$  SUBPROGRAM DOCUMENTATION BLOCK
-*                .      .    .                                       .
-* SUBPROGRAM:    dec_jpeg2000      Decodes JPEG2000 code stream
-*   PRGMMR: Gilbert          ORG: W/NP11     DATE: 2002-12-02
-*
-* ABSTRACT: This Function decodes a JPEG2000 code stream specified in the
-*   JPEG2000 Part-1 standard (i.e., ISO/IEC 15444-1) using JasPer 
-*   Software version 1.500.4 (or 1.700.2) written by the University of British
-*   Columbia and Image Power Inc, and others.
-*   JasPer is available at http://www.ece.uvic.ca/~mdadams/jasper/.
-*
-* PROGRAM HISTORY LOG:
-* 2002-12-02  Gilbert
-*
-* USAGE:     int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
-*
-*   INPUT ARGUMENTS:
-*      injpc - Input JPEG2000 code stream.
-*    bufsize - Length (in bytes) of the input JPEG2000 code stream.
-*
-*   OUTPUT ARGUMENTS:
-*     outfld - Output matrix of grayscale image values.
-*
-*   RETURN VALUES :
-*          0 = Successful decode
-*         -3 = Error decode jpeg2000 code stream.
-*         -5 = decoded image had multiple color components.
-*              Only grayscale is expected.
-*
-* REMARKS:
-*
-*      Requires JasPer Software version 1.500.4 or 1.700.2
-*
-* ATTRIBUTES:
-*   LANGUAGE: C
-*   MACHINE:  IBM SP
-*
-*$$$*/
-{
-    int ier;
-    int i,j,k;
-    jas_image_t *image=0;
-    jas_stream_t *jpcstream;
-    jas_image_cmpt_t *pcmpt;
-    char *opts=0;
-    jas_matrix_t *data;
-
-//    jas_init();
-    ier=0;
-// Create jas_stream_t containing input JPEG200 codestream in memory.
-    jpcstream=jas_stream_memopen(injpc,bufsize);
-// Decode JPEG200 codestream into jas_image_t structure.
-    image=jpc_decode(jpcstream,opts);
-    if ( image == 0 ) {
-       jas_eprintf(" jpc_decode return = %d \n",ier);
-       return -3;
-    }
-    pcmpt=image->cmpts_[0];
-// Expecting jpeg2000 image to be grayscale only.
-// No color components.
-    if (image->numcmpts_ != 1 ) {
-       jas_eprintf("dec_jpeg2000: Found color image.  Grayscale expected.\n");
-       return (-5);
-    }
-// Create a data matrix of grayscale image values decoded from the jpeg2000 code
-// stream.
-    data=jas_matrix_create(jas_image_height(image), jas_image_width(image));
-    jas_image_readcmpt(image,0,0,0,jas_image_width(image),
-                       jas_image_height(image),data);
-// Copy data matrix to output integer array.
-    k=0;
-    for (i=0;i<pcmpt->height_;i++) 
-      for (j=0;j<pcmpt->width_;j++) 
-        outfld[k++]=data->rows_[i][j];
-// Clean up JasPer work structures.
-    jas_matrix_destroy(data);
-    ier=jas_stream_close(jpcstream);
-    jas_image_destroy(image);
-    return 0;
-}
-#endif
 
 void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header_only)
 {
@@ -3644,8 +3565,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   double E=pow(2.,g2->grib.E);
 
   offsets_.ds=curr_off;
-  get_bits(stream_buffer,lengths_.ds,off,32);
-  get_bits(stream_buffer,sec_num,off+32,8);
+  bits::get(stream_buffer,lengths_.ds,off,32);
+  bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 7) {
     mywarning="may not be unpacking the Data Section";
   }
@@ -3660,7 +3581,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  for (n=0; n < g2->dim.y; n++) {
 	    for (m=0; m < g2->dim.x; m++) {
 		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
-		  get_bits(stream_buffer,pval,off,g2->grib.pack_width);
+		  bits::get(stream_buffer,pval,off,g2->grib.pack_width);
 		  num_packed++;
 		  g2->gridpoints_[n][m]=g2->stats.min_val+pval*E/D;
 		  if (g2->gridpoints_[n][m] > g2->stats.max_val) {
@@ -3695,19 +3616,19 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  }
 	  off+=40;
 	  groups.ref_vals=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	  get_bits(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	  off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib.pack_width;
 	  if ( (pad=(off % 8)) > 0) {
 	    off+=8-pad;
 	  }
 	  groups.widths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	  get_bits(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	  off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.width_pack_width;
 	  if ( (pad=(off % 8)) > 0) {
 	    off+=8-pad;
 	  }
 	  groups.lengths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	  get_bits(stream_buffer,groups.lengths,off,g2->grib2.complex_pack.grid_point.length_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  bits::get(stream_buffer,groups.lengths,off,g2->grib2.complex_pack.grid_point.length_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	  off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.length_pack_width;
 	  if ( (pad=(off % 8)) > 0) {
 	    off+=8-pad;
@@ -3728,7 +3649,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		else {
 		  groups.group_miss_val=Grid::missing_value;
 		}
-		get_bits(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
+		bits::get(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
 		off+=groups.widths[n]*groups.lengths[n];
 		for (m=0; m < groups.lengths[n]; ++m) {
 		  j=l/g2->dim.x;
@@ -3793,29 +3714,29 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    off+=40;
 	    groups.first_vals=new int[g2->grib2.complex_pack.grid_point.spatial_diff.order];
 	    for (n=0; n < g2->grib2.complex_pack.grid_point.spatial_diff.order; ++n) {
-		get_bits(stream_buffer,groups.first_vals[n],off,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8);
+		bits::get(stream_buffer,groups.first_vals[n],off,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8);
 		off+=g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8;
 	    }
-	    get_bits(stream_buffer,groups.sign,off,1);
-	    get_bits(stream_buffer,groups.omin,off+1,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8-1);
+	    bits::get(stream_buffer,groups.sign,off,1);
+	    bits::get(stream_buffer,groups.omin,off+1,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8-1);
 	    if (groups.sign == 1) {
 		groups.omin=-groups.omin;
 	    }
 	    off+=g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8;
 	    groups.ref_vals=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	    get_bits(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	    off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib.pack_width;
 	    if ( (pad=(off % 8)) > 0) {
 		off+=8-pad;
 	    }
 	    groups.widths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	    get_bits(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	    off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.width_pack_width;
 	    if ( (pad=(off % 8)) > 0) {
 		off+=8-pad;
 	    }
 	    groups.lengths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	    get_bits(stream_buffer,groups.lengths,off,g2->grib2.complex_pack.grid_point.length_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    bits::get(stream_buffer,groups.lengths,off,g2->grib2.complex_pack.grid_point.length_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
 	    off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.length_pack_width;
 	    if ( (pad=(off % 8)) > 0) {
 		off+=8-pad;
@@ -3841,7 +3762,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		  else {
 		    groups.group_miss_val=Grid::missing_value;
 		  }
-		  get_bits(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
+		  bits::get(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
 		  off+=groups.widths[n]*groups.lengths[n];
 		  for (m=0; m < groups.lengths[n]; ++m,++l) {
 		    j=l/g2->dim.x;
@@ -3932,7 +3853,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  len=lengths_.ds-5;
 	  jvals=new int[g2->dim.size];
 	  if (len > 0) {
-	    if (dec_jpeg2000(reinterpret_cast<char *>(const_cast<unsigned char *>(&stream_buffer[curr_off+5])),len,jvals) < 0) {
+	    if (gributils::dec_jpeg2000(reinterpret_cast<char *>(const_cast<unsigned char *>(&stream_buffer[curr_off+5])),len,jvals) < 0) {
 		for (n=0; n < static_cast<int>(g2->dim.size); jvals[n++]=0);
 	    }
 	  }
@@ -4110,7 +4031,7 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
   double d=pow(10.,g2->grib.D),e=pow(2.,g2->grib.E);
   int *pval,cnt=0;
 
-  set_bits(output_buffer,7,off+32,8);
+  bits::set(output_buffer,7,off+32,8);
   switch (g2->grib2.data_rep) {
     case 0:
     {
@@ -4121,9 +4042,9 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
 		pval[cnt++]=static_cast<int>(lround((g2->gridpoints_[n][m]-g2->stats.min_val)*pow(10.,g2->grib.D))/pow(2.,g2->grib.E));
 	  }
 	}
-	set_bits(&output_buffer[off/8+5],pval,0,g2->grib.pack_width,0,cnt);
+	bits::set(&output_buffer[off/8+5],pval,0,g2->grib.pack_width,0,cnt);
 	len=(cnt*g2->grib.pack_width+7)/8;
-	set_bits(output_buffer,len+5,off,32);
+	bits::set(output_buffer,len+5,off,32);
 	offset+=(len+5);
 	delete[] pval;
 	break;
@@ -4146,7 +4067,7 @@ jpclen=100000;
 		  jval=0;
 		else
 		  jval=lround((lround(g2->gridpoints_[n][m]*d)-lround(g2->stats.min_val*d))/e);
-		set_bits(cin,jval,y*bps,bps);
+		bits::set(cin,jval,y*bps,bps);
 		y++;
 	    }
 	    x++;
@@ -4168,7 +4089,7 @@ jpclen=100000;
 	else
 	  len=0;
 	delete[] cin;
-	set_bits(output_buffer,len+5,off,32);
+	bits::set(output_buffer,len+5,off,32);
 	offset+=(len+5);
 	break;
     }
@@ -4255,7 +4176,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
     myerror="can't decode edition "+strutils::itos(edition_);
     exit(1);
   }
-  get_bits(stream_buffer,test,curr_off*8,32);
+  bits::get(stream_buffer,test,curr_off*8,32);
   while (test != 0x37373737) {
 // patch for bad END section
     if ( (curr_off+4) == mlength) {
@@ -4263,8 +4184,8 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	test=0x37373737;
 	break;
     }
-    get_bits(stream_buffer,len,curr_off*8,32);
-    get_bits(stream_buffer,sec_num,curr_off*8+32,8);
+    bits::get(stream_buffer,len,curr_off*8,32);
+    bits::get(stream_buffer,sec_num,curr_off*8+32,8);
 // patch for bad grid
     if (sec_num < 1 || sec_num > 7 || len > mlength) {
 	mywarning="bad grid ignored - offset: "+strutils::itos(curr_off)+", sec_num: "+strutils::itos(sec_num)+", len: "+strutils::itos(len)+", length: "+strutils::itos(mlength);
@@ -4277,7 +4198,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	  if (grids.size() > 0) {
 	    g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back())));
 	  }
-	  get_bits(stream_buffer,discipline,48,8);
+	  bits::get(stream_buffer,discipline,48,8);
 	  g2->grib2.discipline=discipline;
 	  g2->grid.filled=false;
 	  grids.emplace_back(g2);
@@ -4321,7 +4242,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	  }
 	}
     }
-    get_bits(stream_buffer,test,curr_off*8,32);
+    bits::get(stream_buffer,test,curr_off*8,32);
   }
 }
 
@@ -4362,9 +4283,9 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
   clear_grids();
   edition_=2;
   curr_off=16;
-  get_bits(stream_buffer,test,curr_off*8,32);
+  bits::get(stream_buffer,test,curr_off*8,32);
   while (test != 0x37373737) {
-    get_bits(stream_buffer,sec_num,curr_off*8+32,8);
+    bits::get(stream_buffer,sec_num,curr_off*8+32,8);
     if (sec_num < last_sec_num) {
 	g2=new GRIB2Grid;
 	if (grids.size() > 0) {
@@ -4387,9 +4308,9 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	case 3:
 	{
 	  off=curr_off*8;
-	  get_bits(stream_buffer,g2->dim.size,off+48,32);
-	  get_bits(stream_buffer,g2->dim.x,off+256,16);
-	  get_bits(stream_buffer,g2->dim.y,off+288,16);
+	  bits::get(stream_buffer,g2->dim.size,off+48,32);
+	  bits::get(stream_buffer,g2->dim.x,off+256,16);
+	  bits::get(stream_buffer,g2->dim.y,off+288,16);
 	  switch (g2->grid.grid_type) {
 	    case 0:
 	    case 1:
@@ -4400,19 +4321,19 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	    case 42:
 	    case 43:
 	    {
-		get_bits(stream_buffer,g2->grib.scan_mode,off+568,8);
+		bits::get(stream_buffer,g2->grib.scan_mode,off+568,8);
 		break;
 	    }
 	    case 10:
 	    {
-		get_bits(stream_buffer,g2->grib.scan_mode,off+472,8);
+		bits::get(stream_buffer,g2->grib.scan_mode,off+472,8);
 		break;
 	    }
 	    case 20:
 	    case 30:
 	    case 31:
 	    {
-		get_bits(stream_buffer,g2->grib.scan_mode,off+512,8);
+		bits::get(stream_buffer,g2->grib.scan_mode,off+512,8);
 		break;
 	    }
 	    default:
@@ -4427,8 +4348,8 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	case 4:
 	{
 	  off=curr_off*8;
-	  get_bits(stream_buffer,g2->grib2.param_cat,off+72,8);
-	  get_bits(stream_buffer,g2->grid.param,off+80,8);
+	  bits::get(stream_buffer,g2->grib2.param_cat,off+72,8);
+	  bits::get(stream_buffer,g2->grid.param,off+80,8);
 	  curr_off+=test;
 	  break;
 	}
@@ -4443,9 +4364,9 @@ unpack_bms(stream_buffer);
 /*
 	  off=curr_off*8;
 	  int ind;
-	  get_bits(stream_buffer,ind,off+40,8);
+	  bits::get(stream_buffer,ind,off+40,8);
 	  if (ind == 0) {
-	    get_bits(stream_buffer,lengths_.bms,off,32);
+	    bits::get(stream_buffer,lengths_.bms,off,32);
 	    if ( (len=(lengths_.bms-6)*8) > 0) {
 		if (len > g2->bitmap.capacity) {
 		  if (g2->bitmap.map != nullptr) {
@@ -4454,7 +4375,7 @@ unpack_bms(stream_buffer);
 		  g2->bitmap.capacity=len;
 		  g2->bitmap.map=new unsigned char[g2->bitmap.capacity];
 		}
-		get_bits(stream_buffer,g2->bitmap.map,off+48,1,0,len);
+		bits::get(stream_buffer,g2->bitmap.map,off+48,1,0,len);
 	    }
 	    g2->bitmap.applies=true;
 	  }
@@ -4476,7 +4397,7 @@ unpack_bms(stream_buffer);
 	}
     }
     last_sec_num=sec_num;
-    get_bits(stream_buffer,test,curr_off*8,32);
+    bits::get(stream_buffer,test,curr_off*8,32);
   }
 }
 
@@ -4648,7 +4569,11 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
   dim=source.dim;
   def=source.def;
   if (def.type == Grid::gaussianLatitudeLongitudeType) {
-    if (!fill_gaussian_latitudes(gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
+    if (_path_to_gauslat_lists.empty()) {
+	myerror="path to gaussian latitude data was not specified";
+	exit(0);
+    }
+    else if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
 	myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
 	exit(0);
     }
@@ -4724,7 +4649,7 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
   for (n=0; n < dim.y; ++n) {
     for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoints[n][m];
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt++]=0;
 	  ++grid.num_missing;
 	  bitmap.applies=true;
@@ -4810,7 +4735,7 @@ int GRIBGrid::latitude_index_of(float latitude,my::map<GLatEntry> *gaus_lats) co
     }
     glat_entry.key*=2;
     while (n < glat_entry.key) {
-	if (myequalf(latitude,glat_entry.lats[n],0.01)) {
+	if (floatutils::myequalf(latitude,glat_entry.lats[n],0.01)) {
 	  return n;
 	}
 	++n;
@@ -4955,7 +4880,7 @@ void GRIBGrid::remap_parameters()
     grid.level1=map.lvl[grid.param];
     grid.level2=map.lvl2[grid.param];
   }
-  if (!myequalf(map.mult[grid.param],1.)) {
+  if (!floatutils::myequalf(map.mult[grid.param],1.)) {
     this->multiply_by(map.mult[grid.param]);
   }
   if (map.param[grid.param] != -1) {
@@ -5026,15 +4951,17 @@ void GRIBGrid::operator+=(const GRIBGrid& source)
 	for (n=0; n < dim.y; n++) {
 	  for (m=0; m < dim.x; m++) {
 	    l= (source.grib.scan_mode == grib.scan_mode) ? n : dim.y-n-1;
-	    if (!myequalf(gridpoints_[n][m],Grid::missing_value) && !myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
+	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && !floatutils::myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
 		gridpoints_[n][m]+=(source.gridpoints_[l][m]*mult);
 		bitmap.map[cnt++]=1;
-		if (gridpoints_[n][m] > stats.max_val)
+		if (gridpoints_[n][m] > stats.max_val) {
 		  stats.max_val=gridpoints_[n][m];
-		if (gridpoints_[n][m] < stats.min_val)
+		}
+		if (gridpoints_[n][m] < stats.min_val) {
 		  stats.min_val=gridpoints_[n][m];
+		}
 		stats.avg_val+=gridpoints_[n][m];
-		avg_cnt++;
+		++avg_cnt;
 	    }
 	    else {
 		gridpoints_[n][m]=(Grid::missing_value*mult);
@@ -5112,20 +5039,22 @@ void GRIBGrid::operator-=(const GRIBGrid& source)
 	for (n=0; n < dim.y; n++) {
 	  for (m=0; m < dim.x; m++) {
 	    l= (source.grib.scan_mode == grib.scan_mode) ? n : dim.y-n-1;
-	    if (!myequalf(gridpoints_[n][m],Grid::missing_value) && !myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
+	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && !floatutils::myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
 		gridpoints_[n][m]-=source.gridpoints_[l][m];
 		bitmap.map[cnt++]=1;
-		if (gridpoints_[n][m] > stats.max_val)
+		if (gridpoints_[n][m] > stats.max_val) {
 		  stats.max_val=gridpoints_[n][m];
-		if (gridpoints_[n][m] < stats.min_val)
+		}
+		if (gridpoints_[n][m] < stats.min_val) {
 		  stats.min_val=gridpoints_[n][m];
+		}
 		stats.avg_val+=gridpoints_[n][m];
-		avg_cnt++;
+		++avg_cnt;
 	    }
 	    else {
 		gridpoints_[n][m]=Grid::missing_value;
 		bitmap.map[cnt++]=0;
-		grid.num_missing++;
+		++grid.num_missing;
 	    }
 	  }
 	}
@@ -5135,8 +5064,9 @@ void GRIBGrid::operator-=(const GRIBGrid& source)
 	else {
 	  bitmap.applies=true;
 	}
-	if (avg_cnt > 0)
+	if (avg_cnt > 0) {
 	  stats.avg_val/=static_cast<double>(avg_cnt);
+	}
     }
     grib.p1=source.grib.p1;
   }
@@ -5159,24 +5089,28 @@ void GRIBGrid::operator*=(const GRIBGrid& source)
     stats.max_val=-Grid::missing_value;
     stats.min_val=Grid::missing_value;
     stats.avg_val=0.;
-    for (n=0; n < dim.y; n++) {
-	for (m=0; m < dim.x; m++) {
-	  if (!myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
+    for (n=0; n < dim.y; ++n) {
+	for (m=0; m < dim.x; ++m) {
+	  if (!floatutils::myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
 	    gridpoints_[n][m]*=source.gridpoints_[n][m];
-	    if (gridpoints_[n][m] > stats.max_val)
+	    if (gridpoints_[n][m] > stats.max_val) {
 		stats.max_val=gridpoints_[n][m];
-	    if (gridpoints_[n][m] < stats.min_val)
+	    }
+	    if (gridpoints_[n][m] < stats.min_val) {
 		stats.min_val=gridpoints_[n][m];
+	    }
 	    stats.avg_val+=gridpoints_[n][m];
-	    avg_cnt++;
+	    ++avg_cnt;
 	  }
-	  else
+	  else {
 	    gridpoints_[n][m]=Grid::missing_value;
+	  }
 	}
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
 }
 
 void GRIBGrid::operator/=(const GRIBGrid& source)
@@ -5184,11 +5118,10 @@ void GRIBGrid::operator/=(const GRIBGrid& source)
   int n,m;
   size_t avg_cnt=0;
 
-  if (grib.capacity.points == 0)
+  if (grib.capacity.points == 0) {
     return;
-
-  if (dim.size != source.dim.size || dim.x != source.dim.x || dim.y !=
-      source.dim.y) {
+  }
+  if (dim.size != source.dim.size || dim.x != source.dim.x || dim.y != source.dim.y) {
     std::cerr << "Warning: unable to perform grid division" << std::endl;
     return;
   }
@@ -5196,23 +5129,28 @@ void GRIBGrid::operator/=(const GRIBGrid& source)
     stats.max_val=-Grid::missing_value;
     stats.min_val=Grid::missing_value;
     stats.avg_val=0.;
-    for (n=0; n < dim.y; n++) {
-	for (m=0; m < dim.x; m++) {
-	  if (!myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
+    for (n=0; n < dim.y; ++n) {
+	for (m=0; m < dim.x; ++m) {
+	  if (!floatutils::myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
 	    gridpoints_[n][m]/=source.gridpoints_[n][m];
-	    if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	    if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	    if (gridpoints_[n][m] > stats.max_val) {
+		stats.max_val=gridpoints_[n][m];
+	    }
+	    if (gridpoints_[n][m] < stats.min_val) {
+		stats.min_val=gridpoints_[n][m];
+	    }
 	    stats.avg_val+=gridpoints_[n][m];
-	    avg_cnt++;
+	    ++avg_cnt;
 	  }
-	  else
+	  else {
 	    gridpoints_[n][m]=Grid::missing_value;
+	  }
 	}
     }
   }
-
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
 }
 
 void GRIBGrid::divide_by(double div)
@@ -5220,8 +5158,9 @@ void GRIBGrid::divide_by(double div)
   int n,m;
   size_t avg_cnt=0;
 
-  if (grib.capacity.points == 0)
+  if (grib.capacity.points == 0) {
     return;
+  }
   switch (grib.t_range) {
     case 114:
     {
@@ -5237,17 +5176,18 @@ void GRIBGrid::divide_by(double div)
   stats.min_val/=div;
   stats.max_val/=div;
   stats.avg_val=0.;
-  for (n=0; n < dim.y; n++) {
-    for (m=0; m < dim.x; m++) {
-	if (!myequalf(gridpoints_[n][m],Grid::missing_value)) {
+  for (n=0; n < dim.y; ++n) {
+    for (m=0; m < dim.x; ++m) {
+	if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  gridpoints_[n][m]/=div;
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
 }
 
 GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
@@ -5415,7 +5355,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
   grid.level2_type=-1;
   grib.sub_center=11;
   grib.scan_mode=0x40;
-  if (grid.grid_type == 5 && !myequalf(def.elatitude,60.)) {
+  if (grid.grid_type == 5 && !floatutils::myequalf(def.elatitude,60.)) {
     myerror="unable to handle a grid length not at 60 degrees latitude";
     exit(1);
   }
@@ -5423,11 +5363,15 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
   stats.avg_val=0.;
   stats.min_val=Grid::missing_value;
   stats.max_val=-Grid::missing_value;
-  for (n=0; n < dim.y; n++) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y; ++n) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n)*mult;
-	if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	if (gridpoints_[n][m] > stats.max_val) {
+	  stats.max_val=gridpoints_[n][m];
+	}
+	if (gridpoints_[n][m] < stats.min_val) {
+	  stats.min_val=gridpoints_[n][m];
+	}
 	stats.avg_val+=gridpoints_[n][m];
 	++avg_cnt;
     }
@@ -5479,7 +5423,7 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
   switch (grid.param) {
     case 1:
     {
-	if (myequalf(source.first_level_value(),1013.)) {
+	if (floatutils::myequalf(source.first_level_value(),1013.)) {
 	  grid.level1_type=2;
 	  grid.param=2;
 	}
@@ -5501,7 +5445,7 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
     case 11:
     case 12:
     {
-	if (myequalf(source.first_level_value(),1001.)) {
+	if (floatutils::myequalf(source.first_level_value(),1001.)) {
 	  grid.level1_type=1;
 	}
 	else {
@@ -5534,7 +5478,7 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
 	exit(1);
     }
   }
-  if (!myequalf(source.second_level_value(),0.)) {
+  if (!floatutils::myequalf(source.second_level_value(),0.)) {
     grid.level1=source.second_level_value();
     grid.level2=source.first_level_value();
   }
@@ -5577,29 +5521,34 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
   for (n=0; n < dim.y; ++n) {
     for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  gridpoints_[n][m]*=factor;
 	  gridpoints_[n][m]+=offset;
 	  bitmap.map[cnt]=1;
-	  if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	  if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	  if (gridpoints_[n][m] > stats.max_val) {
+	    stats.max_val=gridpoints_[n][m];
+	  }
+	  if (gridpoints_[n][m] < stats.min_val) {
+	    stats.min_val=gridpoints_[n][m];
+	  }
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
 	++cnt;
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
   grib.pack_width=16;
   max_pack=0x8000;
   range=round(stats.max_val-stats.min_val);
   while (max_pack > 0 && max_pack > range) {
-    grib.pack_width--;
+    --grib.pack_width;
     max_pack/=2;
   }
   if (grid.num_missing == 0) {
@@ -5654,8 +5603,9 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
     }
     case 9:
     {
-	if (myequalf(source.first_level_value(),700.))
+	if (floatutils::myequalf(source.first_level_value(),700.)) {
 	  grid.src=7;
+	}
 	else {
 	  myerror="source code "+strutils::itos(source.source())+" not recognized";
 	  exit(1);
@@ -5675,7 +5625,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
   switch (grid.param) {
     case 1:
     {
-	if (myequalf(source.first_level_value(),1013.)) {
+	if (floatutils::myequalf(source.first_level_value(),1013.)) {
 	  grid.level1_type=2;
 	  grid.param=2;
 	}
@@ -5693,7 +5643,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
     case 7:
     {
 	grid.level1_type=100;
-	if (myequalf(source.first_level_value(),700.) && source.source() == 9) {
+	if (floatutils::myequalf(source.first_level_value(),700.) && source.source() == 9) {
 	  factor=0.01;
 	}
 	break;
@@ -5701,7 +5651,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
     case 11:
     case 12:
     {
-	if (myequalf(source.first_level_value(),1001.)) {
+	if (floatutils::myequalf(source.first_level_value(),1001.)) {
 	  grid.level1_type=1;
 	}
 	else {
@@ -5735,7 +5685,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
     }
   }
   if (grid.level1_type > 10 && grid.level1_type != 102 && grid.level1_type != 200 && grid.level1_type != 201) {
-    if (!myequalf(source.second_level_value(),0.)) {
+    if (!floatutils::myequalf(source.second_level_value(),0.)) {
 	grid.level1=source.first_level_value();
 	grid.level2=source.second_level_value();
     }
@@ -5744,8 +5694,9 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 	grid.level2=0.;
     }
   }
-  else
+  else {
     grid.level1=grid.level2=0.;
+  }
   reference_date_time_=source.reference_date_time();
   if (!source.is_averaged_grid()) {
     grib.p1=source.forecast_time()/10000;
@@ -5778,32 +5729,37 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
   stats.avg_val=0.;
   stats.min_val=Grid::missing_value;
   stats.max_val=-Grid::missing_value;
-  for (n=0; n < dim.y; n++) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y; ++n) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  gridpoints_[n][m]*=factor;
 	  gridpoints_[n][m]+=offset;
 	  bitmap.map[cnt]=1;
-	  if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	  if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	  if (gridpoints_[n][m] > stats.max_val) {
+	    stats.max_val=gridpoints_[n][m];
+	  }
+	  if (gridpoints_[n][m] < stats.min_val) {
+	    stats.min_val=gridpoints_[n][m];
+	  }
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
 	cnt++;
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
   grib.pack_width=16;
   max_pack=0x8000;
   range=round(stats.max_val-stats.min_val);
   while (max_pack > 0 && max_pack > range) {
-    grib.pack_width--;
+    --grib.pack_width;
     max_pack/=2;
   }
   if (grid.num_missing == 0) {
@@ -5929,39 +5885,47 @@ GRIBGrid& GRIBGrid::operator=(const SLPGrid& source)
   stats.avg_val=0.;
   stats.min_val=Grid::missing_value;
   stats.max_val=-Grid::missing_value;
-  for (n=0; n < dim.y-1; n++) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y-1; ++n) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  gridpoints_[n][m]*=100.;
 	  bitmap.map[cnt]=1;
-	  if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	  if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	  if (gridpoints_[n][m] > stats.max_val) {
+	    stats.max_val=gridpoints_[n][m];
+	  }
+	  if (gridpoints_[n][m] < stats.min_val) {
+	    stats.min_val=gridpoints_[n][m];
+	  }
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
-	cnt++;
+	++cnt;
     }
   }
-  for (m=0; m < dim.x; m++) {
+  for (m=0; m < dim.x; ++m) {
     gridpoints_[n][m]=source.pole_value();
-    if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+    if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	bitmap.map[cnt]=0;
 	grid.num_missing++;
     }
     else {
 	gridpoints_[n][m]*=100.;
 	bitmap.map[cnt]=1;
-	if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	if (gridpoints_[n][m] > stats.max_val) {
+	  stats.max_val=gridpoints_[n][m];
+	}
+	if (gridpoints_[n][m] < stats.min_val) {
+	  stats.min_val=gridpoints_[n][m];
+	}
 	stats.avg_val+=gridpoints_[n][m];
-	avg_cnt++;
+	++avg_cnt;
     }
-    cnt++;
+    ++cnt;
   }
   if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
@@ -5970,7 +5934,7 @@ GRIBGrid& GRIBGrid::operator=(const SLPGrid& source)
   max_pack=0x8000;
   range=round(stats.max_val-stats.min_val);
   while (max_pack > 0 && max_pack > range) {
-    grib.pack_width--;
+    --grib.pack_width;
     max_pack/=2;
   }
   if (grid.num_missing == 0) {
@@ -6036,7 +6000,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	grid.level1_type=105;
 	grid.level1=source.first_level_value();
 	grid.level2=source.second_level_value();
-	if (!myequalf(grid.level1,source.first_level_value()) || !myequalf(grid.level2,source.second_level_value())) {
+	if (!floatutils::myequalf(grid.level1,source.first_level_value()) || !floatutils::myequalf(grid.level2,source.second_level_value())) {
 	  myerror="error converting fractional level(s) "+strutils::ftos(source.first_level_value())+" "+strutils::ftos(source.second_level_value());
 	  exit(1);
 	}
@@ -6089,7 +6053,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
     case 144:
     {
 // boundary
-	if (myequalf(source.first_level_value(),0.) && myequalf(source.second_level_value(),1.)) {
+	if (floatutils::myequalf(source.first_level_value(),0.) && floatutils::myequalf(source.second_level_value(),1.)) {
 	  grid.level1_type=107;
 	  grid.level1=0.9950;
 	  grid.level2=0.;
@@ -6104,14 +6068,14 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
     {
 // troposphere
 // sigma level
-	if (myequalf(source.second_level_value(),0.)) {
+	if (floatutils::myequalf(source.second_level_value(),0.)) {
 	  grid.level1_type=107;
 	  grid.level1=source.first_level_value();
 	  grid.level2=0.;
 	}
 // sigma layer
 	else {
-	  if (myequalf(source.first_level_value(),0.) && myequalf(source.second_level_value(),1.)) {
+	  if (floatutils::myequalf(source.first_level_value(),0.) && floatutils::myequalf(source.second_level_value(),1.)) {
 	    grid.level1_type=200;
 	    grid.level1=0.;
 	  }
@@ -6215,28 +6179,31 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
   stats.avg_val=0.;
   stats.max_val=-Grid::missing_value;
   stats.min_val=Grid::missing_value;
-  for (n=0; n < dim.y; n++) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y; ++n) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
 	  grid.num_missing++;
 	}
 	else {
 	  gridpoints_[n][m]*=mult;
 	  bitmap.map[cnt]=1;
-	  if (gridpoints_[n][m] > stats.max_val)
+	  if (gridpoints_[n][m] > stats.max_val) {
 	    stats.max_val=gridpoints_[n][m];
-	  if (gridpoints_[n][m] < stats.min_val)
+	  }
+	  if (gridpoints_[n][m] < stats.min_val) {
 	    stats.min_val=gridpoints_[n][m];
+	  }
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
-	cnt++;
+	++cnt;
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
   grib.pack_width=16;
   max_pack=0x8000;
   range=round((stats.max_val-stats.min_val)*pow(10.,precision));
@@ -6264,117 +6231,117 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
   grib.process=0;
   grib.grid_catalog_id=255;
   grid.level2_type=-1;
-  if (strcmp(source.parameter_name()," ALB") == 0) {
+  if (source.parameter_name() == " ALB") {
     grid.param=84;
     grid.level1_type=1;
     grid.level1=0;
   }
-  else if (strcmp(source.parameter_name(),"  AU") == 0) {
+  else if (source.parameter_name() == "  AU") {
     grid.param=33;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (strcmp(source.parameter_name(),"  AV") == 0) {
+  else if (source.parameter_name() == "  AV") {
     grid.param=34;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (strcmp(source.parameter_name(),"CLDT") == 0) {
+  else if (source.parameter_name() == "CLDT") {
     grid.param=71;
     grid.level1_type=200;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name()," FSR") == 0) {
+  else if (source.parameter_name() == " FSR") {
     grid.param=116;
     grid.level1_type=8;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name()," FSS") == 0) {
+  else if (source.parameter_name() == " FSS") {
     grid.param=116;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"FLAG") == 0) {
+  else if (source.parameter_name() == "FLAG") {
     grid.param=115;
     grid.level1_type=8;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"FSRG") == 0) {
+  else if (source.parameter_name() == "FSRG") {
     grid.param=116;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"  GT") == 0) {
+  else if (source.parameter_name() == "  GT") {
     grid.param=11;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"  PS") == 0) {
+  else if (source.parameter_name() == "  PS") {
     grid.param=2;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name()," PHI") == 0) {
+  else if (source.parameter_name() == " PHI") {
     grid.param=7;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (strcmp(source.parameter_name()," PCP") == 0) {
+  else if (source.parameter_name() == " PCP") {
     grid.param=61;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"PMSL") == 0) {
+  else if (source.parameter_name() == "PMSL") {
     grid.param=2;
     grid.level1_type=102;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"  SQ") == 0) {
+  else if (source.parameter_name() == "  SQ") {
     grid.param=51;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (strcmp(source.parameter_name(),"  ST") == 0) {
+  else if (source.parameter_name() == "  ST") {
     grid.param=11;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (strcmp(source.parameter_name()," SNO") == 0) {
+  else if (source.parameter_name() == " SNO") {
     grid.param=79;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (strcmp(source.parameter_name(),"SHUM") == 0) {
+  else if (source.parameter_name() == "SHUM") {
     grid.param=51;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (strcmp(source.parameter_name(),"STMX") == 0) {
+  else if (source.parameter_name() == "STMX") {
     grid.param=15;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (strcmp(source.parameter_name(),"STMN") == 0) {
+  else if (source.parameter_name() == "STMN") {
     grid.param=16;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (strcmp(source.parameter_name(),"SWMX") == 0) {
+  else if (source.parameter_name() == "SWMX") {
     grid.param=32;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (strcmp(source.parameter_name(),"TEMP") == 0) {
+  else if (source.parameter_name() == "TEMP") {
     grid.param=11;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (strcmp(source.parameter_name(),"   U") == 0) {
+  else if (source.parameter_name() == "   U") {
     grid.param=33;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (strcmp(source.parameter_name(),"   V") == 0) {
+  else if (source.parameter_name() == "   V") {
     grid.param=34;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
@@ -6401,7 +6368,7 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
   grib.sub_center=0;
   grid.grid_type=4;
   dim=source.dimensions();
-  dim.x--;
+  --dim.x;
   def=source.definition();
   def.type=gaussianLatitudeLongitudeType;
   grib.rescomp=0x80;
@@ -6424,7 +6391,7 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
   for (n=0; n < dim.y; n++,l--) {
     for (m=0; m < dim.x; m++) {
 	gridpoints_[n][m]=source.gridpoint(m,l);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
 	  grid.num_missing++;
 	}
@@ -6546,22 +6513,27 @@ GRIBGrid& GRIBGrid::operator=(const USSRSLPGrid& source)
   for (n=0; n < dim.y; n++) {
     for (m=0; m < dim.x; m++) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
-	if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
 	  grid.num_missing++;
 	}
 	else {
 	  bitmap.map[cnt]=1;
-	  if (gridpoints_[n][m] > stats.max_val) stats.max_val=gridpoints_[n][m];
-	  if (gridpoints_[n][m] < stats.min_val) stats.min_val=gridpoints_[n][m];
+	  if (gridpoints_[n][m] > stats.max_val) {
+	    stats.max_val=gridpoints_[n][m];
+	  }
+	  if (gridpoints_[n][m] < stats.min_val) {
+	    stats.min_val=gridpoints_[n][m];
+	  }
 	  stats.avg_val+=gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
-	cnt++;
+	++cnt;
     }
   }
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     stats.avg_val/=static_cast<double>(avg_cnt);
+  }
   grib.pack_width=16;
   max_pack=0x8000;
   range=round(stats.max_val-stats.min_val);
@@ -8539,8 +8511,9 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
     case 105:
     {
 	level1=grid.first_level_value();
-	if (myequalf(grid.second_level_value(),255.))
+	if (floatutils::myequalf(grid.second_level_value(),255.)) {
 	  level_type=109;
+	}
 	else {
 	  level_type=110;
 	  level2=grid.second_level_value();
@@ -8550,8 +8523,9 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
     case 106:
     {
 	level1=grid.first_level_value()*100.;
-	if (grid.second_level_type() == 255)
+	if (grid.second_level_type() == 255) {
 	  level_type=111;
+	}
 	else {
 	  level_type=112;
 	  level2=grid.second_level_value()*100.;
@@ -8574,8 +8548,9 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
     case 108:
     {
 	level1=grid.first_level_value();
-	if (grid.second_level_type() == 255)
+	if (grid.second_level_type() == 255) {
 	  level_type=115;
+	}
 	else {
 	  level_type=116;
 	  level2=grid.second_level_value();
@@ -8622,39 +8597,6 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	  }
 	}
 	break;
-    }
-  }
-}
-
-short map_statistical_end_time(const GRIB2Grid& grid)
-{
-  DateTime dt1=grid.reference_date_time(),dt2=grid.statistical_process_end_date_time();
-
-  switch (grid.time_unit()) {
-    case 0:
-    {
-	return (dt2.time()/100 % 100)-(dt1.time()/100 % 100);
-    }
-    case 1:
-    {
-	 return (dt2.time()/10000-dt1.time()/10000);
-    }
-    case 2:
-    {
-	return (dt2.day()-dt1.day());
-    }
-    case 3:
-    {
-	return (dt2.month()-dt1.month());
-    }
-    case 4:
-    {
-	return (dt2.year()-dt1.year());
-    }
-    default:
-    {
-	myerror="unable to map end time with units "+strutils::itos(grid.time_unit())+" to GRIB1";
-	exit(1);
     }
   }
 }
@@ -8711,9 +8653,10 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 		  }
 		}
 		p1=grid.forecast_time();
-		p2=map_statistical_end_time(grid);
-		if (stat_process_ranges[n].period_time_increment.value == 0)
+		p2=gributils::p2_from_statistical_end_time(grid);
+		if (stat_process_ranges[n].period_time_increment.value == 0) {
 		  nmean=0;
+		}
 		else {
 		  myerror="unable to map discrete processing to GRIB1";
 		  exit(1);
@@ -8722,20 +8665,23 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 	    }
 	    case 2:
 	    case 3:
+	    {
 // maximum
 // minimum
-	    {
 		t_range=2;
 		p1=grid.forecast_time();
-		p2=map_statistical_end_time(grid);
-		if (stat_process_ranges[n].period_time_increment.value == 0)
+		p2=gributils::p2_from_statistical_end_time(grid);
+		if (stat_process_ranges[n].period_time_increment.value == 0) {
 		  nmean=0;
+		}
 		else {
 		  myerror="unable to map discrete processing to GRIB1";
 		  exit(1);
 		}
 		break;
+	    }
 	    default:
+	    {
 // patch for NCEP grids
 		if (stat_process_ranges[n].type == 255 && grid.source() == 7) {
  		  if (grid.discipline() == 0) {
@@ -8746,9 +8692,10 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 			  {
 			    t_range=2;
 			    p1=grid.forecast_time();
-			    p2=map_statistical_end_time(grid);
-			    if (stat_process_ranges[n].period_time_increment.value == 0)
+			    p2=gributils::p2_from_statistical_end_time(grid);
+			    if (stat_process_ranges[n].period_time_increment.value == 0) {
 				nmean=0;
+			    }
 			    else {
 				myerror="unable to map discrete processing to GRIB1";
 				exit(1);
@@ -8783,7 +8730,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
 
   grib=source.grib;
   grid=source.grid;
-  if (source.ensdata.fcst_type.length() > 0) {
+  if (!source.ensdata.fcst_type.empty()) {
 /*
     if (pds_supp != nullptr)
 	delete[] pds_supp;
@@ -8910,10 +8857,11 @@ void GRIBGrid::print(std::ostream& outs) const
   outs.setf(std::ios::fixed);
   outs.precision(2);
   if (grid.filled) {
-    if (!myequalf(stats.avg_val,0.) && fabs(stats.avg_val) < 0.01)
+    if (!floatutils::myequalf(stats.avg_val,0.) && fabs(stats.avg_val) < 0.01) {
 	scientific=true;
+    }
     if (def.type == Grid::gaussianLatitudeLongitudeType) {
-	if (!fill_gaussian_latitudes(gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
+	if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
 	  myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
 	  exit(0);
 	}
@@ -9064,7 +9012,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		  for (j=0; j < dim.y; ++j) {
 		    outs << std::setw(3) << dim.y-j << " | ";
 		    for (k=i; k < max_i; ++k) {
-			if (myequalf(gridpoints_[j][k],Grid::missing_value)) {
+			if (floatutils::myequalf(gridpoints_[j][k],Grid::missing_value)) {
 			  outs << "   MISSING";
 			}
 			else {
@@ -9091,7 +9039,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		  for (j=dim.y-1; j >= 0; --j) {
 		    outs << std::setw(3) << j+1 << " | ";
 		    for (k=i; k < max_i; k++) {
-			if (myequalf(gridpoints_[j][k],Grid::missing_value)) {
+			if (floatutils::myequalf(gridpoints_[j][k],Grid::missing_value)) {
 			  outs << "   MISSING";
 			}
 			else {
@@ -9212,14 +9160,14 @@ std::string GRIBGrid::parameter_units(xmlutils::ParameterMapper& parameter_mappe
   return parameter_mapper.units("WMO_GRIB"+strutils::itos(edition),build_parameter_search_key()+":"+strutils::itos(grid.param));
 }
 
-void GRIBGrid::print_header(std::ostream& outs,bool verbose) const
+void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
 {
-  static xmlutils::ParameterMapper parameter_mapper;
+  static xmlutils::ParameterMapper parameter_mapper(path_to_parameter_map);
   bool scientific=false;
 
   outs.setf(std::ios::fixed);
   outs.precision(2);
-  if (!myequalf(stats.min_val,0.) && fabs(stats.min_val) < 0.01) {
+  if (!floatutils::myequalf(stats.min_val,0.) && fabs(stats.min_val) < 0.01) {
     scientific=true;
   }
   if (verbose) {
@@ -9499,7 +9447,7 @@ void GRIBGrid::reverse_scan()
 	  bcnt=0;
 	  for (n=0; n < dim.y; ++n) {
 	    for (m=0; m < dim.x; ++m) {
-		if (myequalf(gridpoints_[n][m],Grid::missing_value)) {
+		if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 		  bitmap.map[bcnt]=0;
 		}
 		else {
@@ -9528,7 +9476,7 @@ GRIBGrid fabs(const GRIBGrid& source)
   fabs_grid.stats.avg_val=0.;
   for (int n=0; n < fabs_grid.dim.y; ++n) {
     for (int m=0; m < fabs_grid.dim.x; ++m) {
-	if (!myequalf(fabs_grid.gridpoints_[n][m],Grid::missing_value)) {
+	if (!floatutils::myequalf(fabs_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  fabs_grid.gridpoints_[n][m]=::fabs(fabs_grid.gridpoints_[n][m]);
 	  if (fabs_grid.gridpoints_[n][m] > fabs_grid.stats.max_val) {
 	    fabs_grid.stats.max_val=fabs_grid.gridpoints_[n][m];
@@ -9547,7 +9495,7 @@ GRIBGrid fabs(const GRIBGrid& source)
   return fabs_grid;
 }
 
-GRIBGrid interpolate_gaussian_to_lat_lon(const GRIBGrid& source)
+GRIBGrid interpolate_gaussian_to_lat_lon(const GRIBGrid& source,std::string path_to_gauslat_lists)
 {
   GRIBGrid latlon_grid;
   GRIBGrid::GRIBData grib_data;
@@ -9559,7 +9507,7 @@ GRIBGrid interpolate_gaussian_to_lat_lon(const GRIBGrid& source)
 
   if (source.def.type != Grid::gaussianLatitudeLongitudeType)
     return source;
-  if (!fill_gaussian_latitudes(gaus_lats,source.def.num_circles,(source.grib.scan_mode&0x40) != 0x40)) {
+  if (!gridutils::fill_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,source.def.num_circles,(source.grib.scan_mode&0x40) != 0x40)) {
     myerror="unable to get gaussian latitudes for "+strutils::itos(source.def.num_circles)+" circles";
     exit(0);
   }
@@ -9656,17 +9604,16 @@ GRIBGrid pow(const GRIBGrid& source,double exponent)
   pow_grid.stats.avg_val=0.;
   for (n=0; n < pow_grid.dim.y; n++) {
     for (m=0; m < pow_grid.dim.x; m++) {
-	if (!myequalf(pow_grid.gridpoints_[n][m],Grid::missing_value)) {
+	if (!floatutils::myequalf(pow_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  pow_grid.gridpoints_[n][m]=::pow(pow_grid.gridpoints_[n][m],exponent);
 	  pow_grid.stats.avg_val+=pow_grid.gridpoints_[n][m];
 	  avg_cnt++;
 	}
     }
   }
-
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     pow_grid.stats.avg_val/=static_cast<double>(avg_cnt);
-
+  }
   return pow_grid;
 }
 
@@ -9677,27 +9624,25 @@ GRIBGrid sqrt(const GRIBGrid& source)
   size_t avg_cnt=0;
 
   sqrt_grid=source;
-  if (sqrt_grid.grib.capacity.points == 0)
+  if (sqrt_grid.grib.capacity.points == 0) {
     return sqrt_grid;
-
+  }
   sqrt_grid.grid.pole=::sqrt(sqrt_grid.grid.pole);
-
   sqrt_grid.stats.max_val=::sqrt(sqrt_grid.stats.max_val);
   sqrt_grid.stats.min_val=::sqrt(sqrt_grid.stats.min_val);
   sqrt_grid.stats.avg_val=0.;
-  for (n=0; n < sqrt_grid.dim.y; n++) {
-    for (m=0; m < sqrt_grid.dim.x; m++) {
-	if (!myequalf(sqrt_grid.gridpoints_[n][m],Grid::missing_value)) {
+  for (n=0; n < sqrt_grid.dim.y; ++n) {
+    for (m=0; m < sqrt_grid.dim.x; ++m) {
+	if (!floatutils::myequalf(sqrt_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  sqrt_grid.gridpoints_[n][m]=::sqrt(sqrt_grid.gridpoints_[n][m]);
 	  sqrt_grid.stats.avg_val+=sqrt_grid.gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
     }
   }
-
-  if (avg_cnt > 0)
+  if (avg_cnt > 0) {
     sqrt_grid.stats.avg_val/=static_cast<double>(avg_cnt);
-
+  }
   return sqrt_grid;
 }
 
@@ -9718,23 +9663,25 @@ GRIBGrid combine_hemispheres(const GRIBGrid& nhgrid,const GRIBGrid& shgrid)
 myerror="no handling of missing data yet";
 exit(1);
   }
-
   combined.grib.capacity.points=nhgrid.dim.size*2-nhgrid.dim.x;
   dim_y=nhgrid.dim.y*2-1;
   combined.dim.x=nhgrid.dim.x;
   combined.gridpoints_=new double *[dim_y];
-  for (n=0; n < dim_y; n++)
+  for (n=0; n < dim_y; ++n) {
     combined.gridpoints_[n]=new double[combined.dim.x];
+  }
   switch (nhgrid.grib.scan_mode) {
     case 0x0:
     {
 	combined=nhgrid;
 	combined.def.elatitude=shgrid.def.elatitude;
 	addon=&shgrid;
-	if (shgrid.stats.max_val > combined.stats.max_val)
+	if (shgrid.stats.max_val > combined.stats.max_val) {
 	  combined.stats.max_val=shgrid.stats.max_val;
-	if (shgrid.stats.min_val < combined.stats.min_val)
+	}
+	if (shgrid.stats.min_val < combined.stats.min_val) {
 	  combined.stats.min_val=shgrid.stats.min_val;
+	}
 	break;
     }
     case 0x40:
@@ -9742,10 +9689,12 @@ exit(1);
 	combined=shgrid;
 	combined.def.elatitude=nhgrid.def.elatitude;
 	addon=&nhgrid;
-	if (nhgrid.stats.max_val > combined.stats.max_val)
+	if (nhgrid.stats.max_val > combined.stats.max_val) {
 	  combined.stats.max_val=nhgrid.stats.max_val;
-	if (nhgrid.stats.min_val < combined.stats.min_val)
+	}
+	if (nhgrid.stats.min_val < combined.stats.min_val) {
 	  combined.stats.min_val=nhgrid.stats.min_val;
+	}
 	break;
     }
     default:
@@ -9755,10 +9704,11 @@ exit(1);
   }
   combined.grib.capacity.y=combined.dim.y=dim_y;
   l=0;
-  for (n=combined.dim.y/2; n < combined.dim.y; n++) {
-    for (m=0; m < combined.dim.x; m++)
+  for (n=combined.dim.y/2; n < combined.dim.y; ++n) {
+    for (m=0; m < combined.dim.x; ++m) {
 	combined.gridpoints_[n][m]=addon->gridpoints_[l][m];
-    l++;
+    }
+    ++l;
   }
 combined.grid.num_missing=0;
   combined.grib.D= (nhgrid.grib.D > shgrid.grib.D) ? nhgrid.grib.D : shgrid.grib.D;
@@ -9766,7 +9716,7 @@ combined.grid.num_missing=0;
   return combined;
 }
 
-GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float top_latitude,float left_longitude,float right_longitude)
+GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float top_latitude,float left_longitude,float right_longitude,const char *path_to_gauslat_lists)
 {
   GRIBGrid subset_grid;
   int n,m;
@@ -9785,7 +9735,11 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
   subset_grid.def.laincrement=source.def.laincrement;
   subset_grid.def.type=source.def.type;
   if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
-    if (!fill_gaussian_latitudes(gaus_lats,subset_grid.def.num_circles,(subset_grid.grib.scan_mode&0x40) != 0x40)) {
+    if (path_to_gauslat_lists == nullptr) {
+	myerror="path to gaussian latitude data was not specified";
+	exit(0);
+    }
+    else if (!gridutils::fill_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,subset_grid.def.num_circles,(subset_grid.grib.scan_mode&0x40) != 0x40)) {
 	myerror="unable to get gaussian latitudes for "+strutils::itos(subset_grid.def.num_circles)+" circles";
 	exit(0);
     }
@@ -9799,7 +9753,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     case 0x0:
     {
 // top down
-	if (!myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
+	if (!floatutils::myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.elatitude=bottom_latitude;
 	}
 	else {
@@ -9810,7 +9764,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	    subset_grid.def.elatitude=source.def.slatitude-source.latitude_index_south_of(bottom_latitude,&gaus_lats)*subset_grid.def.laincrement;
 	  }
 	}
-	if (!myequalf(source.gridpoint_at(top_latitude,source.def.slongitude),Grid::bad_value)) {
+	if (!floatutils::myequalf(source.gridpoint_at(top_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.slatitude=top_latitude;
 	}
 	else {
@@ -9824,7 +9778,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
 	  subset_grid.dim.y=0;
 	  for (n=0; n < static_cast<int>(subset_grid.def.num_circles*2); ++n) {
-	    if ((glat_entry.lats[n] > subset_grid.def.elatitude && glat_entry.lats[n] < subset_grid.def.slatitude) || myequalf(glat_entry.lats[n],subset_grid.def.elatitude) || myequalf(glat_entry.lats[n],subset_grid.def.slatitude)) {
+	    if ((glat_entry.lats[n] > subset_grid.def.elatitude && glat_entry.lats[n] < subset_grid.def.slatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.elatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.slatitude)) {
 		subset_grid.dim.y++;
 	    }
 	  }
@@ -9837,7 +9791,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     case 0x40:
     {
 // bottom up
-	if (!myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
+	if (!floatutils::myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.slatitude=bottom_latitude;
 	}
 	else {
@@ -9853,7 +9807,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	    }
 	  }
 	}
-	if (!myequalf(source.gridpoint_at(top_latitude,source.def.slongitude),Grid::bad_value)) {
+	if (!floatutils::myequalf(source.gridpoint_at(top_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.elatitude=top_latitude;
 	}
 	else {
@@ -9888,13 +9842,13 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     return subset_grid;
   }
   subset_grid.def.loincrement=source.def.loincrement;
-  if (!myequalf(source.gridpoint_at(source.def.slatitude,left_longitude),Grid::bad_value)) {
+  if (!floatutils::myequalf(source.gridpoint_at(source.def.slatitude,left_longitude),Grid::bad_value)) {
     subset_grid.def.slongitude=left_longitude;
   }
   else {
     subset_grid.def.slongitude=subset_grid.def.loincrement*source.longitude_index_west_of(left_longitude);
   }
-  if (!myequalf(source.gridpoint_at(source.def.slatitude,right_longitude),Grid::bad_value)) {
+  if (!floatutils::myequalf(source.gridpoint_at(source.def.slatitude,right_longitude),Grid::bad_value)) {
     subset_grid.def.elongitude=right_longitude;
   }
   else {
@@ -9925,7 +9879,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     for (m=0; m < subset_grid.dim.x; ++m) {
 	lon_index=source.longitude_index_of(subset_grid.def.slongitude+m*subset_grid.def.loincrement);
 	subset_grid.gridpoints_[n][m]=source.gridpoint(lon_index,lat_index);
-	if (myequalf(subset_grid.gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(subset_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  subset_grid.bitmap.map[cnt]=0;
 	  ++subset_grid.grid.num_missing;
 	}
@@ -10158,7 +10112,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  }
 	  case Grid::gaussianLatitudeLongitudeType:
 	  {
-	    if (!fill_gaussian_latitudes(gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
+	    if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
 		myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
 		exit(0);
 	    }
@@ -10239,14 +10193,14 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
     }
     default:
     {
-	myerror="unable to create a subset for grid type "+strutils::itos(def.type);
+	myerror="GRIB2Grid::create_subset(): unable to create a subset for grid type "+strutils::itos(def.type);
 	exit(1);
     }
   }
   return new_grid;
 }
 
-void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
+void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
 {
   size_t m;
 
@@ -10289,20 +10243,20 @@ void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
 	case 8:
 	{
 	  outs << "  Generating Process: " << grib.process << "/" << grib2.backgen_process << "/" << grib2.fcstgen_process;
-//	  if (!myequalf(grid.level2,Grid::missing_value))
+//	  if (!floatutils::myequalf(grid.level2,Grid::missing_value))
 	  if (grid.level2_type != 255) {
 	    outs << "  Levels: " << grid.level1_type;
-	    if (!myequalf(grid.level1,Grid::missing_value)) {
+	    if (!floatutils::myequalf(grid.level1,Grid::missing_value)) {
 		outs << "/" << grid.level1;
 	    }
 	    outs << "," << grid.level2_type;
-	    if (!myequalf(grid.level2,Grid::missing_value)) {
+	    if (!floatutils::myequalf(grid.level2,Grid::missing_value)) {
 		outs << "/" << grid.level2;
 	    }
 	  }
 	  else {
 	    outs << "  Level: " << grid.level1_type;
-	    if (!myequalf(grid.level1,Grid::missing_value))
+	    if (!floatutils::myequalf(grid.level1,Grid::missing_value))
 		outs << "/" << grid.level1;
 	  }
 	  switch (grib2.product_type) {
@@ -10372,7 +10326,7 @@ void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
 	  outs << "|SP" << m << "=" << grib2.stat_process_ranges[m].type << "." << grib2.stat_process_ranges[m].time_increment_type << "." << grib2.stat_process_ranges[m].period_length.unit << "." << grib2.stat_process_ranges[m].period_length.value << "." << grib2.stat_process_ranges[m].period_time_increment.unit << "." << grib2.stat_process_ranges[m].period_time_increment.value;
 	}
     }
-    if (ensdata.fcst_type.length() > 0) {
+    if (!ensdata.fcst_type.empty()) {
 	outs << "|E=" << ensdata.fcst_type << "." << ensdata.id << "." << ensdata.total_size;
 	if (grib2.modelv_date.year() != 0) {
 	  outs << "|Mver=" << grib2.modelv_date.to_string("%Y%m%d%H%MM%SS");
@@ -10382,17 +10336,17 @@ void GRIB2Grid::print_header(std::ostream& outs,bool verbose) const
 	outs << "|Spatial=" << grib2.spatial_process.stat_process << "," << grib2.spatial_process.type << "," << grib2.spatial_process.num_points;
     }
     outs << "|P=" << grib2.discipline << "." << grib2.param_cat << "." << grid.param << "|L=" << grid.level1_type;
-    if (!myequalf(grid.level1,Grid::missing_value)) {
+    if (!floatutils::myequalf(grid.level1,Grid::missing_value)) {
 	outs << ":" << grid.level1;
     }
     if (grid.level2_type < 255) {
 	outs << "," << grid.level2_type;
-	if (!myequalf(grid.level2,Grid::missing_value)) {
+	if (!floatutils::myequalf(grid.level2,Grid::missing_value)) {
 	  outs << ":" << grid.level2;
 	}
     }
     outs << "|DDef=" << grib2.data_rep;
-    if (!myequalf(stats.avg_val,0.) && fabs(stats.avg_val) < 0.01) {
+    if (!floatutils::myequalf(stats.avg_val,0.) && fabs(stats.avg_val) < 0.01) {
 	outs.unsetf(std::ios::fixed);
 	outs.setf(std::ios::scientific);
 	outs.precision(3);
@@ -10448,23 +10402,25 @@ void GRIB2Grid::operator+=(const GRIB2Grid& source)
 	stats.max_val=-Grid::missing_value;
 	stats.min_val=Grid::missing_value;
 	stats.avg_val=0.;
-	for (n=0; n < dim.y; n++) {
-	  for (m=0; m < dim.x; m++) {
+	for (n=0; n < dim.y; ++n) {
+	  for (m=0; m < dim.x; ++m) {
 	    l= (source.grib.scan_mode == grib.scan_mode) ? n : dim.y-n-1;
-	    if (!myequalf(gridpoints_[n][m],Grid::missing_value) && !myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
+	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && !floatutils::myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
 		gridpoints_[n][m]+=(source.gridpoints_[l][m]);
 		bitmap.map[cnt++]=1;
-		if (gridpoints_[n][m] > stats.max_val)
+		if (gridpoints_[n][m] > stats.max_val) {
 		  stats.max_val=gridpoints_[n][m];
-		if (gridpoints_[n][m] < stats.min_val)
+		}
+		if (gridpoints_[n][m] < stats.min_val) {
 		  stats.min_val=gridpoints_[n][m];
+		}
 		stats.avg_val+=gridpoints_[n][m];
-		avg_cnt++;
+		++avg_cnt;
 	    }
 	    else {
 		gridpoints_[n][m]=(Grid::missing_value);
 		bitmap.map[cnt++]=0;
-		grid.num_missing++;
+		++grid.num_missing;
 	    }
 	  }
 	}
@@ -10474,9 +10430,10 @@ void GRIB2Grid::operator+=(const GRIB2Grid& source)
 	else {
 	  bitmap.applies=true;
 	}
-	if (avg_cnt > 0)
+	if (avg_cnt > 0) {
 	  stats.avg_val/=static_cast<double>(avg_cnt);
-	grid.nmean++;
+	}
+	++grid.nmean;
 	if (grid.nmean == 2) {
 	  bool can_add=false;
 	  if (grib2.stat_process_ranges.size() > 0) {
@@ -10493,13 +10450,13 @@ std::cerr << "A " << source.grid.src << " " << grib2.stat_process_ranges.size() 
 		    case 194:
 		    {
 			if (source.grib2.stat_process_ranges.size() == 2) {
-			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
+			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
 std::cerr << "B194 " << x << " " << source.reference_date_time_.year() << " " << source.reference_date_time_.month() << std::endl;
-			  if (myequalf(x,static_cast<int>(x),0.001)) {
+			  if (floatutils::myequalf(x,static_cast<int>(x),0.001)) {
 			    srange.type=0;
 			    srange.time_increment_type=1;
 			    srange.period_length.unit=2;
-			    srange.period_length.value=days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month());
+			    srange.period_length.value=dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month());
 			    srange.period_time_increment.unit=1;
 			    srange.period_time_increment.value=source.grib2.stat_process_ranges[0].period_time_increment.value;
 			    grib2.stat_process_ranges[1]=srange;
@@ -10511,13 +10468,13 @@ std::cerr << "B194 " << x << " " << source.reference_date_time_.year() << " " <<
 		    case 204:
 		    {
 			if (source.grib2.stat_process_ranges.size() == 2) {
-			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
+			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
 std::cerr << "B204 " << x << " " << source.reference_date_time_.year() << " " << source.reference_date_time_.month() << std::endl;
-			  if (myequalf(x,static_cast<int>(x),0.001)) {
+			  if (floatutils::myequalf(x,static_cast<int>(x),0.001)) {
 			    srange.type=0;
 			    srange.time_increment_type=1;
 			    srange.period_length.unit=2;
-			    srange.period_length.value=days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month());
+			    srange.period_length.value=dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month());
 			    srange.period_time_increment.unit=1;
 			    srange.period_time_increment.value=6;
 			    grib2.stat_process_ranges[1]=srange;
@@ -10600,7 +10557,7 @@ std::string interval_24_hour_forecast_averages_to_string(std::string format,Date
     tunit=1;
   }
   if (tunit >= 1 && tunit <= 2) {
-    if (navg == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+    if (navg == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	product="Monthly Mean (1 per day) of ";
     }
     else {
@@ -10644,7 +10601,7 @@ std::string successive_forecast_averages_to_string(std::string format,DateTime& 
   }
   if (tunit >= 1 && tunit <= 2) {
     int n= (tunit == 2) ? 1 : 24/p2;
-    if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+    if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 	product="Monthly Mean ("+strutils::itos(n)+" per day) of Forecasts of ";
     }
     else {
@@ -10693,7 +10650,7 @@ std::string time_range_2_to_string(std::string format,DateTime& first_valid_date
   }
   last_valid_date_time=first_valid_date_time;
   if (navg > 0) {
-    int n=days_in_month(first_valid_date_time.year(),first_valid_date_time.month());
+    int n=dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month());
     if ( (navg % n) == 0) {
 	product="Monthly Mean ("+strutils::itos(navg/n)+" per day) of ";
 	last_valid_date_time.add_hours((navg-1)*24*n/navg);
@@ -10752,12 +10709,12 @@ std::string time_range_113_to_string(std::string format,DateTime& first_valid_da
     tu=const_cast<char **>(grib2_time_unit);
   }
   else {
-    myerror="time_range_113_to_string() returned error: no time units defined for GRIB format "+format;
+    myerror="time_range_113_to_string(): no time units defined for GRIB format "+format;
     exit(1);
   }
   if (tunit >= 1 && tunit <= 2) {
     int n= (tunit == 2) ? 1 : 24/p2;
-    if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+    if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 	if (p1 == 0) {
 	  product="Monthly Mean ("+strutils::itos(n)+" per day) of Analyses";
 	}
@@ -10798,7 +10755,7 @@ std::string time_range_118_to_string(std::string format,DateTime& first_valid_da
 
   if (tunit >= 1 && tunit <= 2) {
     int n= (tunit == 2) ? 1 : 24/p2;
-    if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+    if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 	if (p1 == 0) {
 	  product="Monthly Variance/Covariance ("+strutils::itos(n)+" per day) of Analyses";
 	}
@@ -10846,7 +10803,7 @@ std::string time_range_120_to_string(std::string format,DateTime& first_valid_da
   }
   if (tunit == 1) {
     int n=24/(p2-p1);
-    if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+    if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
         product="Monthly Mean ("+strutils::itos(n)+" per day) of Forecasts of ";
     }
     else {
@@ -10885,7 +10842,7 @@ std::string time_range_123_to_string(std::string format,DateTime& first_valid_da
   }
   if (tunit >= 1 && tunit <= 2) {
     int n= (tunit == 2) ? 1 : 24/p2;
-    if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+    if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 	product="Monthly Mean ("+strutils::itos(n)+" per day) of Analyses";
     }
     else {
@@ -10931,7 +10888,7 @@ std::string time_range_128_to_string(std::string format,short center,short subce
     case 60:
     {
 	if (tunit >= 1 && tunit <= 2) {
-	  if (navg == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+	  if (navg == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (1 per day) of ";
 	  }
 	  else {
@@ -11002,7 +10959,7 @@ std::string time_range_129_to_string(std::string format,short center,short subce
     {
 	if (tunit >= 1 && tunit <= 2) {
 	  int n= (tunit == 2) ? 1 : 24/p2;
-	  if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+	  if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 	    product="Monthly Mean ("+strutils::itos(n)+" per day) of Forecasts of ";
 	  }
 	  else {
@@ -11032,7 +10989,7 @@ std::string time_range_129_to_string(std::string format,short center,short subce
 	  case 241:
 	  {
 	    if (tunit == 1) {
-		if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg) < 3) {
+		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg) < 3) {
 		  product="Monthly Variance/Covariance (1 per day) of Forecasts of ";
 		}
 		else {
@@ -11133,7 +11090,7 @@ std::string time_range_131_to_string(std::string format,short center,short subce
 	  {
 	    if (tunit == 1) {
 		int n=24/p2;
-		if ( (days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
+		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
 		  product="Monthly Variance/Covariance ("+strutils::itos(n)+" per day) of Forecasts of ";
 		}
 		else {
@@ -11221,10 +11178,10 @@ std::string time_range_137_to_string(std::string format,short center,short subce
     case 60:
     {
 	if (tunit >= 1 && tunit <= 2) {
-	  if (navg/4 == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+	  if (navg/4 == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (4 per day) of ";
 	  }
-	  else if (navg == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+	  else if (navg == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (1 per day) of ";
 	  }
 	  else {
@@ -11280,11 +11237,11 @@ std::string time_range_138_to_string(std::string format,short center,short subce
 	  tunit=1;
 	}
 	if (tunit >= 1 && tunit <= 2) {
-	  if (navg/4 == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+	  if (navg/4 == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (4 per day) of ";
 	    hours_to_last=(navg-1)*6;
 	  }
-	  else if (navg == static_cast<int>(days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
+	  else if (navg == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (1 per day) of ";
 	    hours_to_last=(navg-1)*24;
 	  }
@@ -11406,7 +11363,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
     case 3:
     {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
-	if (p1 == 0 && tunits == 2 && p2 == static_cast<int>(days_in_month(forecast_date_time.year(),forecast_date_time.month()))) {
+	if (p1 == 0 && tunits == 2 && p2 == static_cast<int>(dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()))) {
 	  product_description="Monthly Average";
 	}
 	else {
@@ -11513,7 +11470,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 		{
 		  forecast_date_time.subtract_days(p1);
 		  size_t n=p1+1;
-		  if (days_in_month(forecast_date_time.year(),forecast_date_time.month()) == n) {
+		  if (dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()) == n) {
 		    product_description="Monthly Mean";
 		  }
 		  else if (n == 5) {
@@ -11664,7 +11621,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
 	std::vector<GRIB2Grid::StatisticalProcessRange> spranges=grid->statistical_process_ranges();
 	product_description="";
 	for (size_t n=0; n < spranges.size(); n++) {
-	  if (product_description.length() > 0) {
+	  if (!product_description.empty()) {
 	    product_description+=" of ";
 	  }
 	  if (spranges.size() == 2 && spranges[n].type >= 192) {
@@ -11857,4 +11814,122 @@ forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period
   return product_description;
 }
 
+short p2_from_statistical_end_time(const GRIB2Grid& grid)
+{
+  DateTime dt1=grid.reference_date_time(),dt2=grid.statistical_process_end_date_time();
+
+  switch (grid.time_unit()) {
+    case 0:
+    {
+	return (dt2.time()/100 % 100)-(dt1.time()/100 % 100);
+    }
+    case 1:
+    {
+	 return (dt2.time()/10000-dt1.time()/10000);
+    }
+    case 2:
+    {
+	return (dt2.day()-dt1.day());
+    }
+    case 3:
+    {
+	return (dt2.month()-dt1.month());
+    }
+    case 4:
+    {
+	return (dt2.year()-dt1.year());
+    }
+    default:
+    {
+	myerror="unable to map end time with units "+strutils::itos(grid.time_unit())+" to GRIB1";
+	exit(1);
+    }
+  }
+}
+
+#ifdef __JASPER
+extern "C" int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
+/*$$$  SUBPROGRAM DOCUMENTATION BLOCK
+*                .      .    .                                       .
+* SUBPROGRAM:    dec_jpeg2000      Decodes JPEG2000 code stream
+*   PRGMMR: Gilbert          ORG: W/NP11     DATE: 2002-12-02
+*
+* ABSTRACT: This Function decodes a JPEG2000 code stream specified in the
+*   JPEG2000 Part-1 standard (i.e., ISO/IEC 15444-1) using JasPer 
+*   Software version 1.500.4 (or 1.700.2) written by the University of British
+*   Columbia and Image Power Inc, and others.
+*   JasPer is available at http://www.ece.uvic.ca/~mdadams/jasper/.
+*
+* PROGRAM HISTORY LOG:
+* 2002-12-02  Gilbert
+*
+* USAGE:     int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
+*
+*   INPUT ARGUMENTS:
+*      injpc - Input JPEG2000 code stream.
+*    bufsize - Length (in bytes) of the input JPEG2000 code stream.
+*
+*   OUTPUT ARGUMENTS:
+*     outfld - Output matrix of grayscale image values.
+*
+*   RETURN VALUES :
+*          0 = Successful decode
+*         -3 = Error decode jpeg2000 code stream.
+*         -5 = decoded image had multiple color components.
+*              Only grayscale is expected.
+*
+* REMARKS:
+*
+*      Requires JasPer Software version 1.500.4 or 1.700.2
+*
+* ATTRIBUTES:
+*   LANGUAGE: C
+*   MACHINE:  IBM SP
+*
+*$$$*/
+{
+    int ier;
+    int i,j,k;
+    jas_image_t *image=0;
+    jas_stream_t *jpcstream;
+    jas_image_cmpt_t *pcmpt;
+    char *opts=0;
+    jas_matrix_t *data;
+
+//    jas_init();
+    ier=0;
+// Create jas_stream_t containing input JPEG200 codestream in memory.
+    jpcstream=jas_stream_memopen(injpc,bufsize);
+// Decode JPEG200 codestream into jas_image_t structure.
+    image=jpc_decode(jpcstream,opts);
+    if ( image == 0 ) {
+       jas_eprintf(" jpc_decode return = %d \n",ier);
+       return -3;
+    }
+    pcmpt=image->cmpts_[0];
+// Expecting jpeg2000 image to be grayscale only.
+// No color components.
+    if (image->numcmpts_ != 1 ) {
+       jas_eprintf("dec_jpeg2000: Found color image.  Grayscale expected.\n");
+       return (-5);
+    }
+// Create a data matrix of grayscale image values decoded from the jpeg2000 code
+// stream.
+    data=jas_matrix_create(jas_image_height(image), jas_image_width(image));
+    jas_image_readcmpt(image,0,0,0,jas_image_width(image),
+                       jas_image_height(image),data);
+// Copy data matrix to output integer array.
+    k=0;
+    for (i=0;i<pcmpt->height_;i++) 
+      for (j=0;j<pcmpt->width_;j++) 
+        outfld[k++]=data->rows_[i][j];
+// Clean up JasPer work structures.
+    jas_matrix_destroy(data);
+    ier=jas_stream_close(jpcstream);
+    jas_image_destroy(image);
+    return 0;
+}
+#endif
+
 } // end namespace gributils
+#endif
