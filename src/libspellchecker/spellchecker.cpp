@@ -37,7 +37,7 @@ int SpellChecker::check(std::string text)
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check the words directly against the acronyms
-    do_spell_check(check_text,"",SpellCheckerFunctions::trim_plural,valids_tables.acronyms,false);
+    do_spell_check(check_text,"",spellcheckutils::trim_plural,valids_tables.acronyms,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
@@ -47,47 +47,47 @@ int SpellChecker::check(std::string text)
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with punctuation trimmed from the front directly against valids
-    do_spell_check(check_text,"-",SpellCheckerFunctions::trim_front,valids_tables.words,true);
+    do_spell_check(check_text,"-",spellcheckutils::trim_front,valids_tables.words,true);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with punctuation trimmed from the back directly against valids
-    do_spell_check(check_text,"-",SpellCheckerFunctions::trim_back,valids_tables.words,true);
+    do_spell_check(check_text,"-",spellcheckutils::trim_back,valids_tables.words,true);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with all punctuation trimmed directly against valids
-    do_spell_check(check_text,"-",SpellCheckerFunctions::trim_both,valids_tables.words,true);
+    do_spell_check(check_text,"-",spellcheckutils::trim_both,valids_tables.words,true);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with punctuation trimmed from the front directly against acronyms
-    do_spell_check(check_text,"/",SpellCheckerFunctions::trim_front,valids_tables.acronyms,false);
+    do_spell_check(check_text,"/",spellcheckutils::trim_front,valids_tables.acronyms,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with punctuation trimmed from the back directly against acronyms
-    do_spell_check(check_text,"/",SpellCheckerFunctions::trim_back,valids_tables.acronyms,false);
+    do_spell_check(check_text,"/",spellcheckutils::trim_back,valids_tables.acronyms,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words with all punctuation trimmed directly against acronyms
-    do_spell_check(check_text,"/",SpellCheckerFunctions::trim_both,valids_tables.acronyms,false);
+    do_spell_check(check_text,"/",spellcheckutils::trim_both,valids_tables.acronyms,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check the words directly against exact match valids, front punctuation trimmed
-    do_spell_check(check_text,"",SpellCheckerFunctions::trim_front,valids_tables.exact_matches,false);
+    do_spell_check(check_text,"",spellcheckutils::trim_front,valids_tables.exact_matches,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check the words directly against exact match valids, back punctuation trimmed
-    do_spell_check(check_text,"",SpellCheckerFunctions::trim_back,valids_tables.exact_matches,false);
+    do_spell_check(check_text,"",spellcheckutils::trim_back,valids_tables.exact_matches,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check the words directly against exact match valids, all punctuation trimmed
-    do_spell_check(check_text,"",SpellCheckerFunctions::trim_both,valids_tables.exact_matches,false);
+    do_spell_check(check_text,"",spellcheckutils::trim_both,valids_tables.exact_matches,false);
   }
   if (misspelled_words_.size() > 0) {
     check_text=text;
@@ -95,12 +95,12 @@ int SpellChecker::check(std::string text)
     strutils::trim(check_text);
     fill_text(check_text,true);
 // check the words directly against units valids, all punctuation trimmed
-    do_spell_check(check_text,"",SpellCheckerFunctions::trim_both,valids_tables.units,false);
+    do_spell_check(check_text,"",spellcheckutils::trim_both,valids_tables.units,false);
   }
   if (misspelled_words_.size() > 0) {
     fill_text(check_text);
 // check words like 'parameters/levels'
-    do_spell_check(check_text,"/",SpellCheckerFunctions::trim_both,valids_tables.words,true);
+    do_spell_check(check_text,"/",spellcheckutils::trim_both,valids_tables.words,true);
   }
   return misspelled_words_.size();
 }
@@ -308,7 +308,7 @@ void SpellChecker::do_spell_check(const std::string& text,std::string separator,
 	  }
 	  else {
 	    if (valids_table.found(we.key,we)) {
-		if (n == 0 || !strutils::is_numeric(SpellCheckerFunctions::trim_front(words[n-1]))) {
+		if (n == 0 || !strutils::is_numeric(spellcheckutils::trim_front(words[n-1]))) {
 		  add_misspelled_word_to_list(words[n],misspelled_unique_table);
 		}
 	    }
@@ -317,7 +317,7 @@ void SpellChecker::do_spell_check(const std::string& text,std::string separator,
 		  if (we.key.length() == 1 && strutils::is_alpha(we.key) && we.key == strutils::to_upper(we.key) && strutils::to_lower(words[n-1]) == "station") {
 // allow for e.g. 'Station P'
 		  }
-		  else if (SpellCheckerFunctions::trim_front(strutils::to_lower(words[n-1])) == "version") {
+		  else if (spellcheckutils::trim_front(strutils::to_lower(words[n-1])) == "version") {
 // allow for e.g. 'version 1e'
 		  }
 		  else {
@@ -367,7 +367,7 @@ void SpellChecker::fill_text(std::string& text,bool include_previous)
 	if (it == end) {
 	  break;
 	}
-	if (words[n] == *it || clean_word(words[n]) == *it || SpellCheckerFunctions::trim_punctuation(words[n]) == *it || SpellCheckerFunctions::trim_both(words[n]) == *it) {
+	if (words[n] == *it || clean_word(words[n]) == *it || spellcheckutils::trim_punctuation(words[n]) == *it || spellcheckutils::trim_both(words[n]) == *it) {
 	  text+=" "+words[n-1]+" "+*it;
 	  ++it;
 	}
@@ -381,7 +381,7 @@ void SpellChecker::fill_text(std::string& text,bool include_previous)
   strutils::trim(text);
 }
 
-namespace SpellCheckerFunctions {
+namespace spellcheckutils {
 
 std::string trim_front(const std::string& word)
 {
@@ -437,4 +437,4 @@ std::string trim_punctuation(const std::string& word)
   return trimmed_word;
 }
 
-} // end namespace SpellCheckerFunctions
+} // end namespace spellcheckutils
