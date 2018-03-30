@@ -157,12 +157,12 @@ std::string formatted_access_date(std::string access_date,bool htmlized)
   return formatted_access_date_;
 }
 
-std::string citation(std::string dsnum,std::string style,std::string access_date,MySQL::Row& row,XMLSnippet& xsnip,bool htmlized)
+std::string citation(std::string dsnum,std::string style,std::string access_date,MySQL::Row& row,XMLSnippet& xsnip,MySQL::Server& server,bool htmlized)
 {
   std::string citation;
   style=strutils::to_lower(style);
   if (style == "esip") {
-    citation=list_authors(xsnip,10,"et al")+". "+row[1].substr(0,4);
+    citation=list_authors(xsnip,server,10,"et al")+". "+row[1].substr(0,4);
     auto e=xsnip.element("dsOverview/continuingUpdate");
     if (e.attribute_value("value") == "yes" && e.attribute_value("frequency") != "irregularly") {
 	citation+=", updated "+e.attribute_value("frequency");
@@ -185,7 +185,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
     citation+=". "+formatted_access_date(access_date,htmlized);
   }
   else if (style == "agu") {
-    citation=list_authors(xsnip,9,"et al.")+" ("+row[1].substr(0,4)+"), "+row[0]+", ";
+    citation=list_authors(xsnip,server,9,"et al.")+" ("+row[1].substr(0,4)+"), "+row[0]+", ";
     if (!row[2].empty()) {
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
@@ -200,7 +200,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
     citation+=" "+formatted_access_date(access_date,htmlized);
   }
   else if (style == "ams") {
-    citation=list_authors(xsnip,8,"and Coauthors")+", "+row[1].substr(0,4)+": "+row[0]+". "+DATA_CENTER+", Boulder, CO. [Available online at ";
+    citation=list_authors(xsnip,server,8,"and Coauthors")+", "+row[1].substr(0,4)+": "+row[0]+". "+DATA_CENTER+", Boulder, CO. [Available online at ";
     if (!row[2].empty()) {
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
@@ -210,7 +210,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
     citation+=".] "+formatted_access_date(access_date,htmlized);
   }
   else if (style == "datacite") {
-    citation=list_authors(xsnip,32768,"",false)+" ("+row[1].substr(0,4)+"): "+row[0]+". "+DATA_CENTER+". Dataset. ";
+    citation=list_authors(xsnip,server,32768,"",false)+" ("+row[1].substr(0,4)+"): "+row[0]+". "+DATA_CENTER+". Dataset. ";
     if (!row[2].empty()) {
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
@@ -220,7 +220,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
     citation+=". "+formatted_access_date(access_date,htmlized);
   }
   else if (style == "gdj") {
-    citation=list_authors(xsnip,32768,"",false)+" ("+row[1].substr(0,4)+"): "+row[0]+". "+DATA_CENTER+". ";
+    citation=list_authors(xsnip,server,32768,"",false)+" ("+row[1].substr(0,4)+"): "+row[0]+". "+DATA_CENTER+". ";
     if (!row[2].empty()) {
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
@@ -307,14 +307,14 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 		citation_+=">between "+row[3]+" and "+DateTime(std::stoll(strutils::substitute(row[4],"-",""))*1000000).days_subtracted(1).to_string("%Y-%m-%d")+"</option>";
 	    }
 	    if (!doi.empty() && doi == row[2]) {
-		cm=citation(dsparts[0],style,access_date,row,xdoc,htmlized);
+		cm=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
 	    }
 	    is_first=false;
 	  }
 	  if (cm.empty()) {
 	    query.rewind();
 	    query.fetch_row(row);
-	    cm=citation(dsparts[0],style,access_date,row,xdoc,htmlized);
+	    cm=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
 	  }
 	  citation_+="</select></form>";
 	  if (htmlized) {
@@ -323,7 +323,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	  citation_+=cm;
 	}
 	else if (query.fetch_row(row)) {
-	  citation_+=citation(dsparts[0],style,access_date,row,xdoc,htmlized);
+	  citation_+=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
 	}
     }
     if (htmlized) {
@@ -371,7 +371,7 @@ std::string temporary_citation(std::string dsnum,std::string style,std::string a
     query.set("select m.title,s.pub_date,d.doi from metautil.dssmm as m left join search.datasets as s on s.dsid = m.dsid left join dssdb.dsvrsn as d on d.dsid = concat('ds',m.dsid) where m.dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row)) {
 	XMLSnippet xsnip(xml);
-	citation_=citation(dsnum,style,access_date,row,xsnip,htmlized);
+	citation_=citation(dsnum,style,access_date,row,xsnip,server,htmlized);
 	if (htmlized) {
 	  citation_+=add_citation_style_changer(style);
 	}
