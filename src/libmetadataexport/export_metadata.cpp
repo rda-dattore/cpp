@@ -10,6 +10,7 @@
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <metadata.hpp>
+#include <gridutils.hpp>
 #include <citation.hpp>
 #include <hereDoc.hpp>
 #include <tokendoc.hpp>
@@ -160,7 +161,7 @@ std::string primary_size(std::string dsnum,MySQL::Server& server)
 void convert_box_data(const std::string& row,const std::string& col,double& comp_lat,double& comp_lon,std::string comp_type)
 {
   double lat,lon;
-  convert_box_to_center_lat_lon(1,std::stoi(row),std::stoi(col),lat,lon);
+  geoutils::convert_box_to_center_lat_lon(1,std::stoi(row),std::stoi(col),lat,lon);
   if (comp_type == "min") {
     if (lat >= -89.5) {
 	lat-=0.5;
@@ -208,7 +209,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
     MySQL::Row row;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
-	if (fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	if (gridutils::fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	  if (west_lon < min_west_lon) {
 	    min_west_lon=west_lon;
 	  }
@@ -266,7 +267,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
 	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("resLat")+":"+element.attribute_value("projLon")+":"+element.attribute_value("pole")+":"+element.attribute_value("xRes")+":"+element.attribute_value("yRes")+":"+element.attribute_value("stdParallel1")+":"+element.attribute_value("stdParallel2");
 	  }
 	  double west_lon,south_lat,east_lon,north_lat;
-	  if (fill_spatial_domain_from_grid_definition(element.attribute_value("definition")+"<!>"+def_params,"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	  if (gridutils::fill_spatial_domain_from_grid_definition(element.attribute_value("definition")+"<!>"+def_params,"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	    if (west_lon < min_west_lon) {
 		min_west_lon=west_lon;
 	    }
@@ -409,7 +410,7 @@ bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   ofs << indent << "  <dc:subject>" << e.content() << "</dc:subject>" << std::endl;
   e=xdoc.element("dsOverview/summary");
   ofs << indent << "  <dc:description>" << std::endl;
-  ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
+  ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </dc:description>" << std::endl;
   std::list<XMLElement> elist=xdoc.element_list("dsOverview/contributor@vocabulary=GCMD");
   for (const auto& element : elist) {
@@ -429,13 +430,13 @@ bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     ofs << indent << "  <dc:rights>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,4) << std::endl;
     ofs << indent << "  </dc:rights>" << std::endl;
   }
   ofs << indent << "</oai_dc:dc>" << std::endl;
@@ -446,8 +447,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
 {
   ofs << "<meta name=\"DC.type\" content=\"Dataset\" />" << std::endl;
   ofs << "<meta name=\"DC.identifier\" content=\"";
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -496,7 +496,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   ofs << "<meta name=\"DC.title\" content=\"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\" />" << std::endl;
   ofs << "<meta name=\"DC.date\" content=\"" << xdoc.element("dsOverview/publicationDate").content() << "\" scheme=\"DCTERMS.W3CDTF\" />" << std::endl;
   ofs << "<meta name=\"DC.publisher\" content=\"" << PUBLISHER << "\" />" << std::endl;
-  auto summary=summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
+  auto summary=htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
   strutils::replace_all(summary,"\n","\\n");
   ofs << "<meta name=\"DC.description\" content=\"" << strutils::substitute(summary,"\"","\\\"") << "\" />" << std::endl;
   query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
@@ -535,8 +535,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     std::cout << "Error creating temporary directory" << std::endl;
     exit(1);
   }
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -678,7 +677,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     double min_west_lon=9999.,min_south_lat=9999.,max_east_lon=-9999.,max_north_lat=-9999.;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
-	if (fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	if (gridutils::fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	  if (west_lon < min_west_lon) {
 	    min_west_lon=west_lon;
 	  }
@@ -692,7 +691,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
 	    max_north_lat=north_lat;
 	  }
 	}
-	auto sdum=convert_grid_definition(row[0]+"<!>"+row[1]);
+	auto sdum=gridutils::convert_grid_definition(row[0]+"<!>"+row[1]);
 	if (strutils::contains(sdum,"&deg; x")) {
 	  auto sp=strutils::split(sdum," x ");
 	  sdum=sp[1];
@@ -790,14 +789,14 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   if (e.name() == "access") {
     auto access_restrictions=e.to_string();
     ofs << indent << "  <Access_Constraints>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(access_restrictions,80,indent_length+4) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(access_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Access_Constraints>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     auto usage_restrictions=e.to_string();
     ofs << indent << "  <Use_Constraints>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(usage_restrictions,80,indent_length+4) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(usage_restrictions,80,indent_length+4) << std::endl;
     ofs << indent << "  </Use_Constraints>" << std::endl;
   }
   ofs << indent << "  <Data_Set_Language>English</Data_Set_Language>" << std::endl;
@@ -839,11 +838,11 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   }
   struct stat buf;
   std::string format_ref;
-  if (stat((directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-    format_ref=directives.server_root+"/web/metadata/FormatReferences.xml.new";
+  if (stat((meta_directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+    format_ref=meta_directives.server_root+"/web/metadata/FormatReferences.xml.new";
   }
   else {
-    format_ref=remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
+    format_ref=unixutils::remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
   }
   XMLDocument fdoc(format_ref);
   while (query.fetch_row(row)) {
@@ -905,13 +904,13 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
 	  reference+=", URL: "+url;
 	}
 	reference+=".</p></reference>";
-	ofs << summary::convert_html_summary_to_ascii(reference,80,indent_length+4) << std::endl;
+	ofs << htmlutils::convert_html_summary_to_ascii(reference,80,indent_length+4) << std::endl;
     }
     ofs << indent << "  </Reference>" << std::endl;
   }
   ofs << indent << "  <Summary>" << std::endl;
   e=xdoc.element("dsOverview/summary");
-  ofs << summary::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
+  ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
   ofs << indent << "  </Summary>" << std::endl;
   elist=xdoc.element_list("dsOverview/relatedDataset");
   for (const auto& element : elist) {
@@ -944,8 +943,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
 
 bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -1060,7 +1058,7 @@ bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,s
   }
   ofs << indent << "  <descriptions>" << std::endl;
   ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
-  ofs << summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),120,indent_length+6) << std::endl;
+  ofs << htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),120,indent_length+6) << std::endl;
   ofs << indent << "    </description>" << std::endl;
   ofs << indent << "  </descriptions>" << std::endl;
   ofs << indent << "</resource>" << std::endl;
@@ -1070,8 +1068,7 @@ bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,s
 
 bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -1082,7 +1079,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "  <idinfo>" << std::endl;
   ofs << indent << "    <citation>" << std::endl;
   ofs << indent << "      <citeinfo>" << std::endl;
-  ofs << indent << "        <origin>" << citation::list_authors(xdoc,3,"et al.") << "</origin>" << std::endl;
+  ofs << indent << "        <origin>" << citation::list_authors(xdoc,server,3,"et al.") << "</origin>" << std::endl;
   auto e=xdoc.element("dsOverview/publicationDate");
   auto pub_date=e.content();
   if (pub_date.empty()) {
@@ -1115,7 +1112,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "    <descript>" << std::endl;
   e=xdoc.element("dsOverview/summary");
   ofs << indent << "      <abstract>" << std::endl;
-  ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,indent_length+8) << std::endl;
+  ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),120,indent_length+8) << std::endl;
   ofs << indent << "      </abstract>" << std::endl;
   ofs << indent << "      <purpose>.</purpose>" << std::endl;
   ofs << indent << "    </descript>" << std::endl;
@@ -1192,7 +1189,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     ofs << indent << "    <accconst>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </accconst>" << std::endl;
   }
   else
@@ -1200,7 +1197,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     ofs << indent << "    <useconst>" << std::endl;
-    ofs << summary::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),120,6) << std::endl;
     ofs << indent << "    </useconst>" << std::endl;
   }
   else {
@@ -1286,8 +1283,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
   if (token_doc == nullptr) {
     token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/iso19139.xml",indent_length));
   }
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   token_doc->add_replacement("__DSNUM__",dsnum);
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
@@ -1347,7 +1343,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
     }
   }
   e=xdoc.element("dsOverview/summary");
-  token_doc->add_replacement("__ABSTRACT__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
+  token_doc->add_replacement("__ABSTRACT__",htmlutils::convert_html_summary_to_ascii(e.to_string(),32768,0));
   e=xdoc.element("dsOverview/continuingUpdate");
   std::string frequency;
   if (e.attribute_value("value") == "yes") {
@@ -1443,7 +1439,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   }
   auto has_any_extent=false;
   if (min_west_lon < 9999.) {
-    if (myequalf(min_west_lon,max_east_lon) && myequalf(min_south_lat,max_north_lat)) {
+    if (floatutils::myequalf(min_west_lon,max_east_lon) && floatutils::myequalf(min_south_lat,max_north_lat)) {
 	token_doc->add_if("__HAS_POINT__");
 	token_doc->add_replacement("__LAT__",strutils::ftos(min_south_lat,10));
 	token_doc->add_replacement("__LON__",strutils::ftos(min_west_lon,10));
@@ -1550,12 +1546,12 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   e=xdoc.element("dsOverview/restrictions/usage");
   if (!e.name().empty()) {
     token_doc->add_if("__HAS_USAGE_RESTRICTIONS__");
-    token_doc->add_replacement("__USAGE_RESTRICTIONS__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
+    token_doc->add_replacement("__USAGE_RESTRICTIONS__",htmlutils::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   e=xdoc.element("dsOverview/restrictions/access");
   if (!e.name().empty()) {
     token_doc->add_if("__HAS_ACCESS_RESTRICTIONS__");
-    token_doc->add_replacement("__ACCESS_RESTRICTIONS__",summary::convert_html_summary_to_ascii(e.to_string(),32768,0));
+    token_doc->add_replacement("__ACCESS_RESTRICTIONS__",htmlutils::convert_html_summary_to_ascii(e.to_string(),32768,0));
   }
   query.set("select if(primary_size > 999999999,round(primary_size/1000000,0),if(primary_size > 999999,round(primary_size/1000000,2),if(primary_size > 9999,truncate(round(primary_size/10000,0)/100,2),truncate(round(primary_size/100,0)/10000,2)))) from dssdb.dataset where dsid = 'ds"+dsnum+"'");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -1579,8 +1575,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query;
   query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   MySQL::Row row;
@@ -1858,10 +1853,9 @@ void add_frequency(my::map<Entry>& frequency_table,size_t frequency,std::string 
 
 extern "C" void *run_query(void *ts)
 {
-  MySQL::Server tserver;
   PThreadStruct *t=(PThreadStruct *)ts;
 
-  metautils::connect_to_metadata_server(tserver);
+  MySQL::Server tserver(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   t->query.submit(tserver);
   tserver.disconnect();
   return NULL;
@@ -1874,8 +1868,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   ofs << "    \"@context\": \"http://schema.org\"," << std::endl;
   ofs << "    \"@type\": \"Dataset\"," << std::endl;
   ofs << "    \"@id\": \"";
-  MySQL::Server server;
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -1886,7 +1879,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   }
   ofs << "\"," << std::endl;
   ofs << "    \"name\": \"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\"," << std::endl;
-  auto summary=summary::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
+  auto summary=htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
   strutils::replace_all(summary,"\n","\\n");
   ofs << "    \"description\": \"" << strutils::substitute(summary,"\"","\\\"") << "\"," << std::endl;
   auto elist=xdoc.element_list("dsOverview/author");
@@ -2028,7 +2021,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
     ofs << "      \"@type\": \"Place\"," << std::endl;
     ofs << "      \"geo\": {" << std::endl;
     if (min_west_lon < 9999.) {
-	if (myequalf(min_west_lon,max_east_lon) && myequalf(min_south_lat,max_north_lat)) {
+	if (floatutils::myequalf(min_west_lon,max_east_lon) && floatutils::myequalf(min_south_lat,max_north_lat)) {
 	  ofs << "        \"@type\": \"GeoCoordinates\"," << std::endl;
 	  ofs << "        \"latitude\": " << min_south_lat << std::endl;
 	  ofs << "        \"longitude\": " << min_west_lon << std::endl;
@@ -2067,7 +2060,6 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 {
   std::string indent;
   bool found_content_metadata=false;
-  MySQL::Server server;
   MySQL::LocalQuery query;
   MySQL::Row row;
   std::string dsnum2=strutils::substitute(dsnum,".","");
@@ -2078,7 +2070,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   struct stat buf;
 
   temp_dir.create("/tmp");
-  metautils::connect_to_metadata_server(server);
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
   }
@@ -2184,7 +2176,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 	ofs << indent << "  <publicationDate>" << row[0] << "</publicationDate>" << std::endl;
     }
   }
-  auto cmd_databases=metautils::cmd_databases("unknown","unknown","unknown");
+  auto cmd_databases=metautils::cmd_databases("unknown","unknown");
   for (const auto& database : cmd_databases) {
     if (MySQL::table_exists(server,database+".ds"+dsnum2+"_primaries")) {
 	found_content_metadata=true;
@@ -2252,11 +2244,11 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 	ofs << indent << "    <dataType>" << type << "</dataType>" << std::endl;
     }
     std::string format_ref_doc;
-    if (stat((directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-	format_ref_doc=directives.server_root+"/web/metadata/FormatReferences.xml.new";
+    if (stat((meta_directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+	format_ref_doc=meta_directives.server_root+"/web/metadata/FormatReferences.xml.new";
     }
     else {
-	format_ref_doc=remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
+	format_ref_doc=unixutils::remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
     }
     XMLDocument fdoc(format_ref_doc);
     for (const auto& format : format_list) {
@@ -2309,15 +2301,15 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 
 bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server;
   MySQL::LocalQuery query;
   MySQL::Row row;
   std::string indent,title;
   size_t n;
 
-  for (n=0; n < indent_length; n++)
+  for (n=0; n < indent_length; ++n) {
     indent+=" ";
-  metautils::connect_to_metadata_server(server);
+  }
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   ofs << indent << "<catalog xmlns=\"http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0\"" << std::endl;
   ofs << indent << "         xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
   ofs << indent << "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -2342,7 +2334,7 @@ bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
     ofs << indent << "        <contact url=\"https://rda.ucar.edu/\" email=\"dssweb@ucar.edu\" />" << std::endl;
     ofs << indent << "      </publisher>" << std::endl;
     ofs << indent << "      <documentation type=\"summary\">" << std::endl;
-    ofs << indent << "        " << summary::convert_html_summary_to_ascii("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
+    ofs << indent << "        " << htmlutils::convert_html_summary_to_ascii("<summary>"+row[1]+"</summary>",72-indent_length,8+indent_length) << std::endl;
     ofs << indent << "      </documentation>" << std::endl;
     ofs << indent << "    </metadata>" << std::endl;
     ofs << indent << "  </dataset>" << std::endl;
@@ -2411,11 +2403,11 @@ bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_do
   if (std::regex_search(ident,std::regex("^[0-9][0-9][0-9]\\.[0-9]$"))) {
     std::string ds_overview;
     struct stat buf;
-    if (stat((directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
-	ds_overview=directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
+    if (stat((meta_directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
+	ds_overview=meta_directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
     }
     else {
-	ds_overview=remote_web_file("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
+	ds_overview=unixutils::remote_web_file("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
     }
     XMLDocument xdoc(ds_overview);
     if (xdoc.is_open()) {
