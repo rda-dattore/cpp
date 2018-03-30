@@ -501,8 +501,6 @@ void GRIBMessage::append_grid(const Grid *grid)
 
 void GRIBMessage::convert_to_grib1()
 {
-  GRIBGrid *g;
-
   if (grids.size() > 1) {
     myerror="unable to convert multiple grids to GRIB1";
     exit(1);
@@ -511,7 +509,7 @@ void GRIBMessage::convert_to_grib1()
     myerror="no grid found";
     exit(1);
   }
-  g=reinterpret_cast<GRIBGrid *>(grids.front());
+  auto g=reinterpret_cast<GRIBGrid *>(grids.front());
   switch (edition_) {
     case 0:
     {
@@ -4837,13 +4835,7 @@ void GRIBGrid::remap_parameters()
 	delete[] map.lvl2;
 	delete[] map.mult;
     }
-    ifs.open(("/local/dss/share/GRIB/parameter_map."+strutils::itos(grid.src)).c_str());
-    if (!ifs.is_open()) {
-	ifs.open(("/glade/home/dss/share/GRIB/parameter_map."+strutils::itos(grid.src)).c_str());
-	if (!ifs.is_open()) {
-	  ifs.open(("/glade/u/home/rdadata/share/GRIB/parameter_map."+strutils::itos(grid.src)).c_str());
-	}
-    }
+    ifs.open(("/glade/u/home/rdadata/share/GRIB/parameter_map."+strutils::itos(grid.src)).c_str());
     if (ifs.is_open()) {
 	map.param=new short[255];
 	map.level_type=new short[255];
@@ -6231,123 +6223,124 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
   grib.process=0;
   grib.grid_catalog_id=255;
   grid.level2_type=-1;
-  if (source.parameter_name() == " ALB") {
+  auto pname=std::string(source.parameter_name());
+  if (pname == " ALB") {
     grid.param=84;
     grid.level1_type=1;
     grid.level1=0;
   }
-  else if (source.parameter_name() == "  AU") {
+  else if (pname == "  AU") {
     grid.param=33;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (source.parameter_name() == "  AV") {
+  else if (pname == "  AV") {
     grid.param=34;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (source.parameter_name() == "CLDT") {
+  else if (pname == "CLDT") {
     grid.param=71;
     grid.level1_type=200;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == " FSR") {
+  else if (pname == " FSR") {
     grid.param=116;
     grid.level1_type=8;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == " FSS") {
+  else if (pname == " FSS") {
     grid.param=116;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "FLAG") {
+  else if (pname == "FLAG") {
     grid.param=115;
     grid.level1_type=8;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "FSRG") {
+  else if (pname == "FSRG") {
     grid.param=116;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "  GT") {
+  else if (pname == "  GT") {
     grid.param=11;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "  PS") {
+  else if (pname == "  PS") {
     grid.param=2;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == " PHI") {
+  else if (pname == " PHI") {
     grid.param=7;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (source.parameter_name() == " PCP") {
+  else if (pname == " PCP") {
     grid.param=61;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "PMSL") {
+  else if (pname == "PMSL") {
     grid.param=2;
     grid.level1_type=102;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "  SQ") {
+  else if (pname == "  SQ") {
     grid.param=51;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (source.parameter_name() == "  ST") {
+  else if (pname == "  ST") {
     grid.param=11;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (source.parameter_name() == " SNO") {
+  else if (pname == " SNO") {
     grid.param=79;
     grid.level1_type=1;
     grid.level1=0.;
   }
-  else if (source.parameter_name() == "SHUM") {
+  else if (pname == "SHUM") {
     grid.param=51;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (source.parameter_name() == "STMX") {
+  else if (pname == "STMX") {
     grid.param=15;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (source.parameter_name() == "STMN") {
+  else if (pname == "STMN") {
     grid.param=16;
     grid.level1_type=105;
     grid.level1=2.;
   }
-  else if (source.parameter_name() == "SWMX") {
+  else if (pname == "SWMX") {
     grid.param=32;
     grid.level1_type=105;
     grid.level1=10.;
   }
-  else if (source.parameter_name() == "TEMP") {
+  else if (pname == "TEMP") {
     grid.param=11;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (source.parameter_name() == "   U") {
+  else if (pname == "   U") {
     grid.param=33;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
-  else if (source.parameter_name() == "   V") {
+  else if (pname == "   V") {
     grid.param=34;
     grid.level1_type=100;
     grid.level1=source.first_level_value();
   }
   else {
-    myerror="unable to convert parameter "+std::string(source.parameter_name());
+    myerror="unable to convert parameter "+pname;
     exit(1);
   }
   grid.level2=0.;

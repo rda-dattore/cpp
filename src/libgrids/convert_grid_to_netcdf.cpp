@@ -490,7 +490,8 @@ void scan_latitudes(const Grid *source_grid,float **latrange,float **latnonrec,G
     }
   }
   else if (source_grid->definition().type == Grid::gaussianLatitudeLongitudeType) {
-    ifs.open((source_grid->path_to_gauslat_lists+"/gauslats."+strutils::itos(source_grid->definition().num_circles)).c_str());
+    ifs.open((source_grid->path_to_gaussian_latitude_data()+"/gauslats."+strutils::itos(source_grid->definition().num_circles)).c_str());
+    if (!ifs.is_open()) {
 	std::cerr << "Error: unable to open gauslats." << source_grid->definition().num_circles << std::endl;
 	exit(1);
     }
@@ -1013,7 +1014,7 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
 	}
     }
   }
-  grid->set_path_to_gauslat_lists(grid_data.path_to_gauslat_lists);
+  grid->set_path_to_gaussian_latitude_data(grid_data.path_to_gauslat_lists);
   scan_latitudes(grid,&latrange,&latnonrec,grid_data.subset_definition);
   ostream.add_dimension("lat",grid_data.subset_definition.num_y);
   scan_longitudes(grid,&lonrange,&lonnonrec,grid_data.subset_definition);
@@ -1297,7 +1298,7 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
   }
 }
 
-int convert_grid_to_netcdf(const Grid *source_grid,size_t format,OutputNetCDFStream *ostream,gridToNetCDF::GridData& grid_data,std::string path_to_level_map)
+int convert_grid_to_netcdf(Grid *source_grid,size_t format,OutputNetCDFStream *ostream,gridToNetCDF::GridData& grid_data,std::string path_to_level_map)
 {
   std::ifstream ifs;
   std::vector<netCDFStream::Variable> vars;
@@ -1596,7 +1597,7 @@ gridpoints.resize(2397,netCDFStream::NcType::FLOAT);
 // add dimensions
 	  ostream->add_dimension("time",0);
 	  if (source_grid->definition().type == Grid::latitudeLongitudeType || source_grid->definition().type == Grid::gaussianLatitudeLongitudeType) {
-	    source_grid->set_path_to_gauslat_lists(grid_data.path_to_gauslat_lists);
+	    source_grid->set_path_to_gaussian_latitude_data(grid_data.path_to_gauslat_lists);
 	    scan_latitudes(source_grid,&latrange,&latnonrec,grid_data.subset_definition);
 	    ostream->add_dimension("lat",grid_data.subset_definition.num_y);
 	    grid_data.subset_definition.crosses_greenwich=false;
