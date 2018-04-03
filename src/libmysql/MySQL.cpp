@@ -91,7 +91,7 @@ void Row::check_alloc(size_t length)
 
 int Server::command(std::string command,std::string& result)
 {
-  mysql_query(&mysql,command.c_str());
+  mysql_real_query(&mysql,command.c_str(),command.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -164,7 +164,7 @@ int Server::_delete(std::string absolute_table,std::string where_conditions)
   if (!where_conditions.empty()) {
     s+=" where "+where_conditions+";";
   }
-  mysql_query(&mysql,s.c_str());
+  mysql_real_query(&mysql,s.c_str(),s.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -206,7 +206,7 @@ int Server::insert(const std::string& absolute_table,const std::string& row_spec
     insert_string+=" on duplicate key "+on_duplicate_key;
   }
   insert_string+=";";
-  mysql_query(&mysql,insert_string.c_str());
+  mysql_real_query(&mysql,insert_string.c_str(),insert_string.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -233,7 +233,7 @@ int Server::insert(const std::string& absolute_table,std::list<std::string>& row
 	  insert_string+=" on duplicate key "+on_duplicate_key;
 	}
 	insert_string+=";";
-	mysql_query(&mysql,insert_string.c_str());
+	mysql_real_query(&mysql,insert_string.c_str(),insert_string.length());
 	_error="";
 	if (mysql_errno(&mysql) > 0) {
 	  _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -254,7 +254,7 @@ int Server::insert(const std::string& absolute_table,std::list<std::string>& row
 	insert_string+=" on duplicate key "+on_duplicate_key;
     }
     insert_string+=";";
-    mysql_query(&mysql,insert_string.c_str());
+    mysql_real_query(&mysql,insert_string.c_str(),insert_string.length());
     _error="";
     if (mysql_errno(&mysql) > 0) {
 	_error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -273,7 +273,7 @@ int Server::insert(const std::string& absolute_table,const std::string& column_l
     insert_string+=" on duplicate key "+on_duplicate_key;
   }
   insert_string+=";";
-  mysql_query(&mysql,insert_string.c_str());
+  mysql_real_query(&mysql,insert_string.c_str(),insert_string.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -318,7 +318,7 @@ int Server::update(std::string absolute_table,std::string column_name_value_pair
     update_string+=" where "+where_conditions;
   }
   update_string+=";";
-  mysql_query(&mysql,update_string.c_str());
+  mysql_real_query(&mysql,update_string.c_str(),update_string.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -344,7 +344,7 @@ int Server::update(std::string absolute_table,std::list<std::string>& column_nam
     update_string+=" where "+where_conditions;
   }
   update_string+=";";
-  mysql_query(&mysql,update_string.c_str());
+  mysql_real_query(&mysql,update_string.c_str(),update_string.length());
   _error="";
   if (mysql_errno(&mysql) > 0) {
     _error=mysql_error(&mysql)+std::string(" - errno: ")+strutils::itos(mysql_errno(&mysql));
@@ -408,11 +408,11 @@ int Query::submit(Server& server)
     RESULT.reset(nullptr);
   }
   _thread_id=mysql_thread_id(server.handle());
-  mysql_query(server.handle(),query.c_str());
+  mysql_real_query(server.handle(),query.c_str(),query.length());
   _error="";
   size_t num_tries=0;
   while (mysql_errno(server.handle()) == 1205 && num_tries < 3) {
-    mysql_query(server.handle(),query.c_str());
+    mysql_real_query(server.handle(),query.c_str(),query.length());
     ++num_tries;
   }
   if (mysql_errno(server.handle()) > 0) {
@@ -490,7 +490,7 @@ int LocalQuery::explain(Server& server)
   _error="";
   size_t num_tries=0;
   while (mysql_errno(server.handle()) == 1205 && num_tries < 3) {
-    mysql_query(server.handle(),query.c_str());
+    mysql_real_query(server.handle(),query.c_str(),query.length());
     ++num_tries;
   }
   if (mysql_errno(server.handle()) > 0)
@@ -515,15 +515,16 @@ int LocalQuery::submit(Server& server)
     _num_rows=num_fields=0;
   }
   _thread_id=mysql_thread_id(server.handle());
-  mysql_query(server.handle(),query.c_str());
+  mysql_real_query(server.handle(),query.c_str(),query.length());
   _error="";
   size_t num_tries=0;
   while (mysql_errno(server.handle()) == 1205 && num_tries < 3) {
-    mysql_query(server.handle(),query.c_str());
+    mysql_real_query(server.handle(),query.c_str(),query.length());
     ++num_tries;
   }
-  if (mysql_errno(server.handle()) > 0)
+  if (mysql_errno(server.handle()) > 0) {
     _error=mysql_error(server.handle())+std::string(" - errno: ")+strutils::itos(mysql_errno(server.handle()));
+  }
   if (!_error.empty()) {
     return -1;
   }
