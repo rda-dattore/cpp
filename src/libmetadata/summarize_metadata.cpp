@@ -282,7 +282,7 @@ void summarize_dates(std::string caller,std::string user)
   dssdb_server.disconnect();
 }
 
-bool inserted_time_resolution_keyword(MySQL::Server server,std::string database,std::string keyword,std::string& error)
+bool inserted_time_resolution_keyword(MySQL::Server& server,std::string database,std::string keyword,std::string& error)
 {
   if (server.insert("search.time_resolutions","'"+keyword+"','GCMD','"+meta_args.dsnum+"','"+database+"'") < 0) {
     error=server.error();
@@ -370,7 +370,8 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
   size_t nsteps,single_nsteps=0;
   int num;
   DateTime d1,d2;
-  my::map<Entry> tr_table,tr_keyword_table,fe_table,sn_table(999999);
+  my::map<Entry> tr_table,sn_table(999999);
+  std::unordered_set<std::string> tr_keyword_set,frequencies_set;
   Entry e,e2;
 
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
@@ -420,12 +421,11 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 		}
 	    }
 	    if (!keyword.empty()) {
-		e2.key=keyword;
-		if (!tr_keyword_table.found(e2.key,e2)) {
-		  tr_keyword_table.insert(e2);
+		if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+		  tr_keyword_set.emplace(keyword);
 		}
-		if (!fe_table.found(e.key,e)) {
-		  fe_table.insert(e);
+		if (frequencies_set.find(e.key) == frequencies_set.end()) {
+		  frequencies_set.emplace(e.key);
 		}
 	    }
 	    else {
@@ -468,15 +468,14 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 		  grids_per(nsteps,d1,d2,gridsper,unit);
 		  if (gridsper > 0.) {
 		    if (unit != "singletimestep") {
-			e.key="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
-			if (!fe_table.found(e.key,e)) {
-			  fe_table.insert(e);
+			auto freq_s="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
+			if (frequencies_set.find(freq_s) == frequencies_set.end()) {
+			  frequencies_set.emplace(freq_s);
 			}
 			keyword=searchutils::time_resolution_keyword("irregular",lround(gridsper),unit,"");
 			if (!keyword.empty()) {
-			  e2.key=keyword;
-			  if (!tr_keyword_table.found(e2.key,e2)) {
-			    tr_keyword_table.insert(e2);
+			  if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+			    tr_keyword_set.emplace(keyword);
 			  }
 			}
 		    }
@@ -486,15 +485,14 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 		grids_per(nsteps,d1,d2,gridsper,unit);
 		if (gridsper > 0.) {
 		  if (unit != "singletimestep") {
-		    e.key="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
-		    if (!fe_table.found(e.key,e)) {
-			fe_table.insert(e);
+		    auto freq_s="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
+		    if (frequencies_set.find(freq_s) == frequencies_set.end()) {
+			frequencies_set.emplace(freq_s);
 		    }
 		    keyword=searchutils::time_resolution_keyword("irregular",lround(gridsper),unit,"");
 		    if (!keyword.empty()) {
-			e2.key=keyword;
-			if (!tr_keyword_table.found(e2.key,e2)) {
-			  tr_keyword_table.insert(e2);
+			if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+			  tr_keyword_set.emplace(keyword);
 			}
 		    }
 		  }
@@ -536,15 +534,14 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 	  grids_per(single_nsteps,DateTime(std::stoll(min_start)),DateTime(std::stoll(max_end)),gridsper,unit);
 	  if (gridsper > 0.) {
 	    if (!unit.empty() && unit != "singletimestep") {
-		e.key="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
-		if (!fe_table.found(e.key,e)) {
-		  fe_table.insert(e);
+		auto freq_s="irregular<!>"+strutils::itos(lround(gridsper))+"<!>"+unit;
+		if (frequencies_set.find(freq_s) == frequencies_set.end()) {
+		  frequencies_set.emplace(freq_s);
 		}
 		keyword=searchutils::time_resolution_keyword("irregular",lround(gridsper),unit,"");
 		if (!keyword.empty()) {
-		  e2.key=keyword;
-		  if (!tr_keyword_table.found(e2.key,e2)) {
-		    tr_keyword_table.insert(e2);
+		  if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+		    tr_keyword_set.emplace(keyword);
 		  }
 		}
 	    }
@@ -559,9 +556,8 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 	else {
 	  server._delete("GrML.ds"+dsnum2+"_frequencies","mssID_code = "+mssID_code);
 	}
-	for (const auto& key : fe_table.keys()) {
-	  fe_table.found(key,e);
-	  auto sp=strutils::split(e.key,"<!>");
+	for (const auto& freq_s : frequencies_set) {
+	  auto sp=strutils::split(freq_s,"<!>");
 	  if (server.insert("GrML.frequencies","'"+meta_args.dsnum+"',"+sp[1]+",'"+sp[2]+"'") < 0) {
 	    error=server.error();
 	    if (!strutils::contains(error,"Duplicate entry")) {
@@ -587,23 +583,22 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 	  }
 	  keyword=searchutils::time_resolution_keyword(row[0],std::stoi(row[1]),row[2],"");
 	  if (!keyword.empty()) {
-	    e2.key=keyword;
-	    if (!tr_keyword_table.found(e2.key,e2)) {
-		tr_keyword_table.insert(e2);
+	    if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+		tr_keyword_set.emplace(keyword);
 	    }
 	  }
 	}
     }
     server._delete("search.time_resolutions","dsid = '"+meta_args.dsnum+"' and origin = 'GrML'");
   }
-  for (const auto& key : tr_keyword_table.keys()) {
+  for (const auto& keyword : tr_keyword_set) {
     std::string error;
-    if (!inserted_time_resolution_keyword(server,"GrML",key,error)) {
+    if (!inserted_time_resolution_keyword(server,"GrML",keyword,error)) {
 	metautils::log_error("summarize_frequencies(): "+error,caller,user);
     }
   }
 // summarize from ObML
-  tr_keyword_table.clear();
+  tr_keyword_set.clear();
   query.set("select min(min_obs_per),max(max_obs_per),unit from ObML.ds"+dsnum2+"_frequencies group by unit");
   if (query.submit(server) == 0) {
     if (mssID_code.empty())
@@ -620,9 +615,9 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 	else {
 	  timeRange="irregular";
 	}
-	e2.key=searchutils::time_resolution_keyword(timeRange,num,unit,"");
-	if (!tr_keyword_table.found(e2.key,e2)) {
-	  tr_keyword_table.insert(e2);
+	auto keyword=searchutils::time_resolution_keyword(timeRange,num,unit,"");
+	if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+	  tr_keyword_set.emplace(keyword);
 	}
 	num=std::stoi(row[1]);
 	unit=row[2];
@@ -635,14 +630,14 @@ void summarize_frequencies(std::string caller,std::string user,std::string mssID
 	else {
 	  timeRange="irregular";
 	}
-	e2.key=searchutils::time_resolution_keyword(timeRange,num,unit,"");
-	if (!tr_keyword_table.found(e2.key,e2)) {
-	  tr_keyword_table.insert(e2);
+	keyword=searchutils::time_resolution_keyword(timeRange,num,unit,"");
+	if (tr_keyword_set.find(keyword) == tr_keyword_set.end()) {
+	  tr_keyword_set.emplace(keyword);
 	}
     }
-    for (const auto& key : tr_keyword_table.keys()) {
+    for (const auto& keyword : tr_keyword_set) {
 	std::string error;
-	if (!inserted_time_resolution_keyword(server,"GrML",key,error)) {
+	if (!inserted_time_resolution_keyword(server,"GrML",keyword,error)) {
 	  metautils::log_error("summarize_frequencies(): "+error,caller,user);
       }
     }
