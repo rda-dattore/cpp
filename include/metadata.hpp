@@ -1,35 +1,35 @@
-#ifndef META_H
-#define   META_H
+#ifndef METADATA_H
+#define   METADATA_H
 
-#include <iostream>
 #include <vector>
+#include <list>
 #include <mymap.hpp>
 #include <grid.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
 #include <tempfile.hpp>
-#include <observation.hpp>
+#include <MySQL.hpp>
 #include <satellite.hpp>
+#include <datetime.hpp>
 #include <tokendoc.hpp>
 
 namespace metautils {
 
 struct Directives {
-  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),rdadb_username(),rdadb_password(),metadb_username(),metadb_password(),metadata_manager(),server_root(),dss_root(),local_root(),dss_bindir() {}
+  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),rdadb_username(),rdadb_password(),metadb_username(),metadb_password(),metadata_manager(),server_root(),dss_root(),local_root(),dss_bindir(),rdadata_home(),parameter_map_path(),level_map_path() {}
 
   std::string temp_path,data_root,data_root_alias;
   std::string host,web_server,database_server,rdadb_username,rdadb_password,metadb_username,metadb_password;
   std::string metadata_manager;
   std::string server_root,dss_root,local_root;
-  std::string dss_bindir;
+  std::string dss_bindir,rdadata_home,parameter_map_path,level_map_path;
 };
 struct Args {
-  Args() : args_string(),dsnum(),format(),reg_key(),path(),filename(),local_name(),member_name(),temp_loc(),update_DB(false),update_summary(false),override_primary_check(false),overwrite_only(false),regenerate(false),update_graphics(false),inventory_only(false) {}
+  Args() : args_string(),dsnum(),data_format(),reg_key(),path(),filename(),local_name(),member_name(),temp_loc(),update_db(false),update_summary(false),override_primary_check(false),overwrite_only(false),regenerate(false),update_graphics(false),inventory_only(false) {}
 
   std::string args_string,dsnum;
-  std::string format,reg_key;
+  std::string data_format,reg_key;
   std::string path,filename,local_name,member_name,temp_loc;
-  bool update_DB,update_summary,override_primary_check,overwrite_only,regenerate;
+  bool update_db,update_summary,override_primary_check,overwrite_only,regenerate;
   bool update_graphics,inventory_only;
 };
 struct StringEntry {
@@ -52,12 +52,12 @@ struct InformationEntry {
 };
 struct GrMLQueryStruct {
   struct Lists {
-    Lists() : parameter_codes(nullptr),level_codes(nullptr),gindexes(nullptr),file_IDs(nullptr),parameters(nullptr),levels(nullptr),formats(nullptr),products(nullptr),grid_definitions(nullptr),processes(nullptr) {}
+    Lists() : parameter_codes(nullptr),level_codes(nullptr),gindexes(nullptr),file_IDs(nullptr),parameters(nullptr),levels(nullptr),data_formats(nullptr),products(nullptr),grid_definitions(nullptr),processes(nullptr) {}
 
     std::list<std::string> *parameter_codes,*level_codes;
     std::list<std::string> *gindexes,*file_IDs;
     std::list<std::string> *parameters,*levels;
-    std::list<InformationEntry> *formats,*products,*grid_definitions,*processes;
+    std::list<InformationEntry> *data_formats,*products,*grid_definitions,*processes;
   };
   struct Tables {
     Tables() : level_codes(nullptr),parameters(nullptr),levels(nullptr) {}
@@ -66,9 +66,9 @@ struct GrMLQueryStruct {
     my::map<InformationEntry> *parameters,*levels;
   };
   struct Hashes {
-    Hashes() : levels(nullptr),products(nullptr),grid_definitions(nullptr),formats(nullptr),groups(nullptr),rda_files(nullptr),metadata_files(nullptr) {}
+    Hashes() : levels(nullptr),products(nullptr),grid_definitions(nullptr),data_formats(nullptr),groups(nullptr),rda_files(nullptr),metadata_files(nullptr) {}
 
-    my::map<InformationEntry> *levels,*products,*grid_definitions,*formats,*groups;
+    my::map<InformationEntry> *levels,*products,*grid_definitions,*data_formats,*groups;
     my::map<InformationEntry> *rda_files,*metadata_files;
   };
 
@@ -87,11 +87,11 @@ struct GrMLQueryStruct {
     else {
 	lists.levels->clear();
     }
-    if (lists.formats == nullptr) {
-	lists.formats=new std::list<InformationEntry>;
+    if (lists.data_formats == nullptr) {
+	lists.data_formats=new std::list<InformationEntry>;
     }
     else {
-	lists.formats->clear();
+	lists.data_formats->clear();
     }
     if (lists.products == nullptr) {
 	lists.products=new std::list<InformationEntry>;
@@ -220,40 +220,51 @@ struct LevelInfo {
   std::vector<unsigned char> write;
 };
 
-std::string write_level_map(std::string dsnum,const LevelInfo& level_info);
+std::string write_level_map(const LevelInfo& level_info);
 
 } // end namespace NcLevel
 
 namespace NcParameter {
 
-std::string write_parameter_map(std::string dsnum,std::list<std::string>& varlist,my::map<metautils::StringEntry>& var_changes_table,std::string map_type,std::string map_name,bool found_map,std::string& warning);
+std::string write_parameter_map(std::list<std::string>& varlist,my::map<metautils::StringEntry>& var_changes_table,std::string map_type,std::string map_name,bool found_map,std::string& warning);
 
 } // end namespace NcParameter
 
 namespace CF {
 
-extern void fill_NC_time_data(std::string units_attribute_value,NcTime::TimeData& time_data,std::string user);
+extern void fill_nc_time_data(std::string units_attribute_value,NcTime::TimeData& time_data,std::string user);
 
 } // end namespace CF
+
+namespace primaryMetadata {
+
+extern void match_web_file_to_hpss_primary(std::string url,std::string& metadata_file);
+
+extern bool expand_file(std::string dirname,std::string filename,std::string *file_format);
+extern bool open_file_for_metadata_scanning(void *istream,std::string filename,std::string& error);
+extern bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<std::string> *filelist,std::string& file_format,std::string& error);
+
+} // end namespace primaryMetadata
 
 const std::string tmpdir="/tmp";
 
 extern "C" void cmd_unregister();
 
-extern void check_for_existing_CMD(std::string cmd_type);
+extern void check_for_existing_cmd(std::string cmd_type);
 extern void clean_parameter_code(std::string& parameter_code,std::string& parameter_map);
 extern void cmd_register(std::string cmd,std::string user);
-extern void log_error(std::string error,std::string caller,std::string user,std::string args_string,bool no_exit = false);
-extern void log_info(std::string message,std::string caller,std::string user,std::string args_string);
-extern void log_warning(std::string warning,std::string caller,std::string user,std::string args_string);
+extern void log_error(std::string error,std::string caller,std::string user,bool no_exit = false);
+extern void log_info(std::string message,std::string caller,std::string user);
+extern void log_warning(std::string warning,std::string caller,std::string user);
 extern void obs_per(std::string observation_type_value,size_t num_obs,DateTime start,DateTime end,double& obsper,std::string& unit);
-extern void read_config(std::string caller,std::string user,std::string args_string,bool restrict_to_user_rdadata = true);
 
 extern std::string clean_id(std::string id);
 extern std::string relative_web_filename(std::string url);
 extern std::string web_home();
 
-extern std::list<std::string> cmd_databases(std::string caller,std::string user,std::string args);
+extern std::list<std::string> cmd_databases(std::string caller,std::string user);
+
+extern bool read_config(std::string caller,std::string user,std::string args_string,bool restrict_to_user_rdadata = true);
 
 } // end namespace metautils
 
@@ -316,10 +327,10 @@ struct CMDDateRange {
   std::string gindex;
 };
 struct FileEntry {
-  FileEntry() : key(),backup_name(),format(),units(),metafile_ID(),mod_time(),start(),end(),file_format(),data_size(),group_ID(),annotation(),inv() {}
+  FileEntry() : key(),backup_name(),data_format(),units(),metafile_ID(),mod_time(),start(),end(),file_format(),data_size(),group_ID(),annotation(),inv() {}
 
   std::string key;
-  std::string backup_name,format,units,metafile_ID,mod_time;
+  std::string backup_name,data_format,units,metafile_ID,mod_time;
   std::string start,end;
   std::string file_format,data_size;
   std::string group_ID,annotation,inv;
@@ -342,15 +353,14 @@ struct ParameterEntry {
 extern std::string string_date_to_ll_string(std::string date);
 extern std::string string_ll_to_date_string(std::string ll_date);
 extern std::string set_date_time_string(std::string datetime,std::string flag,std::string time_zone,std::string time_prefix = " ");
-extern std::string summarize_locations(std::string database,std::string dsnum);
+extern std::string summarize_locations(std::string database);
 
-extern void create_file_list_cache(std::string file_type,std::string caller,std::string user,std::string args_string,std::string gindex = "");
-extern void create_non_CMD_file_list_cache(std::string file_type,my::map<Entry>& files_with_CMD_table,std::string caller,std::string user,std::string args_string);
+extern void create_file_list_cache(std::string file_type,std::string caller,std::string user,std::string gindex = "");
+extern void create_non_cmd_file_list_cache(std::string file_type,my::map<Entry>& files_with_cmd_table,std::string caller,std::string user);
 extern void grids_per(size_t nsteps,DateTime start,DateTime end,double& gridsper,std::string& unit);
-extern void insert_time_resolution_keyword(MySQL::Server& server,std::string database,std::string keyword,std::string dsnum);
-extern void summarize_dates(std::string dsnum,std::string caller,std::string user,std::string args_string);
-extern void summarize_frequencies(std::string dsnum,std::string caller,std::string user,std::string args_string,std::string mss_ID_code = "");
-extern void summarize_formats(std::string dsnum,std::string caller,std::string user,std::string args_string);
+extern void summarize_data_formats(std::string caller,std::string user);
+extern void summarize_dates(std::string caller,std::string user);
+extern void summarize_frequencies(std::string caller,std::string user,std::string mss_ID_code = "");
 
 namespace gridLevels {
 
@@ -360,7 +370,7 @@ struct LevelEntry {
   std::string key;
 };
 
-void summarize_grid_levels(std::string dsnum,std::string database,std::string caller,std::string user,std::string args);
+void summarize_grid_levels(std::string database,std::string caller,std::string user);
 
 } // end namespace summarizeMetadata::gridLevels
 
@@ -396,9 +406,9 @@ struct GridDefinitionEntry {
   std::string definition,def_params;
 };
 
-extern void aggregate_grids(std::string dsnum,std::string database,std::string caller,std::string user,std::string args,std::string file_ID_code = "");
-extern void summarize_grids(std::string dsnum,std::string database,std::string caller,std::string user,std::string args,std::string file_ID_code = "");
-extern void summarize_grid_resolutions(std::string dsnum,std::string caller,std::string user,std::string args,std::string mss_ID_code = "");
+extern void aggregate_grids(std::string database,std::string caller,std::string user,std::string file_ID_code = "");
+extern void summarize_grids(std::string database,std::string caller,std::string user,std::string file_ID_code = "");
+extern void summarize_grid_resolutions(std::string caller,std::string user,std::string mss_ID_code = "");
 
 extern bool compare_values(const size_t& left,const size_t& right);
 
@@ -435,15 +445,15 @@ struct PointEntry {
 };
 
 extern void check_point(double latp,double lonp,MySQL::Server& server,my::map<Entry>& location_table);
-extern void compress_locations(std::list<std::string>& location_list,my::map<ParentLocation>& parent_location_table,std::vector<std::string>& sorted_array,std::string caller,std::string user,std::string args);
+extern void compress_locations(std::list<std::string>& location_list,my::map<ParentLocation>& parent_location_table,std::vector<std::string>& sorted_array,std::string caller,std::string user);
 
-extern bool summarize_obs_data(std::string dsnum,std::string caller,std::string user,std::string args);
+extern bool summarize_obs_data(std::string caller,std::string user);
 
 } // end namespace summarizeMetadata::obsData
 
 namespace fixData {
 
-void summarize_fix_data(std::string dsnum,std::string caller,std::string user,std::string args);
+void summarize_fix_data(std::string caller,std::string user);
 
 } // end namespace summarizeMetadata::fixData
 
@@ -511,8 +521,8 @@ struct ParameterTableEntry {
 };
 
 extern void add_to_formats(XMLDocument& xdoc,MySQL::Query& query,std::list<std::string>& format_list,std::string& formats);
-extern void generate_detailed_metadata_view(std::string dsnum,std::string caller,std::string user,std::string args);
-extern void generate_group_detailed_metadata_view(std::string dsnum,std::string group_index,std::string file_type,std::string caller,std::string user,std::string args);
+extern void generate_detailed_metadata_view(std::string caller,std::string user);
+extern void generate_group_detailed_metadata_view(std::string group_index,std::string file_type,std::string caller,std::string user);
 
 } // end namespace summarizeMetadata::detailedMetadata
 
@@ -560,8 +570,8 @@ struct GridEntry {
   my::map<metautils::StringEntry> process_table,ensemble_table;
 };
 
-extern void copy_GrML(std::string metadata_file,std::string URL,std::string caller,std::string user);
-extern void write_GrML(my::map<GridEntry>& grid_table,std::string caller,std::string user);
+extern void copy_grml(std::string metadata_file,std::string URL,std::string caller,std::string user);
+extern void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string user);
 
 extern int compare_grid_table_keys(const std::string& left,const std::string& right);
 
@@ -629,8 +639,8 @@ struct PlatformEntry {
 
 extern "C" int list_ancillary_ObML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
 
-extern void copy_ObML(std::string metadata_file,std::string URL,std::string caller,std::string user);
-extern void write_ObML(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_table,std::string caller,std::string user);
+extern void copy_obml(std::string metadata_file,std::string URL,std::string caller,std::string user);
+extern void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_table,std::string caller,std::string user);
 
 extern std::string string_coordinate_to_db(std::string coordinate_value);
 
@@ -672,7 +682,7 @@ struct ImageEntry {
   std::list<Image> image_list;
 };
 
-extern void write_SatML(my::map<ScanLineEntry>& scan_line_table,std::list<std::string>& scan_line_table_keys,my::map<ImageEntry>& image_table,std::list<std::string>& image_table_keys,std::string caller,std::string user);
+extern void write_satml(my::map<ScanLineEntry>& scan_line_table,std::list<std::string>& scan_line_table_keys,my::map<ImageEntry>& image_table,std::list<std::string>& image_table_keys,std::string caller,std::string user);
 
 } // end namespace metadata::SatML
 
@@ -717,31 +727,12 @@ struct StageEntry {
 
 extern "C" int list_ancillary_FixML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
 
-extern void copy_FixML(std::string metadata_file,std::string URL,std::string caller,std::string user);
-extern void write_FixML(my::map<FeatureEntry>& feature_table,my::map<StageEntry>& stage_table,std::string caller,std::string user);
+extern void copy_fixml(std::string metadata_file,std::string URL,std::string caller,std::string user);
+extern void write_fixml(my::map<FeatureEntry>& feature_table,my::map<StageEntry>& stage_table,std::string caller,std::string user);
 
 } // end namespace metadata::FixML
 
-extern std::string detailed_datatype(xmlutils::DataTypeMapper& data_type_mapper,const std::string& format,const std::string& code,std::string caller,std::string user,std::string args);
-extern std::string detailed_level(xmlutils::LevelMapper& level_mapper,const std::string& format,const std::string& map,const std::string& type,const std::string& value,bool htmlify_units,std::string caller = "",std::string user = "",std::string args = "");
-extern std::string detailed_parameter(xmlutils::ParameterMapper& parameter_mapper,const std::string& format,const std::string& code,std::string caller = "",std::string user = "",std::string args = "");
-
-extern bool compare_grid_definitions(const std::string& left,const std::string& right);
-extern bool compare_levels(const std::string& left,const std::string& right);
-extern bool compare_time_ranges(const std::string& left,const std::string& right);
-extern bool default_compare(const std::string& left,const std::string& right);
-
 } // end namespace metadata
-
-namespace primaryMetadata {
-
-extern void match_web_file_to_MSS_primary(std::string URL,std::string& metadata_file);
-
-extern bool check_file(std::string dirname,std::string filename,std::string *file_format);
-extern bool open_file_for_metadata_scanning(void *istream,std::string filename,std::string& error);
-extern bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<std::string> *filelist,std::string& file_format,std::string& error);
-
-} // end namespace primaryMetadata
 
 namespace metadataExport {
 
@@ -771,35 +762,5 @@ extern bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xd
 extern bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 
 } // end namespace metadataExport
-
-namespace html {
-
-struct Node {
-  Node() : copy(),value(),node_list() {}
-
-  std::string copy,value;
-  std::vector<Node> node_list;
-};
-
-extern void wrap(std::string& string,std::string fill,size_t chars);
-extern void nodes(std::string string,std::vector<Node>& nodes);
-extern void process_node(Node& node,size_t wrap_length);
-extern std::string html_text_to_ASCII(std::string& element_copy,size_t wrap_length);
-
-} // end namespace html
-
-namespace metatranslations {
-
-extern void decode_grid_definition_parameters(std::string definition,std::string def_params,Grid::GridDimensions& grid_dim,Grid::GridDefinition& grid_def);
-
-extern std::string convert_grid_definition(std::string d,XMLElement e);
-extern std::string convert_meta_format_to_link(std::string format);
-extern std::string convert_meta_grid_definition(std::string grid_definition,std::string definition_parameters,const char *separator);
-extern std::string convert_meta_parameter_map(std::string format,std::string map,bool verbose_output);
-extern std::string translate_platform(std::string definition);
-
-extern bool fill_spatial_domain_from_grid_definition(std::string definition,std::string center,double& west_lon,double& south_lat,double& east_lon,double& north_lat);
-
-} // end namespace metatranslations
 
 #endif

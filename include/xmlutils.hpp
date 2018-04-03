@@ -190,77 +190,89 @@ struct GridMapEntry {
 class ParameterMapper
 {
 public:
-  ParameterMapper() : parameter_map_table(new my::map<ParameterMapEntry>(99999)) {}
-  ParameterMapper(const ParameterMapper& source) : ParameterMapper() { *this=source; }
+  ParameterMapper() = delete;
+  ParameterMapper(std::string path_to_map) : _path_to_map(),parameter_map_table(new my::map<ParameterMapEntry>(99999)) { _path_to_map=path_to_map; }
+  ParameterMapper(const ParameterMapper& source) : ParameterMapper("") { *this=source; }
   ~ParameterMapper() { delete parameter_map_table; }
   ParameterMapper& operator=(const ParameterMapper& source) {
     if (this != &source) {
+	_path_to_map=source._path_to_map;
 	*parameter_map_table=*source.parameter_map_table;
     }
     return *this;
   }
-  std::string cf_keyword(std::string format,std::string parameter_code,std::string level_type = "");
-  std::string comment(std::string format,std::string parameter_code);
-  std::string description(std::string format,std::string parameter_code);
+  std::string cf_keyword(std::string data_format,std::string parameter_code,std::string level_type = "");
+  std::string comment(std::string data_format,std::string parameter_code);
+  std::string description(std::string data_format,std::string parameter_code);
   size_t size() const { return parameter_map_table->size(); }
-  std::string long_name(std::string format,std::string parameter_code);
-  std::string short_name(std::string format,std::string parameter_code);
-  std::string standard_name(std::string format,std::string parameter_code);
-  std::string title(std::string format,std::string parameter_map = "");
-  std::string units(std::string format,std::string parameter_code);
+  std::string long_name(std::string data_format,std::string parameter_code);
+  void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
+  std::string short_name(std::string data_format,std::string parameter_code);
+  std::string standard_name(std::string data_format,std::string parameter_code);
+  std::string title(std::string data_format,std::string format_specialization = "");
+  std::string units(std::string data_format,std::string parameter_code);
 
 private:
-  ParameterMapEntry entry(std::string format,std::string parameter_map);
+  ParameterMapEntry entry(std::string data_format,std::string format_specialization);
 
+  std::string _path_to_map;
   my::map<ParameterMapEntry> *parameter_map_table;
 };
 
 class LevelMapper
 {
 public:
-  LevelMapper() : level_map_table(new my::map<LevelMapEntry>(99999)) {}
-  LevelMapper(const LevelMapper& source) : LevelMapper() { *this=source; }
+  LevelMapper() = delete;
+  LevelMapper(std::string path_to_map) : _path_to_map(),level_map_table(new my::map<LevelMapEntry>(99999)) { _path_to_map=path_to_map; }
+  LevelMapper(const LevelMapper& source) : LevelMapper("") { *this=source; }
   ~LevelMapper() { delete level_map_table; }
   LevelMapper& operator=(const LevelMapper& source) {
     if (this != &source) {
+	_path_to_map=source._path_to_map;
 	*level_map_table=*source.level_map_table;
     }
     return *this;
   }
-  std::string description(std::string format,std::string level_type,std::string level_map = "");
-  std::string short_name(std::string format,std::string level_type,std::string level_map);
-  std::string units(std::string format,std::string level_type,std::string level_map = "");
-  int level_is_a_layer(std::string format,std::string level_type,std::string level_map);
+  std::string description(std::string data_format,std::string level_type,std::string format_specialization = "");
+  int level_is_a_layer(std::string data_format,std::string level_type,std::string format_specialization = "");
+  void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
+  std::string short_name(std::string data_format,std::string level_type,std::string format_specialization = "");
+  std::string units(std::string data_format,std::string level_type,std::string format_specialization = "");
 
 private:
-  LevelMapEntry entry(std::string format,std::string level_type,std::string level_map);
+  LevelMapEntry entry(std::string data_format,std::string format_specialization);
 
+  std::string _path_to_map;
   my::map<LevelMapEntry> *level_map_table;
 };
 
 class DataTypeMapper
 {
 public:
-  DataTypeMapper() : datatype_map_table(new my::map<DataTypeMapEntry>(99999)) {}
-  DataTypeMapper(const DataTypeMapper& source) : DataTypeMapper() { *this=source; }
+  DataTypeMapper() = delete;
+  DataTypeMapper(std::string path_to_map) : _path_to_map(),datatype_map_table(new my::map<DataTypeMapEntry>(99999)) { _path_to_map=path_to_map; }
+  DataTypeMapper(const DataTypeMapper& source) : DataTypeMapper("") { *this=source; }
   ~DataTypeMapper() { delete datatype_map_table; }
   DataTypeMapper& operator=(const DataTypeMapper& source) {
     if (this != &source) {
+	_path_to_map=source._path_to_map;
 	*datatype_map_table=*source.datatype_map_table;
     }
     return *this;
   }
-  std::string description(std::string format,std::string dsnum,std::string data_type_code,std::string platform_type = "");
-  std::list<std::string> gcmd_keywords(std::string format,std::string dsnum,std::string data_type_code);
-  std::list<std::string> variables(std::string format,std::string dsnum,std::string data_type_code);
+  std::string description(std::string data_format,std::string format_specialization,std::string data_type_code,std::string platform_type = "");
+  std::list<std::string> gcmd_keywords(std::string data_format,std::string format_specialization,std::string data_type_code);
+  void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
+  std::list<std::string> variables(std::string data_format,std::string format_specialization,std::string data_type_code);
 
 private:
-  DataTypeMapEntry entry(std::string format,std::string dsnum);
+  DataTypeMapEntry entry(std::string data_format,std::string format_specialization);
 
+  std::string _path_to_map;
   my::map<DataTypeMapEntry> *datatype_map_table;
 };
 
-extern void clean_parameter_code(std::string& parameter_code,std::string& parameter_map);
+extern void clean_parameter_code(std::string& parameter_code,std::string& format_specialization);
 
 //extern std::string copy_of(XMLElement& e,size_t indent = 0);
 extern std::string map_filename(std::string directory,std::string file_base_name,std::string temp_dir_name);
@@ -269,5 +281,12 @@ extern std::string to_plain_text(const XMLElement& e,size_t wrap_width = 80,size
 extern std::deque<std::string> split(const std::string& s);
 
 } // end namespace xmlutils
+
+namespace htmlutils {
+
+extern std::string convert_html_summary_to_ascii(std::string summary,size_t wrap_length,size_t indent_length);
+extern std::string transform_superscripts(std::string s);
+
+} // end namespace htmlutils
 
 #endif

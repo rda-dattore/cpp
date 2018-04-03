@@ -33,7 +33,7 @@ protected:
   std::list<std::string> misspelled_words_;
 };
 
-namespace SpellCheckerFunctions {
+namespace spellcheckutils {
 
 extern std::string trim_front(const std::string& word);
 extern std::string trim_back(const std::string& word);
@@ -41,6 +41,6 @@ extern std::string trim_both(const std::string& word);
 extern std::string trim_plural(const std::string& word);
 extern std::string trim_punctuation(const std::string& word);
 
-} // end namespace SpellCheckerFunctions
+} // end namespace spellcheckutils
 
 #endif

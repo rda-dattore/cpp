@@ -59,7 +59,7 @@ private:
 class XMLSnippet
 {
 public:
-  XMLSnippet() : root_element(),parsed(false),element_addresses(),parse_error_(),untag_buffer(),untag_buffer_off(0) {}
+  XMLSnippet() : root_element_(),parsed(false),element_addresses(),parse_error_(),untag_buffer(),untag_buffer_off(0) {}
   XMLSnippet(std::string string) : XMLSnippet() { fill(string); }
   virtual ~XMLSnippet() {}
   operator bool() { return parsed; }
@@ -68,6 +68,7 @@ public:
   std::list<XMLElement> element_list(const std::string& xpath);
   std::string parse_error() const { return parse_error_; }
   void print_tree(std::ostream& outs);
+  XMLElement root_element() const { return root_element_; }
   void show_tree();
   std::string untagged();
 
@@ -78,7 +79,7 @@ protected:
   void parse(std::string& snippet);
   void printElement(std::ostream& outs,XMLElement& element,bool isRoot,size_t indent);
 
-  XMLElement root_element;
+  XMLElement root_element_;
   bool parsed;
   std::vector<XMLElementAddress> element_addresses;
   std::string parse_error_;
