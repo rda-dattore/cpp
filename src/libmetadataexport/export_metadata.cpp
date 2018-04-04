@@ -306,7 +306,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
     }
   });
   if (MySQL::table_exists(server,"ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
-    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds");
+    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
     if (query.submit(server) == 0) {
 	MySQL::Row row;
 	while (query.fetch_row(row)) {
