@@ -61,7 +61,7 @@ TropicalGrid::TropicalGrid()
   def.slatitude=-48.09;
   def.slongitude=0.;
   def.elatitude=48.09;
-  def.slongitude=360.;
+  def.elongitude=360.;
   def.dx=5.;
   def.dy=4.37;
 }
