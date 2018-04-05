@@ -62,8 +62,8 @@ TropicalGrid::TropicalGrid()
   def.slongitude=0.;
   def.elatitude=48.09;
   def.slongitude=360.;
-  def.dx=def.dy=513.;
-  def.stdparallel1=22.5;
+  def.dx=5.;
+  def.dy=4.37;
 }
 
 TropicalGrid::TropicalGrid(const TropicalGrid& source)
@@ -147,7 +147,6 @@ void TropicalGrid::fill(const unsigned char *stream_buffer,bool fill_header_only
   bits::get(stream_buffer,scale,88,12);
   scale-=bias;
   auto base=floatutils::cdcconv(stream_buffer,120,1);
-  grid.pole=Grid::missing_value;
 // unpack the tropical grid gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
@@ -238,43 +237,42 @@ void TropicalGrid::v_print_header(std::ostream& outs,bool verbose,std::string pa
   if (verbose) {
     if (reference_date_time_.day() > 0) {
 	outs << " DAILY GRID -- Date: " << reference_date_time_.to_string();
-	if (grid.fcst_time == 0)
+	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid" << std::endl;
-	else
+	}
+	else {
 	  outs << "  Valid Time: " << valid_date_time_.to_string() << std::endl;
+	}
       outs << "   Format: NCAR Tropical  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
     }
     else {
 	outs << " MONTHLY GRID -- Date: " << reference_date_time_.to_string();
-	if (grid.fcst_time == 0)
+	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid";
-	else
+	}
+	else {
 	  outs << "  Valid Time: " << valid_date_time_.to_string();
+	}
 	outs << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
       outs << "   Format: NCAR Tropical  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
     }
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value))
-	outs << "  Pole: " << std::setw(8) << grid.pole << std::endl;
-    else
-	outs << "  Pole: N/A" << std::endl;
     if (grid.filled) {
 	outs << "   Minimum Value: " << std::setw(8) << stats.min_val << " at (" << stats.min_i << "," << stats.min_j << ")  Maximum Value: " << std::setw(8) << stats.max_val << " at (" << stats.max_i << "," << stats.max_j << ")  Average Value: " << std::setw(8) << stats.avg_val << std::endl;
     }
   }
   else {
     outs << "  Type=" << grid.grid_type << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " Valid=" << valid_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
-    if (floatutils::myequalf(grid.level2,0.))
-	outs << " Level=" << grid.level1 << " Pole=";
-    else
-	outs << " Levels=" << grid.level1 << "," << grid.level2 << " Pole=";
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value))
-	outs << grid.pole;
-    else
-	outs << "N/A";
-    if (grid.filled)
-	outs << " Min=" << stats.min_val << " Max=" << stats.max_val << " Avg=" <<
-        stats.avg_val << std::endl;
-    else
+    if (floatutils::myequalf(grid.level2,0.)) {
+	outs << " Level=" << grid.level1;
+    }
+    else {
+	outs << " Levels=" << grid.level1 << "," << grid.level2;
+    }
+    if (grid.filled) {
+	outs << " Min=" << stats.min_val << " Max=" << stats.max_val << " Avg=" << stats.avg_val << std::endl;
+    }
+    else {
 	outs << std::endl;
+    }
   }
 }
