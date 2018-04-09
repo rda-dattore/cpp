@@ -14,8 +14,7 @@ void QueryString::fill(int method,bool convert_codes)
     case GET:
     {
 	if ( (env=getenv("QUERY_STRING")) != nullptr) {
-	  raw_string=env;
-	  fill(raw_string);
+	  fill(env);
 	}
 	break;
     }
@@ -25,7 +24,6 @@ void QueryString::fill(int method,bool convert_codes)
 	  auto content_length=atoi(env);
 	  char *buffer=new char[content_length];
 	  std::cin.read(buffer,content_length);
-	  raw_string.assign(buffer,content_length);
 	  if (std::string(buffer,2) == "--") {
 	    sdum.assign(buffer,content_length);
 	    auto idx=sdum.find("\r\n");
@@ -127,11 +125,12 @@ void QueryString::fill(int method,bool convert_codes)
 
 void QueryString::fill(std::string query_string,bool convert_codes)
 {
-  Pair p;
-
+  name_value_table.clear();
   if (query_string.empty()) {
     return;
   }
+  raw_string=query_string;
+  Pair p;
   if (strutils::has_beginning(query_string,"\"") && strutils::has_ending(query_string,"\"")) {
     strutils::chop(query_string);
     query_string=query_string.substr(1);
