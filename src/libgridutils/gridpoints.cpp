@@ -205,40 +205,34 @@ void fill_spatial_domain_from_polar_stereographic_grid2(size_t num_i,size_t num_
 {
   const double PI=3.14159;
   const double RAD=PI/180.;
-  size_t n,m;
-  double lat,elon,yoverx;
-  int pole_x,pole_y;
-  time_t start_time,curr_time;
-
+  double lat,elon;
   fill_lat_lon_from_polar_stereographic_gridpoint(0,0,num_i,num_j,dx,elonv,projection,dx_lat,lat,elon);
   if (fabs(lat-start_lat) > 0.5 || fabs(elon-start_elon) > 0.5) {
-    yoverx=tan(RAD*(start_elon-90.+(360.-elonv)));
+    auto yoverx=tan(RAD*(start_elon-90.+(360.-elonv)));
     if (projection == 'S') {
 	yoverx=-yoverx;
     }
-    pole_x=1;
-    start_time=curr_time=time(NULL);
-    while (1) {
+    int pole_x=1;
+    auto deg_res=dx/(cos(dx_lat*RAD)*111.1);
+    int max_pole_x=(360./deg_res)+1;
+    int pole_y=0;
+    while (pole_x < max_pole_x) {
 	pole_y=lround(1-yoverx*(1-pole_x));
 	fill_lat_lon_from_polar_stereographic_gridpoint(0,0,pole_x*2-1,pole_y*2-1,dx,elonv,projection,dx_lat,lat,elon);
 	if (fabs(lat-start_lat) < 0.5 && fabs(elon-start_elon) < 0.5) {
 	  break;
 	}
 	++pole_x;
-	curr_time=time(NULL);
-	if ( (curr_time-start_time) > 30) {
-	  break;
-	}
     }
     north_lat=-99.;
     south_lat=99.;
     west_lon=999.;
     east_lon=-999.;
-    if ( (curr_time-start_time) > 30) {
+    if (pole_x == max_pole_x) {
 	return;
     }
-    for (n=0; n < num_j; ++n) {
-	for (m=0; m < num_i; ++m) {
+    for (size_t n=0; n < num_j; ++n) {
+	for (size_t m=0; m < num_i; ++m) {
 	  fill_lat_lon_from_polar_stereographic_gridpoint(m,n,pole_x*2-1,pole_y*2-1,dx,elonv,projection,dx_lat,lat,elon);
 	  if (lat > north_lat) {
 	    north_lat=lat;
@@ -281,8 +275,8 @@ void fill_spatial_domain_from_polar_stereographic_grid2(size_t num_i,size_t num_
 	south_lat=-90.;
 	north_lat=-9999.;
     }
-    for (n=0; n < num_j; ++n) {
-	for (m=0; m < num_i; ++m) {
+    for (size_t n=0; n < num_j; ++n) {
+	for (size_t m=0; m < num_i; ++m) {
 	  fill_lat_lon_from_polar_stereographic_gridpoint(m,n,num_i,num_j,dx,elonv,projection,dx_lat,lat,elon);
 	  if (projection == 'N') {
 	    if (lat < south_lat) {
