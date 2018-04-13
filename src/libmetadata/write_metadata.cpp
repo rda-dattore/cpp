@@ -316,7 +316,12 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
     grid_table.found(array[m],gentry);
     auto g_parts=strutils::split(gentry.key,"<!>");
 // lat-lon grid
-    if (std::stoi(g_parts[0]) == Grid::latitudeLongitudeType) {
+    bool is_cell=false;
+    if (g_parts.front().back() == 'C') {
+	is_cell=true;
+	g_parts.front().pop_back();
+    }
+    if (std::stoi(g_parts.front()) == Grid::latitudeLongitudeType) {
 	auto slat=g_parts[3];
 	if (std::regex_search(slat,std::regex("^-"))) {
 	  slat=slat.substr(1,32768)+"S";
@@ -345,10 +350,14 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
 	else {
 	  elon+="E";
 	}
-	ofs << "  <grid timeRange=\"" << g_parts[9] << "\" definition=\"latLon\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\" startLat=\"" << slat << "\" startLon=\"" << slon << "\" endLat=\"" << elat << "\" endLon=\"" << elon << "\" xRes=\"" << g_parts[7] << "\" yRes=\"" << g_parts[8] << "\">" << std::endl;
+	ofs << "  <grid timeRange=\"" << g_parts[9] << "\" definition=\"latLon\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\" startLat=\"" << slat << "\" startLon=\"" << slon << "\" endLat=\"" << elat << "\" endLon=\"" << elon << "\" xRes=\"" << g_parts[7] << "\" yRes=\"" << g_parts[8] << "\"";
+	if (is_cell) {
+	  ofs << " isCell=\"true\"";
+	}
+	ofs << ">" << std::endl;
     }
 // gaussian lat-lon grid
-    else if (std::stoi(g_parts[0]) == Grid::gaussianLatitudeLongitudeType) {
+    else if (std::stoi(g_parts.front()) == Grid::gaussianLatitudeLongitudeType) {
 	auto slat=g_parts[3];
 	if (strutils::has_beginning(slat,"-")) {
 	  slat=slat.substr(1,32768)+"S";
@@ -380,7 +389,7 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
 	ofs << "  <grid timeRange=\"" << g_parts[9] << "\" definition=\"gaussLatLon\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\" startLat=\"" << slat << "\" startLon=\"" << slon << "\" endLat=\"" << elat << "\" endLon=\"" << elon << "\" xRes=\"" << g_parts[7] << "\" circles=\"" << g_parts[8] << "\">" << std::endl;
     }
 // polar-stereographic grid
-    else if (std::stoi(g_parts[0]) == Grid::polarStereographicType) {
+    else if (std::stoi(g_parts.front()) == Grid::polarStereographicType) {
 	auto slat=g_parts[3];
 	if (strutils::has_beginning(slat,"-")) {
 	  slat=slat.substr(1,32768)+"S";
@@ -412,7 +421,7 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
 	ofs << "  <grid timeRange=\"" << g_parts[10] << "\" definition=\"polarStereographic\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\"  startLat=\"" << slat << "\" startLon=\"" << slon << "\" resLat=\"" << elat << "\" projLon=\"" << elon << "\" pole=\"" << g_parts[9] << "\" xRes=\"" << g_parts[7] << "\" yRes=\"" << g_parts[8] << "\">" << std::endl;
     }
 // lambert-conformal grid
-    else if (std::stoi(g_parts[0]) == Grid::lambertConformalType) {
+    else if (std::stoi(g_parts.front()) == Grid::lambertConformalType) {
 	auto slat=g_parts[3];
 	if (strutils::has_beginning(slat,"-")) {
 	  slat=slat.substr(1,32768)+"S";
@@ -457,7 +466,7 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
 	}
 	ofs << "  <grid timeRange=\"" << g_parts[12] << "\" definition=\"lambertConformal\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\"  startLat=\"" << slat << "\" startLon=\"" << slon << "\" resLat=\"" << elat << "\" projLon=\"" << elon << "\" pole=\"" << g_parts[9] << "\" xRes=\"" << g_parts[7] << "\" yRes=\"" << g_parts[8] << "\" stdParallel1=\"" << stdpar1 << "\" stdParallel2=\"" << stdpar2 << "\">" << std::endl;
     }
-    else if (std::stoi(g_parts[0]) == Grid::mercatorType) {
+    else if (std::stoi(g_parts.front()) == Grid::mercatorType) {
 	auto slat=g_parts[3];
 	if (strutils::has_beginning(slat,"-")) {
 	  slat=slat.substr(1,32768)+"S";
@@ -489,11 +498,11 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
 	ofs << "  <grid timeRange=\"" << g_parts[9] << "\" definition=\"mercator\" numX=\"" << g_parts[1] << "\" numY=\"" << g_parts[2] << "\" startLat=\"" << slat << "\" startLon=\"" << slon << "\" endLat=\"" << elat << "\" endLon=\"" << elon << "\" xRes=\"" << g_parts[7] << "\" yRes=\"" << g_parts[8] << "\">" << std::endl;
     }
 // spherical harmonics
-    else if (std::stoi(g_parts[0]) == Grid::sphericalHarmonicsType) {
+    else if (std::stoi(g_parts.front()) == Grid::sphericalHarmonicsType) {
 	ofs << "  <grid timeRange=\"" << g_parts[4] << "\" definition=\"sphericalHarmonics\" t1=\"" << g_parts[1] << "\" t2=\"" << g_parts[2] << "\" t3=\"" << g_parts[3] << "\">" << std::endl;
     }
     else {
-	metautils::log_error("write_grml(): no grid definition map for "+g_parts[0],caller,user);
+	metautils::log_error("write_grml(): no grid definition map for "+g_parts.front(),caller,user);
     }
 // print out process elements
     for (const auto& key : gentry.process_table.keys()) {

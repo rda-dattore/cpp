@@ -257,13 +257,13 @@ void summarize_grid_resolutions(std::string caller,std::string user,std::string 
 	  yres=std::stof(params[8]);
 	  res_type=1;
 	}
-	else if (gde.definition == "latLon" || gde.definition == "mercator") {
+	else if (std::regex_search(gde.definition,std::regex("^(latLon|mercator)(Cell){0,1}$"))) {
 	  xres=std::stof(params[6]);
 	  yres=std::stof(params[7]);
-	  if (gde.definition == "latLon") {
+	  if (std::regex_search(gde.definition,std::regex("^latLon"))) {
 	    res_type=0;
 	  }
-	  else if (gde.definition == "mercator") {
+	  else if (std::regex_search(gde.definition,std::regex("^mercator"))) {
 	    res_type=1;
 	  }
 	}
