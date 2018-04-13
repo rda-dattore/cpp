@@ -279,7 +279,6 @@ std::string index_variables(MySQL::Server& server,std::string dsnum)
 	return error;
     }
   }
-  server.disconnect();
   return "";
 }
 
