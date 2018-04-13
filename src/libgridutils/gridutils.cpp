@@ -227,73 +227,75 @@ std::string translate_grid_definition(std::string definition,bool getAbbreviatio
 
 std::string convert_grid_definition(std::string d)
 {
-  std::string s,sdum,sdum2,sdum3;
-  std::deque<std::string> sp,spx;
-  float yres;
-
-  sp=strutils::split(d,"<!>");
-  spx=strutils::split(sp[1],":");
-  if (sp[0] == "gaussLatLon") {
-    sdum2=spx[2].substr(0,spx[2].length()-1);
-    sdum3=spx[4].substr(0,spx[4].length()-1);
-    if ((strutils::has_ending(spx[2],"N") && strutils::has_ending(spx[4],"S")) || (strutils::has_ending(spx[2],"S") && strutils::has_ending(spx[4],"N"))) {
-	yres=(std::stof(sdum2)+std::stof(sdum3))/(std::stof(spx[1])-1);
+  std::string converted_grid_definition;
+  auto def_parts=strutils::split(d,"<!>");
+  auto grid_info=strutils::split(def_parts.back(),":");
+  if (def_parts.front() == "gaussLatLon") {
+    auto start_lat_s=grid_info[2].substr(0,grid_info[2].length()-1);
+    auto end_lat_s=grid_info[4].substr(0,grid_info[4].length()-1);
+    float yres;
+    if ((grid_info[2].back() == 'N' && grid_info[4].back() == 'S') || (grid_info[2].back() == 'S' && grid_info[4].back() == 'N')) {
+	yres=(std::stof(start_lat_s)+std::stof(end_lat_s))/(std::stof(grid_info[1])-1);
     }
     else {
-	yres=fabs(std::stof(sdum2)-std::stof(sdum3))/(std::stof(spx[1])-1);
+	yres=fabs(std::stof(start_lat_s)-std::stof(end_lat_s))/(std::stof(grid_info[1])-1);
     }
-    sdum=strutils::ftos(yres,6,3,' ');
-    strutils::trim(sdum);
-    s=spx[6]+"&deg; x ~"+sdum+"&deg; from "+spx[3]+" to "+spx[5]+" and "+spx[2]+" to "+spx[4]+" <small>(";
-    if (spx[0] == "-1") {
-	s+="reduced n"+strutils::itos(std::stoi(spx[1])/2);
+    auto yres_s=strutils::ftos(yres,6,3,' ');
+    strutils::trim(yres_s);
+    converted_grid_definition=grid_info[6]+"&deg; x ~"+yres_s+"&deg; from "+grid_info[3]+" to "+grid_info[5]+" and "+grid_info[2]+" to "+grid_info[4]+" <small>(";
+    if (grid_info[0] == "-1") {
+	converted_grid_definition+="reduced n"+strutils::itos(std::stoi(grid_info[1])/2);
     }
     else {
-	s+=spx[0]+" x "+spx[1];
+	converted_grid_definition+=grid_info[0]+" x "+grid_info[1];
     }
-    s+=" "+translate_grid_definition(sp[0])+")</small>";
+    converted_grid_definition+=" "+translate_grid_definition(def_parts.front())+")</small>";
   }
-  else if (sp[0] == "lambertConformal")
-    s=spx[7]+"km x "+spx[8]+"km (at "+spx[4]+") oriented "+spx[5]+" <small>("+spx[0]+"x"+spx[1]+" "+translate_grid_definition(sp[0])+" starting at "+spx[2]+","+spx[3]+")</small>";
-  else if (sp[0] == "latLon") {
-    s=spx[6]+"&deg; x "+spx[7]+"&deg; from "+spx[3]+" to "+spx[5]+" and "+spx[2]+" to "+spx[4]+" <small>(";
-    if (spx[0] == "-1") {
-	s+="reduced";
+  else if (def_parts.front() == "lambertConformal") {
+    converted_grid_definition=grid_info[7]+"km x "+grid_info[8]+"km (at "+grid_info[4]+") oriented "+grid_info[5]+" <small>("+grid_info[0]+"x"+grid_info[1]+" "+translate_grid_definition(def_parts.front())+" starting at "+grid_info[2]+","+grid_info[3]+")</small>";
+  }
+  else if (def_parts.front() == "latLon" || def_parts.front() == "mercator") {
+    converted_grid_definition=grid_info[6]+"&deg; x ";
+    if (def_parts.front() == "mercator") {
+	converted_grid_definition.push_back('~');
+    }
+    converted_grid_definition+=grid_info[7]+"&deg; from "+grid_info[3]+" to "+grid_info[5]+" and "+grid_info[2]+" to "+grid_info[4]+" <small>(";
+    if (grid_info[0] == "-1") {
+	converted_grid_definition+="reduced";
     }
     else {
-	s+=spx[0]+" x "+spx[1];
+	converted_grid_definition+=grid_info[0]+" x "+grid_info[1];
     }
-    s+=" "+translate_grid_definition(sp[0])+")</small>";
+    converted_grid_definition+=" "+translate_grid_definition(def_parts.front())+")</small>";
   }
-  else if (sp[0] == "mercator")
-    s=spx[6]+"km x "+spx[7]+"km (at "+spx[8]+") from "+spx[3]+" to "+spx[5]+" and "+spx[2]+" to "+spx[4]+" <small>("+spx[0]+" x "+spx[1]+" "+translate_grid_definition(sp[0])+")</small>";
-  else if (sp[0] == "polarStereographic") {
-    s=spx[7]+"km x "+spx[8]+"km (at ";
-    if (spx[4].length() > 0) {
-	s+=spx[4];
+  else if (def_parts.front() == "polarStereographic") {
+    converted_grid_definition=grid_info[7]+"km x "+grid_info[8]+"km (at ";
+    if (grid_info[4].length() > 0) {
+	converted_grid_definition+=grid_info[4];
     }
     else {
-	s+="60"+spx[6];
+	converted_grid_definition+="60"+grid_info[6];
     }
-    if (spx[6] == "N") {
-	sdum="North";
+    std::string orient;
+    if (grid_info[6] == "N") {
+	orient="North";
     }
     else {
-	sdum="South";
+	orient="South";
     }
-    s+=") oriented "+spx[5]+" <small>("+spx[0]+"x"+spx[1]+" "+sdum+" "+translate_grid_definition(sp[0])+")</small>";
+    converted_grid_definition+=") oriented "+grid_info[5]+" <small>("+grid_info[0]+"x"+grid_info[1]+" "+orient+" "+translate_grid_definition(def_parts.front())+")</small>";
   }
-  else if (sp[0] == "sphericalHarmonics") {
-    s=translate_grid_definition(sp[0])+" at ";
-    if (spx[2] == spx[0] && spx[0] == spx[1]) {
-	s+="T";
+  else if (def_parts.front() == "sphericalHarmonics") {
+    converted_grid_definition=translate_grid_definition(def_parts.front())+" at ";
+    if (grid_info[2] == grid_info[0] && grid_info[0] == grid_info[1]) {
+	converted_grid_definition.push_back('T');
     }
-    else if (std::stoi(spx[1]) == (std::stoi(spx[1])+std::stoi(spx[2]))) {
-	s+="R";
+    else if (std::stoi(grid_info[1]) == (std::stoi(grid_info[1])+std::stoi(grid_info[2]))) {
+	converted_grid_definition.push_back('R');
     }
-    s+=spx[1]+" spectral resolution";
+    converted_grid_definition+=grid_info[1]+" spectral resolution";
   }
-  return s;
+  return converted_grid_definition;
 }
 
 std::string convert_meta_grid_definition(std::string grid_definition,std::string definition_parameters,const char *separator)
