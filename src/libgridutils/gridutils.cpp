@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <regex>
 #include <gridutils.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
@@ -188,12 +189,16 @@ std::string translate_grid_definition(std::string definition,bool getAbbreviatio
 	return "Lambert Conformal";
     }
   }
-  if (definition == "latLon") {
+  else if (std::regex_search(definition,std::regex("^latLon"))) {
     if (getAbbreviation) {
 	return "LL";
     }
     else {
-	return "Longitude/Latitude";
+	std::string s="Longitude/Latitude";
+	if (std::regex_search(definition,std::regex("Cell$"))) {
+	  s+=" cells";
+	}
+	return s;
     }
   }
   else if (definition == "mercator") {
@@ -254,7 +259,7 @@ std::string convert_grid_definition(std::string d)
   else if (def_parts.front() == "lambertConformal") {
     converted_grid_definition=grid_info[7]+"km x "+grid_info[8]+"km (at "+grid_info[4]+") oriented "+grid_info[5]+" <small>("+grid_info[0]+"x"+grid_info[1]+" "+translate_grid_definition(def_parts.front())+" starting at "+grid_info[2]+","+grid_info[3]+")</small>";
   }
-  else if (def_parts.front() == "latLon" || def_parts.front() == "mercator") {
+  else if (std::regex_search(def_parts.front(),std::regex("^(latLon|mercator)"))) {
     converted_grid_definition=grid_info[6]+"&deg; x ";
     if (def_parts.front() == "mercator") {
 	converted_grid_definition.push_back('~');
@@ -351,58 +356,52 @@ std::string convert_grid_definition(std::string d,XMLElement e)
 
 bool fill_spatial_domain_from_grid_definition(std::string definition,std::string center,double& west_lon,double& south_lat,double& east_lon,double& north_lat)
 {
-  std::deque<std::string> sp,spx;
-  std::string sdum;
-  double ddum;
-  double start_lat,start_elon,end_elon,xres,xspace;
-  bool scansEast=false,isGlobalLon=false;
-  double lat1,elon1,tanlat,elonv;
   bool filled=false;
-
   west_lon=south_lat=999.;
   east_lon=north_lat=-999.;
-  sp=strutils::split(definition,"<!>");
-  if (sp[0] == "latLon" || sp[0] == "gaussLatLon" || sp[0] == "mercator") {
-    spx=strutils::split(sp[1],":");
-    sdum=spx[2];
-    strutils::chop(sdum);
-    ddum=std::stof(sdum);
-    if (strutils::has_ending(spx[2],"S")) {
-	ddum=-ddum;
+  auto def_parts=strutils::split(definition,"<!>");
+  if (std::regex_search(def_parts.front(),std::regex("^(latLon|gaussLatLon|mercator)(Cell){0,1}$"))) {
+    auto grid_info=strutils::split(def_parts[1],":");
+    auto start_lat_s=grid_info[2];
+    strutils::chop(start_lat_s);
+    auto start_lat=std::stod(start_lat_s);
+    if (grid_info[2].back() == 'S') {
+	start_lat=-start_lat;
     }
-    if (ddum < south_lat) {
-	south_lat=ddum;
+    if (start_lat < south_lat) {
+	south_lat=start_lat;
     }
-    if (ddum > north_lat) {
-	north_lat=ddum;
+    if (start_lat > north_lat) {
+	north_lat=start_lat;
     }
-    sdum=spx[3];
-    strutils::chop(sdum);
-    start_elon=std::stof(sdum);
-    if (strutils::has_ending(spx[3],"W")) {
+    auto start_lon_s=grid_info[3];
+    strutils::chop(start_lon_s);
+    auto start_elon=std::stod(start_lon_s);
+    if (grid_info[3].back() == 'W') {
 	start_elon=-start_elon+360.;
     }
-    sdum=spx[4];
-    strutils::chop(sdum);
-    ddum=std::stof(sdum);
-    if (strutils::has_ending(spx[4],"S")) {
-	ddum=-ddum;
+    auto end_lat_s=grid_info[4];
+    strutils::chop(end_lat_s);
+    auto end_lat=std::stod(end_lat_s);
+    if (grid_info[4].back() == 'S') {
+	end_lat=-end_lat;
     }
-    if (ddum < south_lat) {
-	south_lat=ddum;
+    if (end_lat < south_lat) {
+	south_lat=end_lat;
     }
-    if (ddum > north_lat) {
-	north_lat=ddum;
+    if (end_lat > north_lat) {
+	north_lat=end_lat;
     }
-    sdum=spx[5];
-    strutils::chop(sdum);
-    end_elon=std::stof(sdum);
-    if (strutils::has_ending(spx[5],"W")) {
+    auto end_lon_s=grid_info[5];
+    strutils::chop(end_lon_s);
+    auto end_elon=std::stod(end_lon_s);
+    if (grid_info[5].back() == 'W') {
 	end_elon=-end_elon+360.;
     }
-    xspace=std::stof(spx[0])-1.;
-    if (sp[0] == "latLon" || sp[0] == "gaussLatLon") {
-	xres=std::stof(spx[6]);
+    auto xspace=std::stod(grid_info[0])-1.;
+    double xres;
+    if (std::regex_search(def_parts.front(),std::regex("^(latLon|gaussLatLon)"))) {
+	xres=std::stod(grid_info[6]);
     }
     else {
 	xres=fabs(end_elon-start_elon)/xspace;
@@ -411,43 +410,53 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
 // reduced grids
 	xspace=(end_elon-start_elon)/xres;
     }
+    auto scans_east=false;
+    if (std::regex_search(def_parts.front(),std::regex("Cell$"))) {
+	auto xres2=xres/2.;
+	start_elon+=xres2;
+	end_elon-=xres2;
+    }
     if (fabs((end_elon-start_elon)/xspace-xres) < 0.01) {
-	scansEast=true;
+	scans_east=true;
     }
     else if (fabs((end_elon+360.-start_elon)/xspace-xres) < 0.01) {
 	end_elon+=360.;
-	scansEast=true;
+	scans_east=true;
     }
     else if (fabs((start_elon-end_elon)/xspace-xres) < 0.01) {
-	scansEast=false;
+	scans_east=false;
     }
     else if (fabs((start_elon+360.-end_elon)/xspace-xres) < 0.01) {
 	start_elon+=360.;
-	scansEast=false;
+	scans_east=false;
     }
     else {
 	return false;
     }
 // adjust global grids where longitude boundary is not repeated
+    auto is_global_lon=false;
     if (!floatutils::myequalf(end_elon,start_elon)) {
-	if ( fabs(fabs(end_elon-start_elon)-360.) < 0.001)
-	  isGlobalLon=true;
+	if ( fabs(fabs(end_elon-start_elon)-360.) < 0.001) {
+	  is_global_lon=true;
+	}
 	else {
 	  if (end_elon > start_elon) {
-	    if ( fabs(fabs(end_elon+xres-start_elon)-360.) < 0.001)
-		isGlobalLon=true;
+	    if ( fabs(fabs(end_elon+xres-start_elon)-360.) < 0.001) {
+		is_global_lon=true;
+	    }
 	  }
 	  else {
-	     if ( fabs(fabs(end_elon-xres-start_elon)-360.) < 0.001)
-		isGlobalLon=true;
+	     if ( fabs(fabs(end_elon-xres-start_elon)-360.) < 0.001) {
+		is_global_lon=true;
+	    }
 	  }
 	}
     }
-    if ( fabs(fabs(north_lat-south_lat+std::stof(spx[7]))-180.) < 0.001) {
+    if ( fabs(fabs(north_lat-south_lat+std::stod(grid_info[7]))-180.) < 0.001) {
 	south_lat=-90.;
 	north_lat=90.;
     }
-    if (isGlobalLon) {
+    if (is_global_lon) {
 	if (center == "dateLine") {
 	  west_lon=0.;
 	  east_lon=360.;
@@ -458,7 +467,7 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
 	}
     }
     else if (center == "dateLine") {
-	if (scansEast) {
+	if (scans_east) {
 	  west_lon=start_elon;
 	  east_lon=end_elon;
 	}
@@ -468,7 +477,7 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
 	}
     }
     else if (center == "primeMeridian") {
-	if (scansEast) {
+	if (scans_east) {
 	  west_lon= (start_elon >= 180.) ? start_elon-360. : start_elon;
 	  east_lon= (end_elon > 180.) ? end_elon-360. : end_elon;
 	}
@@ -479,70 +488,70 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
     }
     filled=true;
   }
-  else if (sp[0] == "lambertConformal") {
-    spx=strutils::split(sp[1],":");
-    sdum=spx[2];
-    strutils::chop(sdum);
-    lat1=std::stof(sdum);
-    if (strutils::has_ending(spx[2],"S")) {
+  else if (def_parts.front() == "lambertConformal") {
+    auto grid_info=strutils::split(def_parts[1],":");
+    auto lat1_s=grid_info[2];
+    strutils::chop(lat1_s);
+    auto lat1=std::stod(lat1_s);
+    if (grid_info[2].back() == 'S') {
 	lat1=-lat1;
     }
-    sdum=spx[3];
-    strutils::chop(sdum);
-    elon1=std::stof(sdum);
-    if (strutils::has_ending(spx[3],"W")) {
+    auto elon1_s=grid_info[3];
+    strutils::chop(elon1_s);
+    auto elon1=std::stod(elon1_s);
+    if (grid_info[3].back() == 'W') {
 	elon1=360.-elon1;
     }
-    sdum=spx[4];
-    strutils::chop(sdum);
-    tanlat=std::stof(sdum);
-    if (strutils::has_ending(spx[4],"S")) {
+    auto tanlat_s=grid_info[4];
+    strutils::chop(tanlat_s);
+    auto tanlat=std::stod(tanlat_s);
+    if (grid_info[4].back() == 'S') {
 	tanlat=-tanlat;
     }
-    sdum=spx[5];
-    strutils::chop(sdum);
-    elonv=std::stof(sdum);
-    if (strutils::has_ending(spx[5],"W")) {
+    auto elonv_s=grid_info[5];
+    strutils::chop(elonv_s);
+    auto elonv=std::stod(elonv_s);
+    if (grid_info[5].back() == 'W') {
 	elonv=360.-elonv;
     }
-    fill_spatial_domain_from_lambert_conformal_grid(std::stoi(spx[0]),std::stoi(spx[1]),lat1,elon1,std::stof(spx[7]),elonv,tanlat,west_lon,south_lat,east_lon,north_lat);
+    fill_spatial_domain_from_lambert_conformal_grid(std::stoi(grid_info[0]),std::stoi(grid_info[1]),lat1,elon1,std::stod(grid_info[7]),elonv,tanlat,west_lon,south_lat,east_lon,north_lat);
     if (center == "dateLine") {
 	west_lon+=360.;
 	east_lon+=360.;
     }
     filled=true;
   }
-  else if (sp[0] == "polarStereographic") {
-    spx=strutils::split(sp[1],":");
-    sdum=spx[5];
-    strutils::chop(sdum);
-    elonv=std::stof(sdum);
-    if (strutils::has_ending(spx[5],"W")) {
+  else if (def_parts.front() == "polarStereographic") {
+    auto grid_info=strutils::split(def_parts[1],":");
+    auto elonv_s=grid_info[5];
+    strutils::chop(elonv_s);
+    auto elonv=std::stod(elonv_s);
+    if (grid_info[5].back() == 'W') {
 	elonv=360.-elonv;
     }
-    sdum=spx[4];
-    strutils::chop(sdum);
-    tanlat=std::stof(sdum);
+    auto tanlat_s=grid_info[4];
+    strutils::chop(tanlat_s);
+    auto tanlat=std::stod(tanlat_s);
 /*
-    if (strutils::has_ending(spx[4],"S"))
+    if (strutils::has_ending(grid_info[4],"S"))
 	tanlat=-tanlat;
 */
-    sdum=spx[2];
-    if (strutils::has_ending(sdum,"S")) {
-	sdum="-"+sdum;
+    auto start_lat_s=grid_info[2];
+    if (start_lat_s.back() == 'S') {
+	start_lat_s="-"+start_lat_s;
     }
-    strutils::chop(sdum);
-    start_lat=std::stof(sdum);
-    sdum=spx[3];
-    if (strutils::has_ending(sdum,"W")) {
-	sdum="-"+sdum;
+    strutils::chop(start_lat_s);
+    auto start_lat=std::stod(start_lat_s);
+    auto start_lon_s=grid_info[3];
+    if (start_lon_s.back() == 'W') {
+	start_lon_s="-"+start_lon_s;
     }
-    strutils::chop(sdum);
-    start_elon=std::stof(sdum);
+    strutils::chop(start_lon_s);
+    auto start_elon=std::stod(start_lon_s);
     if (start_elon < 0.) {
 	start_elon+=360.;
     }
-    fill_spatial_domain_from_polar_stereographic_grid2(std::stoi(spx[0]),std::stoi(spx[1]),start_lat,start_elon,std::stof(spx[7]),elonv,spx[6][0],tanlat,west_lon,south_lat,east_lon,north_lat);
+    fill_spatial_domain_from_polar_stereographic_grid2(std::stoi(grid_info[0]),std::stoi(grid_info[1]),start_lat,start_elon,std::stod(grid_info[7]),elonv,grid_info[6][0],tanlat,west_lon,south_lat,east_lon,north_lat);
     if (north_lat > -99. && south_lat < 99.) {
 	if (center == "dateLine") {
 	  west_lon=0.;
