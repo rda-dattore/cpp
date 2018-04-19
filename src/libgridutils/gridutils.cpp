@@ -398,24 +398,16 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
     if (grid_info[5].back() == 'W') {
 	end_elon=-end_elon+360.;
     }
-    auto xspace=std::stod(grid_info[0])-1.;
-    double xres;
-    if (std::regex_search(def_parts.front(),std::regex("^(latLon|gaussLatLon)"))) {
-	xres=std::stod(grid_info[6]);
-    }
-    else {
-	xres=fabs(end_elon-start_elon)/xspace;
-    }
-    if (xspace < 0.) {
+    auto xspace=std::stod(grid_info[0]);
+    auto xres=std::stod(grid_info[6]);
+    if (xspace == 0.) {
 // reduced grids
 	xspace=(end_elon-start_elon)/xres;
     }
-    auto scans_east=false;
-    if (std::regex_search(def_parts.front(),std::regex("Cell$"))) {
-	auto xres2=xres/2.;
-	start_elon+=xres2;
-	end_elon-=xres2;
+    else if (!std::regex_search(def_parts.front(),std::regex("Cell$"))) {
+	xspace-=1.;
     }
+    auto scans_east=false;
     if (fabs((end_elon-start_elon)/xspace-xres) < 0.01) {
 	scans_east=true;
     }
@@ -521,7 +513,7 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
     }
     filled=true;
   }
-  else if (def_parts.front() == "polarStereographic") {
+  else if (std::regex_search(def_parts.front(),std::regex("^polarStereographic"))) {
     auto grid_info=strutils::split(def_parts[1],":");
     auto elonv_s=grid_info[5];
     strutils::chop(elonv_s);
@@ -561,6 +553,14 @@ bool fill_spatial_domain_from_grid_definition(std::string definition,std::string
     }
     else {
 	filled=false;
+    }
+    if (std::regex_search(def_parts.front(),std::regex("Truncated$"))) {
+	if (grid_info[6].front() == 'N' && south_lat < 0.) {
+	  south_lat=0.;
+	}
+	else if (grid_info[6].front() == 'S' && north_lat > 0.) {
+	  north_lat=0.;
+	}
     }
   }
   return filled;
