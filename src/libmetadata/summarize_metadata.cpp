@@ -141,7 +141,7 @@ void cmd_dates(std::string database,std::list<CMDDateRange>& range_list,size_t& 
     MySQL::Row row;
     auto fetched=query.fetch_row(row);
     if (query.num_rows() < 2 && (!fetched || row[2] == "0")) {
-	query.set("select start_date,end_date,0 from "+table+" where start_date != 0 order by start_date,end_date");
+	query.set("select lpad(start_date,12,'0'),lpad(end_date,12,'0'),0 from "+table+" where start_date != 0 order by start_date,end_date");
 	if (query.submit(server) < 0) {
 	  std::cerr << "Error (B): " << query.error() << std::endl;
 	  exit(1);
