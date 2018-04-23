@@ -828,6 +828,9 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
   else if (meta_args.data_format == "little_r") {
     ofs << "LITTLE_R";
   }
+  else {
+    ofs << meta_args.data_format;
+  }
   ofs << "\">" << std::endl;
   ofs << "  <timeStamp value=\"" << dateutils::current_date_time().to_string("%Y-%m-%d %T %Z") << "\" />" << std::endl;
   for (xx=0; xx < NUM_OBS_TYPES; xx++) {
