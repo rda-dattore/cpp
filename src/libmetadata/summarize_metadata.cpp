@@ -124,7 +124,7 @@ CMDDateRange cmd_date_range(std::string start,std::string end,std::string gindex
   return d;
 }
 
-void cmd_dates(std::string database,std::list<CMDDateRange>& range_list,size_t& precision)
+void cmd_dates(std::string database,size_t date_left_padding,std::list<CMDDateRange>& range_list,size_t& precision)
 {
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   if (!server) {
@@ -141,7 +141,8 @@ void cmd_dates(std::string database,std::list<CMDDateRange>& range_list,size_t& 
     MySQL::Row row;
     auto fetched=query.fetch_row(row);
     if (query.num_rows() < 2 && (!fetched || row[2] == "0")) {
-	query.set("select lpad(start_date,12,'0'),lpad(end_date,12,'0'),0 from "+table+" where start_date != 0 order by start_date,end_date");
+	auto lpad=strutils::itos(date_left_padding);
+	query.set("select lpad(start_date,"+lpad+",'0'),lpad(end_date,"+lpad+",'0'),0 from "+table+" where start_date != 0 order by start_date,end_date");
 	if (query.submit(server) < 0) {
 	  std::cerr << "Error (B): " << query.error() << std::endl;
 	  exit(1);
@@ -205,10 +206,10 @@ void summarize_dates(std::string caller,std::string user)
 
   std::list<CMDDateRange> range_list;
   size_t precision=0;
-  cmd_dates("GrML",range_list,precision);
-  cmd_dates("ObML",range_list,precision);
-  cmd_dates("FixML",range_list,precision);
-  cmd_dates("SatML",range_list,precision);
+  cmd_dates("GrML",12,range_list,precision);
+  cmd_dates("ObML",8,range_list,precision);
+  cmd_dates("FixML",12,range_list,precision);
+  cmd_dates("SatML",14,range_list,precision);
   MySQL::Server dssdb_server(meta_directives.database_server,meta_directives.rdadb_username,meta_directives.rdadb_password,"dssdb");;
   if (range_list.size() > 0) {
     precision=(precision-2)/2;
