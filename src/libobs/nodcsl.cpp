@@ -164,7 +164,7 @@ void NODCSeaLevelObservation::fill(const unsigned char *stream_buffer,bool fill_
     case '5':
     {
 	strutils::strget(&buf[26],day,2);
-	hour=0;
+	hour=23;
 	break;
     }
     case '6':
