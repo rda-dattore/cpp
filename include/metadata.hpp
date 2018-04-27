@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <list>
+#include <unordered_map>
 #include <mymap.hpp>
 #include <grid.hpp>
 #include <xml.hpp>
@@ -264,7 +265,7 @@ extern std::string web_home();
 
 extern std::list<std::string> cmd_databases(std::string caller,std::string user);
 
-extern bool read_config(std::string caller,std::string user,std::string args_string,bool restrict_to_user_rdadata = true);
+extern bool read_config(std::string caller,std::string user,bool restrict_to_user_rdadata = true);
 
 } // end namespace metautils
 
@@ -579,18 +580,6 @@ extern int compare_grid_table_keys(const std::string& left,const std::string& ri
 
 namespace ObML {
 
-const size_t NUM_OBS_TYPES=5;
-struct ObservationTypes {
-  ObservationTypes() : types() {
-    types.emplace_back("upper_air");
-    types.emplace_back("surface");
-    types.emplace_back("underwater");
-    types.emplace_back("surface_10-year_climatology");
-    types.emplace_back("surface_30-year_climatology");
-  }
-
-  std::vector<std::string> types;
-};
 struct DataTypeEntry {
   struct Data {
     Data() : map(),nsteps(0),vdata(nullptr) {}
@@ -636,11 +625,21 @@ struct PlatformEntry {
   std::string key;
   std::shared_ptr<summarizeMetadata::BoxFlags> boxflags;
 };
+struct ObservationData {
+  ObservationData();
+  void add_to_ids(size_t observation_type_index,IDEntry& ientry,float lat,float lon,DateTime *start_datetime,DateTime *end_datetime = nullptr);
+  void add_to_platforms(size_t observation_type_index,std::string platform_key,float lat,float lon);
+
+  size_t num_types;
+  std::unordered_map<int,std::string> observation_types;
+  std::vector<my::map<IDEntry> *> id_tables;
+  std::vector<my::map<PlatformEntry> *> platform_tables;
+};
 
 extern "C" int list_ancillary_ObML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
 
 extern void copy_obml(std::string metadata_file,std::string URL,std::string caller,std::string user);
-extern void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_table,std::string caller,std::string user);
+extern void write_obml(ObservationData& obs_data,std::string caller,std::string user);
 
 extern std::string string_coordinate_to_db(std::string coordinate_value);
 
@@ -733,34 +732,5 @@ extern void write_fixml(my::map<FeatureEntry>& feature_table,my::map<StageEntry>
 } // end namespace metadata::FixML
 
 } // end namespace metadata
-
-namespace metadataExport {
-
-const std::string DATACITE_HOSTING_INSTITUTION="University Corporation For Atmospheric Research (UCAR):National Center for Atmospheric Research (NCAR):Computational and Information Systems Laboratory (CISL):Operations and Services Division (OSD):Data Support Section (DSS)";
-const std::string PUBLISHER="UCAR/NCAR - Research Data Archive";
-
-struct Entry {
-  Entry() : key(),min_lon(0.),min_lat(0.) {}
-
-  std::string key;
-  double min_lon,min_lat;
-};
-struct PThreadStruct {
-  PThreadStruct() : query(),tid(0) {}
-
-  MySQL::LocalQuery query;
-  pthread_t tid;
-};
-
-extern "C" void *runQuery(void *ts);
-
-extern bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,size_t initial_indent_length = 0);
-extern bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-
-} // end namespace metadataExport
 
 #endif
