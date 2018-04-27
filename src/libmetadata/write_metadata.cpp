@@ -746,14 +746,12 @@ void copy_obml(std::string metadata_file,std::string URL,std::string caller,std:
   meta_args.filename=ObML_name;
 }
 
-void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_table,std::string caller,std::string user)
+void write_obml(ObservationData& obs_data,std::string caller,std::string user)
 {
   std::ofstream ofs,ofs2;
   TempFile tfile2(meta_directives.temp_path);
   std::string path,filename,cmd_type;
   std::deque<std::string> sp;
-  int n;
-  size_t m,xx;
   size_t numIDs,time,hr,min,sec;
   bitmap::longitudeBitmap::bitmap_gap biggest,current;
   struct PlatformData {
@@ -769,7 +767,6 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
   std::string sdum,output,error;
   IDEntry ientry;
   PlatformEntry pentry;
-  metadata::ObML::ObservationTypes obsTypes;
 
   TempDir tdir;
   if (!tdir.create(meta_directives.temp_path)) {
@@ -833,28 +830,30 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
   }
   ofs << "\">" << std::endl;
   ofs << "  <timeStamp value=\"" << dateutils::current_date_time().to_string("%Y-%m-%d %T %Z") << "\" />" << std::endl;
-  for (xx=0; xx < NUM_OBS_TYPES; xx++) {
-    ID_table[xx]->keysort(
+  for (size_t xx=0; xx < obs_data.num_types; ++xx) {
+    obs_data.id_tables[xx]->keysort(
     [](const std::string& left,const std::string& right) -> bool
     {
-	if (left <= right)
+	if (left <= right) {
 	  return true;
-	else
+	}
+	else {
 	  return false;
+	}
     });
-    if (platform_table[xx].size() > 0) {
-	ofs << "  <observationType value=\"" << obsTypes.types[xx] << "\">" << std::endl;
-	for (const auto& key : platform_table[xx].keys()) {
-	  platform_table[xx].found(key,pentry);
-	  ofs2.open((tdir.name()+"/metadata/"+cmd_type+"/"+filename+".ObML."+obsTypes.types[xx]+"."+key+".IDs.xml").c_str());
+    if (obs_data.platform_tables[xx]->size() > 0) {
+	ofs << "  <observationType value=\"" << obs_data.observation_types[xx] << "\">" << std::endl;
+	for (const auto& key : obs_data.platform_tables[xx]->keys()) {
+	  obs_data.platform_tables[xx]->found(key,pentry);
+	  ofs2.open((tdir.name()+"/metadata/"+cmd_type+"/"+filename+".ObML."+obs_data.observation_types[xx]+"."+key+".IDs.xml").c_str());
 	  ofs2 << "<?xml version=\"1.0\" ?>" << std::endl;
-	  ofs2 << "<IDs parent=\"" << filename << ".ObML\" group=\"" << obsTypes.types[xx] << "." << key << "\">" << std::endl;
+	  ofs2 << "<IDs parent=\"" << filename << ".ObML\" group=\"" << obs_data.observation_types[xx] << "." << key << "\">" << std::endl;
 	  numIDs=0;
 	  platform.nsteps=0;
 	  platform.start.set(9999,12,31,235959);
 	  platform.end.set(1,1,1,0);
 	  platform.data_types_table.clear();
-	  for (const auto& ikey : ID_table[xx]->keys()) {
+	  for (const auto& ikey : obs_data.id_tables[xx]->keys()) {
 	    if (strutils::has_beginning(ikey,key)) {
 		sp=strutils::split(ikey,"[!]");
 		if (sp.size() < 3) {
@@ -862,7 +861,7 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
 		  exit(1);
 		}
 		ofs2 << "  <ID type=\"" << sp[1] << "\" value=\"" << sp[2] << "\"";
-		ID_table[xx]->found(ikey,ientry);
+		obs_data.id_tables[xx]->found(ikey,ientry);
 		if (floatutils::myequalf(ientry.data->S_lat,ientry.data->N_lat) && floatutils::myequalf(ientry.data->W_lon,ientry.data->E_lon)) {
 		  ofs2 << " lat=\"" << strutils::ftos(ientry.data->S_lat,4) << "\" lon=\"" << strutils::ftos(ientry.data->W_lon,4) << "\"";
 		}
@@ -883,7 +882,7 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
 		  ofs2 << ientry.data->start.to_string("%Y-%m-%d %H:%MM %Z");
 		}
 		else if (hr != 99) {
-		  ofs2 << ientry.data->start.to_string("%Y-%m-%d %H00 %Z");
+		  ofs2 << ientry.data->start.to_string("%Y-%m-%d %H %Z");
 		}
 		else {
 		  ofs2 << ientry.data->start.to_string("%Y-%m-%d");
@@ -900,7 +899,7 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
 		  ofs2 << ientry.data->end.to_string("%Y-%m-%d %H:%MM %Z");
 		}
 		else if (hr != 99) {
-		  ofs2 << ientry.data->end.to_string("%Y-%m-%d %H00 %Z");
+		  ofs2 << ientry.data->end.to_string("%Y-%m-%d %H %Z");
 		}
 		else {
 		  ofs2 << ientry.data->end.to_string("%Y-%m-%d");
@@ -962,19 +961,19 @@ void write_obml(my::map<IDEntry> **ID_table,my::map<PlatformEntry> *platform_tab
 	  ofs2 << "</IDs>" << std::endl;
 	  ofs2.close();
 	  ofs << "    <platform type=\"" << key << "\" numObs=\"" << platform.nsteps << "\">" << std::endl;
-	  ofs << "      <IDs ref=\"" << filename << ".ObML." << obsTypes.types[xx] << "." << key << ".IDs.xml\" numIDs=\"" << numIDs << "\" />" << std::endl;
+	  ofs << "      <IDs ref=\"" << filename << ".ObML." << obs_data.observation_types[xx] << "." << key << ".IDs.xml\" numIDs=\"" << numIDs << "\" />" << std::endl;
 	  ofs << "      <temporal start=\"" << platform.start.to_string("%Y-%m-%d") << "\" end=\"" << platform.end.to_string("%Y-%m-%d") << "\" />" << std::endl;
-	  ofs << "      <locations ref=\"" << filename << ".ObML." << obsTypes.types[xx] << "." << key << ".locations.xml\" />" << std::endl;
-	  ofs2.open((tdir.name()+"/metadata/"+cmd_type+"/"+filename+".ObML."+obsTypes.types[xx]+"."+key+".locations.xml").c_str());
+	  ofs << "      <locations ref=\"" << filename << ".ObML." << obs_data.observation_types[xx] << "." << key << ".locations.xml\" />" << std::endl;
+	  ofs2.open((tdir.name()+"/metadata/"+cmd_type+"/"+filename+".ObML."+obs_data.observation_types[xx]+"."+key+".locations.xml").c_str());
 	  ofs2 << "<?xml version=\"1.0\" ?>" << std::endl;
-	  ofs2 << "<locations parent=\"" << filename << ".ObML\" group=\"" << obsTypes.types[xx] << "." << key << "\">" << std::endl;
+	  ofs2 << "<locations parent=\"" << filename << ".ObML\" group=\"" << obs_data.observation_types[xx] << "." << key << "\">" << std::endl;
 	  if (pentry.boxflags->spole == 1) {
 	    ofs2 << "  <box1d row=\"0\" bitmap=\"0\" />" << std::endl;
 	  }
-	  for (n=0; n < 180; ++n) {
+	  for (size_t n=0; n < 180; ++n) {
 	    if (pentry.boxflags->flags[n][360] == 1) {
 		ofs2 << "  <box1d row=\"" << n+1 << "\" bitmap=\"";
-		for (m=0; m < 360; ++m) {
+		for (size_t m=0; m < 360; ++m) {
 		  ofs2 << static_cast<int>(pentry.boxflags->flags[n][m]);
 		}
 		ofs2 << "\" />" << std::endl;

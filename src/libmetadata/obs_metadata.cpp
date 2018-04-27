@@ -307,7 +307,7 @@ bool summarize_obs_data(std::string caller,std::string user)
     std::cerr << server.error() << std::endl;
     exit(1);
   }
-  for (auto key : summary_table_keys) {
+  for (const auto& key : summary_table_keys) {
     if (summary_table.found(key,se) && current_obsdata_table.found(key,se2)) {
 	if (se.box1d_bitmap != se2.box1d_bitmap) {
 	  updatedBitmap=true;
@@ -324,7 +324,7 @@ bool summarize_obs_data(std::string caller,std::string user)
     exit(1);
   }
   server._delete("search.obs_data","dsid = '"+meta_args.dsnum+"'");
-  for (auto key : summary_table_keys) {
+  for (const auto& key : summary_table_keys) {
     sp=strutils::split(key,"<!>");
     summary_table.found(key,se);
     if (server.insert("search.obs_data","'"+meta_args.dsnum+"',"+sp[0]+","+sp[1]+","+sp[2]+",'"+se.start_date+"','"+se.end_date+"',"+sp[3]+",'"+se.box1d_bitmap+"'") < 0) {
@@ -354,6 +354,114 @@ bool summarize_obs_data(std::string caller,std::string user)
 namespace metadata {
 
 namespace ObML {
+
+ObservationData::ObservationData() : num_types(0),observation_types(),id_tables(),platform_tables()
+{
+  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::LocalQuery query("obsType","ObML.obsTypes");
+  if (query.submit(server) == 0) {
+    MySQL::Row row;
+    while (query.fetch_row(row)) {
+	observation_types.emplace(num_types++,row[0]);
+    }
+    for (size_t n=0; n < num_types; ++n) {
+	id_tables.emplace_back(new my::map<IDEntry>(9999));
+	platform_tables.emplace_back(new my::map<PlatformEntry>);
+    }
+  }
+}
+
+void ObservationData::add_to_ids(size_t observation_type_index,IDEntry& ientry,float lat,float lon,DateTime *start_datetime,DateTime *end_datetime)
+{
+  if (!id_tables[observation_type_index]->found(ientry.key,ientry)) {
+    ientry.data.reset(new metadata::ObML::IDEntry::Data);
+    ientry.data->S_lat=ientry.data->N_lat=lat;
+    ientry.data->W_lon=ientry.data->E_lon=lon;
+    ientry.data->min_lon_bitmap.reset(new float[360]);
+    ientry.data->max_lon_bitmap.reset(new float[360]);
+    for (size_t n=0; n < 360; ++n) {
+	ientry.data->min_lon_bitmap[n]=ientry.data->max_lon_bitmap[n]=999.;
+    }
+    size_t n,m;
+    geoutils::convert_lat_lon_to_box(1,0.,lon,n,m);
+    ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=lon;
+    ientry.data->start=*start_datetime;
+    if (end_datetime == nullptr) {
+	ientry.data->end=ientry.data->start;
+    }
+    else {
+	ientry.data->end=*end_datetime;
+    }
+    ientry.data->nsteps=1;
+    id_tables[observation_type_index]->insert(ientry);
+  }
+  else {
+    if (lat != ientry.data->S_lat || lon != ientry.data->W_lon) {
+	if (lat < ientry.data->S_lat) {
+	  ientry.data->S_lat=lat;
+	}
+	if (lat > ientry.data->N_lat) {
+	  ientry.data->N_lat=lat;
+	}
+	if (lon < ientry.data->W_lon) {
+	  ientry.data->W_lon=lon;
+	}
+	if (lon > ientry.data->E_lon) {
+	  ientry.data->E_lon=lon;
+	}
+	size_t n,m;
+	geoutils::convert_lat_lon_to_box(1,0.,lon,n,m);
+	if (ientry.data->min_lon_bitmap[m] > 900.) {
+	  ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=lon;
+	}
+	else {
+	  if (lon < ientry.data->min_lon_bitmap[m]) {
+	    ientry.data->min_lon_bitmap[m]=lon;
+	  }
+	  if (lon > ientry.data->max_lon_bitmap[m]) {
+	    ientry.data->max_lon_bitmap[m]=lon;
+	  }
+	}
+    }
+    if (*start_datetime < ientry.data->start) {
+	ientry.data->start=*start_datetime;
+    }
+    if (end_datetime == nullptr) {
+	if (*start_datetime > ientry.data->end) {
+	  ientry.data->end=*start_datetime;
+	}
+    }
+    else {
+	if (*end_datetime > ientry.data->end) {
+	  ientry.data->end=*end_datetime;
+	}
+    }
+    ++(ientry.data->nsteps);
+  }
+}
+
+void ObservationData::add_to_platforms(size_t observation_type_index,std::string platform_key,float lat,float lon)
+{
+  PlatformEntry pentry;
+  if (!platform_tables[observation_type_index]->found(platform_key,pentry)) {
+    pentry.key=platform_key;
+    pentry.boxflags.reset(new summarizeMetadata::BoxFlags);
+    pentry.boxflags->initialize(361,180,0,0);
+    platform_tables[observation_type_index]->insert(pentry);
+  }
+  if (lat == -90.) {
+    pentry.boxflags->spole=1;
+  }
+  else if (lat == 90.) {
+    pentry.boxflags->npole=1;
+  }
+  else {
+    size_t n,m;
+    geoutils::convert_lat_lon_to_box(1,lat,lon,n,m);
+    pentry.boxflags->flags[n-1][m]=1;
+    pentry.boxflags->flags[n-1][360]=1;
+  }
+}
 
 std::string string_coordinate_to_db(std::string coordinate_value)
 {
