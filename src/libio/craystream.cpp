@@ -64,84 +64,7 @@ void icstream::close()
 
 int icstream::ignore()
 {
-  size_t len,ub;
-  int num_copied=0;
-
-// if the current position in the file buffer is at the end of the buffer, read
-//  a new block of data from the disk file
-  if (file_buf_pos == file_buf_len) {
-    if (read_from_disk() == error) {
-	return error;
-    }
-    if (cw_type == cw_eof) {
-	return eof;
-    }
-  }
-  switch (cw_type) {
-    case cw_bcw:
-    case cw_eor:
-    {
-// get the length of the current block of data
-	bits::get(&file_buf[file_buf_pos],len,55,9);
-// move the buffer pointer to the next control word
-	file_buf_pos+=(len+1)*cray_word_size;
-// if the file buffer position is inside the file buffer, get the number of
-//  unused bits in the end of the current block of data
-	if (file_buf_pos < file_buf_len) {
-	  bits::get(&file_buf[file_buf_pos],ub,4,6);
-	  ub/=cray_word_size;
-	}
-	else {
-	  ub=0;
-	}
-	num_copied=len*cray_word_size-ub;
-	if (file_buf_pos < file_buf_len) {
-// if the file buffer position is inside the file buffer, get the control word
-	  bits::get(&file_buf[file_buf_pos],cw_type,0,4);
-	}
-	else {
-// otherwise, must be at the end of a Cray block, so next control word assumed
-//  to be a BCW
-	  cw_type=cw_bcw;
-	}
-	break;
-    }
-    case cw_eof:
-    {
-	file_buf_pos+=cray_word_size;
-	if (file_buf_pos < file_buf_len) {
-	  bits::get(&file_buf[file_buf_pos],cw_type,0,4);
-	}
-	else {
-	  cw_type=cw_bcw;
-	}
-	break;
-    }
-  }
-  switch (cw_type) {
-    case cw_bcw:
-    {
-	num_copied+=ignore();
-	return num_copied;
-    }
-    case cw_eor:
-    {
-	++num_read;
-	return num_copied;
-    }
-    case cw_eof:
-    {
-	return eof;
-    }
-    case cw_eod:
-    {
-	return eod;
-    }
-    default:
-    {
-	return error;
-    }
-  }
+  return read(nullptr,0);
 }
 
 bool icstream::open(std::string filename)
@@ -155,15 +78,20 @@ bool icstream::open(std::string filename)
 
 int icstream::peek()
 {
+  static unsigned char *fb=new unsigned char[file_buf_len];
+
   auto loc=fs.tellg();
-  unsigned char *fb=new unsigned char[file_buf_len];
   std::copy(&file_buf[0],&file_buf[file_buf_len],fb);
   short cwt=cw_type;
-  size_t fbp=file_buf_pos,nr=num_read,nb=num_blocks;
+  size_t fbp=file_buf_pos;
+  size_t nr=num_read;
+  size_t nb=num_blocks;
   auto rec_len=ignore();
-  fs.seekg(loc,std::ios_base::beg);
+  if (loc >= 0) {
+    fs.clear();
+    fs.seekg(loc,std::ios_base::beg);
+  }
   std::copy(&fb[0],&fb[file_buf_len],file_buf.get());
-  delete[] fb;
   file_buf_pos=fbp;
   cw_type=cwt;
   num_read=nr;
@@ -209,16 +137,13 @@ int icstream::read(unsigned char *buffer,size_t buffer_length)
 // copy the data to the user-specified buffer
 	num_copied=len*cray_word_size-ub;
 	total_len+=num_copied;
-	if (buffer_length > 0) {
+	if (buffer != nullptr) {
 	  if (num_copied > static_cast<int>(buffer_length)) {
 	    num_copied=buffer_length;
 	  }
 	  if (num_copied > 0) {
 	    std::copy(&file_buf[copy_start],&file_buf[copy_start+num_copied],buffer);
 	  }
-	}
-	else {
-	  num_copied=0;
 	}
 	if (file_buf_pos < file_buf_len) {
 // if the file buffer position is inside the file buffer, get the control word
@@ -238,11 +163,11 @@ int icstream::read(unsigned char *buffer,size_t buffer_length)
   switch (cw_type) {
     case cw_bcw:
     {
-	if (buffer != NULL) {
+	if (buffer != nullptr) {
 	  num_copied+=read(buffer+num_copied,buffer_length-num_copied);
 	}
 	else {
-	  num_copied+=read(NULL,buffer_length-num_copied);
+	  num_copied+=read(nullptr,0);
 	}
 	--iterator;
 	if (iterator == 0) {
