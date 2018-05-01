@@ -2466,7 +2466,7 @@ std::copy(pds_supplement,pds_supplement+lengths_.pds_supp,pds_supp);
   clear_grids();
 }
 
-void GRIBMessage::print_header(std::ostream& outs,bool verbose) const
+void GRIBMessage::print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
 {
   if (verbose) {
     outs << "  GRIB Ed: " << edition_ << "  Length: " << mlength << std::endl;
@@ -2481,11 +2481,11 @@ void GRIBMessage::print_header(std::ostream& outs,bool verbose) const
 	  }
 	}
     }
-    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose);
+    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose,path_to_parameter_map);
   }
   else {
     outs << " Ed=" << edition_;
-    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose);
+    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose,path_to_parameter_map);
   }
 }
 
@@ -4244,7 +4244,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
   }
 }
 
-void GRIB2Message::print_header(std::ostream& outs,bool verbose) const
+void GRIB2Message::print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
 {
   int n=0;
 
@@ -4252,14 +4252,14 @@ void GRIB2Message::print_header(std::ostream& outs,bool verbose) const
     outs << "  GRIB Ed: " << edition_ << "  Length: " << mlength << "  Number of Grids: " << grids.size() << std::endl;
     for (auto grid : grids) {
 	outs << "  Grid #" << ++n << ":" << std::endl;
-	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose);
+	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose,path_to_parameter_map);
     }
   }
   else {
     outs << " Ed=" << edition_ << " NGrds=" << grids.size();
     for (auto grid : grids) {
 	outs << " Grd=" << ++n;
-	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose);
+	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose,path_to_parameter_map);
     }
   }
 }
@@ -9709,7 +9709,7 @@ combined.grid.num_missing=0;
   return combined;
 }
 
-GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float top_latitude,float left_longitude,float right_longitude,const char *path_to_gauslat_lists)
+GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float top_latitude,float left_longitude,float right_longitude)
 {
   GRIBGrid subset_grid;
   int n,m;
@@ -9728,11 +9728,11 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
   subset_grid.def.laincrement=source.def.laincrement;
   subset_grid.def.type=source.def.type;
   if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
-    if (path_to_gauslat_lists == nullptr) {
+    if (source.path_to_gaussian_latitude_data().empty()) {
 	myerror="path to gaussian latitude data was not specified";
 	exit(0);
     }
-    else if (!gridutils::fill_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,subset_grid.def.num_circles,(subset_grid.grib.scan_mode&0x40) != 0x40)) {
+    else if (!gridutils::fill_gaussian_latitudes(source.path_to_gaussian_latitude_data(),gaus_lats,subset_grid.def.num_circles,(subset_grid.grib.scan_mode&0x40) != 0x40)) {
 	myerror="unable to get gaussian latitudes for "+strutils::itos(subset_grid.def.num_circles)+" circles";
 	exit(0);
     }

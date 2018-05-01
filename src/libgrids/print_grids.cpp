@@ -3,7 +3,7 @@
 
 namespace gridPrint {
 
-int print(std::string input_filename,size_t format,bool headers_only,bool verbose,size_t start,size_t stop)
+int print(std::string input_filename,size_t format,bool headers_only,bool verbose,size_t start,size_t stop,std::string path_to_parameter_map)
 {
   idstream *grid_stream;
   GRIBMessage *msg=NULL;
@@ -152,7 +152,7 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
 	  else {
 	    std::cout << "MSG=" << grid_stream->number_read();
 	  }
-	  msg->print_header(std::cout,verbose);
+	  msg->print_header(std::cout,verbose,path_to_parameter_map);
 	}
 	else {
 	  source_grid->fill(buffer,headers_only);
@@ -162,7 +162,7 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
 	  else {
 	    std::cout << "GRID=" << grid_stream->number_read();
 	  }
-	  source_grid->print_header(std::cout,verbose);
+	  source_grid->print_header(std::cout,verbose,path_to_parameter_map);
 	}
 	if (!headers_only && verbose) {
 	  if (format == Grid::gribFormat || format == Grid::grib2Format) {
