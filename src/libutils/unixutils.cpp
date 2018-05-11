@@ -65,19 +65,27 @@ std::string unix_args_string(int argc,char **argv,char separator)
   return unix_args;
 }
 
-void dump(const unsigned char *buffer,int length)
+void dump(const unsigned char *buffer,int length,DumpType dump_type)
 {
-  for (int n=0; n < length; n+=16) {
-    for (int m=0; m < 16; ++m) {
-	if ( (n+m) >= length) {
-	  break;
+  if (dump_type == DumpType::bytes) {
+    for (int n=0; n < length; n+=16) {
+	for (int m=0; m < 16; ++m) {
+	  if ( (n+m) >= length) {
+	    break;
+	  }
+	  if (static_cast<int>(buffer[n+m]) >= 32 && static_cast<int>(buffer[n+m]) < 127) {
+	    std::cout << "    " << static_cast<char>(buffer[n+m]);
+	  }
+	  else {
+	    std::cout << std::setw(4) << std::setfill(' ') << static_cast<int>(buffer[n+m]) << "d";
+	  }
 	}
-	if (static_cast<int>(buffer[n+m]) >= 32 && static_cast<int>(buffer[n+m]) < 127) {
-	  std::cout << "    " << static_cast<char>(buffer[n+m]);
-	}
-	else {
-	  std::cout << std::setw(4) << std::setfill(' ') << static_cast<int>(buffer[n+m]) << "d";
-	}
+	std::cout << std::endl;
+    }
+  }
+  else if (dump_type == DumpType::bits) {
+    for (int n=0; n < length; ++n) {
+	std::cout << ((buffer[n] & 0x80) >> 7) << ((buffer[n] & 0x40) >> 6) << ((buffer[n] & 0x20) >> 5) << ((buffer[n] & 0x10) >> 4) << ((buffer[n] & 0x8) >> 3) << ((buffer[n] & 0x4) >> 2) << ((buffer[n] & 0x2) >> 1) << (buffer[n] & 0x1);
     }
     std::cout << std::endl;
   }
