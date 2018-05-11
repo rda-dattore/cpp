@@ -8,6 +8,12 @@
 
 const char *netCDFStream::nc_type[7]={"null","byte","char","short","int","float","double"};
 const short netCDFStream::nc_size[7]={0,1,1,2,4,4,8};
+const unsigned char netCDFStream::BYTE_NOT_SET=0x80;
+const char netCDFStream::CHAR_NOT_SET=0x80;
+const short netCDFStream::SHORT_NOT_SET=0x8000;
+const int netCDFStream::INT_NOT_SET=0x80000000;
+const float netCDFStream::FLOAT_NOT_SET=-1.e38;
+const double netCDFStream::DOUBLE_NOT_SET=-1.e38;
 
 netCDFStream::Attribute& netCDFStream::Attribute::operator=(const Attribute& source)
 {
@@ -520,19 +526,22 @@ bool InputNetCDFStream::open(std::string filename)
     return false;
   }
   rec_size=0;
-  char magic[4];
-  fs.read(magic,4);
+  char buf[4];
+  fs.read(buf,4);
   if (fs.gcount() != 4) {
     myerror="unable to read first four bytes in file";
     return false;
   }
-  if (magic[0] != 'C' || magic[1] != 'D' || magic[2] != 'F') {
+  if (buf[0] != 'C' || buf[1] != 'D' || buf[2] != 'F') {
     myerror="did not find 'CDF' in first three bytes of file";
     return false;
   }
-  _version=magic[3];
-  fs.read(magic,4);
-  bits::get(reinterpret_cast<unsigned char *>(magic),num_recs,0,32);
+  _version=buf[3];
+  fs.read(buf,4);
+  bits::get(reinterpret_cast<unsigned char *>(buf),num_recs,0,32);
+  fs.seekg(0,std::ios::end);
+  size_=fs.tellg();
+  fs.seekg(8,std::ios::beg);
   fill_dimensions();
   fill_attributes(gattrs);
   fill_variables();
@@ -550,6 +559,7 @@ bool InputNetCDFStream::close()
   dims.clear();
   gattrs.clear();
   vars.clear();
+  size_=0;
   return true;
 }
 
@@ -593,7 +603,6 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
   if (var_index < 0) {
     return NcType::_NULL;
   }
-  fs.seekg(vars[var_index].offset,std::ios_base::beg);
   size_t num_values;
   switch (vars[var_index].nc_type) {
     case NcType::BYTE:
@@ -625,9 +634,16 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
 	case NcType::CHAR:
 	{
 	  for (size_t n=0; n < num_rec_vals; n+=num_values) {
-	    fs.read(&((reinterpret_cast<char *>(variable_data.get()))[n]),num_values);
+	    if (off > size_) {
+		for (size_t m=0; m < num_values; ++m) {
+		  (reinterpret_cast<char *>(variable_data.get()))[n+m]=CHAR_NOT_SET;
+		}
+	    }
+	    else {
+		fs.seekg(off,std::ios_base::beg);
+		fs.read(&((reinterpret_cast<char *>(variable_data.get()))[n]),num_values);
+	    }
 	    off+=rec_size;
-	    fs.seekg(off,std::ios_base::beg);
 	  }
 	  break;
 	}
@@ -635,10 +651,17 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
 	{
 	  auto *tmpbuf=new char[nc_size[static_cast<int>(NcType::SHORT)]*num_values];
 	  for (size_t n=0; n < num_rec_vals; n+=num_values) {
-	    fs.read(tmpbuf,nc_size[static_cast<int>(NcType::SHORT)]*num_values);
-	    bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<short *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::SHORT)]*8,0,num_values);
+	    if (off > size_) {
+		for (size_t m=0; m < num_values; ++m) {
+		  (reinterpret_cast<short *>(variable_data.get()))[n+m]=SHORT_NOT_SET;
+		}
+	    }
+	    else {
+		fs.seekg(off,std::ios_base::beg);
+		fs.read(tmpbuf,nc_size[static_cast<int>(NcType::SHORT)]*num_values);
+		bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<short *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::SHORT)]*8,0,num_values);
+	    }
 	    off+=rec_size;
-	    fs.seekg(off,std::ios_base::beg);
 	  }
 	  delete[] tmpbuf;
 	  break;
@@ -647,10 +670,17 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
 	{
 	  auto *tmpbuf=new char[nc_size[static_cast<int>(NcType::INT)]*num_values];
 	  for (size_t n=0; n < num_rec_vals; n+=num_values) {
-	    fs.read(tmpbuf,nc_size[static_cast<int>(NcType::INT)]*num_values);
-	    bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::INT)]*8,0,num_values);
+	    if (off > size_) {
+		for (size_t m=0; m < num_values; ++m) {
+		  (reinterpret_cast<int *>(variable_data.get()))[n+m]=INT_NOT_SET;
+		}
+	    }
+	    else {
+		fs.seekg(off,std::ios_base::beg);
+		fs.read(tmpbuf,nc_size[static_cast<int>(NcType::INT)]*num_values);
+		bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::INT)]*8,0,num_values);
+	    }
 	    off+=rec_size;
-	    fs.seekg(off,std::ios_base::beg);
 	  }
 	  delete[] tmpbuf;
 	  break;
@@ -659,10 +689,17 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
 	{
 	  auto *tmpbuf=new char[nc_size[static_cast<int>(NcType::FLOAT)]*num_values];
 	  for (size_t n=0; n < num_rec_vals; n+=num_values) {
-	    fs.read(tmpbuf,nc_size[static_cast<int>(NcType::FLOAT)]*num_values);
-	    bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::FLOAT)]*8,0,num_values);
+	    if (off > size_) {
+		for (size_t m=0; m < num_values; ++m) {
+		  (reinterpret_cast<float *>(variable_data.get()))[n+m]=FLOAT_NOT_SET;
+		}
+	    }
+	    else {
+		fs.seekg(off,std::ios_base::beg);
+		fs.read(tmpbuf,nc_size[static_cast<int>(NcType::FLOAT)]*num_values);
+		bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::FLOAT)]*8,0,num_values);
+	    }
 	    off+=rec_size;
-	    fs.seekg(off,std::ios_base::beg);
 	  }
 	  delete[] tmpbuf;
 	  break;
@@ -671,10 +708,17 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
 	{
 	  auto *tmpbuf=new char[nc_size[static_cast<int>(NcType::DOUBLE)]*num_values];
 	  for (size_t n=0; n < num_rec_vals; n+=num_values) {
-	    fs.read(tmpbuf,nc_size[static_cast<int>(NcType::DOUBLE)]*num_values);
-	    bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<long long *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::DOUBLE)]*8,0,num_values);
+	    if (off > size_) {
+		for (size_t m=0; m < num_values; ++m) {
+		  (reinterpret_cast<double *>(variable_data.get()))[n+m]=DOUBLE_NOT_SET;
+		}
+	    }
+	    else {
+		fs.seekg(off,std::ios_base::beg);
+		fs.read(tmpbuf,nc_size[static_cast<int>(NcType::DOUBLE)]*num_values);
+		bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<long long *>(variable_data.get()))[n]),0,nc_size[static_cast<int>(NcType::DOUBLE)]*8,0,num_values);
+	    }
 	    off+=rec_size;
-	    fs.seekg(off,std::ios_base::beg);
 	  }
 	  delete[] tmpbuf;
 	  break;
@@ -688,6 +732,7 @@ netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,
   }
   else {
     variable_data.resize(num_values,vars[var_index].nc_type);
+    fs.seekg(vars[var_index].offset,std::ios_base::beg);
     switch (vars[var_index].nc_type) {
 	case NcType::CHAR:
 	{
