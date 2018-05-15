@@ -830,6 +830,10 @@ void write_obml(ObservationData& obs_data,std::string caller,std::string user)
   }
   ofs << "\">" << std::endl;
   ofs << "  <timeStamp value=\"" << dateutils::current_date_time().to_string("%Y-%m-%d %T %Z") << "\" />" << std::endl;
+  std::string datatype_map;
+  if (meta_args.data_format == "cpcsumm" || meta_args.data_format == "netcdf" || meta_args.data_format == "hdf5" || meta_args.data_format == "ghcnmv3" || meta_args.data_format == "proprietary_ASCII" || meta_args.data_format == "proprietary_Binary") {
+    datatype_map="ds"+meta_args.dsnum;
+  }
   for (size_t xx=0; xx < obs_data.num_types; ++xx) {
     obs_data.id_tables[xx]->keysort(
     [](const std::string& left,const std::string& right) -> bool
@@ -916,8 +920,8 @@ void write_obml(ObservationData& obs_data,std::string caller,std::string user)
 		  ientry.data->data_types_table.found(data_type,de);
 		  if (de.data->nsteps > 0) {
 		    ofs2 << "    <dataType";
-		    if (meta_args.data_format == "cpcsumm" || meta_args.data_format == "netcdf" || meta_args.data_format == "hdf5" || meta_args.data_format == "ghcnmv3") {
-			ofs2 << " map=\"ds" << meta_args.dsnum << "\"";
+		    if (!datatype_map.empty()) {
+			ofs2 << " map=\"" << datatype_map << "\"";
 		    }
 		    else if (strutils::contains(meta_args.data_format,"bufr")) {
 			ofs2 << " map=\"" << de.data->map << "\"";
@@ -987,8 +991,8 @@ void write_obml(ObservationData& obs_data,std::string caller,std::string user)
 	  for (const auto& key2 : platform.data_types_table.keys()) {
 	    platform.data_types_table.found(key2,de);
 	    ofs << "      <dataType";
-	    if (meta_args.data_format == "cpcsumm" || meta_args.data_format == "netcdf" || meta_args.data_format == "hdf5" || meta_args.data_format == "ghcnmv3") {
-		ofs << " map=\"ds" << meta_args.dsnum << "\"";
+	    if (!datatype_map.empty()) {
+		ofs << " map=\"" << datatype_map << "\"";
 	    }
 	    else if (strutils::contains(meta_args.data_format,"bufr")) {
 		ofs << " map=\"" << de.data->map << "\"";
