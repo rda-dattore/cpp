@@ -1,5 +1,6 @@
 #include <string.h>
 #include <utils.hpp>
+#include <strutils.hpp>
 
 namespace charconversions {
 
@@ -181,4 +182,35 @@ void ibcd_to_ebcdic(char *dest,char *src,size_t num)
   }
 }
 
-} // end namespace conversions
+int decode_overpunch(const char *buf,size_t buf_length,size_t overpunch_index)
+{
+  if (overpunch_index >= buf_length) {
+    return 0x7fffffff;
+  }
+  std::string s(buf,buf_length);
+  if (s[overpunch_index] >= 'A' && s[overpunch_index] <= 'I') {
+    s[overpunch_index]='1'+(s[overpunch_index]-'A');
+  }
+  else if (s[overpunch_index] >= 'J' && s[overpunch_index] <= 'R') {
+    s[overpunch_index]='1'+(s[overpunch_index]-'J');
+    s.insert(0,1,'-');
+  }
+  else if (s[overpunch_index] >= 'S' && s[overpunch_index] <= 'Z') {
+    s[overpunch_index]='2'+(s[overpunch_index]-'S');
+  }
+  else if (s[overpunch_index] == '}') {
+    s[overpunch_index]='0';
+  }
+  else if (s[overpunch_index] == '{') {
+    s[overpunch_index]='0';
+    s.insert(0,1,'-');
+  }
+  try {
+    return std::stoi(s);
+  }
+  catch (...) {
+    return 0x7fffffff;
+  }
+}
+
+} // end namespace charconversions
