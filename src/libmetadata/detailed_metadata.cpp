@@ -1822,7 +1822,7 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
 	  ofs << "<td>" << strutils::to_capital(te2.key) << "<ul class=\"paneltext\">";
 	  for (const auto& key3 : *te2.type_table_keys) {
 	    UniqueEntry ue;
-	    ue.key=metatranslations::detailed_datatype(data_type_mapper,row[0],meta_args.dsnum+":"+key3);
+	    ue.key=metatranslations::detailed_datatype(data_type_mapper,row[0],key3);
 	    if (!unique_data_types.found(ue.key,ue)) {
 		ofs << "<li>" << ue.key << "</li>";
 		unique_data_types.insert(ue);

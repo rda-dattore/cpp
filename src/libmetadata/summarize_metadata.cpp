@@ -1505,7 +1505,7 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
 	my::map<XEntry> unique_data_types_table;
 	while (ocustom.fetch_row(row)) {
 	  for (const auto& data_format : data_formats) {
-	    xe.key=data_type_mapper.description(data_format,meta_args.dsnum,row[0]);
+	    xe.key=data_type_mapper.description(data_format,"ds"+meta_args.dsnum,row[0]);
 	    if (!xe.key.empty()) {
 		if (!unique_data_types_table.found(xe.key,xe)) {
 		  xe.strings.reset(new std::vector<std::string>(1));
