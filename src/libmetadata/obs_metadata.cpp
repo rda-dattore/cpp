@@ -1,5 +1,6 @@
 #include <fstream>
 #include <string>
+#include <regex>
 #include <sys/stat.h>
 #include <metadata.hpp>
 #include <datetime.hpp>
@@ -9,6 +10,8 @@
 #include <utils.hpp>
 #include <bitmap.hpp>
 #include <search.hpp>
+
+extern std::string myerror;
 
 namespace summarizeMetadata {
 
@@ -355,25 +358,38 @@ namespace metadata {
 
 namespace ObML {
 
-ObservationData::ObservationData() : num_types(0),observation_types(),id_tables(),platform_tables()
+ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unique_datatype_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr)
 {
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("obsType","ObML.obsTypes");
   if (query.submit(server) == 0) {
     MySQL::Row row;
     while (query.fetch_row(row)) {
-	observation_types.emplace(num_types++,row[0]);
+	observation_types.emplace(num_types,row[0]);
+	observation_indexes.emplace(row[0],num_types);
+	++num_types;
     }
     for (size_t n=0; n < num_types; ++n) {
 	id_tables.emplace_back(new my::map<IDEntry>(9999));
 	platform_tables.emplace_back(new my::map<PlatformEntry>);
     }
   }
+  unique_observation_table.reset(new my::map<metautils::StringEntry>(999999));
+  unique_datatype_observation_table.reset(new my::map<metautils::StringEntry>(999999));
 }
 
-void ObservationData::add_to_ids(size_t observation_type_index,IDEntry& ientry,float lat,float lon,DateTime *start_datetime,DateTime *end_datetime)
+bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
 {
-  if (!id_tables[observation_type_index]->found(ientry.key,ientry)) {
+  if (lat < -90. || lat > 90. || lon < -180. || lon > 360.) {
+    myerror="latitude or longitude out of range";
+    return false;
+  }
+  auto o=observation_indexes.find(observation_type);
+  if (o == observation_indexes.end()) {
+    myerror="no index for observation type '"+observation_type+"'";
+    return false;
+  }
+  if (!id_tables[o->second]->found(ientry.key,ientry)) {
     ientry.data.reset(new metadata::ObML::IDEntry::Data);
     ientry.data->S_lat=ientry.data->N_lat=lat;
     ientry.data->W_lon=ientry.data->E_lon=lon;
@@ -393,7 +409,17 @@ void ObservationData::add_to_ids(size_t observation_type_index,IDEntry& ientry,f
 	ientry.data->end=*end_datetime;
     }
     ientry.data->nsteps=1;
-    id_tables[observation_type_index]->insert(ientry);
+    id_tables[o->second]->insert(ientry);
+    DataTypeEntry dte;
+    dte.key=data_type;
+    dte.data.reset(new DataTypeEntry::Data);
+    dte.data->nsteps=1;
+    ientry.data->data_types_table.insert(dte);
+    metautils::StringEntry se;
+    se.key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
+    unique_observation_table->insert(se);
+    se.key+=":"+data_type;
+    unique_datatype_observation_table->insert(se);
   }
   else {
     if (lat != ientry.data->S_lat || lon != ientry.data->W_lon) {
@@ -436,18 +462,50 @@ void ObservationData::add_to_ids(size_t observation_type_index,IDEntry& ientry,f
 	  ientry.data->end=*end_datetime;
 	}
     }
-    ++(ientry.data->nsteps);
+    metautils::StringEntry se;
+    se.key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
+    if (!unique_observation_table->found(se.key,se)) {
+	++(ientry.data->nsteps);
+	unique_observation_table->insert(se);
+    }
+    DataTypeEntry dte;
+    if (!ientry.data->data_types_table.found(data_type,dte)) {
+	dte.key=data_type;
+	dte.data.reset(new DataTypeEntry::Data);
+	ientry.data->data_types_table.insert(dte);
+    }
+    se.key+=":"+data_type;
+    if (!unique_datatype_observation_table->found(se.key,se)) {
+	++(dte.data->nsteps);
+	unique_datatype_observation_table->insert(se);
+    }
   }
+  if (std::regex_search(ientry.key,unknown_id_re)) {
+    if (unknown_ids == nullptr) {
+	unknown_ids.reset(new std::unordered_set<std::string>);
+    }
+    unknown_ids->emplace(ientry.key);
+  }
+  return true;
 }
 
-void ObservationData::add_to_platforms(size_t observation_type_index,std::string platform_key,float lat,float lon)
+bool ObservationData::add_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon)
 {
+  if (lat < -90. || lat > 90. || lon < -180. || lon > 360.) {
+    myerror="latitude or longitude out of range";
+    return false;
+  }
+  auto o=observation_indexes.find(observation_type);
+  if (o == observation_indexes.end()) {
+    myerror="no index for observation type '"+observation_type+"'";
+    return false;
+  }
   PlatformEntry pentry;
-  if (!platform_tables[observation_type_index]->found(platform_key,pentry)) {
-    pentry.key=platform_key;
+  if (!platform_tables[o->second]->found(platform_type,pentry)) {
+    pentry.key=platform_type;
     pentry.boxflags.reset(new summarizeMetadata::BoxFlags);
     pentry.boxflags->initialize(361,180,0,0);
-    platform_tables[observation_type_index]->insert(pentry);
+    platform_tables[o->second]->insert(pentry);
   }
   if (lat == -90.) {
     pentry.boxflags->spole=1;
@@ -461,6 +519,7 @@ void ObservationData::add_to_platforms(size_t observation_type_index,std::string
     pentry.boxflags->flags[n-1][m]=1;
     pentry.boxflags->flags[n-1][360]=1;
   }
+  return true;
 }
 
 std::string string_coordinate_to_db(std::string coordinate_value)
