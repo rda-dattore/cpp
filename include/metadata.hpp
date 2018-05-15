@@ -4,6 +4,8 @@
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
+#include <regex>
 #include <mymap.hpp>
 #include <grid.hpp>
 #include <xml.hpp>
@@ -627,13 +629,17 @@ struct PlatformEntry {
 };
 struct ObservationData {
   ObservationData();
-  void add_to_ids(size_t observation_type_index,IDEntry& ientry,float lat,float lon,DateTime *start_datetime,DateTime *end_datetime = nullptr);
-  void add_to_platforms(size_t observation_type_index,std::string platform_key,float lat,float lon);
+  bool add_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime = nullptr);
+  bool add_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon);
 
   size_t num_types;
-  std::unordered_map<int,std::string> observation_types;
+  std::unordered_map<size_t,std::string> observation_types;
+  std::unordered_map<std::string,size_t> observation_indexes;
   std::vector<my::map<IDEntry> *> id_tables;
   std::vector<my::map<PlatformEntry> *> platform_tables;
+  std::unique_ptr<my::map<metautils::StringEntry>> unique_observation_table,unique_datatype_observation_table;
+  std::regex unknown_id_re;
+  std::unique_ptr<std::unordered_set<std::string>> unknown_ids;
 };
 
 extern "C" int list_ancillary_ObML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
