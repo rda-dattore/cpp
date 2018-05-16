@@ -700,7 +700,7 @@ DataTypeMapEntry DataTypeMapper::entry(std::string data_format,std::string forma
 {
   DataTypeMapEntry dtme;
   if (!_path_to_map.empty()) {
-    dtme.key=data_format+".ds"+format_specialization;
+    dtme.key=data_format+"."+format_specialization;
     if (!datatype_map_table->found(dtme.key,dtme)) {
 	TempDir temp_dir;
 	temp_dir.create("/tmp");
