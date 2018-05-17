@@ -1703,9 +1703,8 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
   my::map<obsData::TypeEntry> platform_table;
   while (format_query.fetch_row(row)) {
     platform_table.clear();
-    auto format=row[0];
-    strutils::replace_all(format,"proprietary_","");
-    ofs << "<br><center><table class=\"insert\" width=\"95%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\"><tr><th class=\"headerRow\" colspan=\"4\" align=\"center\">Summary for Platform Observations in " << strutils::to_capital(format) << " Format</th></tr>" << std::endl;
+    auto data_format=row[0];
+    ofs << "<br><center><table class=\"insert\" width=\"95%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\"><tr><th class=\"headerRow\" colspan=\"4\" align=\"center\">Summary for Platform Observations in " << strutils::to_capital(strutils::substitute(data_format,"proprietary_","")) << " Format</th></tr>" << std::endl;
     auto cindex=0;
     ofs << "<tr class=\"bg2\" valign=\"top\"><th align=\"left\">Observing Platform</th><th align=\"left\">Observation Type<ul class=\"paneltext\"><li>Data Types</li></ul></th><td align=\"left\"><b>Average Frequency of Data</b><br>(varies by individual platform ID and data type)</td><td align=\"left\"><b>Temporal/Geographical Coverage</b><br>(each dot represents a 3&deg; box containing one or more observations)</td></tr>" << std::endl;
     if (group_index.empty()) {
@@ -1838,7 +1837,7 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
 	  if (group_index.empty() && unixutils::exists_on_server(meta_directives.web_server,"/data/web/datasets/ds"+meta_args.dsnum+"/metadata/"+te2.key+"."+te.key+".kml",meta_directives.rdadata_home)) {
 	    ofs << "&nbsp;<a href=\"/datasets/ds" << meta_args.dsnum << "/metadata/" << te2.key << "." << te.key << ".kml\"><img src=\"/images/kml.gif\" width=\"36\" height=\"14\" hspace=\"3\" border=\"0\" title=\"See stations plotted in Google Earth\"></a>";
 	  }
-	  ofs << "<br><img src=\"/datasets/ds" << meta_args.dsnum << "/metadata/spatial_coverage." << ID_type;
+	  ofs << "<br><img src=\"/datasets/ds" << meta_args.dsnum << "/metadata/spatial_coverage." << strutils::substitute(data_format," ","_") << "_" << ID_type;
 	  if (!group_index.empty()) {
 	    ofs << "_gindex_" << group_index;
 	  }
