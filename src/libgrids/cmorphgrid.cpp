@@ -14,7 +14,7 @@ bool InputCMORPH025GridStream::open(std::string filename)
     date_time_.set(std::stoll(filename.substr(idx+27,8))*1000000);
     type=1;
   }
-  else if ( (idx=filename.find("_RAW_0.25deg-3HLY_")) != std::string::npos) {
+  else if ( (idx=filename.find("_RAW_0.25deg-3HLY_")) != std::string::npos || (idx=filename.find("_ADJ_0.25deg-3HLY_")) != std::string::npos) {
     date_time_.set(std::stoll(filename.substr(idx+18,8))*1000000);
     type=2;
   }
