@@ -98,7 +98,7 @@ void ReanalysisHeader::set(const DATSAVAircraftReport& source)
   l_type=2;
   setLocation(source.location().latitude,-source.location().longitude,source.location().altitude);
   p_type=12;
-  cid=source.ID();
+  cid=source.location().ID;
 }
 
 void ReanalysisHeader::set(const NavySpotAircraftReport& source)
@@ -115,7 +115,7 @@ void ReanalysisHeader::set(const NavySpotAircraftReport& source)
   l_type=2;
   setLocation(source.location().latitude,source.location().longitude,lroundf(source.location().altitude*0.3048));
   p_type=12;
-  cid=source.ID();
+  cid=source.location().ID;
 }
 
 void ReanalysisHeader::set(const NewZealandAircraftReport& source)
@@ -132,7 +132,7 @@ void ReanalysisHeader::set(const NewZealandAircraftReport& source)
   l_type=2;
   setLocation(source.location().latitude,source.location().longitude,0);
   p_type=12;
-  cid=source.ID();
+  cid=source.location().ID;
 }
 
 void ReanalysisHeader::set(const Tsraob& source)
