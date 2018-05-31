@@ -606,14 +606,14 @@ struct DataTypeEntry {
 };
 struct IDEntry {
   struct Data {
-    Data() : S_lat(),N_lat(),W_lon(),E_lon(),min_lon_bitmap(nullptr),max_lon_bitmap(nullptr),start(),end(),nsteps(),data_types_table(),unique_table() {}
+    Data() : S_lat(),N_lat(),W_lon(),E_lon(),min_lon_bitmap(nullptr),max_lon_bitmap(nullptr),start(),end(),nsteps(),data_types_table() {}
 
     float S_lat,N_lat,W_lon,E_lon;
 //    float min_lon_bitmap[360],max_lon_bitmap[360];
 std::unique_ptr<float []> min_lon_bitmap,max_lon_bitmap;
     DateTime start,end;
     size_t nsteps;
-    my::map<DataTypeEntry> data_types_table,unique_table;
+    my::map<DataTypeEntry> data_types_table;
   };
 
   IDEntry() : key(),data(nullptr) {}
@@ -637,7 +637,7 @@ struct ObservationData {
   std::unordered_map<std::string,size_t> observation_indexes;
   std::vector<my::map<IDEntry> *> id_tables;
   std::vector<my::map<PlatformEntry> *> platform_tables;
-  std::unique_ptr<my::map<metautils::StringEntry>> unique_observation_table,unique_datatype_observation_table;
+  std::unordered_map<std::string,std::vector<std::string>> unique_observation_table;
   std::regex unknown_id_re;
   std::unique_ptr<std::unordered_set<std::string>> unknown_ids;
 };
