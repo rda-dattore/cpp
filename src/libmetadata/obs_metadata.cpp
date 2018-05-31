@@ -358,7 +358,7 @@ namespace metadata {
 
 namespace ObML {
 
-ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unique_datatype_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr)
+ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr)
 {
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("obsType","ObML.obsTypes");
@@ -374,8 +374,6 @@ ObservationData::ObservationData() : num_types(0),observation_types(),observatio
 	platform_tables.emplace_back(new my::map<PlatformEntry>);
     }
   }
-  unique_observation_table.reset(new my::map<metautils::StringEntry>(999999));
-  unique_datatype_observation_table.reset(new my::map<metautils::StringEntry>(999999));
 }
 
 bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
@@ -415,11 +413,8 @@ bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,st
     dte.data.reset(new DataTypeEntry::Data);
     dte.data->nsteps=1;
     ientry.data->data_types_table.insert(dte);
-    metautils::StringEntry se;
-    se.key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
-    unique_observation_table->insert(se);
-    se.key+=":"+data_type;
-    unique_datatype_observation_table->insert(se);
+    auto key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
+    unique_observation_table.emplace(key,std::vector<std::string>{data_type});
   }
   else {
     if (lat != ientry.data->S_lat || lon != ientry.data->W_lon) {
@@ -462,22 +457,24 @@ bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,st
 	  ientry.data->end=*end_datetime;
 	}
     }
-    metautils::StringEntry se;
-    se.key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
-    if (!unique_observation_table->found(se.key,se)) {
-	++(ientry.data->nsteps);
-	unique_observation_table->insert(se);
-    }
     DataTypeEntry dte;
     if (!ientry.data->data_types_table.found(data_type,dte)) {
 	dte.key=data_type;
 	dte.data.reset(new DataTypeEntry::Data);
 	ientry.data->data_types_table.insert(dte);
     }
-    se.key+=":"+data_type;
-    if (!unique_datatype_observation_table->found(se.key,se)) {
-	++(dte.data->nsteps);
-	unique_datatype_observation_table->insert(se);
+    auto key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
+    if (unique_observation_table.find(key) == unique_observation_table.end()) {
+	++(ientry.data->nsteps);
+++(dte.data->nsteps);
+	unique_observation_table.emplace(key,std::vector<std::string>{data_type});
+    }
+    else {
+	auto &data_types=unique_observation_table[key];
+	if (std::find(data_types.begin(),data_types.end(),data_type) == data_types.end()) {
+	  ++(dte.data->nsteps);
+	  data_types.emplace_back(data_type);
+	}
     }
   }
   if (std::regex_search(ientry.key,unknown_id_re)) {
