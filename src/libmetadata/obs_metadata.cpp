@@ -376,7 +376,7 @@ ObservationData::ObservationData() : num_types(0),observation_types(),observatio
   }
 }
 
-bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
+bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
 {
   if (lat < -90. || lat > 90. || lon < -180. || lon > 360.) {
     myerror="latitude or longitude out of range";
@@ -486,7 +486,7 @@ bool ObservationData::add_to_ids(std::string observation_type,IDEntry& ientry,st
   return true;
 }
 
-bool ObservationData::add_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon)
+bool ObservationData::added_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon)
 {
   if (lat < -90. || lat > 90. || lon < -180. || lon > 360.) {
     myerror="latitude or longitude out of range";
