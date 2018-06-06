@@ -3851,13 +3851,17 @@ int data_array_index(size_t chunk_index,const std::deque<size_t>& multipliers,co
   return index;
 }
 
-bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number,const std::vector<size_t>& dimensions)
+bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number,const InputHDF5Stream::CompoundDatatype::Member *compound_datatype_member,const std::vector<size_t>& dimensions)
 {
   unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
-  short off=HDF5::value(&dataset.datatype.properties[0],2);
-  short bit_length=HDF5::value(&dataset.datatype.properties[2],2);
+  if (compound_datatype_member != nullptr) {
+    buf+=compound_datatype_member->byte_offset;
+  }
+  auto &datatype= (compound_datatype_member == nullptr) ? dataset.datatype : compound_datatype_member->datatype;
+  short off=HDF5::value(&datatype.properties[0],2);
+  short bit_length=HDF5::value(&datatype.properties[2],2);
   short byte_order;
-  bits::get(dataset.datatype.bit_fields,byte_order,7,1);
+  bits::get(datatype.bit_fields,byte_order,7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
   if (off == 0 && (bit_length % 8) == 0) {
     std::deque<size_t> multipliers;
@@ -3923,7 +3927,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 	{
 	  if (darray.values == nullptr) {
 	    darray.values=new short[darray.num_values];
-	    short fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    short fill_value=HDF5::decode_data_value(datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
 	    for (size_t n=0; n < darray.num_values; ++n) {
 		(reinterpret_cast<short *>(darray.values))[n]=fill_value;
 	    }
@@ -3976,7 +3980,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 	{
 	  if (darray.values == nullptr) {
 	    darray.values=new int[darray.num_values];
-	    int fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    int fill_value=HDF5::decode_data_value(datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
 	    for (size_t n=0; n < darray.num_values; ++n) {
 		(reinterpret_cast<int *>(darray.values))[n]=fill_value;
 	    }
@@ -4029,7 +4033,7 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
 	{
 	  if (darray.values == nullptr) {
 	    darray.values=new long long[darray.num_values];
-	    long long fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    long long fill_value=HDF5::decode_data_value(datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
 	    for (size_t n=0; n < darray.num_values; ++n) {
 		(reinterpret_cast<long long *>(darray.values))[n]=fill_value;
 	    }
@@ -4090,13 +4094,17 @@ bool decode_class0_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset&
   }
 }
 
-bool decode_class1_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number)
+bool decode_class1_array(HDF5::DataArray& darray,const InputHDF5Stream::Dataset& dataset,size_t chunk_number,const InputHDF5Stream::CompoundDatatype::Member *compound_datatype_member)
 {
   unsigned char *buf=const_cast<unsigned char *>(dataset.data.chunks[chunk_number].buffer.get());
-  short bit_length=HDF5::value(&dataset.datatype.properties[2],2);
+  if (compound_datatype_member != nullptr) {
+    buf+=compound_datatype_member->byte_offset;
+  }
+  auto &datatype= (compound_datatype_member == nullptr) ? dataset.datatype : compound_datatype_member->datatype;
+  short bit_length=HDF5::value(&datatype.properties[2],2);
   short byte_order[2];
-  bits::get(dataset.datatype.bit_fields,byte_order[0],1,1);
-  bits::get(dataset.datatype.bit_fields,byte_order[1],7,1);
+  bits::get(datatype.bit_fields,byte_order[0],1,1);
+  bits::get(datatype.bit_fields,byte_order[1],7,1);
   size_t nvals=dataset.data.chunks[chunk_number].length/dataset.data.size_of_element;
 /*
 if (nvals > darray.num_values) {
@@ -4115,11 +4123,12 @@ darray.num_values=nvals;
   if (byte_order[0] == 0 && byte_order[1] == 0) {
 // little-endian
     if (!unixutils::system_is_big_endian()) {
-	if (bit_length == 32 && dataset.datatype.properties[5] == 8 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 23) {
+//	if (bit_length == 32 && dataset.datatype.properties[5] == 8 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 23) {
+if (bit_length == 32 && datatype.properties[5] == 8 && datatype.properties[6] == 0 && datatype.properties[4] == 23) {
 // IEEE single precision
 	  if (darray.values == nullptr) {
 	    darray.values=new float[darray.num_values];
-	    float fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    float fill_value=HDF5::decode_data_value(datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
 	    for (size_t n=0; n < darray.num_values; ++n) {
 		(reinterpret_cast<float *>(darray.values))[n]=fill_value;
 	    }
@@ -4145,11 +4154,12 @@ darray.num_values=nvals;
 	    }
 	  }
 	}
-	else if (bit_length == 64 && dataset.datatype.properties[5] == 11 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 52) {
+//	else if (bit_length == 64 && dataset.datatype.properties[5] == 11 && dataset.datatype.properties[6] == 0 && dataset.datatype.properties[4] == 52) {
+else if (bit_length == 64 && datatype.properties[5] == 11 && datatype.properties[6] == 0 && datatype.properties[4] == 52) {
 // IEEE double-precision
 	  if (darray.values == nullptr) {
 	    darray.values=new double[darray.num_values];
-	    double fill_value=HDF5::decode_data_value(dataset.datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
+	    double fill_value=HDF5::decode_data_value(datatype,dataset.fillvalue.bytes,DataArray::default_missing_value);
 	    for (size_t n=0; n < darray.num_values; ++n) {
 		(reinterpret_cast<double *>(darray.values))[n]=fill_value;
 	    }
@@ -4357,12 +4367,12 @@ num_values=dataset.dataspace.sizes[0];
 	  switch (dataset.datatype.class_) {
 	    case 0:
 	    {
-		decode_class0_array(*this,dataset,n,dimensions);
+		decode_class0_array(*this,dataset,n,nullptr,dimensions);
 		break;
 	    }
 	    case 1:
 	    {
-		decode_class1_array(*this,dataset,n);
+		decode_class1_array(*this,dataset,n,nullptr);
 		break;
 	    }
 	    case 3:
@@ -4385,12 +4395,12 @@ num_values=dataset.dataspace.sizes[0];
 		switch (cdtype.members[compound_member_index].datatype.class_) {
 		  case 0:
 		  {
-		    decode_class0_array(*this,dataset,n,dimensions);
+		    decode_class0_array(*this,dataset,n,&cdtype.members[compound_member_index],dimensions);
 		    break;
 		  }
 		  case 1:
 		  {
-		    decode_class1_array(*this,dataset,n);
+		    decode_class1_array(*this,dataset,n,&cdtype.members[compound_member_index]);
 		    break;
 		  }
 		  case 3:
