@@ -1,6 +1,7 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <unordered_map>
 #include <sys/stat.h>
 #include <metadata.hpp>
 #include <datetime.hpp>
@@ -358,7 +359,7 @@ namespace metadata {
 
 namespace ObML {
 
-ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr)
+ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr),track_unique_observations(true)
 {
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("obsType","ObML.obsTypes");
@@ -406,15 +407,19 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     else {
 	ientry.data->end=*end_datetime;
     }
-    ientry.data->nsteps=1;
     id_tables[o->second]->insert(ientry);
     DataTypeEntry dte;
     dte.key=data_type;
     dte.data.reset(new DataTypeEntry::Data);
-    dte.data->nsteps=1;
     ientry.data->data_types_table.insert(dte);
-    auto key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
-    unique_observation_table.emplace(key,std::vector<std::string>{data_type});
+    if (track_unique_observations) {
+	ientry.data->nsteps=1;
+	dte.data->nsteps=1;
+	std::stringstream key;
+	key.setf(std::ios::fixed);
+	key << o->second << ientry.key << unique_timestamp << std::endl;
+	unique_observation_table.emplace(key.str(),std::vector<std::string>{data_type});
+    }
   }
   else {
     if (lat != ientry.data->S_lat || lon != ientry.data->W_lon) {
@@ -463,17 +468,21 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
 	dte.data.reset(new DataTypeEntry::Data);
 	ientry.data->data_types_table.insert(dte);
     }
-    auto key=observation_type+";"+ientry.key+"-"+strutils::dtos(unique_timestamp);
-    if (unique_observation_table.find(key) == unique_observation_table.end()) {
-	++(ientry.data->nsteps);
-++(dte.data->nsteps);
-	unique_observation_table.emplace(key,std::vector<std::string>{data_type});
-    }
-    else {
-	auto &data_types=unique_observation_table[key];
-	if (std::find(data_types.begin(),data_types.end(),data_type) == data_types.end()) {
+    if (track_unique_observations) {
+	std::stringstream key;
+	key.setf(std::ios::fixed);
+	key << o->second << ientry.key << unique_timestamp << std::endl;
+	if (unique_observation_table.find(key.str()) == unique_observation_table.end()) {
+	  ++(ientry.data->nsteps);
 	  ++(dte.data->nsteps);
-	  data_types.emplace_back(data_type);
+	  unique_observation_table.emplace(key.str(),std::vector<std::string>{data_type});
+	}
+	else {
+	  auto &data_types=unique_observation_table[key.str()];
+	  if (std::find(data_types.begin(),data_types.end(),data_type) == data_types.end()) {
+	    ++(dte.data->nsteps);
+	    data_types.emplace_back(data_type);
+	  }
 	}
     }
   }
