@@ -629,8 +629,9 @@ struct PlatformEntry {
 };
 struct ObservationData {
   ObservationData();
-  bool add_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime = nullptr);
-  bool add_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon);
+  bool added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime = nullptr);
+  bool added_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon);
+  void set_track_unique_observations(bool track) { track_unique_observations=track; }
 
   size_t num_types;
   std::unordered_map<size_t,std::string> observation_types;
@@ -640,6 +641,7 @@ struct ObservationData {
   std::unordered_map<std::string,std::vector<std::string>> unique_observation_table;
   std::regex unknown_id_re;
   std::unique_ptr<std::unordered_set<std::string>> unknown_ids;
+  bool track_unique_observations;
 };
 
 extern "C" int list_ancillary_ObML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
