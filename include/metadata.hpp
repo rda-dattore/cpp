@@ -27,7 +27,7 @@ struct Directives {
   std::string dss_bindir,rdadata_home,parameter_map_path,level_map_path;
 };
 struct Args {
-  Args() : args_string(),dsnum(),data_format(),reg_key(),path(),filename(),local_name(),member_name(),temp_loc(),update_db(false),update_summary(false),override_primary_check(false),overwrite_only(false),regenerate(false),update_graphics(false),inventory_only(false) {}
+  Args() : args_string(),dsnum(),data_format(),reg_key(),path(),filename(),local_name(),member_name(),temp_loc(),update_db(true),update_summary(true),override_primary_check(false),overwrite_only(false),regenerate(true),update_graphics(true),inventory_only(false) {}
 
   std::string args_string,dsnum;
   std::string data_format,reg_key;
@@ -629,7 +629,7 @@ struct PlatformEntry {
 };
 struct ObservationData {
   ObservationData();
-  bool added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime = nullptr);
+  bool added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,std::string data_type_map,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime = nullptr);
   bool added_to_platforms(std::string observation_type,std::string platform_type,float lat,float lon);
   void set_track_unique_observations(bool track) { track_unique_observations=track; }
 
@@ -641,7 +641,7 @@ struct ObservationData {
   std::unordered_map<std::string,std::vector<std::string>> unique_observation_table;
   std::regex unknown_id_re;
   std::unique_ptr<std::unordered_set<std::string>> unknown_ids;
-  bool track_unique_observations;
+  bool track_unique_observations,is_empty;
 };
 
 extern "C" int list_ancillary_ObML_files(const char *name,const struct stat64 *data,int flag,struct FTW *ftw_struct);
