@@ -40,10 +40,10 @@ inline int ivbsstream::read_from_disk()
     delete[] temp;
     max_block_len=capacity;
   }
-  llen=file_buf_len-8;
-  fs.read(reinterpret_cast<char *>(&file_buf[8]),llen);
+  int read_len=file_buf_len-8;
+  fs.read(reinterpret_cast<char *>(&file_buf[8]),read_len);
   int status=0;
-  if (static_cast<size_t>(fs.gcount()) != llen) {
+  if (fs.gcount() != read_len) {
     status=error;
   }
   file_buf_pos=4;
@@ -72,6 +72,7 @@ int ivbsstream::ignore()
 	return status;
     }
   }
+  int lrec_len;
   bits::get(&file_buf[file_buf_pos],lrec_len,0,16);
   if (lrec_len == 0) {
     return -1;
@@ -112,7 +113,10 @@ int ivbsstream::read(unsigned char *buffer,size_t num_bytes)
 	return status;
     }
   }
+  size_t lrec_len;
   bits::get(&file_buf[file_buf_pos],lrec_len,0,16);
+  int segment_control_char;
+  bits::get(&file_buf[file_buf_pos],segment_control_char,16,8);
   if (lrec_len == 0) {
     return -1;
   }
@@ -129,6 +133,14 @@ int ivbsstream::read(unsigned char *buffer,size_t num_bytes)
     std::copy(&file_buf[file_buf_pos],&file_buf[file_buf_pos+bytes_copied],buffer);
   }
   file_buf_pos+=lrec_len;
+  switch (segment_control_char) {
+    case 1:
+    case 3:
+    {
+	bytes_copied+=read(&buffer[bytes_copied],num_bytes-bytes_copied);
+	break;
+    }
+  }
   ++num_read;
   return bytes_copied;
 }
