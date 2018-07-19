@@ -1504,8 +1504,18 @@ void create_file_list_cache(std::string file_type,std::string caller,std::string
 	}
 	my::map<XEntry> unique_data_types_table;
 	while (ocustom.fetch_row(row)) {
+	  auto dtype_parts=strutils::split(row[0],":");
+	  std::string format_specialization,data_type_code;
+	  if (dtype_parts.size() == 2) {
+	    format_specialization=dtype_parts.front();
+	    data_type_code=dtype_parts.back();
+	  }
+	  else {
+	    format_specialization="ds"+meta_args.dsnum;
+	    data_type_code=dtype_parts.front();
+	  }
 	  for (const auto& data_format : data_formats) {
-	    xe.key=data_type_mapper.description(data_format,"ds"+meta_args.dsnum,row[0]);
+	    xe.key=data_type_mapper.description(data_format,format_specialization,data_type_code);
 	    if (!xe.key.empty()) {
 		if (!unique_data_types_table.found(xe.key,xe)) {
 		  xe.strings.reset(new std::vector<std::string>(1));
