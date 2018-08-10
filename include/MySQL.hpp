@@ -1,7 +1,9 @@
 #ifndef MYSQL_H
 #define   MYSQL_H
 
+#include <fstream>
 #include <memory>
+#include <vector>
 #include <list>
 #include <forward_list>
 #include <unordered_map>
@@ -21,24 +23,25 @@ struct ColumnEntry {
 class Row
 {
 public:
-  Row() : capacity(0),num_columns(0),columns(nullptr),empty_column(),column_list(nullptr) {}
+  Row() : columns(),empty_column(),column_list(),_column_delimiter('|') {}
   Row(const Row& source) : Row() { *this=source; }
-  ~Row();
+  ~Row() {}
   Row& operator=(const Row& source);
   void clear();
-  bool empty() const { return (columns == nullptr); }
+  void delimit(char column_delimiter) { _column_delimiter=column_delimiter; }
+  bool empty() const { return (columns.size() == 0); }
   void fill(MYSQL_ROW& Row,unsigned long *lengths,size_t num_fields,std::unordered_map<std::string,size_t> *p_column_list);
   void fill(const std::string& Row,const char *separator,std::unordered_map<std::string,size_t> *p_column_list);
-  size_t length() const { return num_columns; }
+  size_t length() const { return columns.size(); }
   const std::string& operator[](size_t column_number) const;
   const std::string& operator[](std::string column_name) const;
+  friend std::ostream& operator<<(std::ostream& out_stream,const Row& row);
 
 private:
-  void check_alloc(size_t length);
-
-  size_t capacity,num_columns;
-  std::string *columns,empty_column;
+  std::vector<std::string> columns;
+  std::string empty_column;
   std::unordered_map<std::string,size_t> *column_list;
+  char _column_delimiter;
 };
 
 class Server
@@ -80,6 +83,21 @@ private:
   bool _connected;
 };
 
+class Query;
+class QueryIterator
+{
+public:
+  QueryIterator(Query& query,bool is_end) : _query(query),_is_end(is_end),row() {}
+  bool operator !=(const QueryIterator& source) { return (_is_end != source._is_end); }
+  const QueryIterator& operator++();
+  Row& operator*();
+
+private:
+  Query &_query;
+  bool _is_end;
+  Row row;
+};
+
 class Query
 {
 public:
@@ -98,9 +116,11 @@ public:
   virtual int submit(Server& server);
   int thread_ID() const { return _thread_id; }
 
-protected:
-  void fill_column_list(std::string columns);
+// range-base support
+  QueryIterator begin();
+  QueryIterator end();
 
+protected:
   struct MYSQL_RES_DELETER {
     void operator()(MYSQL_RES *RESULT) {
 	mysql_free_result(RESULT);
@@ -110,6 +130,8 @@ protected:
   int num_fields,_thread_id;
   std::string query,_error;
   std::forward_list<std::unordered_map<std::string,size_t>> column_lists;
+
+  void fill_column_list(std::string columns);
 };
 
 class LocalQuery : public Query
@@ -118,12 +140,18 @@ public:
   LocalQuery() : _num_rows(0) {}
   LocalQuery(std::string columns,std::string absolute_table,std::string where_conditions = "") : LocalQuery() { set(columns,absolute_table,where_conditions); }
   LocalQuery(std::string query_specification) : LocalQuery() { set(query_specification); }
-  void clear();
-  int explain(Server& server);
+
+// Query overrides
   bool fetch_row(Row& row) const;
+  int submit(Server& server);
+
+// local methods
+  int explain(Server& server);
   size_t num_rows() const { return _num_rows; }
   void rewind() { mysql_data_seek(RESULT.get(),0); }
-  int submit(Server& server);
+
+// range-base support
+  QueryIterator begin();
 
 private:
   size_t _num_rows;
