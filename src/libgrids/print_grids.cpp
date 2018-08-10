@@ -6,13 +6,8 @@ namespace gridPrint {
 int print(std::string input_filename,size_t format,bool headers_only,bool verbose,size_t start,size_t stop,std::string path_to_parameter_map)
 {
   idstream *grid_stream;
-  GRIBMessage *msg=NULL;
   Grid *source_grid;
-  int bytes_read;
-  size_t file_size=0,n;
-  unsigned char *buffer=nullptr;
-  int buf_len=0;
-
+  GRIBMessage *msg=NULL;
   switch (format) {
     case Grid::cgcm1Format:
     {
@@ -122,30 +117,13 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
     std::cerr << "Error opening " << input_filename << std::endl;
     exit(1);
   }
-  while (grid_stream->number_read() < stop && (bytes_read=grid_stream->peek()) != bfstream::eof) {
-    if (bytes_read == bfstream::error) {
-	std::cerr << "Error peeking grid " << grid_stream->number_read() << std::endl;
-	exit(1);
-    }
-    else if (bytes_read > buf_len) {
-	if (buffer != nullptr) {
-	  delete[] buffer;
-	}
-	buf_len=bytes_read;
-	buffer=new unsigned char[buf_len];
-    }
-    bytes_read=grid_stream->read(buffer,buf_len);
-    if (bytes_read == bfstream::eof) {
+  for (const auto& byte_stream : *grid_stream) {
+    if (grid_stream->number_read() == stop) {
 	break;
     }
-    else if (bytes_read == bfstream::error) {
-	std::cerr << "Error reading grid " << grid_stream->number_read() << std::endl;
-	exit(1);
-    }
-    file_size+=bytes_read;
     if (grid_stream->number_read() >= start) {
 	if (format == Grid::gribFormat || format == Grid::grib2Format) {
-	  msg->fill(buffer,headers_only);
+	  msg->fill(byte_stream,headers_only);
 	  if (verbose) {
 	    std::cout << "MESSAGE: " << std::setw(6) << grid_stream->number_read();
 	  }
@@ -155,7 +133,7 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
 	  msg->print_header(std::cout,verbose,path_to_parameter_map);
 	}
 	else {
-	  source_grid->fill(buffer,headers_only);
+	  source_grid->fill(byte_stream,headers_only);
 	  if (verbose) {
 	    std::cout << "GRID: " << std::setw(6) << grid_stream->number_read();
 	  }
@@ -166,7 +144,7 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
 	}
 	if (!headers_only && verbose) {
 	  if (format == Grid::gribFormat || format == Grid::grib2Format) {
-	    for (n=0; n < msg->number_of_grids(); ++n) {
+	    for (size_t n=0; n < msg->number_of_grids(); ++n) {
 		source_grid=msg->grid(n);
 		source_grid->print(std::cout);
 	    }
@@ -184,11 +162,6 @@ int print_ascii(std::string input_filename,size_t format,size_t start,size_t sto
 {
   idstream *grid_stream;
   Grid *source_grid;
-  int bytes_read;
-  size_t file_size=0;
-  const size_t MAX_LEN=200000;
-  unsigned char buffer[MAX_LEN];
-
   switch (format) {
     case Grid::gribFormat:
     {
@@ -261,14 +234,12 @@ int print_ascii(std::string input_filename,size_t format,size_t start,size_t sto
     std::cerr << "Error opening " << input_filename << std::endl;
     exit(1);
   }
-  while (grid_stream->number_read() < stop && (bytes_read=grid_stream->read(buffer,MAX_LEN)) != bfstream::eof) {
-    if (bytes_read == bfstream::error) {
-	std::cerr << "Error reading grid " << grid_stream->number_read() << std::endl;
-	exit(1);
+  for (const auto& byte_stream : *grid_stream) {
+    if (grid_stream->number_read() == stop) {
+	break;
     }
-    file_size+=bytes_read;
     if (grid_stream->number_read() >= start) {
-	source_grid->fill(buffer,Grid::full_grid);
+	source_grid->fill(byte_stream,Grid::full_grid);
 	source_grid->print_ascii(std::cout);
     }
   }
