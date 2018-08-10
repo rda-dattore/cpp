@@ -5,42 +5,26 @@
 
 namespace MySQL {
 
-Row::~Row()
-{
-  if (columns != nullptr) {
-    delete[] columns;
-  }
-  column_list=nullptr;
-}
-
 Row& Row::operator=(const Row& source)
 {
   if (this == &source) {
     return *this;
   }
-  check_alloc(source.capacity);
-  num_columns=source.num_columns;
-  for (size_t n=0; n < num_columns; ++n) {
-    columns[n]=source.columns[n];
-  }
+  columns=source.columns;
   column_list=source.column_list;
   return *this;
 }
 
 void Row::clear()
 {
-  if (columns != nullptr) {
-    delete[] columns;
-  }
-  capacity=num_columns=0;
-  columns=nullptr;
+  columns.resize(0);
+  column_list=nullptr;
 }
 
 void Row::fill(MYSQL_ROW& Row,unsigned long *lengths,size_t num_fields,std::unordered_map<std::string,size_t> *p_column_list)
 {
-  check_alloc(num_fields);
-  num_columns=num_fields;
-  for (size_t n=0; n < num_columns; ++n) {
+  columns.resize(num_fields);
+  for (size_t n=0; n < columns.size(); ++n) {
     columns[n].assign(Row[n],lengths[n]);
   }
   column_list=p_column_list;
@@ -49,9 +33,8 @@ void Row::fill(MYSQL_ROW& Row,unsigned long *lengths,size_t num_fields,std::unor
 void Row::fill(const std::string& Row,const char *separator,std::unordered_map<std::string,size_t> *p_column_list)
 {
   auto cols=strutils::split(Row,separator);
-  num_columns=cols.size();
-  check_alloc(num_columns);
-  for (size_t n=0; n < num_columns; ++n) {
+  columns.resize(cols.size());
+  for (size_t n=0; n < columns.size(); ++n) {
     columns[n]=cols[n];
   }
   column_list=p_column_list;
@@ -59,7 +42,7 @@ void Row::fill(const std::string& Row,const char *separator,std::unordered_map<s
 
 const std::string& Row::operator[](size_t column_number) const
 {
-  if (column_number < num_columns) {
+  if (column_number < columns.size()) {
     return columns[column_number];
   }
   else {
@@ -69,24 +52,29 @@ const std::string& Row::operator[](size_t column_number) const
 
 const std::string& Row::operator[](std::string column_name) const
 {
-  auto e=column_list->find(column_name);
-  if (e == column_list->end()) {
-    return empty_column;
+  if (column_list != nullptr) {
+    auto e=column_list->find(strutils::to_lower(column_name));
+    if (e == column_list->end()) {
+	return empty_column;
+    }
+    else {
+	return columns[e->second];
+    }
   }
   else {
-    return columns[e->second];
+    return empty_column;
   }
 }
 
-void Row::check_alloc(size_t length)
+std::ostream& operator<<(std::ostream& out_stream,const Row& row)
 {
-  if (length > capacity) {
-    if (columns != nullptr) {
-	delete[] columns;
+  for (size_t n=0; n < row.columns.size(); ++n) {
+    if (n > 0) {
+	out_stream << row._column_delimiter;
     }
-    capacity=length;
-    columns=new std::string[capacity];
+    out_stream << row.columns[n];
   }
+  return out_stream;
 }
 
 int Server::command(std::string command,std::string& result)
@@ -458,6 +446,34 @@ void Query::fill_column_list(std::string columns)
   }
 }
 
+QueryIterator Query::begin()
+{
+  auto i=QueryIterator(*this,false);
+  ++i;
+  return i;
+}
+
+QueryIterator Query::end()
+{
+  return QueryIterator(*this,true);
+}
+
+const QueryIterator& QueryIterator::operator++()
+{
+  if (!_query.fetch_row(row)) {
+    _is_end=true;
+  }
+  return *this;
+}
+
+Row& QueryIterator::operator*()
+{
+  if (_is_end) {
+    row=Row();
+  }
+  return row;
+}
+
 bool LocalQuery::fetch_row(Row& row) const
 {
   if (RESULT == nullptr) {
@@ -474,34 +490,6 @@ bool LocalQuery::fetch_row(Row& row) const
     row.clear();
     return false;
   }
-}
-
-int LocalQuery::explain(Server& server)
-{
-  if (!server) {
-    _error="Query error: not connected to server";
-    return -1;
-  }
-  if (RESULT != nullptr) {
-    RESULT.reset(nullptr);
-    _num_rows=num_fields=0;
-  }
-  mysql_query(server.handle(),("explain "+query).c_str());
-  _error="";
-  size_t num_tries=0;
-  while (mysql_errno(server.handle()) == 1205 && num_tries < 3) {
-    mysql_real_query(server.handle(),query.c_str(),query.length());
-    ++num_tries;
-  }
-  if (mysql_errno(server.handle()) > 0)
-    _error=mysql_error(server.handle())+std::string(" - errno: ")+strutils::itos(mysql_errno(server.handle()));
-  if (!_error.empty()) {
-    return -1;
-  }
-  RESULT.reset(mysql_store_result(server.handle()));
-  _num_rows=mysql_num_rows(RESULT.get());
-  num_fields=mysql_num_fields(RESULT.get());
-  return 0;
 }
 
 int LocalQuery::submit(Server& server)
@@ -532,6 +520,40 @@ int LocalQuery::submit(Server& server)
   _num_rows=mysql_num_rows(RESULT.get());
   num_fields=mysql_num_fields(RESULT.get());
   return 0;
+}
+
+int LocalQuery::explain(Server& server)
+{
+  if (!server) {
+    _error="Query error: not connected to server";
+    return -1;
+  }
+  if (RESULT != nullptr) {
+    RESULT.reset(nullptr);
+    _num_rows=num_fields=0;
+  }
+  mysql_query(server.handle(),("explain "+query).c_str());
+  _error="";
+  size_t num_tries=0;
+  while (mysql_errno(server.handle()) == 1205 && num_tries < 3) {
+    mysql_real_query(server.handle(),query.c_str(),query.length());
+    ++num_tries;
+  }
+  if (mysql_errno(server.handle()) > 0)
+    _error=mysql_error(server.handle())+std::string(" - errno: ")+strutils::itos(mysql_errno(server.handle()));
+  if (!_error.empty()) {
+    return -1;
+  }
+  RESULT.reset(mysql_store_result(server.handle()));
+  _num_rows=mysql_num_rows(RESULT.get());
+  num_fields=mysql_num_fields(RESULT.get());
+  return 0;
+}
+
+QueryIterator LocalQuery::begin()
+{
+  rewind();
+  return Query::begin();
 }
 
 bool table_exists(Server& server,std::string absolute_table)
