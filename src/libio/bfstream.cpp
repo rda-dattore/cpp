@@ -3,9 +3,6 @@
 #include <iostream>
 #include <bfstream.hpp>
 
-const int bfstream::error=-1;
-const int bfstream::eof=-2;
-
 bfstream::~bfstream()
 {
   if (file_buf != nullptr) {
