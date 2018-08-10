@@ -3,27 +3,55 @@
 #include <iostream>
 #include <iodstream.hpp>
 
-/*
-iods::~iods()
+const idstream_iterator& idstream_iterator::operator++()
 {
-  if (fp != nullptr) {
-    fclose(fp);
-    fp=nullptr;
+  auto num_bytes=_stream.peek();
+  switch (num_bytes) {
+    case bfstream::eof:
+    {
+	if (_stream.number_read() == 0) {
+	  std::cerr << "Error reading data stream (maybe the wrong type?)" << std::endl;
+	  exit(1);
+	}
+	else {
+	  _is_end=true;
+	}
+	break;
+    }
+    case bfstream::error:
+    {
+	std::cerr << "Error peeking data stream" << std::endl;
+	exit(1);
+    }
+    default:
+    {
+	if (num_bytes > buffer_capacity) {
+	  buffer_capacity=num_bytes;
+	  buffer.reset(new unsigned char[buffer_capacity]);
+	}
+	_stream.read(buffer.get(),buffer_capacity);
+    }
   }
-}
-*/
-
-/*
-iods& iods::operator=(const iods& source)
-{
-  if (this == &source) {
-    return *this;
-  }
-  file_name=source.file_name;
-  fs=source.fs;
   return *this;
 }
-*/
+
+unsigned char *idstream_iterator::operator*()
+{
+  if (_is_end) {
+    return nullptr;
+  }
+  else {
+    return buffer.get();
+  }
+}
+
+idstream_iterator idstream::begin()
+{
+  rewind();
+  auto i=idstream_iterator(*this,false);
+  ++i;
+  return i;
+}
 
 void idstream::close()
 {
@@ -43,6 +71,11 @@ void idstream::close()
     if77_stream->close();
     if77_stream.reset(nullptr);
   }
+}
+
+idstream_iterator idstream::end()
+{
+  return idstream_iterator(*this,true);
 }
 
 bool idstream::open(std::string filename)
