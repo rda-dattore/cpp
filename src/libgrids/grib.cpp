@@ -13,59 +13,6 @@
 #include <myerror.hpp>
 #include <tempfile.hpp>
 
-bool InputGRIBStream::open(std::string filename)
-{
-  icstream chkstream;
-
-  if (is_open()) {
-    myerror="currently connected to another file stream";
-    exit(1);
-  } 
-  num_read=0;
-// test for COS-blocking
-  if (!chkstream.open(filename))
-    return false;
-  if (chkstream.ignore() > 0) {
-    myerror="COS-blocking must be removed from GRIB files before reading";
-    exit(1);
-  }
-  fs.open(filename.c_str(),std::ios::in);
-  if (!fs.is_open()) {
-    return false;
-  }
-  file_name=filename;
-  return true;
-}
-
-int InputGRIBStream::find_grib(unsigned char *buffer)
-{
-  buffer[0]='X';
-  fs.read(reinterpret_cast<char *>(buffer),4);
-  while (buffer[0] != 'G' || buffer[1] != 'R' || buffer[2] != 'I' || buffer[3] != 'B') {
-    if (fs.eof() || !fs.good()) {
-	if (num_read == 0) {
-	  myerror="not a GRIB file";
-	  exit(1);
-	}
-	else {
-	  return (fs.eof()) ? bfstream::eof : bfstream::error;
-	}
-    }
-    buffer[0]=buffer[1];
-    buffer[1]=buffer[2];
-    buffer[2]=buffer[3];
-    fs.read(reinterpret_cast<char *>(&buffer[3]),1);
-    if (fs.eof()) {
-	return bfstream::eof;
-    }
-    else if (!fs.good()) {
-	return bfstream::error;
-    }
-  }
-  curr_offset=static_cast<off_t>(fs.tellg())-4;
-  return 4;
-}
-
 int InputGRIBStream::peek()
 {
   unsigned char buffer[16];
@@ -356,6 +303,59 @@ exit(1);
   }
   ++num_read;
   return bytes_read;
+}
+
+bool InputGRIBStream::open(std::string filename)
+{
+  icstream chkstream;
+
+  if (is_open()) {
+    myerror="currently connected to another file stream";
+    exit(1);
+  } 
+  num_read=0;
+// test for COS-blocking
+  if (!chkstream.open(filename))
+    return false;
+  if (chkstream.ignore() > 0) {
+    myerror="COS-blocking must be removed from GRIB files before reading";
+    exit(1);
+  }
+  fs.open(filename.c_str(),std::ios::in);
+  if (!fs.is_open()) {
+    return false;
+  }
+  file_name=filename;
+  return true;
+}
+
+int InputGRIBStream::find_grib(unsigned char *buffer)
+{
+  buffer[0]='X';
+  fs.read(reinterpret_cast<char *>(buffer),4);
+  while (buffer[0] != 'G' || buffer[1] != 'R' || buffer[2] != 'I' || buffer[3] != 'B') {
+    if (fs.eof() || !fs.good()) {
+	if (num_read == 0) {
+	  myerror="not a GRIB file";
+	  exit(1);
+	}
+	else {
+	  return (fs.eof()) ? bfstream::eof : bfstream::error;
+	}
+    }
+    buffer[0]=buffer[1];
+    buffer[1]=buffer[2];
+    buffer[2]=buffer[3];
+    fs.read(reinterpret_cast<char *>(&buffer[3]),1);
+    if (fs.eof()) {
+	return bfstream::eof;
+    }
+    else if (!fs.good()) {
+	return bfstream::error;
+    }
+  }
+  curr_offset=static_cast<off_t>(fs.tellg())-4;
+  return 4;
 }
 
 #ifndef __cosutils
@@ -3546,8 +3546,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 {
   off_t off=curr_off*8;
   short sec_num;
-  size_t x,y,avg_cnt=0,pval=0;
-  int n,m,l,len;
+  size_t avg_cnt=0,pval=0;
+  int len;
   int *jvals,num_packed=0;
   GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back());
   struct {
@@ -3558,7 +3558,6 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
     int max_length;
   } groups;
   int pad,i,j;
-  double lastgp;
   double D=pow(10.,g2->grib.D);
   double E=pow(2.,g2->grib.E);
 
@@ -3575,9 +3574,9 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	{
 	  g2->galloc();
 	  off+=40;
-	  x=0;
-	  for (n=0; n < g2->dim.y; n++) {
-	    for (m=0; m < g2->dim.x; m++) {
+	  size_t x=0;
+	  for (int n=0; n < g2->dim.y; ++n) {
+	    for (int m=0; m < g2->dim.x; ++m) {
 		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
 		  bits::get(stream_buffer,pval,off,g2->grib.pack_width);
 		  num_packed++;
@@ -3632,14 +3631,15 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    off+=8-pad;
 	  }
 	  groups.max_length=0;
-	  for (n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+	  for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
 	    groups.lengths[n]=g2->grib2.complex_pack.grid_point.length_ref+groups.lengths[n]*g2->grib2.complex_pack.grid_point.length_incr;
 	    if (groups.lengths[n] > groups.max_length) {
 		groups.max_length=groups.lengths[n];
 	    }
 	  }
 	  groups.pvals=new int[groups.max_length];
-	  for (n=0,l=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+	  size_t gridpoint_index=0;
+	  for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
 	    if (groups.widths[n] > 0) {
 		if (g2->grib2.complex_pack.grid_point.miss_val_mgmt > 0) {
 		  groups.group_miss_val=pow(2.,groups.widths[n])-1;
@@ -3649,10 +3649,10 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		}
 		bits::get(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
 		off+=groups.widths[n]*groups.lengths[n];
-		for (m=0; m < groups.lengths[n]; ++m) {
-		  j=l/g2->dim.x;
-		  i=(l % g2->dim.x);
-		  if (groups.pvals[m] == groups.group_miss_val || (g2->bitmap.applies && g2->bitmap.map[l] == 0)) {
+		for (int m=0; m < groups.lengths[n]; ++m) {
+		  j=gridpoint_index/g2->dim.x;
+		  i=(gridpoint_index % g2->dim.x);
+		  if (groups.pvals[m] == groups.group_miss_val || (g2->bitmap.applies && g2->bitmap.map[gridpoint_index] == 0)) {
 		    g2->gridpoints_[j][i]=Grid::missing_value;
 		  }
 		  else {
@@ -3663,15 +3663,15 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		    g2->stats.avg_val+=g2->gridpoints_[j][i];
 		    ++avg_cnt;
 		  }
-		  ++l;
+		  ++gridpoint_index;
 		}
 	    }
 	    else {
 // constant group
-		for (m=0; m < groups.lengths[n]; ++m) {
-		  j=l/g2->dim.x;
-		  i=(l % g2->dim.x);
-		  if (groups.ref_vals[n] == groups.miss_val || (g2->bitmap.applies && g2->bitmap.map[l] == 0)) {
+		for (int m=0; m < groups.lengths[n]; ++m) {
+		  j=gridpoint_index/g2->dim.x;
+		  i=(gridpoint_index % g2->dim.x);
+		  if (groups.ref_vals[n] == groups.miss_val || (g2->bitmap.applies && g2->bitmap.map[gridpoint_index] == 0)) {
 		    g2->gridpoints_[j][i]=Grid::missing_value;
 		  }
 		  else {
@@ -3682,13 +3682,13 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		    g2->stats.avg_val+=g2->gridpoints_[j][i];
 		    ++avg_cnt;
 		  }
-		  ++l;
+		  ++gridpoint_index;
 		}
 	    }
 	  }
-	  for (; l < static_cast<int>(g2->dim.size); ++l) {
-	    j=l/g2->dim.x;
-	    i=(l % g2->dim.x);
+	  for (; gridpoint_index < g2->dim.size; ++gridpoint_index) {
+	    j=gridpoint_index/g2->dim.x;
+	    i=(gridpoint_index % g2->dim.x);
 	    g2->gridpoints_[j][i]=Grid::missing_value;
 	  }
 	  g2->stats.avg_val/=static_cast<double>(avg_cnt);
@@ -3711,7 +3711,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    }
 	    off+=40;
 	    groups.first_vals=new int[g2->grib2.complex_pack.grid_point.spatial_diff.order];
-	    for (n=0; n < g2->grib2.complex_pack.grid_point.spatial_diff.order; ++n) {
+	    for (int n=0; n < g2->grib2.complex_pack.grid_point.spatial_diff.order; ++n) {
 		bits::get(stream_buffer,groups.first_vals[n],off,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8);
 		off+=g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8;
 	    }
@@ -3740,19 +3740,21 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		off+=8-pad;
 	    }
 	    groups.max_length=0;
-	    for (n=0,l=g2->grib2.complex_pack.grid_point.num_groups-1; n < l; ++n) {
+	    int end=g2->grib2.complex_pack.grid_point.num_groups-1;
+	    for (int n=0; n < end; ++n) {
 		groups.lengths[n]=g2->grib2.complex_pack.grid_point.length_ref+groups.lengths[n]*g2->grib2.complex_pack.grid_point.length_incr;
 		if (groups.lengths[n] > groups.max_length) {
 		  groups.max_length=groups.lengths[n];
 		}
 	    }
-	    groups.lengths[n]=g2->grib2.complex_pack.grid_point.last_length;
-	    if (groups.lengths[n] > groups.max_length) {
-		groups.max_length=groups.lengths[n];
+	    groups.lengths[end]=g2->grib2.complex_pack.grid_point.last_length;
+	    if (groups.lengths[end] > groups.max_length) {
+		groups.max_length=groups.lengths[end];
 	    }
 	    groups.pvals=new int[groups.max_length];
 // unpack the field of differences
-	    for (n=0,l=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+	    size_t gridpoint_index=0;
+	    for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
 		if (groups.widths[n] > 0) {
 		  if (g2->grib2.complex_pack.grid_point.miss_val_mgmt > 0) {
 		    groups.group_miss_val=pow(2.,groups.widths[n])-1;
@@ -3762,57 +3764,62 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		  }
 		  bits::get(stream_buffer,groups.pvals,off,groups.widths[n],0,groups.lengths[n]);
 		  off+=groups.widths[n]*groups.lengths[n];
-		  for (m=0; m < groups.lengths[n]; ++m,++l) {
-		    j=l/g2->dim.x;
-		    i=(l % g2->dim.x);
-		    if ((g2->bitmap.applies && g2->bitmap.map[l] == 0) || groups.pvals[m] == groups.group_miss_val) {
+		  for (int m=0; m < groups.lengths[n]; ++m) {
+		    j=gridpoint_index/g2->dim.x;
+		    i=(gridpoint_index % g2->dim.x);
+		    if ((g2->bitmap.applies && g2->bitmap.map[gridpoint_index] == 0) || groups.pvals[m] == groups.group_miss_val) {
 			g2->gridpoints_[j][i]=Grid::missing_value;
 		    }
 		    else {
 			g2->gridpoints_[j][i]=groups.pvals[m]+groups.ref_vals[n]+groups.omin;
 		    }
+		    ++gridpoint_index;
 		  }
 		}
 		else {
 // constant group
-		  for (m=0; m < groups.lengths[n]; ++m,++l) {
-		    j=l/g2->dim.x;
-		    i=(l % g2->dim.x);
-		    if ((g2->bitmap.applies && g2->bitmap.map[l] == 0) || groups.ref_vals[n] == groups.miss_val) {
+		  for (int m=0; m < groups.lengths[n]; ++m) {
+		    j=gridpoint_index/g2->dim.x;
+		    i=(gridpoint_index % g2->dim.x);
+		    if ((g2->bitmap.applies && g2->bitmap.map[gridpoint_index] == 0) || groups.ref_vals[n] == groups.miss_val) {
 			g2->gridpoints_[j][i]=Grid::missing_value;
 		    }
 		    else {
 			g2->gridpoints_[j][i]=groups.ref_vals[n]+groups.omin;
 		    }
+		    ++gridpoint_index;
 		  }
 		}
 	    }
-	    for (; l < static_cast<int>(g2->dim.size); ++l) {
-		j=l/g2->dim.x;
-		i=(l % g2->dim.x);
+	    for (; gridpoint_index < g2->dim.size; ++gridpoint_index) {
+		j=gridpoint_index/g2->dim.x;
+		i=(gridpoint_index % g2->dim.x);
 		g2->gridpoints_[j][i]=Grid::missing_value;
 	    }
-	    for (n=g2->grib2.complex_pack.grid_point.spatial_diff.order-1; n > 0; --n) {
-		lastgp=groups.first_vals[n]-groups.first_vals[n-1];
-		for (l=0,m=0; l < static_cast<int>(g2->dim.size); ++l) {
+	    for (int n=g2->grib2.complex_pack.grid_point.spatial_diff.order-1; n > 0; --n) {
+		auto lastgp=groups.first_vals[n]-groups.first_vals[n-1];
+		int num_not_missing=0;
+		for (size_t l=0; l < g2->dim.size; ++l) {
 		  j=l/g2->dim.x;
 		  i=(l % g2->dim.x);
 		  if (g2->gridpoints_[j][i] != Grid::missing_value) {
-		    if (m >= g2->grib2.complex_pack.grid_point.spatial_diff.order) {
+		    if (num_not_missing >= g2->grib2.complex_pack.grid_point.spatial_diff.order) {
 			g2->gridpoints_[j][i]+=lastgp;
 			lastgp=g2->gridpoints_[j][i];
 		    }
-		    ++m;
+		    ++num_not_missing;
 		  }
 		}
 	    }
-	    for (l=0,m=0,lastgp=0; l < static_cast<int>(g2->dim.size); ++l) {
+	    double lastgp=0.;
+	    int num_not_missing=0;
+	    for (size_t l=0; l < g2->dim.size; ++l) {
 		j=l/g2->dim.x;
 		i=(l % g2->dim.x);
 		if (g2->gridpoints_[j][i] != Grid::missing_value) {
-		  if (m < g2->grib2.complex_pack.grid_point.spatial_diff.order) {
-		    g2->gridpoints_[j][i]=g2->stats.min_val+groups.first_vals[m]/D*E;
-		    lastgp=g2->stats.min_val*D/E+groups.first_vals[m];
+		  if (num_not_missing < g2->grib2.complex_pack.grid_point.spatial_diff.order) {
+		    g2->gridpoints_[j][i]=g2->stats.min_val+groups.first_vals[num_not_missing]/D*E;
+		    lastgp=g2->stats.min_val*D/E+groups.first_vals[num_not_missing];
 		  }
 		  else {
 		    lastgp+=g2->gridpoints_[j][i];
@@ -3823,7 +3830,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		  }
 		  g2->stats.avg_val+=g2->gridpoints_[j][i];
 		  ++avg_cnt;
-		  ++m;
+		  ++num_not_missing;
 		}
 	    }
 	    delete[] groups.pvals;
@@ -3834,8 +3841,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    g2->stats.avg_val/=static_cast<double>(avg_cnt);
 	  }
 	  else {
-	    for (n=0; n < g2->dim.y; ++n) {
-		for (m=0; m < g2->dim.x; ++m) {
+	    for (int n=0; n < g2->dim.y; ++n) {
+		for (int m=0; m < g2->dim.x; ++m) {
 		  g2->gridpoints_[n][m]=Grid::missing_value;
 		}
 	    }
@@ -3852,16 +3859,20 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  jvals=new int[g2->dim.size];
 	  if (len > 0) {
 	    if (gributils::dec_jpeg2000(reinterpret_cast<char *>(const_cast<unsigned char *>(&stream_buffer[curr_off+5])),len,jvals) < 0) {
-		for (n=0; n < static_cast<int>(g2->dim.size); jvals[n++]=0);
+		for (size_t n=0; n < g2->dim.size; ++n) {
+		  jvals[n]=0;
+		}
 	    }
 	  }
 	  else {
-	    for (n=0; n < static_cast<int>(g2->dim.size); jvals[n++]=0);
+	    for (size_t n=0; n < g2->dim.size; ++n) {
+		jvals[n]=0;
+	    }
 	  }
 	  g2->galloc();
-	  x=y=0;
-	  for (n=0; n < g2->dim.y; ++n) {
-	    for (m=0; m < g2->dim.x; ++m) {
+	  size_t x=0,y=0;
+	  for (int n=0; n < g2->dim.y; ++n) {
+	    for (int m=0; m < g2->dim.x; ++m) {
 		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
 		  g2->gridpoints_[n][m]=g2->stats.min_val+jvals[y++]*E/D;
 		  if (g2->gridpoints_[n][m] > g2->stats.max_val) {
