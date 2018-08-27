@@ -1,11 +1,16 @@
+#include <stdexcept>
 #include <complex>
+#include <strutils.hpp>
 
 namespace geoutils {
 
-int convert_lat_lon_to_box(size_t box_size,double lat,double lon,size_t& lat_index,size_t& lon_index)
+void convert_lat_lon_to_box(size_t box_size,double lat,double lon,size_t& lat_index,size_t& lon_index)
 {
-  if (lat < -90. || lat > 90. || lon < -180. || lon > 180.) {
-    return -1;
+  if (lat < -90. || lat > 90.) {
+    throw std::range_error("latitude '"+strutils::ftos(lat,4)+"' not in [-90,90]");
+  }
+  if (lon < -180. || lon > 180.) {
+    throw std::range_error("longitude '"+strutils::ftos(lon,4)+"' not in [-180,180]");
   }
   if (fabs(lat+90.) < 0.00001) {
     lat_index=0;
@@ -35,7 +40,6 @@ lat_index=(static_cast<int>(lat+0.99999999999999)+89+box_size)/box_size;
 	lon_index=(static_cast<int>(lon+0.9999999999999)+179)/box_size;
     }
   }
-  return 0;
 }
 
 int convert_box_to_center_lat_lon(size_t box_size,size_t lat_index,size_t lon_index,double& lat,double& lon)
