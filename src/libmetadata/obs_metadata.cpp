@@ -359,7 +359,7 @@ namespace metadata {
 
 namespace ObML {
 
-ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr),track_unique_observations(true)
+ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr),track_unique_observations(true),is_empty(true)
 {
   MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
   MySQL::LocalQuery query("obsType","ObML.obsTypes");
@@ -377,7 +377,7 @@ ObservationData::ObservationData() : num_types(0),observation_types(),observatio
   }
 }
 
-bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
+bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,std::string data_type,std::string data_type_map,float lat,float lon,double unique_timestamp,DateTime *start_datetime,DateTime *end_datetime)
 {
   if (lat < -90. || lat > 90. || lon < -180. || lon > 360.) {
     myerror="latitude or longitude out of range";
@@ -388,18 +388,29 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     myerror="no index for observation type '"+observation_type+"'";
     return false;
   }
+  const static DateTime base(1000,1,1,0,0);
+  if (unique_timestamp < 0.) {
+    unique_timestamp=start_datetime->seconds_since(base);
+  }
+  auto true_lon= (lon <= 180.) ? lon : (360.-lon);
   if (!id_tables[o->second]->found(ientry.key,ientry)) {
     ientry.data.reset(new metadata::ObML::IDEntry::Data);
     ientry.data->S_lat=ientry.data->N_lat=lat;
-    ientry.data->W_lon=ientry.data->E_lon=lon;
+    ientry.data->W_lon=ientry.data->E_lon=true_lon;
     ientry.data->min_lon_bitmap.reset(new float[360]);
     ientry.data->max_lon_bitmap.reset(new float[360]);
     for (size_t n=0; n < 360; ++n) {
 	ientry.data->min_lon_bitmap[n]=ientry.data->max_lon_bitmap[n]=999.;
     }
     size_t n,m;
-    geoutils::convert_lat_lon_to_box(1,0.,lon,n,m);
-    ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=lon;
+    try {
+	geoutils::convert_lat_lon_to_box(1,0.,true_lon,n,m);
+    }
+    catch (std::exception& e) {
+	myerror=e.what();
+	return false;
+    }
+    ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=true_lon;
     ientry.data->start=*start_datetime;
     if (end_datetime == nullptr) {
 	ientry.data->end=ientry.data->start;
@@ -411,6 +422,7 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     DataTypeEntry dte;
     dte.key=data_type;
     dte.data.reset(new DataTypeEntry::Data);
+    dte.data->map=data_type_map;
     ientry.data->data_types_table.insert(dte);
     if (track_unique_observations) {
 	ientry.data->nsteps=1;
@@ -422,30 +434,36 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     }
   }
   else {
-    if (lat != ientry.data->S_lat || lon != ientry.data->W_lon) {
+    if (lat != ientry.data->S_lat || true_lon != ientry.data->W_lon) {
 	if (lat < ientry.data->S_lat) {
 	  ientry.data->S_lat=lat;
 	}
 	if (lat > ientry.data->N_lat) {
 	  ientry.data->N_lat=lat;
 	}
-	if (lon < ientry.data->W_lon) {
-	  ientry.data->W_lon=lon;
+	if (true_lon < ientry.data->W_lon) {
+	  ientry.data->W_lon=true_lon;
 	}
-	if (lon > ientry.data->E_lon) {
-	  ientry.data->E_lon=lon;
+	if (true_lon > ientry.data->E_lon) {
+	  ientry.data->E_lon=true_lon;
 	}
 	size_t n,m;
-	geoutils::convert_lat_lon_to_box(1,0.,lon,n,m);
+	try {
+	  geoutils::convert_lat_lon_to_box(1,0.,true_lon,n,m);
+	}
+	catch (std::exception& e) {
+	  myerror=e.what();
+	  return false;
+	}
 	if (ientry.data->min_lon_bitmap[m] > 900.) {
-	  ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=lon;
+	  ientry.data->min_lon_bitmap[m]=ientry.data->max_lon_bitmap[m]=true_lon;
 	}
 	else {
-	  if (lon < ientry.data->min_lon_bitmap[m]) {
-	    ientry.data->min_lon_bitmap[m]=lon;
+	  if (true_lon < ientry.data->min_lon_bitmap[m]) {
+	    ientry.data->min_lon_bitmap[m]=true_lon;
 	  }
-	  if (lon > ientry.data->max_lon_bitmap[m]) {
-	    ientry.data->max_lon_bitmap[m]=lon;
+	  if (true_lon > ientry.data->max_lon_bitmap[m]) {
+	    ientry.data->max_lon_bitmap[m]=true_lon;
 	  }
 	}
     }
@@ -466,6 +484,7 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     if (!ientry.data->data_types_table.found(data_type,dte)) {
 	dte.key=data_type;
 	dte.data.reset(new DataTypeEntry::Data);
+	dte.data->map=data_type_map;
 	ientry.data->data_types_table.insert(dte);
     }
     if (track_unique_observations) {
@@ -492,6 +511,7 @@ bool ObservationData::added_to_ids(std::string observation_type,IDEntry& ientry,
     }
     unknown_ids->emplace(ientry.key);
   }
+  is_empty=false;
   return true;
 }
 
@@ -521,7 +541,14 @@ bool ObservationData::added_to_platforms(std::string observation_type,std::strin
   }
   else {
     size_t n,m;
-    geoutils::convert_lat_lon_to_box(1,lat,lon,n,m);
+    auto true_lon= (lon <= 180.) ? lon : (lon-360.);
+    try {
+	geoutils::convert_lat_lon_to_box(1,lat,true_lon,n,m);
+    }
+    catch (std::exception& e) {
+	myerror=e.what();
+	return false;
+    }
     pentry.boxflags->flags[n-1][m]=1;
     pentry.boxflags->flags[n-1][360]=1;
   }
