@@ -1,6 +1,8 @@
 #include <iomanip>
 #include <grid.hpp>
 
+namespace gridConversions {
+
 int convert_grid_to_slp(const Grid *source_grid,size_t format,odstream *ostream,size_t grid_number)
 {
   SLPGrid slp_grid;
@@ -51,3 +53,5 @@ return -1;
   }
   return num_bytes;
 }
+
+} // end namespace gridConversions

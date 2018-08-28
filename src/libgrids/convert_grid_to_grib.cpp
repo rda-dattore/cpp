@@ -1,6 +1,8 @@
 #include <iomanip>
 #include <grid.hpp>
 
+namespace gridConversions {
+
 int convert_grid_to_grib1(const Grid *source_grid,size_t format,odstream *ostream,size_t grid_number)
 {
   GRIBGrid grib_grid;
@@ -63,3 +65,5 @@ int convert_grid_to_grib1(const Grid *source_grid,size_t format,odstream *ostrea
   }
   return num_bytes;
 }
+
+} // end namespace gridConversions
