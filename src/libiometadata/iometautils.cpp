@@ -22,39 +22,9 @@ namespace metautils {
 
 namespace primaryMetadata {
 
-std::string find_hsi_command()
-{
-  std::stringstream oss,ess;
-  unixutils::mysystem2("/bin/sh -c \"which hsi\"",oss,ess);
-  std::string command;
-  if ((!ess.str().empty() || std::regex_search(oss.str(),std::regex("not found")))) {
-    if (std::regex_search(unixutils::host_name(),std::regex("^(yslogin|geyser|cheyenne)"))) {
-	unixutils::mysystem2("/bin/tcsh -c \"module load ncarenv; which hsi\"",oss,ess);
-	if (!oss.str().empty() && !std::regex_search(oss.str(),std::regex("not found"))) {
-	  command=oss.str();
-	}
-    }
-    else {
-	unixutils::mysystem2("/bin/tcsh -c \"which hsi\"",oss,ess);
-	if (ess.str().empty()) {
-	  command=oss.str();
-	}
-    }
-  }
-  else {
-    command=oss.str();
-    auto sp=strutils::split(command);
-    if (sp.size() > 0) {
-	command=sp[0];
-    }
-  }
-  strutils::trim(command);
-  return command;
-}
-
 bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<std::string> *filelist,std::string& file_format,std::string& error)
 {
-  std::string filename,local_name,command;
+  std::string filename,local_name;
   std::ifstream ifs;
   char line[256];
   std::string sline,sdum;
@@ -130,13 +100,13 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		if (getuid() == 60001) {
 		  setreuid(8342,static_cast<uid_t>(-1));
 		}
-		command=find_hsi_command();
-		if (command.empty()) {
+		auto hsi_command=unixutils::hsi_command();
+		if (hsi_command.empty()) {
 		  error="**htar not found";
 		  return false;
 		}
-		strutils::replace_all(command,"hsi","htar");
-		system((command+" -xqOf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 1> "+tfile.name()+" 2> /dev/null").c_str());
+		strutils::replace_all(hsi_command,"hsi","htar");
+		system((hsi_command+" -xqOf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 1> "+tfile.name()+" 2> /dev/null").c_str());
 	    }
 	    else {
 // file is on disk already
@@ -161,12 +131,12 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		if (getuid() == 60001) {
 		  setreuid(8342,static_cast<uid_t>(-1));
 		}
-		command=find_hsi_command();
-		if (command.empty()) {
+		auto hsi_command=unixutils::hsi_command();
+		if (hsi_command.empty()) {
 		  error="**hsi not found";
 		  return false;
 		}
-		system((command+" get "+tfile.name()+" : "+meta_args.path+"/"+meta_args.filename+" 1> /dev/null 2>&1").c_str());
+		system((hsi_command+" get "+tfile.name()+" : "+meta_args.path+"/"+meta_args.filename+" 1> /dev/null 2>&1").c_str());
 		if (stat64(tfile.name().c_str(),&statbuf) != 0 || statbuf.st_size == 0) {
 		  error="**HPSS file '"+meta_args.path+"/"+meta_args.filename+" does not exist or cannot be copied";
 		  return false;
@@ -201,21 +171,21 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
     if (compare_hpss_to_local) {
 // compare the file to the HPSS copy before continuing
 	if (!meta_args.override_primary_check) {
-	  command=find_hsi_command();
-	  if (command.empty()) {
+	  auto hsi_command=unixutils::hsi_command();
+	  if (hsi_command.empty()) {
 	    error="**hsi not found";
 	    return false;
 	  }
 	  if (!meta_args.member_name.empty()) {
-	    strutils::replace_all(command,"hsi","htar");
+	    strutils::replace_all(hsi_command,"hsi","htar");
 	  }
 	  auto num_retries=0;
 	  while (num_retries < 5) {
 	    if (!meta_args.member_name.empty()) {
-		p=popen((command+" -tf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 2>&1").c_str(),"r");
+		p=popen((hsi_command+" -tf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 2>&1").c_str(),"r");
 	    }
 	    else {
-		p=popen((command+" ls -l "+meta_args.path+"/"+meta_args.filename+" 2>&1").c_str(),"r");
+		p=popen((hsi_command+" ls -l "+meta_args.path+"/"+meta_args.filename+" 2>&1").c_str(),"r");
 	    }
 	    while (fgets(line,256,p) != NULL) {
 		sline=line;
