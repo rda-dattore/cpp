@@ -211,7 +211,8 @@ int InputON84GridStream::read(unsigned char *buffer,size_t buffer_length)
 	if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
 	  return bytes_read;
 	}
-	if (static_cast<size_t>(bytes_read) == buffer_length) {
+//	if (static_cast<size_t>(bytes_read) == buffer_length) {
+if (static_cast<size_t>(bytes_read) > buffer_length) {
 	  std::cerr << "Error: buffer overflow" << std::endl;
 	  exit(1);
 	}
@@ -236,7 +237,8 @@ int InputON84GridStream::read(unsigned char *buffer,size_t buffer_length)
 	if ( (bytes_read=ivstream->read(buffer,buffer_length)) <= 0) {
 	  return bytes_read;
 	}
-	if (static_cast<size_t>(bytes_read) == buffer_length) {
+//	if (static_cast<size_t>(bytes_read) == buffer_length) {
+if (static_cast<size_t>(bytes_read) > buffer_length) {
 	  std::cerr << "Error: buffer overflow" << std::endl;
 	  exit(1);
 	}
@@ -392,6 +394,7 @@ void ON84Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   }
   switch (grid.grid_type) {
     case 0:
+    {
 	dim.x=47;
 	dim.y=51;
 	def.type=Grid::polarStereographicType;
@@ -402,7 +405,9 @@ void ON84Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 	def.projection_flag=0;
 fill_header_only=true;
 	break;
+    }
     case 1:
+    {
 	dim.x=73;
 	dim.y=23;
 	def.type=Grid::mercatorType;
@@ -412,7 +417,9 @@ fill_header_only=true;
 	def.elongitude=0.;
 	def.loincrement=5.;
 	break;
+    }
     case 5:
+    {
 	dim.x=53;
 	dim.y=57;
 	def.type=Grid::polarStereographicType;
@@ -423,7 +430,9 @@ fill_header_only=true;
 	def.dx=def.dy=190.5;
 	def.projection_flag=0;
 	break;
+    }
     case 26:
+    {
 	dim.x=53;
 	dim.y=45;
 	def.type=Grid::polarStereographicType;
@@ -434,7 +443,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 27:
+    {
 	dim.x=dim.y=65;
 	def.type=Grid::polarStereographicType;
 	def.slatitude=-20.83;
@@ -444,7 +455,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 28:
+    {
 	dim.x=dim.y=65;
 	def.type=Grid::polarStereographicType;
 	def.slatitude=20.83;
@@ -454,7 +467,9 @@ fill_header_only=true;
 	def.llatitude=-60.;
 	def.projection_flag=1;
 	break;
+    }
     case 29:
+    {
 	dim.x=145;
 	dim.y=37;
 	def.type=Grid::latitudeLongitudeType;
@@ -465,7 +480,9 @@ fill_header_only=true;
 	def.elongitude=360.;
 	def.loincrement=2.5;
 	break;
+    }
     case 30:
+    {
 	dim.x=145;
 	dim.y=37;
 	def.type=Grid::latitudeLongitudeType;
@@ -476,7 +493,9 @@ fill_header_only=true;
 	def.elongitude=360.;
 	def.loincrement=2.5;
 	break;
+    }
     case 32:
+    {
 	dim.x=31;
 	dim.y=24;
 	def.type=Grid::polarStereographicType;
@@ -487,7 +506,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 33:
+    {
 	dim.x=181;
 	dim.y=46;
 	def.type=Grid::latitudeLongitudeType;
@@ -498,7 +519,9 @@ fill_header_only=true;
 	def.elongitude=360.;
 	def.loincrement=2.;
 	break;
+    }
     case 34:
+    {
 	dim.x=181;
 	dim.y=46;
 	def.type=Grid::latitudeLongitudeType;
@@ -509,7 +532,9 @@ fill_header_only=true;
 	def.elongitude=360.;
 	def.loincrement=2.;
 	break;
+    }
     case 36:
+    {
 	dim.x=41;
 	dim.y=38;
 	def.type=Grid::polarStereographicType;
@@ -520,7 +545,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 37:
+    {
 	dim.x=145;
 	dim.y=37;
 	def.type=Grid::latitudeLongitudeType;
@@ -531,7 +558,9 @@ fill_header_only=true;
 	def.elongitude=361.25;
 	def.loincrement=2.5;
 	break;
+    }
     case 38:
+    {
 	dim.x=145;
 	dim.y=37;
 	def.type=Grid::latitudeLongitudeType;
@@ -542,7 +571,9 @@ fill_header_only=true;
 	def.elongitude=361.25;
 	def.loincrement=2.5;
 	break;
+    }
     case 47:
+    {
 	dim.x=113;
 	dim.y=89;
 	def.type=Grid::polarStereographicType;
@@ -553,7 +584,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 90:
+    {
 // this is a patch; the grid is really a rotated lat/lon grid
 	dim.x=92;
 	dim.y=141;
@@ -565,7 +598,9 @@ fill_header_only=true;
 	def.elongitude=-60.;
 	def.loincrement=0.57692;
 	break;
+    }
     case 101:
+    {
 	dim.x=113;
 	dim.y=91;
 	def.type=Grid::polarStereographicType;
@@ -576,7 +611,9 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     case 104:
+    {
 	dim.x=147;
 	dim.y=110;
 	def.type=Grid::polarStereographicType;
@@ -587,9 +624,12 @@ fill_header_only=true;
 	def.llatitude=60.;
 	def.projection_flag=0;
 	break;
+    }
     default:
+    {
 	std::cerr << "Error: unknown grid type " << grid.grid_type << std::endl;
 	exit(1);
+    }
   }
   bits::get(stream_buffer,yr,192,8);
   if (yr > 30)
