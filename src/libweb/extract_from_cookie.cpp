@@ -83,7 +83,7 @@ std::list<std::string> accesses_from_cookie()
   if (!cookie.empty() > 0) {
     size_t idx;
     if ( (idx=cookie.find("duser=")) != std::string::npos) {
-	accesses.push_back("<g>");
+	accesses.emplace_back("<g>");
 	cookie=cookie.substr(idx+6);
 	if ( (idx=cookie.find(";")) != std::string::npos) {
 	  cookie=cookie.substr(0,idx);
@@ -101,7 +101,7 @@ std::list<std::string> accesses_from_cookie()
 bool has_access(std::string acode)
 {
   auto accesses=accesses_from_cookie();
-  for (auto access : accesses) {
+  for (const auto& access : accesses) {
     if (access == acode) {
 	return true;
     }
