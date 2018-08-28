@@ -136,8 +136,12 @@ void fill_spatial_domain_from_lambert_conformal_grid(size_t num_i,size_t num_j,d
 	last_elon=elon;
     }
   }
-  west_lon-=360.;
-  east_lon-=360.;
+  if (west_lon > 180.) {
+    west_lon-=360.;
+  }
+  if (east_lon > 180.) {
+    east_lon-=360.;
+  }
 }
 
 void fill_lat_lon_from_polar_stereographic_gridpoint(size_t i,size_t j,size_t num_i,size_t num_j,double dx,double elonv,char projection,double dx_lat,double& lat,double& elon)
