@@ -8,7 +8,7 @@ void wrap(std::string& string,std::string fill,size_t chars)
 {
   int n,m,l;
   size_t index;
-  bool foundNonBlank;
+  bool found_non_blank;
 
   n=0;
   while (string.substr(n).length() > chars) {
@@ -22,13 +22,13 @@ void wrap(std::string& string,std::string fill,size_t chars)
 	while (string[n] != ' ') {
 	  --n;
 	}
-	foundNonBlank=false;
+	found_non_blank=false;
 	for (l=m; l < n; l++) {
 	  if (string[l] != ' ') {
-	    foundNonBlank=true;
+	    found_non_blank=true;
 	  }
 	}
-	if (!foundNonBlank) {
+	if (!found_non_blank) {
 	  n=m+chars+1;
 	  while (string[n] != ' ' && string.substr(n,1) != "\n") {
 	    ++n;
@@ -44,42 +44,42 @@ void nodes(std::string string,std::vector<Node>& node_list)
 {
   std::deque<std::string> sp,spn;
   size_t n;
-  std::string beginTag,endTag;
+  std::string begin_tag,end_tag;
   Node node;
   int x;
 
   strutils::trim(string);
   if (string.find(" ") > 0 && string.find(" ") < string.find(">")) {
-    endTag=string.substr(0,string.find(" "))+">";
+    end_tag=string.substr(0,string.find(" "))+">";
   }
   else {
-    endTag=string.substr(0,string.find(">")+1);
+    end_tag=string.substr(0,string.find(">")+1);
   }
-  strutils::replace_all(endTag,"<","</");
+  strutils::replace_all(end_tag,"<","</");
   string=string.substr(1);
   string=string.substr(string.find("<"));
-  string=string.substr(0,string.length()-endTag.length());
+  string=string.substr(0,string.length()-end_tag.length());
   sp=xmlutils::split(string);
   for (n=0; n < sp.size(); n++) {
     if (strutils::has_beginning(sp[n],"<") && !strutils::has_beginning(sp[n],"</")) {
-	beginTag=sp[n];
-	node.copy=beginTag;
-	if (beginTag.find(" ") != std::string::npos) {
-	  beginTag=beginTag.substr(0,beginTag.find(" "));
+	begin_tag=sp[n];
+	node.copy=begin_tag;
+	if (begin_tag.find(" ") != std::string::npos) {
+	  begin_tag=begin_tag.substr(0,begin_tag.find(" "));
 	}
 	else {
-	  strutils::replace_all(beginTag,">","");
+	  strutils::replace_all(begin_tag,">","");
 	}
-	endTag=beginTag+">";
-	strutils::replace_all(endTag,"<","</");
+	end_tag=begin_tag+">";
+	strutils::replace_all(end_tag,"<","</");
 	x=0;
-	while (sp[++n] != endTag || x > 0) {
-	  if (strutils::has_beginning(sp[n],beginTag)) {
-	    if ((strutils::contains(sp[n]," ") && sp[n].substr(0,sp[n].find(" ")) == beginTag) || sp[n] == (beginTag+">")) {
+	while (sp[++n] != end_tag || x > 0) {
+	  if (strutils::has_beginning(sp[n],begin_tag)) {
+	    if ((strutils::contains(sp[n]," ") && sp[n].substr(0,sp[n].find(" ")) == begin_tag) || sp[n] == (begin_tag+">")) {
 		++x;
 	    }
 	  }
-	  if (sp[n] == endTag) {
+	  if (sp[n] == end_tag) {
 	    --x;
 	  }
 	  node.copy+=sp[n];
@@ -95,7 +95,7 @@ void nodes(std::string string,std::vector<Node>& node_list)
   }
 }
 
-void process_node(Node& node,size_t wrapLength)
+void process_node(Node& node,size_t wrap_length)
 {
   static std::string indent;
   std::string sdum;
@@ -106,8 +106,8 @@ void process_node(Node& node,size_t wrapLength)
 	if (strutils::has_beginning(n.copy,"<ul>")) {
 	  indent+="   ";
 	}
-	process_node(n,wrapLength);
-	if (n.value.length() > 0) {
+	process_node(n,wrap_length);
+	if (!n.value.empty()) {
 	  strutils::replace_all(node.value,n.copy,n.value);
 	}
 	if (strutils::has_beginning(n.copy,"<ul>")) {
@@ -131,7 +131,7 @@ void process_node(Node& node,size_t wrapLength)
     strutils::replace_all(node.value,"<li>","");
     strutils::replace_all(node.value,"</li>","");
     node.value="\n"+indent+"* "+node.value;
-    wrap(node.value,(indent+"  "),wrapLength);
+    wrap(node.value,(indent+"  "),wrap_length);
   }
   else if (strutils::has_beginning(node.copy,"<ul>")) {
     strutils::replace_all(node.value,"<ul>","");
@@ -153,42 +153,43 @@ void process_node(Node& node,size_t wrapLength)
   }
 }
 
-std::string html_text_to_ASCII(std::string& elementCopy,size_t wrapLength)
+std::string html_text_to_ascii(std::string& element_copy,size_t wrap_length)
 {
-  if (elementCopy.length() > 0) {
-    auto ASCIIElement=elementCopy;
-    strutils::replace_all(ASCIIElement,std::string("\n")+"   ","");
+  if (!element_copy.empty()) {
+    auto ascii_element=element_copy;
+    strutils::replace_all(ascii_element,std::string("\n")+"   ","");
     std::vector<Node> node_list;
-    nodes(ASCIIElement,node_list);
-    ASCIIElement="";
+    nodes(ascii_element,node_list);
+    ascii_element="";
     for (auto& node : node_list) {
 	node.value=node.copy;
-	process_node(node,wrapLength);
+	process_node(node,wrap_length);
 	while (strutils::has_ending(node.value,"\n\n")) {
 	  strutils::chop(node.value);
 	}
-	wrap(node.value,std::string(""),wrapLength);
-	ASCIIElement+=node.value;
+	wrap(node.value,std::string(""),wrap_length);
+	ascii_element+=node.value;
     }
-    while (strutils::contains(ASCIIElement,"  ")) {
-	strutils::replace_all(ASCIIElement,"  "," ");
+    while (strutils::contains(ascii_element,"  ")) {
+	strutils::replace_all(ascii_element,"  "," ");
     }
-    while (strutils::contains(ASCIIElement,std::string("\n")+" ")) {
-	strutils::replace_all(ASCIIElement,std::string("\n")+" ","\n");
+    while (strutils::contains(ascii_element,std::string("\n")+" ")) {
+	strutils::replace_all(ascii_element,std::string("\n")+" ","\n");
     }
-    while (strutils::contains(ASCIIElement,"\n\n")) {
-	strutils::replace_all(ASCIIElement,"\n\n","\n");
+    while (strutils::contains(ascii_element,"\n\n")) {
+	strutils::replace_all(ascii_element,"\n\n","\n");
     }
-    strutils::trim(ASCIIElement);
-    if (strutils::contains(ASCIIElement,"<") || strutils::contains(ASCIIElement,">")) {
+    strutils::trim(ascii_element);
+    if (strutils::contains(ascii_element,"<") || strutils::contains(ascii_element,">")) {
 	return "";
     }
     else {
-	return ASCIIElement;
+	return ascii_element;
     }
   }
-  else
+  else {
     return "";
+  }
 }
 
 }
