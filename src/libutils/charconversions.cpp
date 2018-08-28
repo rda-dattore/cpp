@@ -150,6 +150,22 @@ void ibcd_to_ascii(char *dest,char *src,size_t num)
   }
 }
 
+void unk_bcd_to_ascii(char *dest,char *src,size_t num)
+{
+  static unsigned char map[]={ ' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
+                               '*', '.', '*', '*', '*', '*', '*', 'J', 'K', 'L',
+                               'M', 'N', 'O', 'P', 'Q', 'R', '*', '*', '*', '*',
+                               '*', '*', '-', '*', 'S', 'T', 'U', 'V', 'W', 'X',
+                               'Y', 'Z', '*', ',', '*', '*', '*', '*', '*', '*',
+                               '*', '*', '*', '*', '*', '*', '*', '*', '*', '*',
+                               '*', '*', '*', '*'};
+  unsigned char *s=reinterpret_cast<unsigned char *>(src);
+  unsigned char *d=reinterpret_cast<unsigned char *>(dest);
+  for (size_t n=0; n < num; ++n) {
+    d[n]=map[static_cast<int>(s[n])];
+  }
+}
+
 void ebcd_to_ebcdic(char *dest,char *src,size_t num)
 {
   static unsigned char map[]={0x7b,0xf1,0xf2,0xf3,0xf4,0xf5,0xf6,0xf7,0xf8,0xf9,
