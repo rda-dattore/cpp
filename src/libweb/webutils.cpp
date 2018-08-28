@@ -51,6 +51,11 @@ bool read_config(Directives& directives)
 	    directives.metadb_password=conf_parts[1];
 	  }
 	}
+	else if (conf_parts.front() == "rdadataHome") {
+	  if (conf_parts.size() > 1) {
+	    directives.rdadata_home=conf_parts[1];
+	  }
+	}
 	ifs.getline(line,256);
     }
     ifs.close();
@@ -120,6 +125,10 @@ bool read_config(Directives& directives)
 	else if (directive.front() == "Registration") {
 	  if (directive.back() == "disabled")
 	    directives.registration_enabled=false;
+	}
+	else if (directive.front() == "mget.tar") {
+	  if (directive.back() == "disabled")
+	    directives.mget_enabled=false;
 	}
 	else if (directive.front() == "Notify") {
 	  for (size_t n=1; n < directive.size(); ++n)
