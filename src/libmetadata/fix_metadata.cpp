@@ -13,7 +13,7 @@ namespace fixData {
 
 void summarize_fix_data(std::string caller,std::string user)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   std::string error;
   my::map<Entry> mssTable;
   Entry e;
@@ -21,7 +21,7 @@ void summarize_fix_data(std::string caller,std::string user)
   std::list<std::string> summaryTableKeys;
   obsData::SummaryEntry se;
 
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::Query query("code,format_code","FixML.ds"+dsnum2+"_primaries");
   if (query.submit(server) < 0) {
     metautils::log_error("summarize_fix_data(): "+query.error(),caller,user);
@@ -66,11 +66,11 @@ void summarize_fix_data(std::string caller,std::string user)
   if (server.command("lock tables search.fix_data write",error) < 0) {
     metautils::log_error("summarize_fix_data(): "+server.error(),caller,user);
   }
-  server._delete("search.fix_data","dsid = '"+meta_args.dsnum+"'");
+  server._delete("search.fix_data","dsid = '"+metautils::args.dsnum+"'");
   for (const auto& key : summaryTableKeys) {
     auto parts=strutils::split(key,"<!>");
     summaryTable.found(key,se);
-    if (server.insert("search.fix_data","'"+meta_args.dsnum+"',"+parts[0]+","+parts[1]+",'"+se.start_date+"','"+se.end_date+"',"+parts[2]+",'"+se.box1d_bitmap+"'") < 0) {
+    if (server.insert("search.fix_data","'"+metautils::args.dsnum+"',"+parts[0]+","+parts[1]+",'"+se.start_date+"','"+se.end_date+"',"+parts[2]+",'"+se.box1d_bitmap+"'") < 0) {
 	error=server.error();
 	if (!strutils::has_beginning(error,"Duplicate entry")) {
 	  metautils::log_error("summarize_fix_data(): "+error,caller,user);

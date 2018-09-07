@@ -19,7 +19,7 @@ namespace gridLevels {
 
 void summarize_grid_levels(std::string database,std::string caller,std::string user)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   std::string filetable,file_ID;
   if (database == "GrML") {
     filetable="_primaries";
@@ -29,7 +29,7 @@ void summarize_grid_levels(std::string database,std::string caller,std::string u
     filetable="_webfiles";
     file_ID="webID";
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("select distinct p.format_code,g.levelType_codes from "+database+".ds"+dsnum2+"_agrids as g left join "+database+".ds"+dsnum2+filetable+" as p on p.code = g."+file_ID+"_code where !isnull(p.format_code)");
   if (query.submit(server) < 0) {
     metautils::log_error("summarize_grid_levels(): '"+query.error()+"' for '"+query.show()+"'",caller,user);
@@ -76,7 +76,7 @@ bool compare_values(const size_t& left,const size_t& right)
 
 void summarize_grids(std::string database,std::string caller,std::string user,std::string fileID_code)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   std::string bitmap,filetable,fileID;
   if (database == "GrML") {
     filetable="_primaries";
@@ -86,7 +86,7 @@ void summarize_grids(std::string database,std::string caller,std::string user,st
     filetable="_webfiles";
     fileID="webID";
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query;
   if (!fileID_code.empty()) {
     query.set("select f.code,g.timeRange_code,g.gridDefinition_code,g.parameter,g.levelType_codes,g.start_date,g.end_date from "+database+".ds"+dsnum2+"_grids as g left join "+database+".ds"+dsnum2+filetable+" as p on p.code = g."+fileID+"_code left join "+database+".formats as f on f.code = p.format_code where p.code = "+fileID_code);
@@ -154,7 +154,7 @@ void summarize_grids(std::string database,std::string caller,std::string user,st
     metautils::log_error("summarize_grids(): "+server.error(),caller,user);
   }
   if (fileID_code.empty()) {
-    server._delete(database+".summary","dsid = '"+meta_args.dsnum+"'");
+    server._delete(database+".summary","dsid = '"+metautils::args.dsnum+"'");
   }
   std::vector<size_t> array;
   for (const auto& key : summary_table.keys()) {
@@ -169,10 +169,10 @@ void summarize_grids(std::string database,std::string caller,std::string user,st
     bitmap::compress_values(array,bitmap);
     auto start=strutils::lltos(se.data->start);
     auto end=strutils::lltos(se.data->end);
-    if (server.insert(database+".summary","'"+meta_args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end) < 0) {
+    if (server.insert(database+".summary","'"+metautils::args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end) < 0) {
 	if (strutils::contains(server.error(),"Duplicate entry")) {
 	  auto parts=strutils::split(se.key,",");
-	  MySQL::LocalQuery q("levelType_codes",database+".summary","dsid = '"+meta_args.dsnum+"' and format_code = "+parts[0]+" and timeRange_code = "+parts[1]+" and gridDefinition_code = "+parts[2]+" and parameter = "+parts[3]);
+	  MySQL::LocalQuery q("levelType_codes",database+".summary","dsid = '"+metautils::args.dsnum+"' and format_code = "+parts[0]+" and timeRange_code = "+parts[1]+" and gridDefinition_code = "+parts[2]+" and parameter = "+parts[3]);
 	  if (q.submit(server) < 0) {
 	    metautils::log_error("summarize_grids(): "+q.error(),caller,user);
 	  }
@@ -193,12 +193,12 @@ void summarize_grids(std::string database,std::string caller,std::string user,st
 	  }
 	  binary_sort(array,compare_values);
 	  bitmap::compress_values(array,bitmap);
-	  if (server.insert(database+".summary","'"+meta_args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end,"update levelType_codes = '"+bitmap+"', start_date = if ("+start+" < start_date,"+start+",start_date), end_date = if ("+end+" > end_date,"+end+",end_date)") < 0) {
-	    metautils::log_error("summarize_grids(): "+server.error()+" while trying to insert ('"+meta_args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end+")",caller,user);
+	  if (server.insert(database+".summary","'"+metautils::args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end,"update levelType_codes = '"+bitmap+"', start_date = if ("+start+" < start_date,"+start+",start_date), end_date = if ("+end+" > end_date,"+end+",end_date)") < 0) {
+	    metautils::log_error("summarize_grids(): "+server.error()+" while trying to insert ('"+metautils::args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end+")",caller,user);
 	  }
 	}
 	else {
-	  metautils::log_error("summarize_grids(): "+error+" while trying to insert ('"+meta_args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end+")",caller,user);
+	  metautils::log_error("summarize_grids(): "+error+" while trying to insert ('"+metautils::args.dsnum+"',"+se.key+",'"+bitmap+"',"+start+","+end+")",caller,user);
 	}
     }
     se.data->level_code_table.clear();
@@ -212,7 +212,7 @@ void summarize_grids(std::string database,std::string caller,std::string user,st
 
 void summarize_grid_resolutions(std::string caller,std::string user,std::string mssID_code)
 {
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("code,definition,defParams","GrML.gridDefinitions");
   if (query.submit(server) < 0) {
     metautils::log_error("summarize_grid_resolutions(): "+query.error(),caller,user);
@@ -227,10 +227,10 @@ void summarize_grid_resolutions(std::string caller,std::string user,std::string 
     grid_definition_table.insert(gde);
   }
   if (!mssID_code.empty())
-    query.set("select distinct gridDefinition_codes from GrML.ds"+strutils::substitute(meta_args.dsnum,".","")+"_agrids where mssID_code = "+mssID_code);
+    query.set("select distinct gridDefinition_codes from GrML.ds"+strutils::substitute(metautils::args.dsnum,".","")+"_agrids where mssID_code = "+mssID_code);
   else {
-    server._delete("search.grid_resolutions","dsid = '"+meta_args.dsnum+"'");
-    query.set("select distinct gridDefinition_codes from GrML.ds"+strutils::substitute(meta_args.dsnum,".","")+"_agrids");
+    server._delete("search.grid_resolutions","dsid = '"+metautils::args.dsnum+"'");
+    query.set("select distinct gridDefinition_codes from GrML.ds"+strutils::substitute(metautils::args.dsnum,".","")+"_agrids");
   }
   if (query.submit(server) < 0) {
     metautils::log_error("summarize_grid_resolutions() REturned error: "+query.error(),caller,user);
@@ -300,7 +300,7 @@ void summarize_grid_resolutions(std::string caller,std::string user,std::string 
 	}
 	auto hres_keyword=searchutils::horizontal_resolution_keyword(xres,res_type);
 	if (!hres_keyword.empty()) {
-	  if (server.insert("search.grid_resolutions","'"+hres_keyword+"','GCMD','"+meta_args.dsnum+"','GrML'") < 0) {
+	  if (server.insert("search.grid_resolutions","'"+hres_keyword+"','GCMD','"+metautils::args.dsnum+"','GrML'") < 0) {
 	    if (!strutils::contains(server.error(),"Duplicate entry")) {
 		metautils::log_error("summarize_grid_resolutions(): "+server.error(),caller,user);
 	    }
@@ -316,8 +316,8 @@ void summarize_grid_resolutions(std::string caller,std::string user,std::string 
 
 void aggregate_grids(std::string database,std::string caller,std::string user,std::string fileID_code)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query;
   if (database == "GrML") {
     if (!fileID_code.empty()) {
@@ -328,7 +328,7 @@ void aggregate_grids(std::string database,std::string caller,std::string user,st
     }
     else {
 	server._delete("GrML.ds"+dsnum2+"_agrids_cache");
-	query.set("select timeRange_code,gridDefinition_code,parameter,levelType_codes,min(start_date),max(end_date) from GrML.summary where dsid = '"+meta_args.dsnum+"' group by timeRange_code,gridDefinition_code,parameter,levelType_codes order by parameter,levelType_codes,timeRange_code");
+	query.set("select timeRange_code,gridDefinition_code,parameter,levelType_codes,min(start_date),max(end_date) from GrML.summary where dsid = '"+metautils::args.dsnum+"' group by timeRange_code,gridDefinition_code,parameter,levelType_codes order by parameter,levelType_codes,timeRange_code");
     }
   }
   else if (database == "WGrML") {
@@ -340,7 +340,7 @@ void aggregate_grids(std::string database,std::string caller,std::string user,st
     }
     else {
 	server._delete("WGrML.ds"+dsnum2+"_agrids_cache");
-	query.set("select timeRange_code,gridDefinition_code,parameter,levelType_codes,min(start_date),max(end_date) from WGrML.summary where dsid = '"+meta_args.dsnum+"' group by timeRange_code,gridDefinition_code,parameter,levelType_codes order by parameter,levelType_codes,timeRange_code");
+	query.set("select timeRange_code,gridDefinition_code,parameter,levelType_codes,min(start_date),max(end_date) from WGrML.summary where dsid = '"+metautils::args.dsnum+"' group by timeRange_code,gridDefinition_code,parameter,levelType_codes order by parameter,levelType_codes,timeRange_code");
     }
   }
   if (query.submit(server) < 0) {

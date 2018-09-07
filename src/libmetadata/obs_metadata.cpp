@@ -120,8 +120,8 @@ void compress_locations(std::list<std::string>& location_list,my::map<ParentLoca
   }
   std::string gcmd_locations;
   struct stat buf;
-  if (stat((meta_directives.server_root+"/web/metadata/gcmd_locations").c_str(),&buf) == 0) {
-    gcmd_locations=meta_directives.server_root+"/web/metadata/gcmd_locations";
+  if (stat((metautils::directives.server_root+"/web/metadata/gcmd_locations").c_str(),&buf) == 0) {
+    gcmd_locations=metautils::directives.server_root+"/web/metadata/gcmd_locations";
   }
   else {
     gcmd_locations=unixutils::remote_web_file("http://rda.ucar.edu/metadata/gcmd_locations",temp_dir.name());
@@ -241,7 +241,7 @@ void compress_locations(std::list<std::string>& location_list,my::map<ParentLoca
 
 bool summarize_obs_data(std::string caller,std::string user)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   MySQL::Query query;
   my::map<Entry> mss_table;
   my::map<obsData::SummaryEntry> current_obsdata_table,summary_table;
@@ -256,7 +256,7 @@ bool summarize_obs_data(std::string caller,std::string user)
   ParentLocation pl;
   bool updatedBitmap=false;
 
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   query.set("code,format_code","ObML.ds"+dsnum2+"_primaries");
   if (query.submit(server) < 0) {
     std::cerr << query.error() << std::endl;
@@ -267,7 +267,7 @@ bool summarize_obs_data(std::string caller,std::string user)
     e.code=row[1];
     mss_table.insert(e);
   }
-  query.set("format_code,observationType_code,platformType_code,box1d_row,box1d_bitmap","search.obs_data","dsid = '"+meta_args.dsnum+"'");
+  query.set("format_code,observationType_code,platformType_code,box1d_row,box1d_bitmap","search.obs_data","dsid = '"+metautils::args.dsnum+"'");
   if (query.submit(server) < 0) {
     metautils::log_error("summarize_obs_data() returned '"+query.error()+"' while querying search.obs_data",caller,user);
   }
@@ -327,11 +327,11 @@ bool summarize_obs_data(std::string caller,std::string user)
     std::cerr << server.error() << std::endl;
     exit(1);
   }
-  server._delete("search.obs_data","dsid = '"+meta_args.dsnum+"'");
+  server._delete("search.obs_data","dsid = '"+metautils::args.dsnum+"'");
   for (const auto& key : summary_table_keys) {
     sp=strutils::split(key,"<!>");
     summary_table.found(key,se);
-    if (server.insert("search.obs_data","'"+meta_args.dsnum+"',"+sp[0]+","+sp[1]+","+sp[2]+",'"+se.start_date+"','"+se.end_date+"',"+sp[3]+",'"+se.box1d_bitmap+"'") < 0) {
+    if (server.insert("search.obs_data","'"+metautils::args.dsnum+"',"+sp[0]+","+sp[1]+","+sp[2]+",'"+se.start_date+"','"+se.end_date+"',"+sp[3]+",'"+se.box1d_bitmap+"'") < 0) {
 	error=server.error();
 	if (!strutils::has_beginning(error,"Duplicate entry")) {
 	  std::cerr << error << std::endl;
@@ -361,7 +361,7 @@ namespace ObML {
 
 ObservationData::ObservationData() : num_types(0),observation_types(),observation_indexes(),id_tables(),platform_tables(),unique_observation_table(),unknown_id_re("unknown"),unknown_ids(nullptr),track_unique_observations(true),is_empty(true)
 {
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("obsType","ObML.obsTypes");
   if (query.submit(server) == 0) {
     MySQL::Row row;

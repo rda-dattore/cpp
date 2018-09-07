@@ -136,7 +136,7 @@ bool compare_layers(std::string& left,std::string& right)
 
 void fill_level_code_table(my::map<metadata::LevelCodeEntry>& level_code_table)
 {
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("code,map,type,value","GrML.levels");
   if (query.submit(server) < 0) {
     std::cerr << query.error() << std::endl;
@@ -158,7 +158,7 @@ void fill_level_code_table(my::map<metadata::LevelCodeEntry>& level_code_table)
 void generate_parameter_cross_reference(std::string format,std::string title,std::string html_file,std::string caller,std::string user)
 {
   TempDir tdir;
-  if (!tdir.create(meta_directives.temp_path)) {
+  if (!tdir.create(metautils::directives.temp_path)) {
     metautils::log_error("generate_parameter_cross_reference(): unable to create temporary directory",caller,user);
   }
 // create the directory tree in the temp directory
@@ -166,15 +166,15 @@ void generate_parameter_cross_reference(std::string format,std::string title,std
   if (unixutils::mysystem2("/bin/mkdir -p "+tdir.name()+"/metadata",oss,ess) < 0) {
     metautils::log_error("generate_parameter_cross_reference(): unable to create temporary directory tree",caller,user);
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
-  MySQL::LocalQuery query("select distinct parameter from GrML.summary as s left join GrML.formats as f on f.code = s.format_code where s.dsid = '"+meta_args.dsnum+"' and f.format = '"+format+"'");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  MySQL::LocalQuery query("select distinct parameter from GrML.summary as s left join GrML.formats as f on f.code = s.format_code where s.dsid = '"+metautils::args.dsnum+"' and f.format = '"+format+"'");
   if (query.submit(server) < 0) {
     std::cerr << query.error() << std::endl;
     exit(1);
   }
   if (query.num_rows() > 0) {
     my::map<ParameterTableEntry> parameter_table;
-    xmlutils::ParameterMapper parameter_mapper(meta_directives.parameter_map_path);
+    xmlutils::ParameterMapper parameter_mapper(metautils::directives.parameter_map_path);
     MySQL::Row row;
     while (query.fetch_row(row)) {
 	auto code=row[0];
@@ -282,7 +282,7 @@ void generate_parameter_cross_reference(std::string format,std::string title,std
     ofs.close();
     ofs2.close();
     std::string error;
-    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+meta_args.dsnum,meta_directives.rdadata_home,error) < 0) {
+    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,error) < 0) {
 	metautils::log_warning("generate_parameter_cross_reference() couldn't sync cross-references - rdadata_sync error(s): '"+error+"'",caller,user);
     }
   }
@@ -290,10 +290,10 @@ void generate_parameter_cross_reference(std::string format,std::string title,std
 // remove a parameter table if it exists and there are no parameters for this
 //   format
     std::string error;
-    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+meta_args.dsnum+"/metadata/"+html_file,meta_directives.rdadata_home,error) < 0) {
+    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+metautils::args.dsnum+"/metadata/"+html_file,metautils::directives.rdadata_home,error) < 0) {
 	metautils::log_warning("generate_parameter_cross_reference() tried to but couldn't delete '"+html_file+"' - error: '"+error+"'",caller,user);
     }
-    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+meta_args.dsnum+"/metadata/"+strutils::substitute(html_file,".html",".xml"),meta_directives.rdadata_home,error) < 0) {
+    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+metautils::args.dsnum+"/metadata/"+strutils::substitute(html_file,".html",".xml"),metautils::directives.rdadata_home,error) < 0) {
 	metautils::log_warning("generate_parameter_cross_reference() tried to but couldn't delete '"+strutils::substitute(html_file,".html",".xml")+"' - error: '"+error+"'",caller,user);
     }
   }
@@ -304,15 +304,15 @@ void generate_level_cross_reference(std::string format,std::string title,std::st
 {
   my::map<metadata::LevelCodeEntry> level_code_table;
   fill_level_code_table(level_code_table);
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
-  MySQL::LocalQuery query("select distinct levelType_codes from GrML.summary as s left join GrML.formats as f on f.code = s.format_code where s.dsid = '"+meta_args.dsnum+"' and f.format = '"+format+"'");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  MySQL::LocalQuery query("select distinct levelType_codes from GrML.summary as s left join GrML.formats as f on f.code = s.format_code where s.dsid = '"+metautils::args.dsnum+"' and f.format = '"+format+"'");
   if (query.submit(server) < 0) {
     std::cerr << query.error() << std::endl;
     exit(1);
   }
   std::list<std::string> levels,layers;
   if (query.num_rows() > 0) {
-    xmlutils::LevelMapper level_mapper(meta_directives.level_map_path);
+    xmlutils::LevelMapper level_mapper(metautils::directives.level_map_path);
     my::map<metautils::StringEntry> unique_level_type_table;
     MySQL::Row row;
     while (query.fetch_row(row)) {
@@ -338,7 +338,7 @@ void generate_level_cross_reference(std::string format,std::string title,std::st
   }
   if (levels.size() > 0 || layers.size() > 0) {
     TempDir tdir;
-    if (!tdir.create(meta_directives.temp_path)) {
+    if (!tdir.create(metautils::directives.temp_path)) {
 	metautils::log_error("generate_level_cross_reference(): unable to create temporary directory",caller,user);
     }
 // create the directory tree in the temp directory
@@ -376,13 +376,13 @@ void generate_level_cross_reference(std::string format,std::string title,std::st
     }
     ofs.close();
     std::string error;
-    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+meta_args.dsnum,meta_directives.rdadata_home,error) < 0)
+    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,error) < 0)
 	metautils::log_warning("generate_level_cross_reference() couldn't sync '"+html_file+"' - rdadata_sync error(s): '"+error+"'",caller,user);
   }
   else {
 // remove the level table if it exists and there are no levels for this format
     std::string error;
-    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+meta_args.dsnum+"/metadata/"+html_file,meta_directives.rdadata_home,error) < 0) {
+    if (unixutils::rdadata_unsync("/__HOST__/web/datasets/ds"+metautils::args.dsnum+"/metadata/"+html_file,metautils::directives.rdadata_home,error) < 0) {
 	metautils::log_warning("generate_level_cross_reference() tried to but couldn't delete '"+html_file+"' - error: '"+error+"'",caller,user);
     }
   }
@@ -458,7 +458,7 @@ void generate_vtable(std::string dsnum,std::string& error,bool test_only)
   metautils::StringEntry se;
   bool found_grib1=false,found_grib2=false;
 
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   query.set("map,type,value,code","GrML.levels");
   if (query.submit(server) < 0) {
     error="Unable to build the level hash";
@@ -772,7 +772,7 @@ std::cerr << "found alternate for " << key << " '" << it->content() << "'" << st
 std::cerr << "should write table" << std::endl;
     if (!test_only) {
 	TempDir tdir;
-	if (!tdir.create(meta_directives.temp_path)) {
+	if (!tdir.create(metautils::directives.temp_path)) {
 	  error="Unable to create temporary directory";
 	  return;
 	}
@@ -852,7 +852,7 @@ std::cerr << "should write table" << std::endl;
 	ofs << "#  rdahelp@ucar.edu" << std::endl;
 	ofs << "#" << std::endl;
 	ofs.close();
-	if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+dsnum,meta_directives.rdadata_home,error) < 0) {
+	if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+dsnum,metautils::directives.rdadata_home,error) < 0) {
 	  error="Unable to sync 'Vtable.RDA_ds"+dsnum+"' - hostSync error(s): '"+error;
 	}
     }
@@ -967,7 +967,7 @@ struct ProductSummaryEntry {
 void generate_detailed_grid_summary(MySQL::LocalQuery& format_query,std::string file_type,std::string group_index,std::ofstream& ofs,std::list<std::string>& format_list,std::string caller,std::string user)
 {
   std::ofstream ofs_p,ofs_l;
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   MySQL::Row row,row2;
   std::string db,table,dtable,ID_type;
   my::map<ParameterEntry> detailed_parameter_table(99999);
@@ -985,8 +985,8 @@ void generate_detailed_grid_summary(MySQL::LocalQuery& format_query,std::string 
   std::vector<size_t> level_values,product_values,grid_values;
   my::map<HashEntry2> parameter_description_hash;
   HashEntry2 he2;
-  xmlutils::ParameterMapper parameter_mapper(meta_directives.parameter_map_path);
-  xmlutils::LevelMapper level_mapper(meta_directives.level_map_path);
+  xmlutils::ParameterMapper parameter_mapper(metautils::directives.parameter_map_path);
+  xmlutils::LevelMapper level_mapper(metautils::directives.level_map_path);
 std::string output,error;
   VariableSummaryEntry vse;
   my::map<HashEntry> grid_definition_hash,level_description_hash;
@@ -1000,7 +1000,7 @@ std::string output,error;
 
   lce.data=nullptr;
   TempDir tdir;
-  if (!tdir.create(meta_directives.temp_path)) {
+  if (!tdir.create(metautils::directives.temp_path)) {
     metautils::log_error("generate_detailed_grid_summary(): unable to create temporary directory",caller,user);
   }
 // create the directory tree in the temp directory
@@ -1031,7 +1031,7 @@ std::string output,error;
     query.set("code,map,type,value","WGrML.levels");
   }
   fill_level_code_table(level_code_table);
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   format_query.rewind();
   while (format_query.fetch_row(row)) { 
     if (!group_index.empty()) {
@@ -1184,7 +1184,7 @@ std::string output,error;
     ofs_p << "<table class=\"insert\" width=\"100%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\"><tr><th class=\"headerRow\" colspan=\"" << ncols << "\" align=\"center\">Summary for Grids in " << strutils::to_capital(sdum) << " Format</th></tr>" << std::endl;
     ofs_l << "<table class=\"insert\" width=\"100%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\"><tr><th class=\"headerRow\" colspan=\"" << ncols << "\" align=\"center\">Summary for Grids in " << strutils::to_capital(sdum) << " Format</th></tr>" << std::endl;
     if (group_index.empty()) {
-	query.set("select distinct t.timeRange,d.definition,d.defParams from "+db+".summary as s left join "+db+".timeRanges as t on t.code = s.timeRange_code left join "+db+".gridDefinitions as d on d.code = s.gridDefinition_code where s.dsid = '"+meta_args.dsnum+"' and format_code = "+row[1]);
+	query.set("select distinct t.timeRange,d.definition,d.defParams from "+db+".summary as s left join "+db+".timeRanges as t on t.code = s.timeRange_code left join "+db+".gridDefinitions as d on d.code = s.gridDefinition_code where s.dsid = '"+metautils::args.dsnum+"' and format_code = "+row[1]);
     }
     else {
 	if (field_exists(server,db+".ds"+dsnum2+table,"dsid")) {
@@ -1233,7 +1233,7 @@ std::string output,error;
 	strutils::replace_all(pe.key,"&gt;",">");
 	ofs_p << "<tr class=\"bg" << cindex << "\" valign=\"top\"><td>";
 	if (query.num_rows() > 1) {
-	  ofs_p << "<a title=\"Products and Coverages\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << meta_args.dsnum << "&view=prodcov&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
+	  ofs_p << "<a title=\"Products and Coverages\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << metautils::args.dsnum << "&view=prodcov&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
 	  if (!group_index.empty()) {
 	    ofs_p << "&gindex=" << group_index;
 	  }
@@ -1367,7 +1367,7 @@ std::string output,error;
 	});
 	ofs_l << "<tr class=\"bg" << cindex << "\" valign=\"top\"><td><table><tr valign=\"bottom\"><td>";
 	if (query.num_rows() > 1) {
-	  ofs_l << "<a title=\"Products and Coverages\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << meta_args.dsnum << "&view=prodcov&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
+	  ofs_l << "<a title=\"Products and Coverages\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << metautils::args.dsnum << "&view=prodcov&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
 	  if (!group_index.empty()) {
 	    ofs_l << "&gindex=" << group_index;
 	  }
@@ -1503,7 +1503,7 @@ std::string output,error;
 	strutils::replace_all(sdum,"proprietary","dataset-specific");
 	ofs_p << "<table class=\"insert\" width=\"100%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\"><tr><th class=\"headerRow\" colspan=\"2\" align=\"center\">Summary for Grids in " << strutils::to_capital(sdum) << " Format</th></tr>" << std::endl;
 	if (group_index.empty()) {
-	  query.set("select distinct parameter,levelType_codes from "+db+".summary where dsid = '"+meta_args.dsnum+"' and format_code = "+row[1]);
+	  query.set("select distinct parameter,levelType_codes from "+db+".summary where dsid = '"+metautils::args.dsnum+"' and format_code = "+row[1]);
 	}
 	if (query.submit(server) < 0) {
 	  metautils::log_error("generate_detailed_grid_summary(): "+query.error(),caller,user);
@@ -1539,7 +1539,7 @@ std::string output,error;
 	for (auto& ps : psarray) {
 	  ofs_p << "<tr class=\"bg" << cindex << "\" valign=\"top\"><td>";
 	  if (query.num_rows() > 1) {
-	    ofs_p << "<a title=\"Parameters and Vertical Levels\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << meta_args.dsnum << "&view=varlev&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
+	    ofs_p << "<a title=\"Parameters and Vertical Levels\" href=\"javascript:void(0)\" onClick=\"popModalWindowWithURL('/cgi-bin/transform?dsnum=" << metautils::args.dsnum << "&view=varlev&formatCode=" << row[1] << "&ftype=" << strutils::to_lower(file_type);
 	    if (!group_index.empty()) {
 		ofs_p << "&gindex=" << group_index;
 	    }
@@ -1572,7 +1572,7 @@ std::string output,error;
     }
     ofs_p.close();
   }
-  if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+meta_args.dsnum,meta_directives.rdadata_home,error) < 0) {
+  if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,error) < 0) {
     metautils::log_warning("generate_detailed_grid_summary() couldn't sync detail files - rdadata_sync error(s): '"+error+"'",caller,user);
   }
   server.disconnect();
@@ -1624,7 +1624,7 @@ std::string output,error;
   ofs << "        x[n].className='view_button_off';" << std::endl;
   ofs << "    }" << std::endl;
   ofs << "    e.className='view_button_on';" << std::endl;
-  ofs << "    getAjaxContent('GET',null,'/datasets/ds" << meta_args.dsnum << "/metadata/'+v,'detail_content');" << std::endl;
+  ofs << "    getAjaxContent('GET',null,'/datasets/ds" << metautils::args.dsnum << "/metadata/'+v,'detail_content');" << std::endl;
   ofs << "  }" << std::endl;
   ofs << "}" << std::endl;
   ofs << "</script>" << std::endl;
@@ -1674,16 +1674,16 @@ std::string output,error;
   ofs << "<div id=\"detail_content\" style=\"margin-top: 5%\"><center><img src=\"/images/loader.gif\" /><br ><span style=\"color: #a0a0a0\">Loading...</span></center></div>" << std::endl;
   ofs << "</td></tr>" << std::endl;
   ofs << "</table></center>" << std::endl;
-  ofs << "<img src=\"/images/transpace.gif\" width=\"1\" height=\"0\" onLoad=\"getAjaxContent('GET',null,'/datasets/ds" << meta_args.dsnum << "/metadata/<?php echo $view; ?>-detail.html','detail_content')\" />" << std::endl;
+  ofs << "<img src=\"/images/transpace.gif\" width=\"1\" height=\"0\" onLoad=\"getAjaxContent('GET',null,'/datasets/ds" << metautils::args.dsnum << "/metadata/<?php echo $view; ?>-detail.html','detail_content')\" />" << std::endl;
 }
 
 void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::string file_type,std::string group_index,std::ofstream& ofs,std::list<std::string>& format_list,std::string caller,std::string user)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   MySQL::Row row,row2;
   MySQL::Query query;
   obsData::TypeEntry te,te2;
-  xmlutils::DataTypeMapper data_type_mapper(meta_directives.parameter_map_path);
+  xmlutils::DataTypeMapper data_type_mapper(metautils::directives.parameter_map_path);
 
   std::string db,table,dtable,ID_type;
   if (file_type == "MSS") {
@@ -1698,7 +1698,7 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
     dtable="wfile";
     ID_type="web";
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   format_query.rewind();
   my::map<obsData::TypeEntry> platform_table;
   while (format_query.fetch_row(row)) {
@@ -1834,10 +1834,10 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
 	    }
 	  }
 	  ofs << "</ul></td><td align=\"center\">" << string_ll_to_date_string(te2.start) << " to " << string_ll_to_date_string(te2.end);
-	  if (group_index.empty() && unixutils::exists_on_server(meta_directives.web_server,"/data/web/datasets/ds"+meta_args.dsnum+"/metadata/"+te2.key+"."+te.key+".kml",meta_directives.rdadata_home)) {
-	    ofs << "&nbsp;<a href=\"/datasets/ds" << meta_args.dsnum << "/metadata/" << te2.key << "." << te.key << ".kml\"><img src=\"/images/kml.gif\" width=\"36\" height=\"14\" hspace=\"3\" border=\"0\" title=\"See stations plotted in Google Earth\"></a>";
+	  if (group_index.empty() && unixutils::exists_on_server(metautils::directives.web_server,"/data/web/datasets/ds"+metautils::args.dsnum+"/metadata/"+te2.key+"."+te.key+".kml",metautils::directives.rdadata_home)) {
+	    ofs << "&nbsp;<a href=\"/datasets/ds" << metautils::args.dsnum << "/metadata/" << te2.key << "." << te.key << ".kml\"><img src=\"/images/kml.gif\" width=\"36\" height=\"14\" hspace=\"3\" border=\"0\" title=\"See stations plotted in Google Earth\"></a>";
 	  }
-	  ofs << "<br><img src=\"/datasets/ds" << meta_args.dsnum << "/metadata/spatial_coverage." << strutils::substitute(data_format," ","_") << "_" << ID_type;
+	  ofs << "<br><img src=\"/datasets/ds" << metautils::args.dsnum << "/metadata/spatial_coverage." << strutils::substitute(data_format," ","_") << "_" << ID_type;
 	  if (!group_index.empty()) {
 	    ofs << "_gindex_" << group_index;
 	  }
@@ -1859,7 +1859,7 @@ void generate_detailed_observation_summary(MySQL::LocalQuery& format_query,std::
 
 void generate_detailed_fix_summary(MySQL::LocalQuery& format_query,std::string file_type,std::string group_index,std::ofstream& ofs,std::list<std::string>& format_list,std::string caller,std::string user)
 {
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   MySQL::Row row,row2;
   MySQL::Query query;
   obsData::TypeEntry te,te2;
@@ -1877,7 +1877,7 @@ void generate_detailed_fix_summary(MySQL::LocalQuery& format_query,std::string f
     dtable="wfile";
     ID_type="web";
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   format_query.rewind();
   my::map<obsData::TypeEntry> platform_table;
   while (format_query.fetch_row(row)) {
@@ -1937,7 +1937,7 @@ void generate_detailed_fix_summary(MySQL::LocalQuery& format_query,std::string f
 	for (auto& key2 : *te.type_table_keys) {
 	  ofs << "<li>" << key2 << "</li>";
 	}
-	ofs << "</ul></td><td align=\"center\">" << string_ll_to_date_string(te.start) << " to " << string_ll_to_date_string(te.end) << "<br><img src=\"/datasets/ds" << meta_args.dsnum << "/metadata/spatial_coverage." << ID_type;
+	ofs << "</ul></td><td align=\"center\">" << string_ll_to_date_string(te.start) << " to " << string_ll_to_date_string(te.end) << "<br><img src=\"/datasets/ds" << metautils::args.dsnum << "/metadata/spatial_coverage." << ID_type;
 	if (!group_index.empty()) {
 	  ofs << "_gindex_" << group_index;
 	}
@@ -1954,13 +1954,13 @@ void generate_detailed_fix_summary(MySQL::LocalQuery& format_query,std::string f
 void generate_detailed_metadata_view(std::string caller,std::string user)
 {
   TempDir temp_dir;
-  if (!temp_dir.create(meta_directives.temp_path)) {
+  if (!temp_dir.create(metautils::directives.temp_path)) {
     metautils::log_error("generate_detailed_metadata_view(): unable to create temporary directory",caller,user);
   }
   std::string xml_file;
   struct stat buf;
-  if (stat((meta_directives.server_root+"/web/metadata/FormatReferences.xml").c_str(),&buf) == 0) {
-    xml_file=meta_directives.server_root+"/web/metadata/FormatReferences.xml";
+  if (stat((metautils::directives.server_root+"/web/metadata/FormatReferences.xml").c_str(),&buf) == 0) {
+    xml_file=metautils::directives.server_root+"/web/metadata/FormatReferences.xml";
   }
   else {
     xml_file=unixutils::remote_web_file("http://rda.ucar.edu/metadata/FormatReferences.xml",temp_dir.name());
@@ -1969,8 +1969,8 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
   if (!xdoc) {
     metautils::log_error("generate_detailed_metadata_view(): unable to open FormatReferences.xml",caller,user);
   }
-  MySQL::Server server_m(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  MySQL::Server server_m(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   std::string formats,data_types;
   std::list<std::string> format_list;
   auto found_CMD_in_database=false;
@@ -2008,11 +2008,11 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
     addToFormats(xdoc,FixML_query,format_list,formats);
   }
   xdoc.close();
-  if (stat((meta_directives.server_root+"/web/datasets/ds"+meta_args.dsnum+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
-    xml_file=meta_directives.server_root+"/web/datasets/ds"+meta_args.dsnum+"/metadata/dsOverview.xml";
+  if (stat((metautils::directives.server_root+"/web/datasets/ds"+metautils::args.dsnum+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
+    xml_file=metautils::directives.server_root+"/web/datasets/ds"+metautils::args.dsnum+"/metadata/dsOverview.xml";
   }
   else {
-    xml_file=unixutils::remote_web_file("http://rda.ucar.edu/datasets/ds"+meta_args.dsnum+"/metadata/dsOverview.xml",temp_dir.name());
+    xml_file=unixutils::remote_web_file("http://rda.ucar.edu/datasets/ds"+metautils::args.dsnum+"/metadata/dsOverview.xml",temp_dir.name());
   }
   xdoc.open(xml_file);
   if (!xdoc) {
@@ -2025,7 +2025,7 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
   }
   else {
     auto e=xdoc.element("dsOverview/title");
-    MySQL::Server server_d(meta_directives.database_server,meta_directives.rdadb_username,meta_directives.rdadb_password,"dssdb");
+    MySQL::Server server_d(metautils::directives.database_server,metautils::directives.rdadb_username,metautils::directives.rdadb_password,"dssdb");
     if (!found_CMD_in_database) {
 	auto elist=xdoc.element_list("dsOverview/contentMetadata/dataType");
 	for (const auto& element : elist) {
@@ -2050,7 +2050,7 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
 	}
     }
     TempDir tdir;
-    if (!tdir.create(meta_directives.temp_path)) {
+    if (!tdir.create(metautils::directives.temp_path)) {
 	metautils::log_error("generate_detailed_metadata_view(): unable to create temporary directory",caller,user);
     }
 // create the directory tree in the temp directory
@@ -2067,19 +2067,19 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
     ofs << "</style>" << std::endl;
     ofs << "<?php" << std::endl;
     ofs << "  if ( ($conn=mysql_connect(\"rda-db.ucar.edu\",\"metadata\",\"metadata\"))) {" << std::endl;
-    ofs << "    $title=mysql_query(\"select title from search.datasets where dsid = '" << meta_args.dsnum << "'\");" << std::endl;
-    ofs << "    $contributors=mysql_query(\"select g.path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where dsid = '" << meta_args.dsnum << "' order by disp_order\");" << std::endl;
-    ofs << "    $projects=mysql_query(\"select g.path from search.projects_new as p left join search.GCMD_projects as g on g.uuid = p.keyword  where dsid = '" << meta_args.dsnum << "'\");" << std::endl;
-    ofs << "    $supportedProjects=mysql_query(\"select g.path from search.supportedProjects_new as p left join search.GCMD_projects as g on g.uuid = p.keyword where dsid = '" << meta_args.dsnum << "'\");" << std::endl;
+    ofs << "    $title=mysql_query(\"select title from search.datasets where dsid = '" << metautils::args.dsnum << "'\");" << std::endl;
+    ofs << "    $contributors=mysql_query(\"select g.path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where dsid = '" << metautils::args.dsnum << "' order by disp_order\");" << std::endl;
+    ofs << "    $projects=mysql_query(\"select g.path from search.projects_new as p left join search.GCMD_projects as g on g.uuid = p.keyword  where dsid = '" << metautils::args.dsnum << "'\");" << std::endl;
+    ofs << "    $supportedProjects=mysql_query(\"select g.path from search.supportedProjects_new as p left join search.GCMD_projects as g on g.uuid = p.keyword where dsid = '" << metautils::args.dsnum << "'\");" << std::endl;
     ofs << "  }" << std::endl;
     ofs << "?>" << std::endl;
-    ofs << "<p>The information presented here summarizes the data in the primary (NCAR HPSS) archive of ds"+meta_args.dsnum+".  Some or all of these data may not be directly accessible from our web server.  If you have questions about data access, please contact the dataset specialist named above.</p>" << std::endl;
+    ofs << "<p>The information presented here summarizes the data in the primary (NCAR HPSS) archive of ds"+metautils::args.dsnum+".  Some or all of these data may not be directly accessible from our web server.  If you have questions about data access, please contact the dataset specialist named above.</p>" << std::endl;
     ofs << "<br>" << std::endl;
     ofs << "<center><table class=\"insert\" width=\"95%\" cellspacing=\"1\" cellpadding=\"5\" border=\"0\">" << std::endl;
     ofs << "<tr><th class=\"headerRow\" align=\"center\" colspan=\"2\">Overview</th></tr>" << std::endl;
     ofs << "<tr><td class=\"bg0\" align=\"left\" colspan=\"2\"><b>Dataset Title:</b>&nbsp;<?php print mysql_result($title,0,\"title\"); ?></td></tr>" << std::endl;
 // citation
-    ofs << "<tr><td class=\"bg0\" align=\"left\" colspan=\"2\"><b>Dataset Citation:</b><br /><div id=\"citation\" style=\"margin-bottom: 5px\"><img src=\"/images/transpace.gif\" width=\"1\" height=\"1\" onLoad=\"getAjaxContent('GET',null,'/cgi-bin/datasets/citation?dsnum=" << meta_args.dsnum << "&style=esip','citation')\" /></div><div style=\"display: inline; background-color: #2a70ae; color: white; padding: 1px 8px 1px 8px; font-size: 16px; font-weight: bold; border-radius: 5px 5px 5px 5px; text-align: center; cursor: pointer\" onClick=\"javascript:location='/cgi-bin/datasets/citation?dsnum=" << meta_args.dsnum << "&style=ris'\" title=\"download citation in RIS format\">RIS</div><div style=\"display: inline; background-color: #2a70ae; color: white; width: 60px; padding: 2px 8px 1px 8px; font-size: 16px; font-weight: bold; font-family: serif; border-radius: 5px 5px 5px 5px; text-align: center; cursor: pointer; margin-left: 7px\" onClick=\"location='/cgi-bin/datasets/citation?dsnum=" << meta_args.dsnum << "&style=bibtex'\" title=\"download citation in BibTeX format\">BibTeX</div></td></tr>" << std::endl;
+    ofs << "<tr><td class=\"bg0\" align=\"left\" colspan=\"2\"><b>Dataset Citation:</b><br /><div id=\"citation\" style=\"margin-bottom: 5px\"><img src=\"/images/transpace.gif\" width=\"1\" height=\"1\" onLoad=\"getAjaxContent('GET',null,'/cgi-bin/datasets/citation?dsnum=" << metautils::args.dsnum << "&style=esip','citation')\" /></div><div style=\"display: inline; background-color: #2a70ae; color: white; padding: 1px 8px 1px 8px; font-size: 16px; font-weight: bold; border-radius: 5px 5px 5px 5px; text-align: center; cursor: pointer\" onClick=\"javascript:location='/cgi-bin/datasets/citation?dsnum=" << metautils::args.dsnum << "&style=ris'\" title=\"download citation in RIS format\">RIS</div><div style=\"display: inline; background-color: #2a70ae; color: white; width: 60px; padding: 2px 8px 1px 8px; font-size: 16px; font-weight: bold; font-family: serif; border-radius: 5px 5px 5px 5px; text-align: center; cursor: pointer; margin-left: 7px\" onClick=\"location='/cgi-bin/datasets/citation?dsnum=" << metautils::args.dsnum << "&style=bibtex'\" title=\"download citation in BibTeX format\">BibTeX</div></td></tr>" << std::endl;
     ofs << "<tr valign=\"top\">" << std::endl;
     if (!data_types.empty()) {
 	ofs << "<td width=\"50%\" class=\"bg0\" align=\"left\"><b>Types of data:</b><ul class=\"paneltext\">"+data_types+"</ul></td>" << std::endl;
@@ -2120,7 +2120,7 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
     ofs << "    print \"</ul></td></tr>\\n\";" << std::endl;
     ofs << "  }" << std::endl;
     ofs << "?>" << std::endl;
-    MySQL::LocalQuery query("primary_size","dataset","dsid = 'ds"+meta_args.dsnum+"'");
+    MySQL::LocalQuery query("primary_size","dataset","dsid = 'ds"+metautils::args.dsnum+"'");
     if (query.submit(server_d) < 0) {
 	std::cerr << query.error() << std::endl;
 	exit(1);
@@ -2192,11 +2192,11 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
     }
     ofs.close();
     std::string error;
-    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+meta_args.dsnum,meta_directives.rdadata_home,error) < 0) {
+    if (unixutils::rdadata_sync(tdir.name(),"metadata/","/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,error) < 0) {
 	metautils::log_warning("generate_detailed_metadata_view() couldn't sync 'detailed.html' - rdadata_sync error(s): '"+error+"'",caller,user);
     }
     xdoc.close();
-    if (server_d.update("dataset","meta_link = 'Y',version = version+1","dsid = 'ds"+meta_args.dsnum+"'") < 0) {
+    if (server_d.update("dataset","meta_link = 'Y',version = version+1","dsid = 'ds"+metautils::args.dsnum+"'") < 0) {
 	metautils::log_warning("generate_detailed_metadata_view() returned warning: "+server_d.error()+" while trying to update dssdb.dataset (1)",caller,user);
     }
     server_d.disconnect();
@@ -2213,23 +2213,23 @@ void generate_detailed_metadata_view(std::string caller,std::string user)
 void generate_group_detailed_metadata_view(std::string group_index,std::string file_type,std::string caller,std::string user)
 {
   std::ofstream ofs;
-  std::string dsnum2=strutils::substitute(meta_args.dsnum,".","");
+  std::string dsnum2=strutils::substitute(metautils::args.dsnum,".","");
   MySQL::LocalQuery query,GrML_query,ObML_query,FixML_query;
   MySQL::Row row;
   std::string gtitle,gsummary,output,error;
 //  std::list<std::string> formatList;
 //  bool foundDetail=false;
 
-  MySQL::Server server_m(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
-  MySQL::Server server_d(meta_directives.database_server,meta_directives.rdadb_username,meta_directives.rdadb_password,"dssdb");
+  MySQL::Server server_m(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  MySQL::Server server_d(metautils::directives.database_server,metautils::directives.rdadb_username,metautils::directives.rdadb_password,"dssdb");
   if (!group_index.empty() || group_index == "0") {
     return;
   }
 while (group_index != "0") {
-if (server_d.update("dsgroup","meta_link = 'X'","dsid = 'ds"+meta_args.dsnum+"' and gindex = "+group_index) < 0) {
+if (server_d.update("dsgroup","meta_link = 'X'","dsid = 'ds"+metautils::args.dsnum+"' and gindex = "+group_index) < 0) {
 metautils::log_warning("generate_group_detailed_metadata_view() returned warning: "+server_d.error()+" while trying to update dssdb.dsgroup",caller,user);
 }
-if (server_d.update("dataset","version = version+1","dsid = 'ds"+meta_args.dsnum+"'") < 0) {
+if (server_d.update("dataset","version = version+1","dsid = 'ds"+metautils::args.dsnum+"'") < 0) {
 metautils::log_warning("generate_detailed_metadata_view() returned warning: "+server_d.error()+" while trying to update dssdb.dataset (2)",caller,user);
 }
 query.set("pindex","dsgroup","gindex = "+group_index);
