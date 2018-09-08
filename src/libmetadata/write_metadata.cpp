@@ -302,13 +302,13 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
     array.emplace_back(key);
   }
   binary_sort(array,
-  [](std::string& left,std::string& right) -> int
+  [](std::string& left,std::string& right) -> bool
   {
-    if (left[0] <= right[0]) {
-	return -1;
+    if (left[0] < right[0]) {
+	return true;
     }
     else {
-	return 1;
+	return false;
     }
   });
   for (size_t m=0; m < grid_table.size(); ++m) {
