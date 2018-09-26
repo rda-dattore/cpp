@@ -250,6 +250,8 @@ extern bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std
 } // end namespace primaryMetadata
 
 const std::string tmpdir="/tmp";
+extern Directives directives;
+extern Args args;
 
 extern "C" void cmd_unregister();
 
@@ -546,7 +548,7 @@ struct LevelCodeEntry {
   std::shared_ptr<Data> data;
 };
 
-void close_inventory(std::string filename,TempDir *tdir,std::ofstream& ofs,std::string cmd_type,bool insert_into_db,bool create_cache,std::string caller,std::string user);
+void close_inventory(std::string filename,TempDir **tdir,std::ofstream& ofs,std::string cmd_type,bool insert_into_db,bool create_cache,std::string caller,std::string user);
 void open_inventory(std::string& filename,TempDir **tdir,std::ofstream& ofs,std::string cmd_type,std::string caller,std::string user);
 
 namespace GrML {
@@ -574,7 +576,7 @@ struct GridEntry {
 };
 
 extern void copy_grml(std::string metadata_file,std::string URL,std::string caller,std::string user);
-extern void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string user);
+extern std::string write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string user);
 
 extern int compare_grid_table_keys(const std::string& left,const std::string& right);
 
