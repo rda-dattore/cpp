@@ -42,18 +42,13 @@ void open_inventory(std::string& filename,TempDir **tdir,std::ofstream& ofs,std:
 	metautils::log_error("open_inventory(): unable to create temporary directory",caller,user);
     }
   }
-// create the directory tree in the temp directory
-  std::stringstream output,error;
-  if (unixutils::mysystem2("/bin/mkdir -p "+(*tdir)->name()+"/metadata/inv",output,error) < 0) {
-    metautils::log_error("open_inventory(): unable to create a temporary directory tree - '"+error.str()+"'",caller,user);
-  }
-  ofs.open((*tdir)->name()+"/metadata/inv/"+filename+"."+cmd_type+"_inv");
+  ofs.open((*tdir)->name()+"/"+filename+"."+cmd_type+"_inv");
   if (!ofs.is_open()) {
     metautils::log_error("open_inventory(): couldn't open the inventory output file",caller,user);
   }
 }
 
-void close_inventory(std::string filename,TempDir *tdir,std::ofstream& ofs,std::string cmd_type,bool insert_into_db,bool create_cache,std::string caller,std::string user)
+void close_inventory(std::string filename,TempDir **tdir,std::ofstream& ofs,std::string cmd_type,bool insert_into_db,bool create_cache,std::string caller,std::string user)
 {
   if (!ofs.is_open()) {
     return;
@@ -67,27 +62,24 @@ void close_inventory(std::string filename,TempDir *tdir,std::ofstream& ofs,std::
   else {
     server.update("W"+cmd_type+".ds"+strutils::substitute(metautils::args.dsnum,".","")+"_webfiles","inv = 'Y'","webID = '"+strutils::substitute(filename,"%","/")+"'");
   }
-  std::string relative_path="metadata/inv/";
-  system(("gzip "+tdir->name()+"/"+relative_path+filename+"."+cmd_type+"_inv").c_str());
-  std::string herror;
-  if (unixutils::rdadata_sync(tdir->name(),relative_path,"/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,herror) < 0) {
-    metautils::log_warning("close_inventory(): couldn't sync '"+filename+"."+cmd_type+"_inv' - rdadata_sync error(s): '"+herror+"'",caller,user);
-  }
   if (metautils::args.inventory_only) {
     metautils::args.filename=filename;
   }
   server.disconnect();
   std::stringstream output,error;
   if (insert_into_db) {
+    auto iinv_command=metautils::directives.local_root+"/bin/iinv";
     if (create_cache) {
-	unixutils::mysystem2(metautils::directives.local_root+"/bin/iinv -d "+metautils::args.dsnum+" -f "+filename+"."+cmd_type+"_inv",output,error);
+	iinv_command+=" -C";
     }
-    else {
-	unixutils::mysystem2(metautils::directives.local_root+"/bin/iinv -d "+metautils::args.dsnum+" -C -f "+filename+"."+cmd_type+"_inv",output,error);
-    }
+    iinv_command+=" -d "+metautils::args.dsnum+" -t "+(*tdir)->name()+" -f "+filename+"."+cmd_type+"_inv";
+    unixutils::mysystem2(iinv_command,output,error);
   }
   if (!error.str().empty()) {
     metautils::log_warning("close_inventory(): '"+error.str()+"' while running iinv",caller,user);
+  }
+  if (*tdir != nullptr) {
+    delete *tdir;
   }
 }
 
@@ -151,51 +143,22 @@ void write_initialize(bool& is_mss_file,std::string& filename,std::string ext,st
   if (std::regex_search(metautils::args.path,std::regex("^https://rda.ucar.edu"))) {
     is_mss_file=false;
   }
-// check for dataset directory on web server
-  auto num_tries=0;
-  while (num_tries < 3 && !unixutils::exists_on_server(metautils::directives.web_server,"/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home)) {
-    ++num_tries;
-    sleep(15);
-  }
-  if (num_tries == 3 && !unixutils::exists_on_server(metautils::directives.web_server,"/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home)) {
-    metautils::log_error("write_initialize(): dataset ds"+metautils::args.dsnum+" does not exist or is unavailable",caller,user);
-  }
   filename=metautils::args.path+"/"+metautils::args.filename;
   if (is_mss_file) {
     strutils::replace_all(filename,"/FS/DSS/","");
     strutils::replace_all(filename,"/DSS/","");
     strutils::replace_all(filename,"/","%");
-    if (metautils::args.member_name.length() > 0) {
+    if (!metautils::args.member_name.empty()) {
 	filename+="..m.."+strutils::substitute(metautils::args.member_name,"/","%");
-    }
-    std::stringstream output,error;
-    if (!metautils::args.overwrite_only && unixutils::exists_on_server(metautils::directives.web_server,"/data/web/datasets/ds"+metautils::args.dsnum+"/metadata/fmd/"+filename+"."+ext,metautils::directives.rdadata_home)) {
-	unixutils::mysystem2("/local/dss/bin/dcm -G -d "+metautils::args.dsnum+" "+metautils::args.path+"/"+metautils::args.filename,output,error);
-    }
-// create the directory tree in the temp directory
-    if (unixutils::mysystem2("/bin/mkdir -p "+tdir_name+"/metadata/fmd",output,error) < 0) {
-	metautils::log_error("write_initialize(): unable to create a temporary directory (1) - '"+error.str()+"'",caller,user);
-    }
-    ofs.open(tdir_name+"/metadata/fmd/"+filename+"."+ext);
-    if (!ofs.is_open()) {
-	metautils::log_error("write_initialize(): unable to open MSS output file",caller,user);
     }
   }
   else {
     filename=metautils::relative_web_filename(filename);
     strutils::replace_all(filename,"/","%");
-    std::stringstream output,error;
-    if (!metautils::args.overwrite_only && unixutils::exists_on_server(metautils::directives.web_server,"/data/web/datasets/ds"+metautils::args.dsnum+"/metadata/wfmd/"+filename+"."+ext,metautils::directives.rdadata_home)) {
-	unixutils::mysystem2("/local/dss/bin/dcm -G -d "+metautils::args.dsnum+" "+metautils::args.path+"/"+metautils::args.filename,output,error);
-    }
-// create the directory tree in the temp directory
-    if (unixutils::mysystem2("/bin/mkdir -p "+tdir_name+"/metadata/wfmd",output,error) < 0) {
-	metautils::log_error("write_initialize(): unable to create a temporary directory (2) - '"+error.str()+"'",caller,user);
-    }
-    ofs.open(tdir_name+"/metadata/wfmd/"+filename+"."+ext);
-    if (!ofs.is_open()) {
-	metautils::log_error("write_initialize(): unable to open Web output file",caller,user);
-    }
+  }
+  ofs.open(tdir_name+"/"+filename+"."+ext);
+  if (!ofs.is_open()) {
+    metautils::log_error("write_initialize(): unable to open file for output",caller,user);
   }
   ofs << "<?xml version=\"1.0\" ?>" << std::endl;
 }
@@ -203,22 +166,29 @@ void write_initialize(bool& is_mss_file,std::string& filename,std::string ext,st
 void write_finalize(bool is_mss_file,std::string filename,std::string ext,std::string tdir_name,std::ofstream& ofs,std::string caller,std::string user)
 {
   ofs.close();
-  std::string relative_path="metadata/";
-  if (!is_mss_file) {
-    relative_path+="w";
+/*
+  if (metautils::args.dsnum == "999.9") {
+    std::string relative_path="metadata/";
+    if (!is_mss_file) {
+	relative_path+="w";
+    }
+    relative_path+="fmd/";
+// create the directory tree in the temp directory
+    std::stringstream oss,ess;
+    unixutils::mysystem2("/bin/mkdir -p "+tdir_name+"/"+relative_path,oss,ess);
+    unixutils::mysystem2("/bin/mv "+tdir_name+"/"+filename+"."+ext+" "+tdir_name+"/"+relative_path,oss,ess);
+    std::string error;
+    if (unixutils::rdadata_sync(tdir_name,relative_path,"/data/web/datasets/ds999.9",metautils::directives.rdadata_home,error) < 0) {
+	metautils::log_warning("write_finalize(): unable to sync '"+filename+"."+ext+"' - rdadata_sync error(s): '"+error+"'",caller,user);
+    }
   }
-  relative_path+="fmd/";
-  system(("gzip "+tdir_name+"/"+relative_path+filename+"."+ext).c_str());
-  std::string error;
-  if (unixutils::rdadata_sync(tdir_name,relative_path,"/data/web/datasets/ds"+metautils::args.dsnum,metautils::directives.rdadata_home,error) < 0) {
-    metautils::log_warning("write_finalize(): unable to sync '"+filename+"."+ext+"' - rdadata_sync error(s): '"+error+"'",caller,user);
-  }
+*/
   metautils::args.filename=filename;
 }
 
 namespace GrML {
 
-void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string user)
+std::string write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string user)
 {
   bool is_mss_file=true;
   std::string filename;
@@ -226,6 +196,7 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
   if (!tdir.create(metautils::directives.temp_path)) {
     metautils::log_error("write_grml(): unable to create a temporary directory",caller,user);
   }
+  tdir.set_keep();
   std::ofstream ofs;
   write_initialize(is_mss_file,filename,"GrML",tdir.name(),ofs,caller,user);
   ofs << "<GrML xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -693,6 +664,7 @@ void write_grml(my::map<GridEntry>& grid_table,std::string caller,std::string us
   }
   ofs << "</GrML>" << std::endl;
   write_finalize(is_mss_file,filename,"GrML",tdir.name(),ofs,caller,user);
+  return tdir.name();
 }
 
 } // end namespace GrML
