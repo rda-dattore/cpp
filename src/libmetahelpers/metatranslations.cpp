@@ -6,6 +6,62 @@
 
 namespace metatranslations {
 
+std::string date_time(std::string database_date_time,std::string database_flag,std::string time_zone,std::string time_delimiter)
+{
+  auto dt=database_date_time;
+  auto flag=std::stoi(database_flag);
+  switch (flag) {
+    case 1:
+    {
+	dt=dt.substr(0,4);
+	break;
+    }
+    case 2:
+    {
+	dt=dt.substr(0,7);
+	break;
+    }
+    case 3:
+    {
+	dt=dt.substr(0,10);
+	break;
+    }
+    case 4:
+    {
+	if (!time_delimiter.empty()) {
+	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11,2);
+	}
+	else {
+	  dt=dt.substr(0,13);
+	}
+	dt+=" "+time_zone;
+	break;
+    }
+    case 5:
+    {
+	if (!time_delimiter.empty()) {
+	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11,5);
+	}
+	else {
+	  dt=dt.substr(0,16);
+	}
+	dt+=" "+time_zone;
+	break;
+    }
+    case 6:
+    {
+	if (!time_delimiter.empty()) {
+	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11);
+	}
+	else {
+	  dt+=" "+time_zone;
+	}
+	break;
+    }
+  }
+  return dt;
+}
+
 std::string detailed_datatype(xmlutils::DataTypeMapper& data_type_mapper,const std::string& data_format,const std::string& code)
 {
   auto idx=code.find(":");
