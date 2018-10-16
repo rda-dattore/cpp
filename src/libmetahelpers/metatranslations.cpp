@@ -126,4 +126,23 @@ std::string detailed_parameter(xmlutils::ParameterMapper& parameter_mapper,const
   return detailed_parameter;
 }
 
+std::string string_coordinate_to_db(std::string coordinate_value)
+{
+  std::string s=strutils::substitute(coordinate_value,".","");
+  auto idx=coordinate_value.find(".");
+  if (idx == std::string::npos) {
+    s.append(4,'0');
+  }
+  else {
+    auto x=coordinate_value.length()-idx;
+    if (x > 4) {
+        s=s.substr(0,idx+4);
+    }
+    else {
+        s.append(5-x,'0');
+    }
+  }
+  return s;
+}
+
 } // end namespace metatranslations
