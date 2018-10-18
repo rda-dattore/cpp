@@ -68,8 +68,9 @@ public:
   public:
     Object() : pairs() {}
     ~Object() {}
-    bool filled(std::string json_object);
-    bool filled(std::ifstream& ifs);
+    operator bool() const { return pairs.size() > 0; }
+    void fill(std::string json_object);
+    void fill(std::ifstream& ifs);
     std::vector<std::string> keys() const;
     size_t size() const { return pairs.size(); }
     const ValueBase* operator[](std::string key) const;
@@ -83,7 +84,8 @@ public:
   {
   public:
     Array() : elements() {}
-    bool filled(std::string json_array);
+    operator bool() const { return elements.size() > 0; }
+    void fill(std::string json_array);
     size_t size() const { return elements.size(); }
     const ValueBase* operator[](size_t index) const;
     friend std::ostream& operator<<(std::ostream& o,const Array& arr);
