@@ -66,7 +66,8 @@ public:
   class Object
   {
   public:
-    Object() : pairs() {}
+    Object(std::string json_object) : pairs() { fill(json_object); }
+    Object(std::ifstream& ifs) : pairs() { fill(ifs); }
     ~Object() {}
     operator bool() const { return pairs.size() > 0; }
     void fill(std::string json_object);
@@ -83,7 +84,7 @@ public:
   class Array
   {
   public:
-    Array() : elements() {}
+    Array(std::string json_array) : elements() { fill(json_array); }
     operator bool() const { return elements.size() > 0; }
     void fill(std::string json_array);
     size_t size() const { return elements.size(); }
