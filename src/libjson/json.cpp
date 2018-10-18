@@ -212,6 +212,11 @@ std::ostream& operator<<(std::ostream& o,const JSON::Null& n)
   return o;
 }
 
+const JSON::ValueBase* JSON::Object::operator[](const char* key) const
+{
+  return (*this)[std::string(key)];
+}
+
 const JSON::ValueBase* JSON::Object::operator[](std::string key) const
 {
   auto iter=pairs.find(key);
