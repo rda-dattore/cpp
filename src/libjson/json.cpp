@@ -64,12 +64,7 @@ bool operator==(const JSON::ValueBase& v,const int& i)
 template <class T>
 size_t JSON::Value<T>::size() const
 {
-  if (_type == ValueType::object || _type == ValueType::array) {
-    return _data.size();
-  }
-  else {
-    return 0;
-  }
+  return _data.size();
 }
 
 template <class T>
@@ -78,12 +73,12 @@ void JSON::Value<T>::print(std::ostream& o) const
   o << _data;
 }
 
-bool JSON::Object::filled(std::string json_object)
+void JSON::Object::fill(std::string json_object)
 {
   strutils::trim(json_object);
   if (json_object.front() != '{' || json_object.back() != '}') {
     myerror="not a JSON object";
-    return false;
+    return;
   }
   json_object.erase(0,1);
   json_object.pop_back();
@@ -115,7 +110,8 @@ bool JSON::Object::filled(std::string json_object)
     strutils::trim(key);
     if (key.front() != '"' || key.back() != '"') {
 	myerror="invalid key '"+key+"'";
-	return false;
+	pairs.clear();
+	return;
     }
     key.erase(0,1);
     key.pop_back();
@@ -148,14 +144,13 @@ bool JSON::Object::filled(std::string json_object)
     }
     next_start=++end;
   }
-  return true;
 }
 
-bool JSON::Object::filled(std::ifstream& ifs)
+void JSON::Object::fill(std::ifstream& ifs)
 {
   if (!ifs.is_open()) {
     myerror="unable to open file";
-    return false;
+    return;
   }
   ifs.seekg(0,std::ios::end);
   auto length=ifs.tellg();
@@ -163,7 +158,7 @@ bool JSON::Object::filled(std::ifstream& ifs)
   ifs.seekg(0,std::ios::beg);
   ifs.read(buffer.get(),length);
   std::string json(buffer.get(),length);
-  return filled(json);
+  fill(json);
 }
 
 std::vector<std::string> JSON::Object::keys() const
@@ -226,12 +221,12 @@ const JSON::ValueBase* JSON::Object::operator[](std::string key) const
   }
 }
 
-bool JSON::Array::filled(std::string json_array)
+void JSON::Array::fill(std::string json_array)
 {
   strutils::trim(json_array);
   if (json_array.front() != '[' || json_array.back() != ']') {
     myerror="not a JSON array";
-    return false;
+    return;
   }
   json_array.erase(0,1);
   json_array.pop_back();
@@ -264,5 +259,4 @@ bool JSON::Array::filled(std::string json_array)
     }
     next_start=++end;
   }
-  return true;
 }
