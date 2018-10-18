@@ -68,6 +68,12 @@ size_t JSON::Value<T>::size() const
 }
 
 template <class T>
+std::string JSON::Value<T>::to_string() const
+{
+  return _data.to_string();
+}
+
+template <class T>
 void JSON::Value<T>::print(std::ostream& o) const
 {
   o << _data;
