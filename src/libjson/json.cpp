@@ -120,25 +120,25 @@ void JSON::Object::fill(std::string json_object)
 	strutils::trim(value);
 	if (pairs.find(key) == pairs.end()) {
 	  if (value == "null") {
-	    pairs.emplace(key,new Value<JSON::Null>(JSON::Null(),ValueType::null));
+	    pairs.emplace(key,new Value<Null>(Null(),ValueType::null));
 	  }
 	  else if (value == "true") {
-	    pairs.emplace(key,new Value<JSON::Boolean>(JSON::Boolean(true),ValueType::boolean));
+	    pairs.emplace(key,new Value<Boolean>(Boolean(true),ValueType::boolean));
 	  }
 	  else if (value == "false") {
-	    pairs.emplace(key,new Value<JSON::Boolean>(JSON::Boolean(false),ValueType::boolean));
+	    pairs.emplace(key,new Value<Boolean>(Boolean(false),ValueType::boolean));
 	  }
 	  else if (value.front() == '"' && value.back() == '"') {
-	    pairs.emplace(key,new Value<JSON::String>(JSON::String(value.substr(1,value.length()-2)),ValueType::string));
+	    pairs.emplace(key,new Value<String>(String(value.substr(1,value.length()-2)),ValueType::string));
 	  }
 	  else if (value.front() == '{' && value.back() == '}') {
-	    pairs.emplace(key,new Value<JSON::Object>(JSON::Object(value),ValueType::object));
+	    pairs.emplace(key,new Value<Object>(Object(value),ValueType::object));
 	  }
 	  else if (value.front() == '[' && value.back() == ']') {
-	    pairs.emplace(key,new Value<JSON::Array>(JSON::Array(value),ValueType::array));
+	    pairs.emplace(key,new Value<Array>(Array(value),ValueType::array));
 	  }
 	  else {
-	    pairs.emplace(key,new Value<JSON::Number>(JSON::Number(std::stoi(value)),ValueType::number));
+	    pairs.emplace(key,new Value<Number>(Number(std::stoi(value)),ValueType::number));
 	  }
 	}
 	else {
