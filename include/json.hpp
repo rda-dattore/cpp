@@ -74,6 +74,7 @@ public:
     void fill(std::ifstream& ifs);
     std::vector<std::string> keys() const;
     size_t size() const { return pairs.size(); }
+    const ValueBase* operator[](const char* key) const;
     const ValueBase* operator[](std::string key) const;
     friend std::ostream& operator<<(std::ostream& o,const Object& obj);
 
