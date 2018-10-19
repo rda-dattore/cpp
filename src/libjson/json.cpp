@@ -94,6 +94,56 @@ const JSON::Value& JSON::Value::operator[](std::string key) const
   }
 }
 
+bool JSON::Value::operator>(int i) const
+{
+  if (_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(_content)->number() > i);
+  }
+  else {
+    return false;
+  }
+}
+
+bool JSON::Value::operator<(int i) const
+{
+  if (_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(_content)->number() < i);
+  }
+  else {
+    return false;
+  }
+}
+
+bool JSON::Value::operator==(int i) const
+{
+  if (_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(_content)->number() == i);
+  }
+  else {
+    return false;
+  }
+}
+
+bool JSON::Value::operator>=(int i) const
+{
+  if (_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(_content)->number() >= i);
+  }
+  else {
+    return false;
+  }
+}
+
+bool JSON::Value::operator<=(int i) const
+{
+  if (_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(_content)->number() <= i);
+  }
+  else {
+    return false;
+  }
+}
+
 void JSON::Object::clear()
 {
   for (auto& e : pairs) {
