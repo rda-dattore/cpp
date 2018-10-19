@@ -79,8 +79,22 @@ void JSON::Value<T>::print(std::ostream& o) const
   o << _data;
 }
 
+void JSON::Object::clear()
+{
+  for (auto& e : pairs) {
+    delete e.second;
+  }
+  pairs.clear();
+}
+
+JSON::Object::~Object()
+{
+  this->clear();
+}
+
 void JSON::Object::fill(std::string json_object)
 {
+  this->clear();
   strutils::trim(json_object);
   if (json_object.front() != '{' || json_object.back() != '}') {
     myerror="not a JSON object";
@@ -126,25 +140,34 @@ void JSON::Object::fill(std::string json_object)
 	strutils::trim(value);
 	if (pairs.find(key) == pairs.end()) {
 	  if (value == "null") {
-	    pairs.emplace(key,new Value<Null>(Null(),ValueType::null));
+	    auto p=new Value<Null>(Null(),ValueType::null);
+	    pairs.emplace(key,p);
 	  }
 	  else if (value == "true") {
-	    pairs.emplace(key,new Value<Boolean>(Boolean(true),ValueType::boolean));
+	    auto p=new Value<Boolean>(Boolean(true),ValueType::boolean);
+	    pairs.emplace(key,p);
 	  }
 	  else if (value == "false") {
-	    pairs.emplace(key,new Value<Boolean>(Boolean(false),ValueType::boolean));
+	    auto p=new Value<Boolean>(Boolean(false),ValueType::boolean);
+	    pairs.emplace(key,p);
 	  }
 	  else if (value.front() == '"' && value.back() == '"') {
-	    pairs.emplace(key,new Value<String>(String(value.substr(1,value.length()-2)),ValueType::string));
+	    auto p=new Value<String>(String(value.substr(1,value.length()-2)),ValueType::string);
+	    pairs.emplace(key,p);
 	  }
 	  else if (value.front() == '{' && value.back() == '}') {
-	    pairs.emplace(key,new Value<Object>(Object(value),ValueType::object));
+	    auto o=new Object(value);
+	    auto p=new Value<Object>(*o,ValueType::object);
+	    pairs.emplace(key,p);
 	  }
 	  else if (value.front() == '[' && value.back() == ']') {
-	    pairs.emplace(key,new Value<Array>(Array(value),ValueType::array));
+	    auto a=new Array(value);
+	    auto p=new Value<Array>(*a,ValueType::array);
+	    pairs.emplace(key,p);
 	  }
 	  else {
-	    pairs.emplace(key,new Value<Number>(Number(std::stoi(value)),ValueType::number));
+	    auto p=new Value<Number>(Number(std::stoi(value)),ValueType::number);
+	    pairs.emplace(key,p);
 	  }
 	}
 	else {
@@ -234,8 +257,22 @@ const JSON::ValueBase* JSON::Object::operator[](std::string key) const
   }
 }
 
+void JSON::Array::clear()
+{
+  for (auto& e : elements) {
+    delete e;
+  }
+  elements.clear();
+}
+
+JSON::Array::~Array()
+{
+  this->clear();
+}
+
 void JSON::Array::fill(std::string json_array)
 {
+  this->clear();
   strutils::trim(json_array);
   if (json_array.front() != '[' || json_array.back() != ']') {
     myerror="not a JSON array";
@@ -251,25 +288,34 @@ void JSON::Array::fill(std::string json_array)
 	auto array_value=json_array.substr(next_start,end-next_start);
 	strutils::trim(array_value);
 	if (array_value == "null") {
-	  elements.emplace_back(new Value<JSON::Null>(JSON::Null(),ValueType::null));
+	  auto p=new Value<Null>(Null(),ValueType::null);
+	  elements.emplace_back(p);
 	}
 	else if (array_value == "true") {
-	  elements.emplace_back(new Value<JSON::Boolean>(JSON::Boolean(true),ValueType::boolean));
+	  auto p=new Value<Boolean>(Boolean(true),ValueType::boolean);
+	  elements.emplace_back(p);
 	}
 	else if (array_value == "false") {
-	  elements.emplace_back(new Value<JSON::Boolean>(JSON::Boolean(false),ValueType::boolean));
+	  auto p=new Value<Boolean>(Boolean(false),ValueType::boolean);
+	  elements.emplace_back(p);
 	}
 	else if (array_value.front() == '"' && array_value.back() == '"') {
-	  elements.emplace_back(new Value<JSON::String>(JSON::String(array_value.substr(1,array_value.length()-2)),ValueType::string));
+	  auto p=new Value<String>(String(array_value.substr(1,array_value.length()-2)),ValueType::string);
+	  elements.emplace_back(p);
 	}
 	else if (array_value.front() == '{' && array_value.back() == '}') {
-	  elements.emplace_back(new Value<JSON::Object>(JSON::Object(array_value),ValueType::object));
+	  auto o=new Object(array_value);
+	  auto p=new Value<Object>(*o,ValueType::object);
+	  elements.emplace_back(p);
 	}
 	else if (array_value.front() == '[' && array_value.back() == ']') {
-	  elements.emplace_back(new Value<JSON::Array>(JSON::Array(array_value),ValueType::array));
+	  auto a=new Array(array_value);
+	  auto p=new Value<Array>(*a,ValueType::array);
+	  elements.emplace_back(p);
 	}
 	else {
-	  elements.emplace_back(new Value<JSON::Number>(JSON::Number(std::stoi(array_value)),ValueType::number));
+	  auto p=new Value<Number>(Number(std::stoi(array_value)),ValueType::number);
+	  elements.emplace_back(p);
 	}
 	next_start=++end;
     }
