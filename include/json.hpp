@@ -19,6 +19,11 @@ public:
     ValueType type() const { return _type; }
     const Value& operator[](const char* key) const;
     const Value& operator[](std::string key) const;
+    bool operator>(int i) const;
+    bool operator<(int i) const;
+    bool operator==(int i) const;
+    bool operator>=(int i) const;
+    bool operator<=(int i) const;
     friend std::ostream& operator<<(std::ostream& o,const Value& v);
 
   private:
@@ -41,6 +46,7 @@ public:
   {
   public:
     Number(int i) : i(i) {}
+    int number() const { return i; }
     std::string to_string() const { return strutils::itos(i); }
     friend std::ostream& operator<<(std::ostream& o,const Number& num);
 
