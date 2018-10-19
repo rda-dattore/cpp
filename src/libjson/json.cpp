@@ -62,6 +62,12 @@ bool operator==(const JSON::ValueBase& v,const int& i)
 }
 
 template <class T>
+std::vector<std::string> JSON::Value<T>::keys() const
+{
+  return _data.keys();
+}
+
+template <class T>
 size_t JSON::Value<T>::size() const
 {
   return _data.size();
