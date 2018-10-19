@@ -73,7 +73,7 @@ public:
   public:
     Object(std::string json_object) : pairs() { fill(json_object); }
     Object(std::ifstream& ifs) : pairs() { fill(ifs); }
-    ~Object() {}
+    ~Object();
     operator bool() const { return pairs.size() > 0; }
     void fill(std::string json_object);
     void fill(std::ifstream& ifs);
@@ -85,6 +85,8 @@ public:
     friend std::ostream& operator<<(std::ostream& o,const Object& obj);
 
   private:
+    void clear();
+
     std::unordered_map<std::string,ValueBase *> pairs;
   };
 
@@ -92,6 +94,7 @@ public:
   {
   public:
     Array(std::string json_array) : elements() { fill(json_array); }
+    ~Array();
     operator bool() const { return elements.size() > 0; }
     void fill(std::string json_array);
     size_t size() const { return elements.size(); }
@@ -100,6 +103,8 @@ public:
     friend std::ostream& operator<<(std::ostream& o,const Array& arr);
 
   private:
+    void clear();
+
     std::vector<ValueBase *> elements;
   };
 
