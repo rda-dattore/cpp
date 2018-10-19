@@ -6,53 +6,30 @@
 class JSON
 {
 public:
-  enum class ValueType {string,number,object,array,boolean,null};
+  enum class ValueType {Nonexistent,String,Number,Object,Array,Boolean,Null};
 
-  class ValueBase
+  class Value
   {
   public:
-    ValueBase() : _type() {}
-    virtual ~ValueBase() {}
-    virtual std::vector<std::string> keys() const=0;
-    virtual size_t size() const=0;
-    virtual std::string to_string() const=0;
-    ValueType type() const { return _type; }
-    operator bool() const;
-    const ValueBase* operator[](std::string key) const { return nullptr; }
-    friend std::ostream& operator<<(std::ostream& o,const ValueBase& v);
-    friend bool operator==(const std::string& s,const ValueBase& v);
-    friend bool operator==(const ValueBase& v,const std::string& s);
-    friend bool operator==(const int& i,const ValueBase& v);
-    friend bool operator==(const ValueBase& v,const int& i);
 
-  protected:
-    ValueType _type;
-
-  private:
-    virtual void print(std::ostream& o) const=0;
-  };
-
-  template <class T>
-  class Value : public ValueBase
-  {
-  public:
-    Value(const T& data,const ValueType& type) : _data(data) { _type=type; }
+    Value(const ValueType& type,void *content) : _type(type),_content(content) {}
     std::vector<std::string> keys() const;
     size_t size() const;
     std::string to_string() const;
-
-    T _data;
+    ValueType type() const { return _type; }
+    const Value& operator[](const char* key) const;
+    const Value& operator[](std::string key) const;
+    friend std::ostream& operator<<(std::ostream& o,const Value& v);
 
   private:
-    virtual void print(std::ostream& o) const;
+    ValueType _type;
+    void *_content;
   };
 
   class String
   {
   public:
     String(std::string s) : s(s) {}
-    std::vector<std::string> keys() const { return std::vector<std::string>{}; }
-    size_t size() const { return 1; }
     std::string to_string() const { return s; }
     friend std::ostream& operator<<(std::ostream& o,const String& str);
 
@@ -64,8 +41,6 @@ public:
   {
   public:
     Number(int i) : i(i) {}
-    std::vector<std::string> keys() const { return std::vector<std::string>{}; }
-    size_t size() const { return 1; }
     std::string to_string() const { return strutils::itos(i); }
     friend std::ostream& operator<<(std::ostream& o,const Number& num);
 
@@ -85,14 +60,14 @@ public:
     std::vector<std::string> keys() const;
     size_t size() const { return pairs.size(); }
     std::string to_string() const { return "[Object]"; }
-    const ValueBase* operator[](const char* key) const;
-    const ValueBase* operator[](std::string key) const;
+    const Value& operator[](const char* key) const;
+    const Value& operator[](std::string key) const;
     friend std::ostream& operator<<(std::ostream& o,const Object& obj);
 
   private:
     void clear();
 
-    std::unordered_map<std::string,ValueBase *> pairs;
+    std::unordered_map<std::string,Value *> pairs;
   };
 
   class Array
@@ -102,24 +77,21 @@ public:
     ~Array();
     operator bool() const { return elements.size() > 0; }
     void fill(std::string json_array);
-    std::vector<std::string> keys() const { return std::vector<std::string>{}; }
     size_t size() const { return elements.size(); }
     std::string to_string() const { return "[Array]"; }
-    const ValueBase* operator[](size_t index) const;
+    const Value& operator[](size_t index) const;
     friend std::ostream& operator<<(std::ostream& o,const Array& arr);
 
   private:
     void clear();
 
-    std::vector<ValueBase *> elements;
+    std::vector<Value *> elements;
   };
 
   class Boolean
   {
   public:
     Boolean(bool b) : b(b) {}
-    std::vector<std::string> keys() const { return std::vector<std::string>{}; }
-    size_t size() const { return 1; }
     std::string to_string() const { return (b) ? "true" : "false"; }
     friend std::ostream& operator<<(std::ostream& o,const Boolean& b);
 
@@ -131,9 +103,6 @@ public:
   {
   public:
     Null() {}
-    std::vector<std::string> keys() const { return std::vector<std::string>{}; }
-    size_t size() const { return 0; }
-    std::string to_string() const { return ""; }
     friend std::ostream& operator<<(std::ostream& o,const Null& n);
 
   private:
