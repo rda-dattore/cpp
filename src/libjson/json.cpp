@@ -305,6 +305,47 @@ std::ostream& operator<<(std::ostream& o,const JSON::Value& v)
   return o;
 }
 
+bool operator==(const JSON::Value& v1,const JSON::Value& v2)
+{
+  if (v1._type == v2._type) {
+    switch (v1._type) {
+	case JSON::ValueType::String:
+	{
+	}
+	case JSON::ValueType::Number:
+	{
+	  return (reinterpret_cast<JSON::Number *>(v1._content)->number() == reinterpret_cast<JSON::Number *>(v2._content)->number());
+	}
+	case JSON::ValueType::Object:
+	{
+	}
+	case JSON::ValueType::Array:
+	{
+	}
+	case JSON::ValueType::Boolean:
+	{
+	}
+	default:
+	{
+	  return true;
+	}
+    }
+  }
+  else {
+    return false;
+  }
+}
+
+bool operator!=(const JSON::Value& v1,const JSON::Value& v2)
+{
+  return !(v1 == v2);
+}
+
+bool operator!=(const JSON::Value& v,const int& i)
+{
+  return !(v == i);
+}
+
 std::ostream& operator<<(std::ostream& o,const JSON::String& str)
 {
   o << str.s;
