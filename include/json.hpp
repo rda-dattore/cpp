@@ -25,6 +25,9 @@ public:
     bool operator>=(int i) const;
     bool operator<=(int i) const;
     friend std::ostream& operator<<(std::ostream& o,const Value& v);
+    friend bool operator==(const Value& v1,const Value& v2);
+    friend bool operator!=(const Value& v1,const Value& v2);
+    friend bool operator!=(const Value& v,const int& i);
 
   private:
     ValueType _type;
