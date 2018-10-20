@@ -94,6 +94,22 @@ const JSON::Value& JSON::Value::operator[](std::string key) const
   }
 }
 
+const JSON::Value& JSON::Value::operator[](size_t index) const
+{
+  static const void *n=new Null();
+  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
+  switch (_type) {
+    case ValueType::Array:
+    {
+	return (*(reinterpret_cast<Array *>(_content)))[index];
+    }
+    default:
+    {
+	return nonexistent;
+    }
+  }
+}
+
 bool JSON::Value::operator>(int i) const
 {
   if (_type == ValueType::Number) {
@@ -471,5 +487,17 @@ void JSON::Array::fill(std::string json_array)
 	}
 	next_start=++end;
     }
+  }
+}
+
+const JSON::Value& JSON::Array::operator[](size_t index) const
+{
+  static const void *n=new Null();
+  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
+  if (index >= elements.size()) {
+    return nonexistent;
+  }
+  else {
+    return *elements[index];
   }
 }
