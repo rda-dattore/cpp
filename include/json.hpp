@@ -12,7 +12,8 @@ public:
   {
   public:
 
-    Value(const ValueType& type,void *content) : _type(type),_content(content) {}
+    Value(const ValueType& type,void *content) : _type(type),_json_value(content) {}
+    void clear();
     std::vector<std::string> keys() const;
     size_t size() const;
     std::string to_string() const;
@@ -32,7 +33,7 @@ public:
 
   private:
     ValueType _type;
-    void *_content;
+    void *_json_value;
   };
 
   class String
