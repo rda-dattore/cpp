@@ -5,12 +5,49 @@
 #include <strutils.hpp>
 #include <myerror.hpp>
 
+void JSON::Value::clear()
+{
+  switch (_type) {
+    case ValueType::String:
+    {
+	delete reinterpret_cast<String *>(_json_value);
+	break;
+    }
+    case ValueType::Number:
+    {
+	delete reinterpret_cast<Number *>(_json_value);
+	break;
+    }
+    case ValueType::Object:
+    {
+	delete reinterpret_cast<Object *>(_json_value);
+	break;
+    }
+    case ValueType::Array:
+    {
+	delete reinterpret_cast<Array *>(_json_value);
+	break;
+    }
+    case ValueType::Boolean:
+    {
+	delete reinterpret_cast<Boolean *>(_json_value);
+	break;
+    }
+    case ValueType::Null:
+    case ValueType::Nonexistent:
+    {
+	delete reinterpret_cast<Null *>(_json_value);
+	break;
+    }
+  }
+}
+
 std::vector<std::string> JSON::Value::keys() const
 {
   switch (_type) {
     case ValueType::Object:
     {
-	return reinterpret_cast<Object *>(_content)->keys();
+	return reinterpret_cast<Object *>(_json_value)->keys();
     }
     default:
     {
@@ -30,11 +67,11 @@ size_t JSON::Value::size() const
     }
     case ValueType::Object:
     {
-	return reinterpret_cast<Object *>(_content)->size();
+	return reinterpret_cast<Object *>(_json_value)->size();
     }
     case ValueType::Array:
     {
-	return reinterpret_cast<Array *>(_content)->size();
+	return reinterpret_cast<Array *>(_json_value)->size();
     }
     default:
     {
@@ -48,23 +85,23 @@ std::string JSON::Value::to_string() const
   switch (_type) {
     case ValueType::String:
     {
-	return reinterpret_cast<String *>(_content)->to_string();
+	return reinterpret_cast<String *>(_json_value)->to_string();
     }
     case ValueType::Number:
     {
-	return reinterpret_cast<Number *>(_content)->to_string();
+	return reinterpret_cast<Number *>(_json_value)->to_string();
     }
     case ValueType::Object:
     {
-	return reinterpret_cast<Object *>(_content)->to_string();
+	return reinterpret_cast<Object *>(_json_value)->to_string();
     }
     case ValueType::Array:
     {
-	return reinterpret_cast<Array *>(_content)->to_string();
+	return reinterpret_cast<Array *>(_json_value)->to_string();
     }
     case ValueType::Boolean:
     {
-	return reinterpret_cast<Boolean *>(_content)->to_string();
+	return reinterpret_cast<Boolean *>(_json_value)->to_string();
     }
     default:
     {
@@ -85,7 +122,7 @@ const JSON::Value& JSON::Value::operator[](std::string key) const
   switch (_type) {
     case ValueType::Object:
     {
-	return (*(reinterpret_cast<Object *>(_content)))[key];
+	return (*(reinterpret_cast<Object *>(_json_value)))[key];
     }
     default:
     {
@@ -101,7 +138,7 @@ const JSON::Value& JSON::Value::operator[](size_t index) const
   switch (_type) {
     case ValueType::Array:
     {
-	return (*(reinterpret_cast<Array *>(_content)))[index];
+	return (*(reinterpret_cast<Array *>(_json_value)))[index];
     }
     default:
     {
@@ -113,7 +150,7 @@ const JSON::Value& JSON::Value::operator[](size_t index) const
 bool JSON::Value::operator>(int i) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_content)->number() > i);
+    return (reinterpret_cast<Number *>(_json_value)->number() > i);
   }
   else {
     return false;
@@ -123,7 +160,7 @@ bool JSON::Value::operator>(int i) const
 bool JSON::Value::operator<(int i) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_content)->number() < i);
+    return (reinterpret_cast<Number *>(_json_value)->number() < i);
   }
   else {
     return false;
@@ -133,7 +170,7 @@ bool JSON::Value::operator<(int i) const
 bool JSON::Value::operator==(int i) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_content)->number() == i);
+    return (reinterpret_cast<Number *>(_json_value)->number() == i);
   }
   else {
     return false;
@@ -143,7 +180,7 @@ bool JSON::Value::operator==(int i) const
 bool JSON::Value::operator>=(int i) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_content)->number() >= i);
+    return (reinterpret_cast<Number *>(_json_value)->number() >= i);
   }
   else {
     return false;
@@ -153,7 +190,7 @@ bool JSON::Value::operator>=(int i) const
 bool JSON::Value::operator<=(int i) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_content)->number() <= i);
+    return (reinterpret_cast<Number *>(_json_value)->number() <= i);
   }
   else {
     return false;
@@ -163,6 +200,7 @@ bool JSON::Value::operator<=(int i) const
 void JSON::Object::clear()
 {
   for (auto& e : pairs) {
+    e.second->clear();
     delete e.second;
   }
   pairs.clear();
@@ -292,27 +330,27 @@ std::ostream& operator<<(std::ostream& o,const JSON::Value& v)
   switch (v._type) {
     case JSON::ValueType::String:
     {
-	o << *(reinterpret_cast<JSON::String *>(v._content));
+	o << *(reinterpret_cast<JSON::String *>(v._json_value));
 	break;
     }
     case JSON::ValueType::Number:
     {
-	o << *(reinterpret_cast<JSON::Number *>(v._content));
+	o << *(reinterpret_cast<JSON::Number *>(v._json_value));
 	break;
     }
     case JSON::ValueType::Object:
     {
-	o << *(reinterpret_cast<JSON::Object *>(v._content));
+	o << *(reinterpret_cast<JSON::Object *>(v._json_value));
 	break;
     }
     case JSON::ValueType::Array:
     {
-	o << *(reinterpret_cast<JSON::Array *>(v._content));
+	o << *(reinterpret_cast<JSON::Array *>(v._json_value));
 	break;
     }
     case JSON::ValueType::Boolean:
     {
-	o << *(reinterpret_cast<JSON::Boolean *>(v._content));
+	o << *(reinterpret_cast<JSON::Boolean *>(v._json_value));
 	break;
     }
     default:
@@ -330,7 +368,7 @@ bool operator==(const JSON::Value& v1,const JSON::Value& v2)
 	}
 	case JSON::ValueType::Number:
 	{
-	  return (reinterpret_cast<JSON::Number *>(v1._content)->number() == reinterpret_cast<JSON::Number *>(v2._content)->number());
+	  return (reinterpret_cast<JSON::Number *>(v1._json_value)->number() == reinterpret_cast<JSON::Number *>(v2._json_value)->number());
 	}
 	case JSON::ValueType::Object:
 	{
@@ -423,6 +461,7 @@ const JSON::Value& JSON::Object::operator[](std::string key) const
 void JSON::Array::clear()
 {
   for (auto& e : elements) {
+    e->clear();
     delete e;
   }
   elements.clear();
