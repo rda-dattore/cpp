@@ -20,6 +20,7 @@ public:
     ValueType type() const { return _type; }
     const Value& operator[](const char* key) const;
     const Value& operator[](std::string key) const;
+    const Value& operator[](int index) const;
     const Value& operator[](size_t index) const;
     bool operator>(long long l) const;
     bool operator<(long long l) const;
