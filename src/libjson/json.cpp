@@ -131,6 +131,11 @@ const JSON::Value& JSON::Value::operator[](std::string key) const
   }
 }
 
+const JSON::Value& JSON::Value::operator[](int index) const
+{
+  return (*this)[static_cast<size_t>(index)];
+}
+
 const JSON::Value& JSON::Value::operator[](size_t index) const
 {
   static const void *n=new Null();
