@@ -147,50 +147,50 @@ const JSON::Value& JSON::Value::operator[](size_t index) const
   }
 }
 
-bool JSON::Value::operator>(int i) const
+bool JSON::Value::operator>(long long l) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() > i);
+    return (reinterpret_cast<Number *>(_json_value)->number() > l);
   }
   else {
     return false;
   }
 }
 
-bool JSON::Value::operator<(int i) const
+bool JSON::Value::operator<(long long l) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() < i);
+    return (reinterpret_cast<Number *>(_json_value)->number() < l);
   }
   else {
     return false;
   }
 }
 
-bool JSON::Value::operator==(int i) const
+bool JSON::Value::operator==(long long l) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() == i);
+    return (reinterpret_cast<Number *>(_json_value)->number() == l);
   }
   else {
     return false;
   }
 }
 
-bool JSON::Value::operator>=(int i) const
+bool JSON::Value::operator>=(long long l) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() >= i);
+    return (reinterpret_cast<Number *>(_json_value)->number() >= l);
   }
   else {
     return false;
   }
 }
 
-bool JSON::Value::operator<=(int i) const
+bool JSON::Value::operator<=(long long l) const
 {
   if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() <= i);
+    return (reinterpret_cast<Number *>(_json_value)->number() <= l);
   }
   else {
     return false;
@@ -289,7 +289,7 @@ void JSON::Object::fill(std::string json_object)
 	    pairs.emplace(key,p);
 	  }
 	  else {
-	    auto n=new Number(std::stoi(value));
+	    auto n=new Number(std::stoll(value));
 	    auto p=new Value(ValueType::Number,n);
 	    pairs.emplace(key,p);
 	  }
@@ -408,7 +408,7 @@ std::ostream& operator<<(std::ostream& o,const JSON::String& str)
 
 std::ostream& operator<<(std::ostream& o,const JSON::Number& num)
 {
-  o << num.i;
+  o << num.l;
   return o;
 }
 
@@ -520,7 +520,7 @@ void JSON::Array::fill(std::string json_array)
 	  elements.emplace_back(p);
 	}
 	else {
-	  auto n=new Number(std::stoi(array_value));
+	  auto n=new Number(std::stoll(array_value));
 	  auto p=new Value(ValueType::Number,n);
 	  elements.emplace_back(p);
 	}
