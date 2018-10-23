@@ -21,11 +21,11 @@ public:
     const Value& operator[](const char* key) const;
     const Value& operator[](std::string key) const;
     const Value& operator[](size_t index) const;
-    bool operator>(int i) const;
-    bool operator<(int i) const;
-    bool operator==(int i) const;
-    bool operator>=(int i) const;
-    bool operator<=(int i) const;
+    bool operator>(long long l) const;
+    bool operator<(long long l) const;
+    bool operator==(long long l) const;
+    bool operator>=(long long l) const;
+    bool operator<=(long long l) const;
     friend std::ostream& operator<<(std::ostream& o,const Value& v);
     friend bool operator==(const Value& v1,const Value& v2);
     friend bool operator!=(const Value& v1,const Value& v2);
@@ -50,13 +50,13 @@ public:
   class Number
   {
   public:
-    Number(int i) : i(i) {}
-    int number() const { return i; }
-    std::string to_string() const { return strutils::itos(i); }
+    Number(long long l) : l(l) {}
+    long long number() const { return l; }
+    std::string to_string() const { return strutils::lltos(l); }
     friend std::ostream& operator<<(std::ostream& o,const Number& num);
 
   private:
-    int i;
+    long long l;
   };
 
   class Object
