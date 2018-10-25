@@ -2,14 +2,15 @@
 #define   TOKENDOC_HPP
 
 #include <string>
-#include <deque>
-#include <list>
+#include <vector>
+#include <unordered_set>
 #include <mymap.hpp>
 
 class TokenDocument {
 public:
   TokenDocument() = delete;
   TokenDocument(std::string filename,size_t indent_length = 0);
+  operator bool() const { return blocks.size() > 0; }
   void add_if(std::string condition);
   void add_repeat(std::string key,std::string entry);
   void add_replacement(std::string key,std::string replacement);
@@ -28,19 +29,14 @@ private:
 
     BlockType type;
     std::string token;
-    std::deque<Block> blocks;
+    std::vector<Block> blocks;
     std::string line;
-  };
-  struct IfEntry {
-    IfEntry() : key() {}
-
-    std::string key;
   };
   struct RepeatEntry {
     RepeatEntry() : key(),list(nullptr) {}
 
     std::string key;
-    std::shared_ptr<std::deque<std::string>> list;
+    std::shared_ptr<std::vector<std::string>> list;
   };
   struct ReplaceEntry {
     ReplaceEntry() : key(),replacement() {}
@@ -54,8 +50,8 @@ private:
   void fill_block(std::ifstream& ifs,Block& block,std::string directive);
 
   size_t capacity;
-  std::deque<Block> blocks;
-  my::map<IfEntry> ifs;
+  std::vector<Block> blocks;
+  std::unordered_set<std::string> ifs;
   my::map<RepeatEntry> repeats;
   my::map<ReplaceEntry> replacements;
   std::string indent;
