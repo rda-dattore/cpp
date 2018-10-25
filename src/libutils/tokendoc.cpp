@@ -7,36 +7,37 @@
 
 TokenDocument::TokenDocument(std::string filename,size_t indent_length) : capacity(),blocks(),ifs(),repeats(),replacements(),indent("")
 {
+  clear_all();
   std::string lf("\n");
   struct stat buf;
   if (stat(filename.c_str(),&buf) == 0) {
     capacity=buf.st_size*2;
     std::ifstream ifs;
     ifs.open(filename.c_str());
-    char line[32768];
-    ifs.getline(line,32768);
-    while (!ifs.eof()) {
-	if (line[0] == '#') {
-	  blocks.emplace_back(build_block(ifs,line));
-	}
-	else {
-	  Block block;
-	  block.line=(line+lf);
-	  blocks.emplace_back(block);
-	}
+    if (ifs.is_open()) {
+	char line[32768];
 	ifs.getline(line,32768);
+	while (!ifs.eof()) {
+	  if (line[0] == '#') {
+	    blocks.emplace_back(build_block(ifs,line));
+	  }
+	  else if (line[0] != '@') {
+	    Block block;
+	    block.line=(line+lf);
+	    blocks.emplace_back(block);
+	  }
+	  ifs.getline(line,32768);
+	}
+	ifs.close();
     }
-    ifs.close();
   }
   set_indent(indent_length);
 }
 
 void TokenDocument::add_if(std::string condition)
 {
-  TokenDocument::IfEntry ife;
-  if (!ifs.found(condition,ife)) {
-    ife.key=condition;
-    ifs.insert(ife);
+  if (ifs.find(condition) == ifs.end()) {
+    ifs.emplace(condition);
   }
 }
 
@@ -45,7 +46,7 @@ void TokenDocument::add_repeat(std::string key,std::string entry)
   TokenDocument::RepeatEntry re;
   if (!repeats.found(key,re)) {
     re.key=key;
-    re.list.reset(new std::deque<std::string>);
+    re.list.reset(new std::vector<std::string>);
     repeats.insert(re);
   }
   re.list->emplace_back(entry);
@@ -65,6 +66,7 @@ void TokenDocument::clear_all()
   clear_ifs();
   clear_repeats();
   clear_replacements();
+  blocks.clear();
 }
 
 std::ostream& operator<<(std::ostream& outs,const TokenDocument& source)
@@ -93,8 +95,7 @@ std::string TokenDocument::block_to_string(const TokenDocument::Block& block,std
 {
   std::string s;
   if (block.type == BlockType::_if) {
-    IfEntry ife;
-    if ((block.token[0] == '!' && !ifs.found(block.token.substr(1),ife)) || ifs.found(block.token,ife) || (!alternate_match_string.empty() && std::regex_search(alternate_match_string,std::regex(block.token)))) {
+    if ((block.token[0] == '!' && ifs.find(block.token.substr(1)) == ifs.end()) || ifs.find(block.token) != ifs.end() || (!alternate_match_string.empty() && std::regex_search(alternate_match_string,std::regex(block.token)))) {
 	for (auto& b : block.blocks) {
 	  if (b.type == BlockType::_line) {
 	    s+=indent+b.line;
@@ -106,8 +107,7 @@ std::string TokenDocument::block_to_string(const TokenDocument::Block& block,std
     }
   }
   else if (block.type == BlockType::_else) {
-    IfEntry ife;
-    if (!ifs.found(block.token,ife)) {
+    if (ifs.find(block.token) == ifs.end()) {
 	for (auto& b : block.blocks) {
 	  if (b.type == BlockType::_line) {
 	    s+=indent+b.line;
@@ -194,7 +194,7 @@ TokenDocument::Block TokenDocument::build_block(std::ifstream& ifs,std::string l
     strutils::trim(block.token);
     fill_block(ifs,block,"REPEAT");
   }
-  else {
+  else if (line[0] != '@') {
     block.line=(line+"\n");
   }
   return block;
@@ -213,7 +213,7 @@ void TokenDocument::fill_block(std::ifstream& ifs,TokenDocument::Block& block,st
     else if (line[0] == '#') {
 	block.blocks.emplace_back(build_block(ifs,line));
     }
-    else {
+    else if (line[0] != '@') {
 	Block b;
 	b.line=(line+lf);
 	block.blocks.emplace_back(b);
