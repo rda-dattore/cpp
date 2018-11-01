@@ -12,6 +12,24 @@
 #include <cmath>
 #include <strutils.hpp>
 
+namespace htmlutils {
+
+std::string unicode_escape_to_html(std::string u)
+{
+  auto ue=std::regex("(\\\\u([0-9a-fA-F]){4})");
+  std::smatch parts;
+  while (std::regex_search(u,parts,ue) && parts.ready()) {
+    auto x=parts[1].str().substr(2);
+    while (x[0] == '0') {
+        x.erase(0,1);
+    }
+    strutils::replace_all(u,parts[1],"&#x"+x+";");
+  }
+  return u;
+}
+
+} // end namespace htmlutils
+
 namespace strutils {
 
 void chop(std::string& s,size_t num_chars)
