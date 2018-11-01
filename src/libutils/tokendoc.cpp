@@ -132,9 +132,35 @@ std::string TokenDocument::block_to_string(const TokenDocument::Block& block,std
 		repeat_block+=block_to_string(b,item);
 	    }
 	  }
+	  std::unordered_set<std::string> rep_ifs;
+	  std::smatch parts;
+	  auto rb=repeat_block;
+	  while (std::regex_search(rb,parts,std::regex("!REPIF((.){1,}\\.(.){1,})\n")) && parts.ready()) {
+	    rep_ifs.emplace(parts[1].str());
+	    rb=parts.suffix();
+	  }
 	  if (std::regex_search(item,regex)) {
 	    auto rb=repeat_block;
 	    auto iparts=strutils::split(item,"<!>");
+	    for (const auto& i : rep_ifs) {
+		auto key=i.substr(i.find(".")+1)+"[!]";
+		auto found=false;
+		for (const auto& part : iparts) {
+		  if (part.substr(0,key.length()) == key) {
+		    found=true;
+		    break;
+		  }
+		}
+		if (found) {
+		  strutils::replace_all(rb,"!REPIF"+i+"\n","");
+		  strutils::replace_all(rb,"!ENDREPIF"+i+"\n","");
+		}
+		else {
+		  auto start_idx=rb.find("!REPIF"+i+"\n");
+		  auto end_idx=rb.find("!ENDREPIF"+i+"\n")+10+i.length();
+		  rb=rb.substr(0,start_idx)+rb.substr(end_idx);
+		}
+	    }
 	    for (auto& part : iparts) {
 		auto r=strutils::split(part,"[!]");
 		strutils::replace_all(rb,block.token+"."+r[0],r[1]);
