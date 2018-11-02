@@ -140,8 +140,7 @@ std::string TempDir::name(const std::string& directory,const std::string& extens
 bool TempDir::create(const std::string& directory,const std::string& extension)
 {
   fill_temp_path(directory,extension);
-  int status;
-  if ( (status=mkdir(tpath.c_str(),0755)) < 0) {
+  if (mkdir(tpath.c_str(),0755) < 0) {
     return false;
   }
   rm_file=true;
