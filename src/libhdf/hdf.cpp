@@ -114,7 +114,7 @@ bool InputHDF4Stream::open(const char *filename)
   while (next != 0) {
     fs.read(cbuf,6);
     if (fs.gcount() != 6) {
-	return bfstream::error;
+	return false;
     }
     size_t num_dds;
     bits::get(buf,num_dds,0,16);
@@ -122,7 +122,7 @@ bool InputHDF4Stream::open(const char *filename)
     for (size_t n=0; n < num_dds; ++n) {
 	fs.read(cbuf,12);
 	if (fs.gcount() != 12) {
-	  return bfstream::error;
+	  return false;
 	}
 	DataDescriptor dd;
 	bits::get(buf,dd.key,0,16);
