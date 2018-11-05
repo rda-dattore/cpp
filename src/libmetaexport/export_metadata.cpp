@@ -1,7 +1,5 @@
 #include <iostream>
-#include <algorithm>
 #include <regex>
-#include <unordered_set>
 #include <sys/stat.h>
 #include <pthread.h>
 #include <xml.hpp>
@@ -10,6 +8,7 @@
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <metadata.hpp>
+#include <metadata_export.hpp>
 #include <gridutils.hpp>
 #include <citation.hpp>
 #include <hereDoc.hpp>
@@ -17,374 +16,6 @@
 #include <myerror.hpp>
 
 namespace metadataExport {
-
-bool compare_references(XMLElement& left,XMLElement& right)
-{
-  auto e=left.element("year");
-  auto l=e.content();
-  e=right.element("year");
-  auto r=e.content();
-  if (l > r) {
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
-std::string resolution_key(double res,std::string units)
-{
-  std::string s;
-  if (units == "degrees") {
-    if (res < 0.09) {
-	s="0";
-    }
-    else if (res < 0.5) {
-	s="1";
-    }
-    else if (res < 1.) {
-	s="2";
-    }
-    else if (res < 2.5) {
-	s="3";
-    }
-    else if (res < 5.) {
-	s="4";
-    }
-    else if (res < 10.) {
-	s="5";
-    }
-    else {
-	s="6";
-    }
-  }
-  else if (units == "km") {
-    if (res < 0.001) {
-	s="7";
-    }
-    else if (res < 0.03) {
-	s="8";
-    }
-    else if (res < 0.1) {
-	s="9";
-    }
-    else if (res < 0.25) {
-	s="10";
-    }
-    else if (res < 0.5) {
-	s="11";
-    }
-    else if (res < 1.) {
-	s="12";
-    }
-    else if (res < 10.) {
-	s="0";
-    }
-    else if (res < 50.) {
-	s="1";
-    }
-    else if (res < 100.) {
-	s="2";
-    }
-    else if (res < 250.) {
-	s="3";
-    }
-    else if (res < 500.) {
-	s="4";
-    }
-    else if (res < 1000.) {
-	s="5";
-    }
-    else {
-	s="6";
-    }
-  }
-  return (s+"<!>"+units);
-}
-
-void add_to_resolution_table(double lon_res,double lat_res,std::string units,my::map<Entry>& resolution_table)
-{
-  Entry e;
-  e.key=resolution_key(lon_res,units);
-  if (!resolution_table.found(e.key,e)) {
-    e.min_lon=lon_res;
-    e.min_lat=lat_res;
-    resolution_table.insert(e);
-  }
-  else {
-    if (lon_res < e.min_lon) {
-	e.min_lon=lon_res;
-	resolution_table.replace(e);
-    }
-  }
-  e.key=resolution_key(lat_res,units);
-  if (!resolution_table.found(e.key,e)) {
-    e.min_lon=lon_res;
-    e.min_lat=lat_res;
-    resolution_table.insert(e);
-  }
-  else {
-    if (lat_res < e.min_lat) {
-	e.min_lat=lat_res;
-	resolution_table.replace(e);
-    }
-  }
-}
-
-std::string primary_size(std::string dsnum,MySQL::Server& server)
-{
-  const char *vunits[]={"bytes","Kbytes","Mbytes","Gbytes","Tbytes","Pbytes"};
-  MySQL::LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
-  if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
-    exit(1);
-  }
-  std::string psize;
-  auto n=0;
-  MySQL::Row row;
-  if (query.fetch_row(row)) {
-    if (!row[0].empty()) {
-	double vsize=std::stoll(row[0]);
-	while (vsize > 999.999999) {
-	  vsize/=1000.;
-	  ++n;
-	}
-	psize=strutils::ftos(vsize,7,3,' ');
-	strutils::trim(psize);
-    }
-  }
-  psize+=std::string(" ")+vunits[n];
-  return psize;
-}
-
-void convert_box_data(const std::string& row,const std::string& col,double& comp_lat,double& comp_lon,std::string comp_type)
-{
-  double lat,lon;
-  geoutils::convert_box_to_center_lat_lon(1,std::stoi(row),std::stoi(col),lat,lon);
-  if (comp_type == "min") {
-    if (lat >= -89.5) {
-	lat-=0.5;
-    }
-    if (lat < comp_lat) {
-	comp_lat=lat;
-    }
-    lon-=0.5;
-    if (lon < comp_lon) {
-	comp_lon=lon;
-    }
-  }
-  else if (comp_type == "max") {
-    if (lat <= 89.5) {
-	lat+=0.5;
-    }
-    if (lat > comp_lat) {
-	comp_lat=lat;
-    }
-    lon+=0.5;
-    if (lon > comp_lon) {
-	comp_lon=lon;
-    }
-  }
-}
-
-struct HResEntry {
-  HResEntry() : key(),res(0.),uom() {}
-
-  std::string key;
-  double res;
-  std::string uom;
-};
-
-void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocument& xdoc,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::vector<HResEntry>& hres_list,my::map<Entry>& unique_places_table)
-{
-  min_west_lon=min_south_lat=9999.;
-  max_east_lon=max_north_lat=-9999.;
-  is_grid=false;
-  MySQL::LocalQuery query("select definition,defParams from (select distinct gridDefinition_code from GrML.summary where dsid = '"+dsnum+"') as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code");
-  query.submit(server);
-  if (query.num_rows() > 0) {
-    is_grid=true;
-    std::unordered_set<std::string> unique_hres_set;
-    MySQL::Row row;
-    while (query.fetch_row(row)) {
-	double west_lon,south_lat,east_lon,north_lat;
-	if (gridutils::fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
-	  if (west_lon < min_west_lon) {
-	    min_west_lon=west_lon;
-	  }
-	  if (east_lon > max_east_lon) {
-	    max_east_lon=east_lon;
-	  }
-	  if (south_lat < min_south_lat) {
-	    min_south_lat=south_lat;
-	  }
-	  if (north_lat > max_north_lat) {
-	    max_north_lat=north_lat;
-	  }
-	  auto parts=strutils::split(row[1],":");
-	  HResEntry he;
-	  if (row[0] == "polarStereographic" || row[0] == "lambertConformal") {
-	    he.res=std::stod(parts[7])*1000;
-	    he.uom="m";
-	    he.key=parts[7]+he.uom;
-	  }
-	  else {
-	    he.res=std::stod(parts[6]);
-	    he.uom="degree";
-	    he.key=parts[6]+he.uom;
-	  }
-	  if (unique_hres_set.find(he.key) == unique_hres_set.end()) {
-	    hres_list.emplace_back(he);
-	    unique_hres_set.emplace(he.key);
-	  }
-	}
-    }
-  }
-  else {
-    auto elist=xdoc.element_list("dsOverview/contentMetadata/geospatialCoverage/grid");
-    if (elist.size() > 0) {
-	is_grid=true;
-	for (const auto& element : elist) {
-	  auto gdef=element.attribute_value("definition");
-	  std::string def_params;
-	  if (gdef == "latLon" || gdef == "gaussLatLon") {
-	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("endLat")+":"+element.attribute_value("endLon")+":"+element.attribute_value("xRes")+":";
-	    if (gdef == "latLon") {
-		def_params+=element.attribute_value("yRes");
-	    }
-	    else {
-		def_params+=strutils::itos(std::stoi(element.attribute_value("numY"))/2);
-	    }
-	  }
-	  else if (gdef == "polarStereographic") {
-	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":60"+element.attribute_value("pole")+":"+element.attribute_value("projLon")+":"+element.attribute_value("pole")+":"+element.attribute_value("xRes")+":"+element.attribute_value("yRes");
-	  }
-	  else if (gdef == "mercator") {
-	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("endLat")+":"+element.attribute_value("endLon")+":"+element.attribute_value("xRes")+":"+element.attribute_value("yRes")+":"+element.attribute_value("resLat");
-	  }
-	  else if (gdef == "lambertConformal") {
-	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("resLat")+":"+element.attribute_value("projLon")+":"+element.attribute_value("pole")+":"+element.attribute_value("xRes")+":"+element.attribute_value("yRes")+":"+element.attribute_value("stdParallel1")+":"+element.attribute_value("stdParallel2");
-	  }
-	  double west_lon,south_lat,east_lon,north_lat;
-	  if (gridutils::fill_spatial_domain_from_grid_definition(element.attribute_value("definition")+"<!>"+def_params,"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
-	    if (west_lon < min_west_lon) {
-		min_west_lon=west_lon;
-	    }
-	    if (east_lon < 0. && east_lon < west_lon) {
-		east_lon+=360.;
-	    }
-	    if (east_lon > max_east_lon) {
-		max_east_lon=east_lon;
-	    }
-	    if (south_lat < min_south_lat) {
-		min_south_lat=south_lat;
-	    }
-	    if (north_lat > max_north_lat) {
-		max_north_lat=north_lat;
-	    }
-	  }
-	}
-    }
-  }
-  std::sort(hres_list.begin(),hres_list.end(),
-  [](const HResEntry& left,const HResEntry& right) -> bool
-  {
-    if (left.res < right.res) {
-	return true;
-    }
-    else if (left.res > right.res) {
-	return false;
-    }
-    else {
-	if (left.uom <= right.uom) {
-	  return true;
-	}
-	else {
-	  return false;
-	}
-    }
-  });
-  if (MySQL::table_exists(server,"ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
-    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
-    if (query.submit(server) == 0) {
-	MySQL::Row row;
-	while (query.fetch_row(row)) {
-	  if (row[0].empty() || row[1].empty() || row[2].empty() || row[3].empty()) {
-	    std::cerr << "oai warning: " << dsnum << " geobounds: '" << row[0] << "','" << row[1] << "','" << row[2] << "','" << row[3] << "'" << std::endl;
-	  }
-	  else {
-	    auto f=std::stof(row[0])/10000.;
-	    if (f < min_south_lat) {
-		min_south_lat=f;
-	    }
-	    f=std::stof(row[1])/10000.;
-	    if (f < min_west_lon) {
-		min_west_lon=f;
-	    }
-	    f=std::stof(row[2])/10000.;
-	    if (f > max_north_lat) {
-		max_north_lat=f;
-	    }
-	    f=std::stof(row[3])/10000.;
-	    if (f > max_east_lon) {
-		max_east_lon=f;
-	    }
-	  }
-	}
-    }
-  }
-  else {
-    query.set("select l.keyword,d.box1d_row,d.box1d_bitmap_min,d.box1d_bitmap_max from search.locations as l left join search.location_data as d on d.keyword = l.keyword and d.vocabulary = l.vocabulary where l.dsid = '"+dsnum+"' and d.box1d_row >= 0");
-    query.submit(server);
-    if (query.num_rows() > 0) {
-	MySQL::Row row;
-	while (query.fetch_row(row)) {
-	  Entry entry;
-	  if (!unique_places_table.found(row[0],entry)) {
-	    entry.key=row[0];
-	    unique_places_table.insert(entry);
-	  }
-	  if (row[1] != "0" || row[2] != "359") {
-	    convert_box_data(row[1],row[2],min_south_lat,min_west_lon,"min");
-	    convert_box_data(row[1],row[3],max_north_lat,max_east_lon,"max");
-	  }
-	}
-    }
-    else {
-	auto elist=xdoc.element_list("dsOverview/contentMetadata/geospatialCoverage/location");
-	std::string where_conditions="";
-	for (const auto& element : elist) {
-	  if (!where_conditions.empty()) {
-	    where_conditions+=" or ";
-	  }
-	  where_conditions+="keyword = '"+element.content()+"'";
-	}
-	query.set("select keyword,min(box1d_row),min(box1d_bitmap_min),max(box1d_row),max(box1d_bitmap_max) from search.location_data where "+where_conditions+" and box1d_row >= 0 group by keyword");
-	query.submit(server);
-	if (query.num_rows() > 0) {
-	  MySQL::Row row;
-	  while (query.fetch_row(row)) {
-	    if (row[2] != "0" || row[4] != "359") {
-		convert_box_data(row[1],row[2],min_south_lat,min_west_lon,"min");
-		convert_box_data(row[3],row[4],max_north_lat,max_east_lon,"max");
-	    }
-	  }
-	}
-    }
-  }
-}
-
-void add_replace_from_element_content(XMLDocument& xdoc,std::string xpath,std::string replace_token,TokenDocument& token_doc,std::string if_key = "")
-{
-  auto e=xdoc.element(xpath);
-  if (!e.name().empty()) {
-    if (!if_key.empty()) {
-	token_doc.add_if(if_key);
-    }
-    token_doc.add_replacement(replace_token,e.content());
-  }
-}
 
 bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
@@ -447,7 +78,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
 {
   ofs << "<meta name=\"DC.type\" content=\"Dataset\" />" << std::endl;
   ofs << "<meta name=\"DC.identifier\" content=\"";
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -535,7 +166,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     std::cout << "Error creating temporary directory" << std::endl;
     exit(1);
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -838,8 +469,8 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   }
   struct stat buf;
   std::string format_ref;
-  if (stat((meta_directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-    format_ref=meta_directives.server_root+"/web/metadata/FormatReferences.xml.new";
+  if (stat((metautils::directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+    format_ref=metautils::directives.server_root+"/web/metadata/FormatReferences.xml.new";
   }
   else {
     format_ref=unixutils::remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
@@ -943,7 +574,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
 
 bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -1068,7 +699,7 @@ bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,s
 
 bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   std::string indent;
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
@@ -1147,9 +778,8 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "    </status>" << std::endl;
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
-  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,nullptr,&unique_places_table);
   if (max_north_lat > -999.) {
     ofs << indent << "    <spdom>" << std::endl;
     ofs << indent << "      <bounding>" << std::endl;
@@ -1283,7 +913,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
   if (token_doc == nullptr) {
     token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/iso19139.xml",indent_length));
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   token_doc->add_replacement("__DSNUM__",dsnum);
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
@@ -1428,11 +1058,11 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   token_doc->add_replacement("__ISO_TOPIC__",e.content());
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::vector<HResEntry> hres_list;
+  std::vector<HorizontalResolutionEntry> hres_list;
   my::map<Entry> unique_places_table;
-  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,&hres_list,&unique_places_table);
   for (const auto& hres : hres_list) {
-    token_doc->add_repeat("__SPATIAL_RESOLUTION__","UOM[!]"+hres.uom+"<!>RESOLUTION[!]"+strutils::dtos(hres.res,10));
+    token_doc->add_repeat("__SPATIAL_RESOLUTION__","UOM[!]"+hres.uom+"<!>RESOLUTION[!]"+strutils::dtos(hres.resolution,4));
   }
   if (is_grid) {
     token_doc->add_if("__IS_GRID__");
@@ -1441,15 +1071,15 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
   if (min_west_lon < 9999.) {
     if (floatutils::myequalf(min_west_lon,max_east_lon) && floatutils::myequalf(min_south_lat,max_north_lat)) {
 	token_doc->add_if("__HAS_POINT__");
-	token_doc->add_replacement("__LAT__",strutils::ftos(min_south_lat,10));
-	token_doc->add_replacement("__LON__",strutils::ftos(min_west_lon,10));
+	token_doc->add_replacement("__LAT__",strutils::ftos(min_south_lat,4));
+	token_doc->add_replacement("__LON__",strutils::ftos(min_west_lon,4));
     }
     else {
 	token_doc->add_if("__HAS_BOUNDING_BOX__");
-	token_doc->add_replacement("__WEST_LON__",strutils::ftos(min_west_lon,10));
-	token_doc->add_replacement("__EAST_LON__",strutils::ftos(max_east_lon,10));
-	token_doc->add_replacement("__SOUTH_LAT__",strutils::ftos(min_south_lat,10));
-	token_doc->add_replacement("__NORTH_LAT__",strutils::ftos(max_north_lat,10));
+	token_doc->add_replacement("__WEST_LON__",strutils::ftos(min_west_lon,4));
+	token_doc->add_replacement("__EAST_LON__",strutils::ftos(max_east_lon,4));
+	token_doc->add_replacement("__SOUTH_LAT__",strutils::ftos(min_south_lat,4));
+	token_doc->add_replacement("__NORTH_LAT__",strutils::ftos(max_north_lat,4));
     }
     has_any_extent=true;
   }
@@ -1575,7 +1205,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query;
   query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   MySQL::Row row;
@@ -1656,16 +1286,16 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid=false;
-  std::vector<HResEntry> hres_list;
+  std::vector<HorizontalResolutionEntry> hres_list;
   my::map<Entry> unique_places_table;
-  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,&hres_list,&unique_places_table);
   if (is_grid) {
     token_doc->add_if("__IS_GRID__");
   }
   if (!hres_list.empty()) {
     token_doc->add_if("__HAS_SPATIAL_RESOLUTION__");
     for (const auto& h : hres_list) {
-	token_doc->add_repeat("__SPATIAL_RESOLUTION__","UOM[!]"+h.uom+"<!>RES[!]"+strutils::dtos(h.res,10));
+	token_doc->add_repeat("__SPATIAL_RESOLUTION__","UOM[!]"+h.uom+"<!>RES[!]"+strutils::dtos(h.resolution,10));
     }
   }
   auto has_any_extent=false;
@@ -1855,7 +1485,7 @@ extern "C" void *run_query(void *ts)
 {
   PThreadStruct *t=(PThreadStruct *)ts;
 
-  MySQL::Server tserver(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server tserver(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   t->query.submit(tserver);
   tserver.disconnect();
   return NULL;
@@ -1868,7 +1498,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   ofs << "    \"@context\": \"http://schema.org\"," << std::endl;
   ofs << "    \"@type\": \"Dataset\"," << std::endl;
   ofs << "    \"@id\": \"";
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
@@ -2013,9 +1643,8 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   }
   double min_west_lon,min_south_lat,max_east_lon,max_north_lat;
   bool is_grid;
-  std::vector<HResEntry> hres_list;
   my::map<Entry> unique_places_table;
-  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,hres_list,unique_places_table);
+  fill_geographic_extent_data(server,dsnum,xdoc,min_west_lon,min_south_lat,max_east_lon,max_north_lat,is_grid,nullptr,&unique_places_table);
   if (is_grid) {
     ofs << "    \"spatialCoverage\": {" << std::endl;
     ofs << "      \"@type\": \"Place\"," << std::endl;
@@ -2070,7 +1699,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   struct stat buf;
 
   temp_dir.create("/tmp");
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   for (size_t n=0; n < indent_length; ++n) {
     indent+=" ";
   }
@@ -2244,8 +1873,8 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 	ofs << indent << "    <dataType>" << type << "</dataType>" << std::endl;
     }
     std::string format_ref_doc;
-    if (stat((meta_directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
-	format_ref_doc=meta_directives.server_root+"/web/metadata/FormatReferences.xml.new";
+    if (stat((metautils::directives.server_root+"/web/metadata/FormatReferences.xml.new").c_str(),&buf) == 0) {
+	format_ref_doc=metautils::directives.server_root+"/web/metadata/FormatReferences.xml.new";
     }
     else {
 	format_ref_doc=unixutils::remote_web_file("https://rda.ucar.edu/metadata/FormatReferences.xml.new",temp_dir.name());
@@ -2309,7 +1938,7 @@ bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
   for (n=0; n < indent_length; ++n) {
     indent+=" ";
   }
-  MySQL::Server server(meta_directives.database_server,meta_directives.metadb_username,meta_directives.metadb_password,"");
+  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   ofs << indent << "<catalog xmlns=\"http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0\"" << std::endl;
   ofs << indent << "         xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
   ofs << indent << "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -2403,8 +2032,8 @@ bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_do
   if (std::regex_search(ident,std::regex("^[0-9][0-9][0-9]\\.[0-9]$"))) {
     std::string ds_overview;
     struct stat buf;
-    if (stat((meta_directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
-	ds_overview=meta_directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
+    if (stat((metautils::directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml").c_str(),&buf) == 0) {
+	ds_overview=metautils::directives.server_root+"/web/datasets/ds"+ident+"/metadata/dsOverview.xml";
     }
     else {
 	ds_overview=unixutils::remote_web_file("https://rda.ucar.edu/datasets/ds"+ident+"/metadata/dsOverview.xml",temp_dir.name());
