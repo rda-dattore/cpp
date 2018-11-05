@@ -46,44 +46,44 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
   bool compare_hpss_to_local=false;
 
   error="";
-  if (!temp_dir.create(meta_directives.temp_path)) {
+  if (!temp_dir.create(directives.temp_path)) {
     error="Error creating temporary directory";
     return false;
   }
   if (filelist != NULL) {
     filelist->clear();
   }
-  server.connect(meta_directives.database_server,meta_directives.rdadb_username,meta_directives.rdadb_password,"dssdb");
+  server.connect(directives.database_server,directives.rdadb_username,directives.rdadb_password,"dssdb");
   if (!server) {
     error="Error connecting to MySQL server";
     return false;
   }
-  if (std::regex_search(meta_args.path,std::regex("^/FS/DSS")) || std::regex_search(meta_args.path,std::regex("^/DSS"))) {
+  if (std::regex_search(args.path,std::regex("^/FS/DSS")) || std::regex_search(args.path,std::regex("^/DSS"))) {
 // HPSS file
-    if (!meta_args.override_primary_check) {
-	query.set("dsid,property,file_format","mssfile","mssfile = '"+meta_args.path+"/"+meta_args.filename+"'");
+    if (!args.override_primary_check) {
+	query.set("dsid,property,file_format","mssfile","mssfile = '"+args.path+"/"+args.filename+"'");
 	if (query.submit(server) < 0) {
 	  error=query.error();
 	  return false;
 	}
 	status=query.fetch_row(row);
-	if (query.num_rows() == 0 || row[0] != "ds"+meta_args.dsnum || row[1] != "P") {
-	  error=meta_args.path+"/"+meta_args.filename+" is not a primary for this dataset";
+	if (query.num_rows() == 0 || row[0] != "ds"+args.dsnum || row[1] != "P") {
+	  error=args.path+"/"+args.filename+" is not a primary for this dataset";
 	  return false;
 	}
 	if (status) {
 	  file_format=row[2];
 	}
     }
-    if (meta_args.local_name.empty()) {
-	if (strutils::has_ending(strutils::to_lower(meta_args.filename),".htar")) {
+    if (args.local_name.empty()) {
+	if (strutils::has_ending(strutils::to_lower(args.filename),".htar")) {
 // HTAR file
- 	  if (meta_args.member_name.empty()) {
+ 	  if (args.member_name.empty()) {
 	    error="**a member name must be provided for an HTAR file";
 	    return false;
  	  }
  	  else {
-	    query.set("file_format","htarfile","dsid = 'ds"+meta_args.dsnum+"' and hfile = '"+meta_args.member_name+"'");
+	    query.set("file_format","htarfile","dsid = 'ds"+args.dsnum+"' and hfile = '"+args.member_name+"'");
 	    if (query.submit(server) < 0) {
 		error=query.error();
 		return false;
@@ -95,7 +95,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		error="**database error while trying to get file format of member file";
 		return false;
 	    }
-	    if (stat64(meta_args.member_name.c_str(),&statbuf) != 0) {
+	    if (stat64(args.member_name.c_str(),&statbuf) != 0) {
 // not on disk, so extract from HTAR file
 		if (getuid() == 60001) {
 		  setreuid(8342,static_cast<uid_t>(-1));
@@ -106,11 +106,11 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		  return false;
 		}
 		strutils::replace_all(hsi_command,"hsi","htar");
-		system((hsi_command+" -xqOf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 1> "+tfile.name()+" 2> /dev/null").c_str());
+		system((hsi_command+" -xqOf "+args.path+"/"+args.filename+" "+args.member_name+" 1> "+tfile.name()+" 2> /dev/null").c_str());
 	    }
 	    else {
 // file is on disk already
-		local_name=meta_args.member_name;
+		local_name=args.member_name;
 		compare_hpss_to_local=true;
 	    }
  	  }
@@ -121,12 +121,12 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	    error="**HTAR files must end with the '.htar' extension";
 	    return false;
 	  }
- 	  if (!meta_args.member_name.empty()) {
+ 	  if (!args.member_name.empty()) {
 	    error="**a member file is not valid for a regular HPSS file";
 	    return false;
  	  }
 	  else {
-	    if (stat64(meta_args.filename.c_str(),&statbuf) != 0) {
+	    if (stat64(args.filename.c_str(),&statbuf) != 0) {
 // not on disk, so read from HPSS
 		if (getuid() == 60001) {
 		  setreuid(8342,static_cast<uid_t>(-1));
@@ -136,30 +136,30 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		  error="**hsi not found";
 		  return false;
 		}
-		system((hsi_command+" get "+tfile.name()+" : "+meta_args.path+"/"+meta_args.filename+" 1> /dev/null 2>&1").c_str());
+		system((hsi_command+" get "+tfile.name()+" : "+args.path+"/"+args.filename+" 1> /dev/null 2>&1").c_str());
 		if (stat64(tfile.name().c_str(),&statbuf) != 0 || statbuf.st_size == 0) {
-		  error="**HPSS file '"+meta_args.path+"/"+meta_args.filename+" does not exist or cannot be copied";
+		  error="**HPSS file '"+args.path+"/"+args.filename+" does not exist or cannot be copied";
 		  return false;
 		}
 	    }
 	    else {
 // file is on disk already
-		local_name=meta_args.filename;
+		local_name=args.filename;
 		compare_hpss_to_local=true;
 	    }
 	  }
 	}
     }
     else {
-	local_name=meta_args.local_name;
+	local_name=args.local_name;
 	if ( (stat64(local_name.c_str(),&statbuf)) != 0) {
-	  auto web_path=strutils::substitute(local_name,meta_directives.data_root,meta_directives.data_root_alias);
+	  auto web_path=strutils::substitute(local_name,directives.data_root,directives.data_root_alias);
 	  if (web_path[0] != '/') {
 	    web_path="/"+local_name;
 	  }
 	  auto remote_file=unixutils::remote_web_file("https://rda.ucar.edu"+web_path,temp_dir.name());
 	  if (remote_file.empty()) {
-	    error="local file '"+meta_args.local_name+"' not found or unable to transfer";
+	    error="local file '"+args.local_name+"' not found or unable to transfer";
 	    return false;
 	  }
 	  else {
@@ -170,32 +170,32 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
     }
     if (compare_hpss_to_local) {
 // compare the file to the HPSS copy before continuing
-	if (!meta_args.override_primary_check) {
+	if (!args.override_primary_check) {
 	  auto hsi_command=unixutils::hsi_command();
 	  if (hsi_command.empty()) {
 	    error="**hsi not found";
 	    return false;
 	  }
-	  if (!meta_args.member_name.empty()) {
+	  if (!args.member_name.empty()) {
 	    strutils::replace_all(hsi_command,"hsi","htar");
 	  }
 	  auto num_retries=0;
 	  while (num_retries < 5) {
-	    if (!meta_args.member_name.empty()) {
-		p=popen((hsi_command+" -tf "+meta_args.path+"/"+meta_args.filename+" "+meta_args.member_name+" 2>&1").c_str(),"r");
+	    if (!args.member_name.empty()) {
+		p=popen((hsi_command+" -tf "+args.path+"/"+args.filename+" "+args.member_name+" 2>&1").c_str(),"r");
 	    }
 	    else {
-		p=popen((hsi_command+" ls -l "+meta_args.path+"/"+meta_args.filename+" 2>&1").c_str(),"r");
+		p=popen((hsi_command+" ls -l "+args.path+"/"+args.filename+" 2>&1").c_str(),"r");
 	    }
 	    while (fgets(line,256,p) != NULL) {
 		sline=line;
-		if ((strutils::contains(sline,"dss") && strutils::contains(sline,meta_args.filename)) || (strutils::contains(sline,"HTAR:") && strutils::contains(sline,meta_args.member_name))) {
+		if ((strutils::contains(sline,"dss") && strutils::contains(sline,args.filename)) || (strutils::contains(sline,"HTAR:") && strutils::contains(sline,args.member_name))) {
 		  sp=strutils::split(sline);
 		  if (sp.size() < 5) {
-		    error="unable to obtain 'hsi ls -l' info for "+meta_args.path+"/"+meta_args.filename;
+		    error="unable to obtain 'hsi ls -l' info for "+args.path+"/"+args.filename;
 		    return false;
 		  }
-		  if (!meta_args.member_name.empty()) {
+		  if (!args.member_name.empty()) {
 		    n=3;
 		  }
 		  else {
@@ -211,7 +211,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	    pclose(p);
 	    if (size < 0) {
 		if (strutils::contains(sline,"HTAR SUCCESSFUL")) {
-		  error="'"+meta_args.member_name+"' is not a member of "+meta_args.path+"/"+meta_args.filename;
+		  error="'"+args.member_name+"' is not a member of "+args.path+"/"+args.filename;
 		  return false;
 		}
 		else {
@@ -224,7 +224,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	    }
 	  }
 	  if (size < 0) {
-	    error="bad file size "+strutils::lltos(size)+" from 'hsi ls -l' info for "+meta_args.path+"/"+meta_args.filename;
+	    error="bad file size "+strutils::lltos(size)+" from 'hsi ls -l' info for "+args.path+"/"+args.filename;
 	    return false;
 	  }
 	}
@@ -234,41 +234,41 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	}
     }
   }
-  else if (std::regex_search(meta_args.path,std::regex("^https://rda.ucar.edu"))) {
+  else if (std::regex_search(args.path,std::regex("^https://rda.ucar.edu"))) {
 // Web file
-    f1=metautils::relative_web_filename(meta_args.path+"/"+meta_args.filename);
-    query.set("property,file_format","wfile","dsid = 'ds"+meta_args.dsnum+"' and wfile = '"+f1+"'");
+    f1=metautils::relative_web_filename(args.path+"/"+args.filename);
+    query.set("property,file_format","wfile","dsid = 'ds"+args.dsnum+"' and wfile = '"+f1+"'");
     if (query.submit(server) < 0) {
 	error=query.error();
 	return false;
     }
     status=query.fetch_row(row);
-    if (!meta_args.override_primary_check) {
+    if (!args.override_primary_check) {
 	if (query.num_rows() == 0 || row[0] != "A") {
-	  error=meta_args.path+"/"+meta_args.filename+" is not active for this dataset";
+	  error=args.path+"/"+args.filename+" is not active for this dataset";
 	  return false;
 	}
     }
     if (status) {
 	file_format=row[1];
     }
-    local_name=meta_args.path;
+    local_name=args.path;
     strutils::replace_all(local_name,"https://rda.ucar.edu","");
-    if (std::regex_search(local_name,std::regex("^"+meta_directives.data_root_alias))) {
-	local_name=meta_directives.data_root+local_name.substr(meta_directives.data_root_alias.length());
+    if (std::regex_search(local_name,std::regex("^"+directives.data_root_alias))) {
+	local_name=directives.data_root+local_name.substr(directives.data_root_alias.length());
     }
-    local_name=local_name+"/"+meta_args.filename;
+    local_name=local_name+"/"+args.filename;
     if ( (stat64(local_name.c_str(),&statbuf)) != 0) {
-	local_name=unixutils::remote_web_file(meta_args.path+"/"+meta_args.filename,temp_dir.name());
+	local_name=unixutils::remote_web_file(args.path+"/"+args.filename,temp_dir.name());
 	if (local_name.empty()) {
-	  error="Web file '"+meta_args.path+"/"+meta_args.filename+"' not found or unable to transfer";
+	  error="Web file '"+args.path+"/"+args.filename+"' not found or unable to transfer";
 	  return false;
 	}
     }
     system(("cp "+local_name+" "+tfile.name()).c_str());
   }
   else {
-    error="path of file '"+meta_args.path+"' not recognized";
+    error="path of file '"+args.path+"' not recognized";
     return false;
   }
   filename=tfile.name();
@@ -279,14 +279,14 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
     }
   }
   if (file_format.empty()) {
-    if (meta_args.data_format == "grib" ||  meta_args.data_format == "grib2" || strutils::contains(meta_args.data_format,"bufr") || meta_args.data_format == "mcidas") {
+    if (args.data_format == "grib" ||  args.data_format == "grib2" || strutils::contains(args.data_format,"bufr") || args.data_format == "mcidas") {
 // check to see if file is COS-blocked
 	if (!chkstream.open(filename.c_str())) {
 	  error="unable to open "+filename;
 	  return false;
 	}
 	if (chkstream.ignore() > 0) {
-	  system((meta_directives.dss_bindir+"/cosconvert -b "+filename+" 1> /dev/null").c_str());
+	  system((directives.dss_bindir+"/cosconvert -b "+filename+" 1> /dev/null").c_str());
 	}
 	chkstream.close();
 	while (expand_file(tdir.name(),filename,&file_format));
@@ -307,8 +307,8 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
     for (n=spf.size()-1; n >= 0; n--) {
 	if (spf[n] == "BI") {
 	  if (n == 0 || spf[n-1] != "LVBS") {
-	    if (meta_args.data_format == "grib" || meta_args.data_format == "grib2" || strutils::contains(meta_args.data_format,"bufr") || meta_args.data_format == "mcidas") {
-		unixutils::mysystem2(meta_directives.dss_bindir+"/cosconvert -b "+filename+" "+filename+".bi",oss,ess);
+	    if (args.data_format == "grib" || args.data_format == "grib2" || strutils::contains(args.data_format,"bufr") || args.data_format == "mcidas") {
+		unixutils::mysystem2(directives.dss_bindir+"/cosconvert -b "+filename+" "+filename+".bi",oss,ess);
 		if (!ess.str().empty()) {
 		  error=ess.str();
 		  return false;
@@ -320,8 +320,8 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	  }
 	}
 	else if (spf[n] == "CH" || spf[n] == "C1") {
-	  if (meta_args.data_format == "grib" || meta_args.data_format == "grib2" || strutils::contains(meta_args.data_format,"bufr") || meta_args.data_format == "mcidas") {
-	    system((meta_directives.dss_bindir+"/cosconvert -c "+filename+" 1> /dev/null").c_str());
+	  if (args.data_format == "grib" || args.data_format == "grib2" || strutils::contains(args.data_format,"bufr") || args.data_format == "mcidas") {
+	    system((directives.dss_bindir+"/cosconvert -c "+filename+" 1> /dev/null").c_str());
 	  }
 	}
 	else if (spf[n] == "GZ" || spf[n] == "BZ2") {
@@ -338,7 +338,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	    system(("mv "+filename+" "+filename+"."+ext+"; "+command+" -f "+filename+"."+ext).c_str());
 	  }
 	  else if (spf[n] == spf.front()) {
-	    if ((meta_args.data_format == "cxml" || meta_args.data_format == "tcvitals" || strutils::contains(meta_args.data_format,"netcdf") || strutils::contains(meta_args.data_format,"hdf") || strutils::contains(meta_args.data_format,"bufr")) && filelist != NULL) {
+	    if ((args.data_format == "cxml" || args.data_format == "tcvitals" || strutils::contains(args.data_format,"netcdf") || strutils::contains(args.data_format,"hdf") || strutils::contains(args.data_format,"bufr")) && filelist != NULL) {
 		for (const auto& file : *filelist) {
 		  flist.emplace_back(file);
 		}
@@ -349,7 +349,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		system((command+" -f "+file).c_str());
 		sdum=file;
 		strutils::replace_all(sdum,"."+ext,"");
-		if (meta_args.data_format != "cxml" && meta_args.data_format != "tcvitals" && !strutils::contains(meta_args.data_format,"netcdf") && !strutils::contains(meta_args.data_format,"hdf")) {
+		if (args.data_format != "cxml" && args.data_format != "tcvitals" && !strutils::contains(args.data_format,"netcdf") && !strutils::contains(args.data_format,"hdf")) {
 		  if ( (ifs64=fopen64(sdum.c_str(),"r")) == NULL) {
 		    error="error while combining ."+ext+" files - could not open "+sdum;
 		    return false;
@@ -364,7 +364,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		    filelist->emplace_back(sdum);
 		  }
 		  else {
-		    error="non-null filelist must be provided for format "+meta_args.data_format;
+		    error="non-null filelist must be provided for format "+args.data_format;
 		    return false;
 		  }
 		}
@@ -377,18 +377,18 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	  }
 	}
 	else if (spf[n] == "TAR" || spf[n] == "TGZ") {
-	  if (n == 0 && meta_args.data_format != "cxml" && meta_args.data_format != "tcvitals" && !strutils::contains(meta_args.data_format,"netcdf") && !std::regex_search(meta_args.data_format,std::regex("nc$")) && !strutils::contains(meta_args.data_format,"hdf") && meta_args.data_format != "mcidas" && meta_args.data_format != "uadb") {
-	    if (std::regex_search(meta_args.data_format,std::regex("^grib"))) {
+	  if (n == 0 && args.data_format != "cxml" && args.data_format != "tcvitals" && !strutils::contains(args.data_format,"netcdf") && !std::regex_search(args.data_format,std::regex("nc$")) && !strutils::contains(args.data_format,"hdf") && args.data_format != "mcidas" && args.data_format != "uadb") {
+	    if (std::regex_search(args.data_format,std::regex("^grib"))) {
 		expand_file(tdir.name(),filename,NULL);
 	    }
 	  }
-	  else if (meta_args.data_format == "cxml" || meta_args.data_format == "tcvitals" || strutils::contains(meta_args.data_format,"netcdf") || std::regex_search(meta_args.data_format,std::regex("nc$")) || strutils::contains(meta_args.data_format,"hdf") || meta_args.data_format == "mcidas" || meta_args.data_format == "uadb" || strutils::contains(meta_args.data_format,"bufr") || n == static_cast<int>(spf.size()-1)) {
-	    if (meta_args.data_format == "cxml" || meta_args.data_format == "tcvitals" || strutils::contains(meta_args.data_format,"netcdf") || std::regex_search(meta_args.data_format,std::regex("nc$")) || strutils::contains(meta_args.data_format,"hdf") || meta_args.data_format == "mcidas" || meta_args.data_format == "uadb") {
+	  else if (args.data_format == "cxml" || args.data_format == "tcvitals" || strutils::contains(args.data_format,"netcdf") || std::regex_search(args.data_format,std::regex("nc$")) || strutils::contains(args.data_format,"hdf") || args.data_format == "mcidas" || args.data_format == "uadb" || strutils::contains(args.data_format,"bufr") || n == static_cast<int>(spf.size()-1)) {
+	    if (args.data_format == "cxml" || args.data_format == "tcvitals" || strutils::contains(args.data_format,"netcdf") || std::regex_search(args.data_format,std::regex("nc$")) || strutils::contains(args.data_format,"hdf") || args.data_format == "mcidas" || args.data_format == "uadb") {
 		if (filelist != nullptr) {
 		  f=filelist;
 		}
 		else {
-		  error="non-null filelist must be provided for format "+meta_args.data_format;
+		  error="non-null filelist must be provided for format "+args.data_format;
 		  return false;
 		}
 	    }
@@ -419,14 +419,14 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	}
 	else if (spf[n] == "VBS") {
 	  if (static_cast<int>(spf.size()) >= (n+2) && spf[n+1] == "BI") {
-	    system((meta_directives.dss_bindir+"/cosconvert -v "+filename+" "+filename+".vbs 1> /dev/null;mv "+filename+".vbs "+filename).c_str());
+	    system((directives.dss_bindir+"/cosconvert -v "+filename+" "+filename+".vbs 1> /dev/null;mv "+filename+".vbs "+filename).c_str());
 	  }
 	}
 	else if (spf[n] == "LVBS") {
 	  if (static_cast<int>(spf.size()) >= (n+2) && spf[n+1] == "BI") {
-	    system((meta_directives.dss_root+"/bin/cossplit -p "+filename+" "+filename).c_str());
+	    system((directives.dss_root+"/bin/cossplit -p "+filename+" "+filename).c_str());
 	    m=2;
-	    coscombine=meta_directives.dss_root+"/bin/coscombine noeof";
+	    coscombine=directives.dss_root+"/bin/coscombine noeof";
 	    fname=filename+".f"+strutils::ftos(m,3,0,'0');
 	    while (stat64(fname.c_str(),&statbuf) == 0) {
 		coscombine+=" "+fname;
@@ -436,7 +436,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 	    coscombine+=" "+filename+" 1> /dev/null";
 	    system(coscombine.c_str());
 	    system(("rm -f "+filename+".f*").c_str());
-	    system((meta_directives.dss_bindir+"/cosconvert -v "+filename+" "+filename+".vbs 1> /dev/null;mv "+filename+".vbs "+filename).c_str());
+	    system((directives.dss_bindir+"/cosconvert -v "+filename+" "+filename+".vbs 1> /dev/null;mv "+filename+".vbs "+filename).c_str());
 	  }
 	}
 	else if (spf[n] == "Z") {
@@ -448,7 +448,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		system(("uncompress "+file).c_str());
 		sdum=file;
 		strutils::replace_all(sdum,".Z","");
-		if (!strutils::contains(meta_args.data_format,"netcdf") && !strutils::contains(meta_args.data_format,"hdf")) {
+		if (!strutils::contains(args.data_format,"netcdf") && !strutils::contains(args.data_format,"hdf")) {
 		  ifs.open(sdum.c_str());
 		  if (!ifs) {
 		    error="error while combining .Z files";
@@ -466,7 +466,7 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 		    filelist->emplace_back(sdum);
 		  }
 		  else {
-		    error="non-null filelist must be provided for format "+meta_args.data_format;
+		    error="non-null filelist must be provided for format "+args.data_format;
 		    return false;
 		  }
 		}
@@ -493,89 +493,89 @@ bool prepare_file_for_metadata_scanning(TempFile& tfile,TempDir& tdir,std::list<
 
 bool open_file_for_metadata_scanning(void *istream,std::string filename,std::string& error)
 {
-  if (meta_args.data_format == "on29" || meta_args.data_format == "on124") {
+  if (args.data_format == "on29" || args.data_format == "on124") {
     return (reinterpret_cast<InputADPStream *>(istream))->open(filename);
   }
-  else if (strutils::contains(meta_args.data_format,"bufr")) {
+  else if (strutils::contains(args.data_format,"bufr")) {
     return (reinterpret_cast<InputBUFRStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "grib" || meta_args.data_format == "grib2") {
+  else if (args.data_format == "grib" || args.data_format == "grib2") {
     return (reinterpret_cast<InputGRIBStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "jraieeemm") {
+  else if (args.data_format == "jraieeemm") {
     return (reinterpret_cast<InputJRAIEEEMMGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "ll") {
+  else if (args.data_format == "ll") {
     return (reinterpret_cast<InputLatLonGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "mcidas") {
+  else if (args.data_format == "mcidas") {
     return (reinterpret_cast<InputMcIDASStream *>(istream))->open(filename.c_str());
   }
-  else if (meta_args.data_format == "navy") {
+  else if (args.data_format == "navy") {
     return (reinterpret_cast<InputNavyGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "noaapod") {
+  else if (args.data_format == "noaapod") {
     return (reinterpret_cast<InputNOAAPolarOrbiterDataStream *>(istream))->open(filename.c_str());
   }
-  else if (meta_args.data_format == "oct") {
+  else if (args.data_format == "oct") {
     return (reinterpret_cast<InputOctagonalGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "tropical") {
+  else if (args.data_format == "tropical") {
     return (reinterpret_cast<InputTropicalGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "on84") {
+  else if (args.data_format == "on84") {
     return (reinterpret_cast<InputON84GridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "slp") {
+  else if (args.data_format == "slp") {
     return (reinterpret_cast<InputSLPGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "tsr") {
+  else if (args.data_format == "tsr") {
     return (reinterpret_cast<InputTsraobStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "ussrslp") {
+  else if (args.data_format == "ussrslp") {
     return (reinterpret_cast<InputUSSRSLPGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "cpcsumm") {
+  else if (args.data_format == "cpcsumm") {
     return (reinterpret_cast<InputCPCSummaryObservationStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "imma") {
+  else if (args.data_format == "imma") {
     return (reinterpret_cast<InputIMMAObservationStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "isd") {
+  else if (args.data_format == "isd") {
     return (reinterpret_cast<InputISDObservationStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "nodcbt") {
+  else if (args.data_format == "nodcbt") {
     return (reinterpret_cast<InputNODCBTObservationStream *>(istream))->open(filename);
   }
-  else if (std::regex_search(meta_args.data_format,std::regex("^td32"))) {
+  else if (std::regex_search(args.data_format,std::regex("^td32"))) {
     return (reinterpret_cast<InputTD32Stream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "wmssc") {
+  else if (args.data_format == "wmssc") {
     return (reinterpret_cast<InputWMSSCObservationStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "hurdat") {
+  else if (args.data_format == "hurdat") {
     return (reinterpret_cast<InputHURDATCycloneStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "tcvitals") {
+  else if (args.data_format == "tcvitals") {
     return (reinterpret_cast<InputTCVitalsCycloneStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "cgcm1") {
+  else if (args.data_format == "cgcm1") {
     return (reinterpret_cast<InputCGCM1GridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "cmorph025") {
+  else if (args.data_format == "cmorph025") {
     return (reinterpret_cast<InputCMORPH025GridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "cmorph8km") {
+  else if (args.data_format == "cmorph8km") {
     return (reinterpret_cast<InputCMORPH8kmGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "gpcp") {
+  else if (args.data_format == "gpcp") {
     return (reinterpret_cast<InputGPCPGridStream *>(istream))->open(filename);
   }
-  else if (meta_args.data_format == "uadb") {
+  else if (args.data_format == "uadb") {
     return (reinterpret_cast<InputUADBRaobStream *>(istream))->open(filename);
   }
   else {
-    error=meta_args.data_format+"-formatted files not recognized";
+    error=args.data_format+"-formatted files not recognized";
     return false;
   }
 }
