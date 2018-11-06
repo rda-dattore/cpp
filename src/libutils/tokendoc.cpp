@@ -7,31 +7,7 @@
 
 TokenDocument::TokenDocument(std::string filename,size_t indent_length) : capacity(),blocks(),ifs(),repeats(),replacements(),indent("")
 {
-  clear_all();
-  std::string lf("\n");
-  struct stat buf;
-  if (stat(filename.c_str(),&buf) == 0) {
-    capacity=buf.st_size*2;
-    std::ifstream ifs;
-    ifs.open(filename.c_str());
-    if (ifs.is_open()) {
-	char line[32768];
-	ifs.getline(line,32768);
-	while (!ifs.eof()) {
-	  if (line[0] == '#') {
-	    blocks.emplace_back(build_block(ifs,line));
-	  }
-	  else if (line[0] != '@') {
-	    Block block;
-	    block.line=(line+lf);
-	    blocks.emplace_back(block);
-	  }
-	  ifs.getline(line,32768);
-	}
-	ifs.close();
-    }
-  }
-  set_indent(indent_length);
+  reset(filename,indent_length);
 }
 
 void TokenDocument::add_if(std::string condition)
@@ -246,6 +222,35 @@ void TokenDocument::fill_block(std::ifstream& ifs,TokenDocument::Block& block,st
     }
     ifs.getline(line,32768);
   }
+}
+
+void TokenDocument::reset(std::string filename,size_t indent_length)
+{
+  clear_all();
+  std::string lf("\n");
+  struct stat buf;
+  if (stat(filename.c_str(),&buf) == 0) {
+    capacity=buf.st_size*2;
+    std::ifstream ifs;
+    ifs.open(filename.c_str());
+    if (ifs.is_open()) {
+	char line[32768];
+	ifs.getline(line,32768);
+	while (!ifs.eof()) {
+	  if (line[0] == '#') {
+	    blocks.emplace_back(build_block(ifs,line));
+	  }
+	  else if (line[0] != '@') {
+	    Block block;
+	    block.line=(line+lf);
+	    blocks.emplace_back(block);
+	  }
+	  ifs.getline(line,32768);
+	}
+	ifs.close();
+    }
+  }
+  set_indent(indent_length);
 }
 
 void TokenDocument::set_indent(size_t indent_length)
