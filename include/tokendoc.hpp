@@ -18,6 +18,7 @@ public:
   void clear_ifs() { ifs.clear(); }
   void clear_repeats() { repeats.clear(); }
   void clear_replacements() { replacements.clear(); }
+  void reset(std::string filename,size_t indent_length = 0);
   void set_indent(size_t indent_length);
 
   friend std::ostream& operator<<(std::ostream& outs,const TokenDocument& source);
