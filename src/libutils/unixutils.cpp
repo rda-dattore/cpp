@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <fstream>
 #include <string>
+#include <memory>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,6 +12,23 @@
 #include <tempfile.hpp>
 
 namespace unixutils {
+
+const char *cat(std::string filename)
+{
+  static std::unique_ptr<char[]> buffer=nullptr;
+  std::ifstream ifs(filename);
+  if (!ifs.is_open()) {
+    return nullptr;
+  }
+  ifs.seekg(0,std::ios::end);
+  size_t file_size=ifs.tellg();
+  buffer.reset(new char[file_size+1]);
+  ifs.seekg(0,std::ios::beg);
+  ifs.read(buffer.get(),file_size);
+  ifs.close();
+  buffer[file_size]='\0';
+  return buffer.get();
+}
 
 std::string host_name()
 {
