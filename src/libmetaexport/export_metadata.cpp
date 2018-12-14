@@ -38,7 +38,7 @@ bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_do
 	  exported=export_to_oai_dc(ofs,ident,xdoc,initial_indent_length);
 	}
 	else if (format == "datacite") {
-	  exported=export_to_data_cite(ofs,ident,xdoc,initial_indent_length);
+	  exported=export_to_datacite(ofs,ident,xdoc,initial_indent_length);
 	}
 	else if (format == "dc-meta-tags") {
 	  exported=export_to_dc_meta_tags(ofs,ident,xdoc,initial_indent_length);

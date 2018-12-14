@@ -10,16 +10,18 @@
 
 namespace metadataExport {
 
-bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
   MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
   std::string indent(indent_length,' ');
   ofs << indent << "<resource xmlns=\"http://datacite.org/schema/kernel-3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://datacite.org/schema/kernel-3 http://schema.datacite.org/meta/kernel-3/metadata.xsd\">" << std::endl;
+  ofs << indent << "  <identifier identifierType=\"DOI\">";
   MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
-    ofs << indent << "  <identifier identifierType=\"DOI\">" << row[0] << "</identifier>" << std::endl;
+    ofs << row[0];
   }
+  ofs << "</identifier>" << std::endl;
   ofs << indent << "  <creators>" << std::endl;
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
@@ -59,7 +61,7 @@ bool export_to_data_cite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,s
 	if (!name_parts.back().empty()) {
 	  ofs << indent << "    <creator>" << std::endl;
 	  ofs << indent << "      <creatorName>" << strutils::substitute(name_parts.back(),", ","/") << "</creatorName>" << std::endl;
-	  ofs << indent << "    <creator>" << std::endl;
+	  ofs << indent << "    </creator>" << std::endl;
 	  ++n;
 	}
     }
