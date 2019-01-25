@@ -256,7 +256,7 @@ protected:
   Lengths lengths_;
   std::unique_ptr<unsigned char[]> pds_supp;
   bool gds_included,bms_included;
-  std::deque<Grid *> grids;
+  std::vector<std::shared_ptr<Grid>> grids;
 };
 
 class GRIB2Grid;
