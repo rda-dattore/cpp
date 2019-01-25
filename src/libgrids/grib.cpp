@@ -500,7 +500,7 @@ void GRIBMessage::convert_to_grib1()
     myerror="no grid found";
     exit(1);
   }
-  auto g=reinterpret_cast<GRIBGrid *>(grids.front());
+  auto g=reinterpret_cast<GRIBGrid *>(grids.front().get());
   switch (edition_) {
     case 0:
     {
@@ -1081,27 +1081,27 @@ off_t GRIBMessage::copy_to_buffer(unsigned char *output_buffer,const size_t buff
 {
   off_t offset;
 
-  pack_is(output_buffer,offset,grids.front());
+  pack_is(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  pack_pds(output_buffer,offset,grids.front());
+  pack_pds(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
   if (gds_included) {
-    pack_gds(output_buffer,offset,grids.front());
+    pack_gds(output_buffer,offset,grids.front().get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
   }
   if (bms_included) {
-    pack_bms(output_buffer,offset,grids.front());
+    pack_bms(output_buffer,offset,grids.front().get());
   }
-  pack_bds(output_buffer,offset,grids.front());
+  pack_bds(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
@@ -1118,8 +1118,9 @@ off_t GRIBMessage::copy_to_buffer(unsigned char *output_buffer,const size_t buff
 
 void GRIBMessage::clear_grids()
 {
-  for (auto grid : grids)
-    delete grid;
+  for (auto& grid : grids) {
+    grid.reset();
+  }
   grids.clear();
 }
 
@@ -1163,7 +1164,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   GRIBGrid *g;
 
   offsets_.pds=curr_off;
-  g=reinterpret_cast<GRIBGrid *>(grids.back());
+  g=reinterpret_cast<GRIBGrid *>(grids.back().get());
   g->ensdata.fcst_type="";
   g->ensdata.id="";
   g->ensdata.total_size=0;
@@ -1574,7 +1575,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   short PV,NV,PL;
 
   offsets_.gds=curr_off;
-  g=reinterpret_cast<GRIBGrid *>(grids.back());
+  g=reinterpret_cast<GRIBGrid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.gds,off,24);
   PL=0xff;
   switch (edition_) {
@@ -1821,7 +1822,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
   switch (edition_) {
     case 1:
     {
-	g=reinterpret_cast<GRIBGrid *>(grids.back());
+	g=reinterpret_cast<GRIBGrid *>(grids.back().get());
 	bits::get(stream_buffer,lengths_.bms,off,24);
 	bits::get(stream_buffer,ind,off+32,16);
 	if (ind == 0) {
@@ -1842,7 +1843,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
     }
     case 2:
     {
-	g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+	g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
 	bits::get(stream_buffer,lengths_.bms,off,32);
 	bits::get(stream_buffer,sec_num,off+32,8);
 	if (sec_num != 6) {
@@ -1913,7 +1914,7 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
   int n,m;
 
   offsets_.bds=curr_off;
-  g=reinterpret_cast<GRIBGrid *>(grids.back());
+  g=reinterpret_cast<GRIBGrid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.bds,off,24);
   if (mlength >= 0x800000 && lengths_.bds < 120) {
 // ECMWF large-file
@@ -2398,7 +2399,7 @@ Grid *GRIBMessage::grid(size_t grid_number) const
     return nullptr;
   }
   else {
-    return grids[grid_number];
+    return grids[grid_number].get();
   }
 }
 
@@ -2463,18 +2464,18 @@ void GRIBMessage::print_header(std::ostream& outs,bool verbose,std::string path_
 	  }
 	}
     }
-    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose,path_to_parameter_map);
+    (reinterpret_cast<GRIBGrid *>(grids.front().get()))->print_header(outs,verbose,path_to_parameter_map);
   }
   else {
     outs << " Ed=" << edition_;
-    (reinterpret_cast<GRIBGrid *>(grids.front()))->print_header(outs,verbose,path_to_parameter_map);
+    (reinterpret_cast<GRIBGrid *>(grids.front().get()))->print_header(outs,verbose,path_to_parameter_map);
   }
 }
 
 void GRIB2Message::unpack_ids(const unsigned char *input_buffer)
 {
   off_t off=curr_off*8;
-  GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+  GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   offsets_.ids=curr_off;
   bits::get(input_buffer,lengths_.ids,off,32);
   short sec_num;
@@ -2553,7 +2554,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
   GRIB2Grid *g2;
 
   offsets_.pds=curr_off;
-  g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+  g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.pds,off,32);
   bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 4) {
@@ -3089,7 +3090,7 @@ void GRIB2Message::unpack_gds(const unsigned char *stream_buffer)
   GRIB2Grid *g2;
 
   offsets_.gds=curr_off;
-  g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+  g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.gds,off,32);
   bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 3) {
@@ -3388,7 +3389,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
   int num_packed;
 
   offsets_.drs=curr_off;
-  g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+  g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.drs,off,32);
   bits::get(stream_buffer,sec_num,off+32,8);
   if (sec_num != 5) {
@@ -3531,7 +3532,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   size_t avg_cnt=0,pval=0;
   int len;
   int *jvals,num_packed=0;
-  GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back());
+  GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   struct {
     int *ref_vals,*widths,*lengths,*pvals;
     short sign;
@@ -4097,45 +4098,45 @@ off_t GRIB2Message::copy_to_buffer(unsigned char *output_buffer,const size_t buf
 {
   off_t offset;
 
-  pack_is(output_buffer,offset,grids.front());
+  pack_is(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  pack_ids(output_buffer,offset,grids.front());
+  pack_ids(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
     exit(1);
   }
-  for (auto grid : grids) {
-    pack_lus(output_buffer,offset,grid);
+  for (const auto& grid : grids) {
+    pack_lus(output_buffer,offset,grid.get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
     if (gds_included) {
-	pack_gds(output_buffer,offset,grid);
+	pack_gds(output_buffer,offset,grid.get());
 	if (offset > static_cast<off_t>(buffer_length)) {
 	  myerror="buffer overflow in copy_to_buffer()";
 	  exit(1);
 	}
     }
-    pack_pds(output_buffer,offset,grid);
+    pack_pds(output_buffer,offset,grid.get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_drs(output_buffer,offset,grid);
+    pack_drs(output_buffer,offset,grid.get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_bms(output_buffer,offset,grid);
+    pack_bms(output_buffer,offset,grid.get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
     }
-    pack_ds(output_buffer,offset,grid);
+    pack_ds(output_buffer,offset,grid.get());
     if (offset > static_cast<off_t>(buffer_length)) {
 	myerror="buffer overflow in copy_to_buffer()";
 	exit(1);
@@ -4187,7 +4188,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	if (sec_num < last_sec_num) {
 	  g2=new GRIB2Grid;
 	  if (grids.size() > 0) {
-	    g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back())));
+	    g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back().get())));
 	  }
 	  bits::get(stream_buffer,discipline,48,8);
 	  g2->grib2.discipline=discipline;
@@ -4243,16 +4244,16 @@ void GRIB2Message::print_header(std::ostream& outs,bool verbose,std::string path
 
   if (verbose) {
     outs << "  GRIB Ed: " << edition_ << "  Length: " << mlength << "  Number of Grids: " << grids.size() << std::endl;
-    for (auto grid : grids) {
+    for (const auto& grid : grids) {
 	outs << "  Grid #" << ++n << ":" << std::endl;
-	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose,path_to_parameter_map);
+	(reinterpret_cast<GRIB2Grid *>(grid.get()))->print_header(outs,verbose,path_to_parameter_map);
     }
   }
   else {
     outs << " Ed=" << edition_ << " NGrds=" << grids.size();
-    for (auto grid : grids) {
+    for (const auto& grid : grids) {
 	outs << " Grd=" << ++n;
-	(reinterpret_cast<GRIB2Grid *>(grid))->print_header(outs,verbose,path_to_parameter_map);
+	(reinterpret_cast<GRIB2Grid *>(grid.get()))->print_header(outs,verbose,path_to_parameter_map);
     }
   }
 }
@@ -4280,7 +4281,7 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
     if (sec_num < last_sec_num) {
 	g2=new GRIB2Grid;
 	if (grids.size() > 0) {
-	  g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back())));
+	  g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back().get())));
 	}
 	g2->grid.filled=false;
 	grids.emplace_back(g2);

@@ -86,7 +86,7 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   short yr,mo,dy,time;
   TDLGRIBGrid *t;
 
-  t=reinterpret_cast<TDLGRIBGrid *>(grids.back());
+  t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.pds,off,8);
   bits::get(stream_buffer,flag,off+8,8);
   if ( (flag & 0x2) == 0x2)
@@ -177,7 +177,7 @@ void TDLGRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   int dum;
   TDLGRIBGrid *t;
 
-  t=reinterpret_cast<TDLGRIBGrid *>(grids.back());
+  t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.gds,off,8);
   bits::get(stream_buffer,t->grid.grid_type,off+8,8);
   switch (t->grid.grid_type) {
@@ -237,7 +237,7 @@ void TDLGRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_hea
   bool simple_packing=true,second_order=false;
   TDLGRIBGrid *t;
 
-  t=reinterpret_cast<TDLGRIBGrid *>(grids.back());
+  t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
   bits::get(stream_buffer,lengths_.bds,off,24);
   bits::get(stream_buffer,flag,off+24,8);
   if ((flag & 0x10) != 0) {
@@ -401,13 +401,13 @@ void TDLGRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_on
     std::cerr << "Error: empty file stream" << std::endl;
     exit(1);
   }
-  for (auto grid : grids) {
-    delete grid;
+  for (auto& grid : grids) {
+    grid.reset();
   }
   unpack_is(stream_buffer);
   auto t=new TDLGRIBGrid;
   t->grid.filled=false;
-  grids.push_back(t);
+  grids.emplace_back(t);
   unpack_pds(stream_buffer);
   if (gds_included) {
     unpack_gds(stream_buffer);
@@ -434,11 +434,11 @@ void TDLGRIBMessage::print_header(std::ostream& outs,bool verbose) const
 	  }
         }
     }
-    (reinterpret_cast<TDLGRIBGrid *>(grids.back()))->print_header(outs,verbose);
+    (reinterpret_cast<TDLGRIBGrid *>(grids.back().get()))->print_header(outs,verbose);
   }
   else {
     outs << " Ed=" << edition_;
-    (reinterpret_cast<TDLGRIBGrid *>(grids.back()))->print_header(outs,verbose);
+    (reinterpret_cast<TDLGRIBGrid *>(grids.back().get()))->print_header(outs,verbose);
   }
 }
 
