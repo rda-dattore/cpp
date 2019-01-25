@@ -446,9 +446,6 @@ const short GRIBGrid::on84_grid_parameter_map[]={  0,  7,  0,  0,  0,  0,  0,  0
 
 GRIBMessage::~GRIBMessage()
 {
-  if (pds_supp != nullptr) {
-    delete[] pds_supp;
-  }
   clear_grids();
 }
 
@@ -459,16 +456,10 @@ GRIBMessage& GRIBMessage::operator=(const GRIBMessage& source)
   mlength=source.mlength;
   curr_off=source.curr_off;
   lengths_=source.lengths_;
-  if (pds_supp != nullptr) {
-    delete[] pds_supp;
-    pds_supp=nullptr;
-  }
-  if (source.pds_supp != nullptr) {
-    pds_supp=new unsigned char[lengths_.pds_supp];
+  pds_supp.reset(new unsigned char[lengths_.pds_supp]);
     for (int n=0; n < lengths_.pds_supp; ++n) {
 	pds_supp[n]=source.pds_supp[n];
     }
-  }
   gds_included=source.gds_included;
   bms_included=source.bms_included;
   grids=source.grids;
@@ -719,7 +710,7 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
   }
 // pack the PDS supplement, if it exists
   if (lengths_.pds_supp > 0) {
-    bits::set(output_buffer,pds_supp,off+320,8,0,lengths_.pds_supp);
+    bits::set(output_buffer,pds_supp.get(),off+320,8,0,lengths_.pds_supp);
   }
 }
 
@@ -1490,10 +1481,6 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->forecast_date_time_=g->valid_date_time_=g->reference_date_time_;
   g->grib.prod_descr=gributils::grib_product_description(g,g->forecast_date_time_,g->valid_date_time_,g->grid.fcst_time);
 // unpack PDS supplement, if it exists
-  if (pds_supp != nullptr) {
-    delete[] pds_supp;
-    pds_supp=nullptr;
-  }
   if (lengths_.pds > 28) {
     if (lengths_.pds < 41) {
 	mywarning="supplement to PDS is in reserved position starting at octet 29";
@@ -1504,9 +1491,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	lengths_.pds_supp=lengths_.pds-40;
 	soff=40;
     }
-    pds_supp=new unsigned char[lengths_.pds_supp];
-//    memcpy(pds_supp,&stream_buffer[lengths_.is+soff],lengths_.pds_supp);
-std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengths_.pds_supp],pds_supp);
+    pds_supp.reset(new unsigned char[lengths_.pds_supp]);
+    std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengths_.pds_supp],pds_supp.get());
 // NCEP ensemble grids are described in the PDS extension
     if (g->grid.src == 7 && g->grib.sub_center == 2 && pds_supp[0] == 1) {
 	switch (pds_supp[1]) {
@@ -1554,7 +1540,7 @@ std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengt
 		}
 		default:
 		{
-		  myerror="PDS byte 44 value "+std::string(&(reinterpret_cast<char *>(pds_supp))[3],1)+" not recognized";
+		  myerror="PDS byte 44 value "+std::string(&(reinterpret_cast<char *>(pds_supp.get()))[3],1)+" not recognized";
 		  exit(1);
 		}
 	    }
@@ -1565,7 +1551,7 @@ std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengt
 	  }
 	  default:
 	  {
-	    myerror="PDS byte 42 value "+std::string(&(reinterpret_cast<char *>(pds_supp))[1],1)+" not recognized";
+	    myerror="PDS byte 42 value "+std::string(&(reinterpret_cast<char *>(pds_supp.get()))[1],1)+" not recognized";
 	    exit(1);
 	  }
 	}
@@ -1573,6 +1559,7 @@ std::copy(&stream_buffer[lengths_.is+soff],&stream_buffer[lengths_.is+soff+lengt
   }
   else {
     lengths_.pds_supp=0;
+    pds_supp.reset(nullptr);
   }
   g->grid.num_missing=0;
   curr_off+=lengths_.pds;
@@ -2448,19 +2435,14 @@ void GRIBMessage::initialize(short edition_number,unsigned char *pds_supplement,
 	break;
     }
   }
-  if (pds_supp != nullptr) {
-    delete[] pds_supp;
-    pds_supp=nullptr;
-  }
   lengths_.pds_supp=pds_supplement_length;
   if (lengths_.pds_supp > 0) {
-    pds_supp=new unsigned char[lengths_.pds_supp];
+    pds_supp.reset(new unsigned char[lengths_.pds_supp]);
+    std::copy(pds_supplement,pds_supplement+lengths_.pds_supp,pds_supp.get());
   }
   else {
-    pds_supp=nullptr;
+    pds_supp.reset(nullptr);
   }
-//  memcpy(pds_supp,pds_supplement,lengths_.pds_supp);
-std::copy(pds_supplement,pds_supplement+lengths_.pds_supp,pds_supp);
   gds_included=gds_is_included;
   bms_included=bms_is_included;
   clear_grids();

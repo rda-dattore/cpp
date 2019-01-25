@@ -159,12 +159,12 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 // unpack PDS supplement, if it exists
   bits::get(stream_buffer,lengths_.pds_supp,off+304,8);
   if (lengths_.pds_supp > 0) {
-    if (pds_supp != nullptr) {
-	delete[] pds_supp;
-    }
-    pds_supp=new unsigned char[lengths_.pds_supp];
+    pds_supp.reset(new unsigned char[lengths_.pds_supp]);
     soff=38;
-    std::copy(&stream_buffer[curr_off+soff],&stream_buffer[curr_off+soff]+lengths_.pds_supp,pds_supp);
+    std::copy(&stream_buffer[curr_off+soff],&stream_buffer[curr_off+soff]+lengths_.pds_supp,pds_supp.get());
+  }
+  else {
+    pds_supp.reset(nullptr);
   }
 // copy the 39 PDS bytes into a special location for use when converting to GRIB
   std::copy(&stream_buffer[curr_off],&stream_buffer[curr_off]+39,t->tdl.pds39_a);
