@@ -444,17 +444,13 @@ const short GRIBGrid::on84_grid_parameter_map[]={  0,  7,  0,  0,  0,  0,  0,  0
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 11,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0};
 
-GRIBMessage::~GRIBMessage()
-{
-  clear_grids();
-}
-
 GRIBMessage& GRIBMessage::operator=(const GRIBMessage& source)
 {
   edition_=source.edition_;
   discipline=source.discipline;
   mlength=source.mlength;
   curr_off=source.curr_off;
+  offsets_=source.offsets_;
   lengths_=source.lengths_;
   pds_supp.reset(new unsigned char[lengths_.pds_supp]);
     for (int n=0; n < lengths_.pds_supp; ++n) {
