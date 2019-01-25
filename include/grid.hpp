@@ -218,7 +218,7 @@ public:
 
   GRIBMessage() : edition_(-1),discipline(0),mlength(0),curr_off(-1),offsets_(),lengths_(),pds_supp(nullptr),gds_included(false),bms_included(false),grids() {}
   GRIBMessage(const GRIBMessage& source) : GRIBMessage() { *this=source; }
-  virtual ~GRIBMessage();
+  virtual ~GRIBMessage() {}
   GRIBMessage& operator=(const GRIBMessage& source);
   void append_grid(const Grid *grid);
   void convert_to_grib1();
