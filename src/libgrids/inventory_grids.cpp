@@ -286,19 +286,19 @@ int inventory_grids(std::string input_filename,size_t format)
     ++num_grids;
     file_size+=bytes_read;
 // build the key to get the proper inventory line
-    set_bits(search_keys,source_grid->type(),0,8);
-    set_bits(search_keys,source_grid->reference_date_time().time()/100,8,12);
-    set_bits(search_keys,source_grid->forecast_time()/10000,20,8);
-    set_bits(search_keys,static_cast<short>(source_grid->first_level_value()),28,8);
-    set_bits(search_keys,static_cast<short>(source_grid->second_level_value()),36,8);
-    set_bits(search_keys,source_grid->parameter(),44,8);
+    bits::set(search_keys,source_grid->type(),0,8);
+    bits::set(search_keys,source_grid->reference_date_time().time()/100,8,12);
+    bits::set(search_keys,source_grid->forecast_time()/10000,20,8);
+    bits::set(search_keys,static_cast<short>(source_grid->first_level_value()),28,8);
+    bits::set(search_keys,static_cast<short>(source_grid->second_level_value()),36,8);
+    bits::set(search_keys,source_grid->parameter(),44,8);
     if (source_grid->is_averaged_grid()) {
-	set_bits(search_keys,source_grid->source(),52,8);
+	bits::set(search_keys,source_grid->source(),52,8);
     }
     num_keys=2;
     if (format == Grid::gribFormat) {
-	set_bits(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->first_level_type(),60,8);
-	set_bits(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->time_range(),68,8);
+	bits::set(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->first_level_type(),60,8);
+	bits::set(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->time_range(),68,8);
 	num_keys=3;
     }
     keys.resize(num_keys);
