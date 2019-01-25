@@ -254,7 +254,7 @@ protected:
   off_t mlength,curr_off;
   Offsets offsets_;
   Lengths lengths_;
-  unsigned char *pds_supp;
+  std::unique_ptr<unsigned char[]> pds_supp;
   bool gds_included,bms_included;
   std::deque<Grid *> grids;
 };
