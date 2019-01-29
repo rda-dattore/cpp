@@ -14,7 +14,7 @@ int InputNavyGridStream::peek()
 
 int InputNavyGridStream::read(unsigned char *buffer,size_t buffer_length)
 {
-  if (buffer_length < 31500) {
+  if (buffer_length < 7972) {
     std::cerr << "Error: buffer overflow" << std::endl;
     exit(1);
   }
