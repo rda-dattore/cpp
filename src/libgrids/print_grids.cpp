@@ -118,9 +118,6 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
     exit(1);
   }
   for (const auto& byte_stream : *grid_stream) {
-    if (grid_stream->number_read() == stop) {
-	break;
-    }
     if (grid_stream->number_read() >= start) {
 	if (format == Grid::gribFormat || format == Grid::grib2Format) {
 	  msg->fill(byte_stream,headers_only);
@@ -153,6 +150,9 @@ int print(std::string input_filename,size_t format,bool headers_only,bool verbos
 	    source_grid->print(std::cout);
 	  }
 	}
+    }
+    if (grid_stream->number_read() == stop) {
+	break;
     }
   }
   return 0;
