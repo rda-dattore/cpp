@@ -176,7 +176,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+="</i>";
     }
     citation+=". "+DATA_CENTER+". ";
-    if (!row[2].empty() && strutils::has_beginning(row[2],"10.5065/D6")) {
+    if (!row[2].empty() && strutils::has_beginning(row[2],"10.5065/")) {
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
@@ -342,10 +342,10 @@ std::string temporary_citation(std::string dsnum,std::string style,std::string a
   if (strutils::has_beginning(dsnum,"ds")) {
     dsnum=dsnum.substr(2);
   }
-  MySQL::LocalQuery query("select authors from metautil.dssmm where dsid = '"+dsnum+"'");
+  MySQL::LocalQuery query("select authors from metautil.metaman where dsid = '"+dsnum+"'");
   MySQL::Row row;
   if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
-    xml="<dsOverview>";
+    xml="<dsOverview ID=\""+dsnum+"\">";
     auto authors=strutils::split(row[0],"\n");
     for (const auto& a : authors) {
 	auto aparts=strutils::split(a,"[!]");
@@ -354,13 +354,13 @@ std::string temporary_citation(std::string dsnum,std::string style,std::string a
     xml+="</dsOverview>";
   }
   else {
-    query.set("select contributors from metautil.dssmm where dsid = '"+dsnum+"'");
+    query.set("select contributors from metautil.metaman where dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
-	xml="<dsOverview>";
+	xml="<dsOverview ID=\""+dsnum+"\">";
 	auto contributors=strutils::split(row[0],"\n");
 	for (const auto& c : contributors) {
 	  auto cparts=strutils::split(c,"[!]");
-	  if (cparts.size() == 3 || cparts[3] == "y") {
+	  if (cparts.size() == 5 || cparts[3] == "Y") {
 	    xml+="<contributor name=\""+cparts[0]+"\" />";
 	  }
 	}
@@ -368,7 +368,7 @@ std::string temporary_citation(std::string dsnum,std::string style,std::string a
     }
   }
   if (!xml.empty()) {
-    query.set("select m.title,s.pub_date,d.doi from metautil.dssmm as m left join search.datasets as s on s.dsid = m.dsid left join dssdb.dsvrsn as d on d.dsid = concat('ds',m.dsid) where m.dsid = '"+dsnum+"'");
+    query.set("select m.title,s.pub_date,d.doi from metautil.metaman as m left join search.datasets as s on s.dsid = m.dsid left join dssdb.dsvrsn as d on d.dsid = concat('ds',m.dsid) where m.dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row)) {
 	XMLSnippet xsnip(xml);
 	citation_=citation(dsnum,style,access_date,row,xsnip,server,htmlized);
