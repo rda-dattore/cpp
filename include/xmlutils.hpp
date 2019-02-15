@@ -204,10 +204,11 @@ public:
   std::string cf_keyword(std::string data_format,std::string parameter_code,std::string level_type = "");
   std::string comment(std::string data_format,std::string parameter_code);
   std::string description(std::string data_format,std::string parameter_code);
-  size_t size() const { return parameter_map_table->size(); }
+  std::string gcmd_keyword(std::string data_format,std::string parameter_code,std::string level_type = "");
   std::string long_name(std::string data_format,std::string parameter_code);
   void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
   std::string short_name(std::string data_format,std::string parameter_code);
+  size_t size() const { return parameter_map_table->size(); }
   std::string standard_name(std::string data_format,std::string parameter_code);
   std::string title(std::string data_format,std::string format_specialization = "");
   std::string units(std::string data_format,std::string parameter_code);
@@ -237,6 +238,7 @@ public:
   int level_is_a_layer(std::string data_format,std::string level_type,std::string format_specialization = "");
   void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
   std::string short_name(std::string data_format,std::string level_type,std::string format_specialization = "");
+  size_t size() const { return level_map_table->size(); }
   std::string units(std::string data_format,std::string level_type,std::string format_specialization = "");
 
 private:
@@ -263,6 +265,7 @@ public:
   std::string description(std::string data_format,std::string format_specialization,std::string data_type_code,std::string platform_type = "");
   std::list<std::string> gcmd_keywords(std::string data_format,std::string format_specialization,std::string data_type_code);
   void set_path_to_map(std::string path_to_map) { _path_to_map=path_to_map; }
+  size_t size() const { return datatype_map_table->size(); }
   std::list<std::string> variables(std::string data_format,std::string format_specialization,std::string data_type_code);
 
 private:
@@ -281,12 +284,5 @@ extern std::string to_plain_text(const XMLElement& e,size_t wrap_width = 80,size
 extern std::deque<std::string> split(const std::string& s);
 
 } // end namespace xmlutils
-
-namespace htmlutils {
-
-extern std::string convert_html_summary_to_ascii(std::string summary,size_t wrap_length,size_t indent_length);
-extern std::string transform_superscripts(std::string s);
-
-} // end namespace htmlutils
 
 #endif
