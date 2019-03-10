@@ -142,6 +142,13 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
 	  directives.data_root=conf_parts[1];
 	  directives.data_root_alias=conf_parts[2];
 	}
+	else if (conf_parts[0] == "hpssRoot") {
+	  if (conf_parts.size() != 2) {
+	    myerror="configuration error on 'hpssRoot' line";
+	    return false;
+	  }
+	  directives.hpss_root=conf_parts[1];
+	}
 	else if (conf_parts[0] == "metadataManager") {
 	  if (conf_parts.size() != 2) {
 	    myerror="configuration error on 'metadataManager' line";
