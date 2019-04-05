@@ -162,7 +162,11 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
   std::string citation;
   style=strutils::to_lower(style);
   if (style == "esip") {
-    citation=list_authors(xsnip,server,10,"et al")+". "+row[1].substr(0,4);
+    citation=list_authors(xsnip,server,10,"et al.");
+    if (citation.back() != '.') {
+	citation+=".";
+    }
+    citation+=" "+row[1].substr(0,4);
     auto e=xsnip.element("dsOverview/continuingUpdate");
     if (e.attribute_value("value") == "yes" && e.attribute_value("frequency") != "irregularly") {
 	citation+=", updated "+e.attribute_value("frequency");
