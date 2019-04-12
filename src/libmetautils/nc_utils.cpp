@@ -139,51 +139,39 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	}
     }
   }
-  else {
+  else if (!time_method.empty()) {
+    auto lmethod=strutils::to_lower(time_method);
     if (tre.key == 0x7fffffff) {
 	time_range="All-year Climatology of ";
     }
     else {
 	time_range=strutils::itos(tre.key)+"-year Climatology of ";
     }
-    auto idx=time_method.find(" over ");
-    if (idx != std::string::npos) {
-	time_method.insert(idx,"s");
+    if (std::regex_search(lmethod,std::regex("mean over years$"))) {
+	auto idx=lmethod.find(" within");
+	if (idx != std::string::npos) {
+	  auto product=strutils::capitalize(lmethod.substr(0,idx)+"s");
+	  switch (tre.data->unit) {
+	    case 1: {
+		time_range+="Monthly "+product;
+		break;
+	    }
+	    case 2: {
+		time_range+="Seasonal "+product;
+		break;
+	    }
+	    case 3: {
+		time_range+="Annual "+product;
+		break;
+	    }
+	  }
+	}
+	else {
+	  time_range+="??";
+	}
     }
     else {
-	time_method+="s";
-    }
-    switch (tre.data->unit) {
-	case 1: {
-	  time_range+="Monthly ";
-	  if (!time_method.empty()) {
-	    time_range+=time_method;
-	  }
-	  else {
-	    time_range+="Means";
-	  }
-	  break;
-	}
-	case 2: {
-	  time_range+="Seasonal ";
-	  if (!time_method.empty()) {
-	    time_range+=time_method;
-	  }
-	  else {
-	    time_range+="Means";
-	  }
-	  break;
-	}
-	case 3: {
-	  time_range+="Annual ";
-	  if (!time_method.empty()) {
-	    time_range+=time_method;
-	  }
-	  else {
-	    time_range+="Means";
-	  }
-	  break;
-	}
+	time_range+="??";
     }
   }
   return time_range;
