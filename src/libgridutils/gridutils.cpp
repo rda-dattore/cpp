@@ -339,7 +339,7 @@ std::string convert_grid_definition(std::string d,XMLElement e)
   else if (d == "lambertConformal") {
     s+=e.attribute_value("numX")+":"+e.attribute_value("numY")+":"+e.attribute_value("startLat")+":"+e.attribute_value("startLon")+":"+e.attribute_value("resLat")+":"+e.attribute_value("projLon")+":"+e.attribute_value("pole")+":"+e.attribute_value("xRes")+":"+e.attribute_value("yRes")+":"+e.attribute_value("stdParallel1")+":"+e.attribute_value("stdParallel2");
   }
-  else if (d == "latLon") {
+  else if (std::regex_search(d,std::regex("^latLon(Cell){0,1}$"))) {
     s+=e.attribute_value("numX")+":"+e.attribute_value("numY")+":"+e.attribute_value("startLat")+":"+e.attribute_value("startLon")+":"+e.attribute_value("endLat")+":"+e.attribute_value("endLon")+":"+e.attribute_value("xRes")+":"+e.attribute_value("yRes");
   }
   else if (d == "mercator") {
