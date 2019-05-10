@@ -6,30 +6,50 @@ namespace metautils {
 
 namespace NcTime {
 
-DateTime actual_date_time(double time,TimeData& time_data,std::string& error)
+DateTime actual_date_time(double time,const TimeData& time_data,std::string& error)
 {
   DateTime date_time;
   if (time_data.units == "seconds") {
-if (fabs(time-static_cast<int>(time)) > 0.01) {
+if (fabs(time-static_cast<long long>(time)) > 0.01) {
 error="can't compute dates from fractional seconds";
 }
-    date_time=time_data.reference.seconds_added(time,time_data.calendar);
+    if (time >= 0.) {
+	date_time=time_data.reference.seconds_added(time,time_data.calendar);
+    }
+    else {
+	date_time=time_data.reference.seconds_subtracted(-time,time_data.calendar);
+    }
   }
   else if (time_data.units == "minutes") {
-if (fabs(time-static_cast<int>(time)) > 0.01) {
+if (fabs(time-static_cast<long long>(time)) > 0.01) {
 error="can't compute dates from fractional minutes";
 }
-    date_time=time_data.reference.minutes_added(time,time_data.calendar);
+    if (time >= 0.) {
+	date_time=time_data.reference.minutes_added(time,time_data.calendar);
+    }
+    else {
+	date_time=time_data.reference.minutes_subtracted(-time,time_data.calendar);
+    }
   }
   else if (time_data.units == "hours") {
-if (fabs(time-static_cast<int>(time)) > 0.01) {
+if (fabs(time-static_cast<long long>(time)) > 0.01) {
 error="can't compute dates from fractional hours";
 }
-    date_time=time_data.reference.hours_added(time,time_data.calendar);
+    if (time >= 0.) {
+	date_time=time_data.reference.hours_added(time,time_data.calendar);
+    }
+    else {
+	date_time=time_data.reference.hours_subtracted(-time,time_data.calendar);
+    }
   }
   else if (time_data.units == "days") {
-    date_time=time_data.reference.days_added(time,time_data.calendar);
-    auto diff=fabs(time-static_cast<int>(time));
+    if (time >= 0.) {
+	date_time=time_data.reference.days_added(time,time_data.calendar);
+    }
+    else {
+	date_time=time_data.reference.days_subtracted(-time,time_data.calendar);
+    }
+    auto diff=fabs(time-static_cast<long long>(time));
     if (diff > 0.01) {
 	diff*=24.;
 	if (fabs(diff-lround(diff)) > 0.01) {
@@ -53,15 +73,53 @@ error="can't compute dates from fractional hours";
     }
   }
   else if (time_data.units == "months") {
-if (fabs(time-static_cast<int>(time)) > 0.01) {
+if (fabs(time-static_cast<long long>(time)) > 0.01) {
 error="can't compute dates from fractional months";
 }
-    date_time=time_data.reference.months_added(time);
+    if (time >= 0.) {
+	date_time=time_data.reference.months_added(time);
+    }
+    else {
+	date_time=time_data.reference.months_subtracted(-time);
+    }
   }
   else {
     error="don't understand time units in "+time_data.units;
   }
   return date_time;
+}
+
+DateTime reference_date_time(std::string units_attribute_value)
+{
+  DateTime reference_dt;
+  auto idx=units_attribute_value.find("since");
+  if (idx == std::string::npos) {
+    return reference_dt;
+  }
+  units_attribute_value=units_attribute_value.substr(idx+5);
+  strutils::replace_all(units_attribute_value,"T"," ");
+  strutils::trim(units_attribute_value);
+  if (std::regex_search(units_attribute_value,std::regex("Z$"))) {
+    strutils::chop(units_attribute_value);
+  }
+  auto dt_parts=strutils::split(units_attribute_value);
+  auto date_parts=strutils::split(dt_parts[0],"-");
+  if (date_parts.size() != 3) {
+    return reference_dt;
+  }
+  auto dt=std::stoll(date_parts[0])*10000000000+std::stoll(date_parts[1])*100000000+std::stoll(date_parts[2])*1000000;
+  if (dt_parts.size() > 1) {
+    auto time_parts=strutils::split(dt_parts[1],":");
+    dt+=std::stoll(time_parts[0])*10000;
+    if (time_parts.size() > 1) {
+	dt+=std::stoll(time_parts[1])*100;
+    }
+    if (time_parts.size() > 2) {
+	dt+=static_cast<long long>(std::stod(time_parts[2]));
+    }
+  }
+  reference_dt.set(dt);
+  return reference_dt;
 }
 
 std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string time_method,std::string& error)
@@ -91,7 +149,8 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	}
 	else if (time_data.units == "days") {
 	  if (tre.data->bounded.first_valid_datetime.year() > 0) {
-	    auto num_days=tre.data->instantaneous.first_valid_datetime.days_since(tre.data->bounded.first_valid_datetime);
+	    auto total_days=tre.data->bounded.last_valid_datetime.days_since(tre.data->bounded.first_valid_datetime,time_data.calendar);
+	    auto num_days=total_days/tre.data->num_steps;
 	    switch (num_days) {
 		case 1: {
 		  time_range="Daily ";
@@ -99,6 +158,17 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 		}
 		case 5: {
 		  time_range="Pentad ";
+		  break;
+		}
+		case 30:
+		case 31: {
+		  if (tre.data->bounded.last_valid_datetime.years_since(tre.data->bounded.first_valid_datetime) > 0) {
+		    time_range="Monthly ";
+		  }
+		  break;
+		}
+		case 365: {
+		  time_range="Annual ";
 		  break;
 		}
 		default: {
@@ -116,7 +186,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	else {
 	  error="gridded_netcdf_time_range_description(): don't understand time units '"+time_data.units+"' for cell method '"+time_method+"'";
 	}
-	time_range+=time_method;
+	time_range+=strutils::to_capital(time_method);
     }
     else {
 	if (time_data.units == "months") {
@@ -189,17 +259,17 @@ std::string time_method_from_cell_methods(std::string cell_methods,std::string t
   strutils::replace_all(cell_methods,"comments: ","");
   strutils::replace_all(cell_methods,"comment:","");
   strutils::replace_all(cell_methods,"comments:","");
-  if (!cell_methods.empty() && strutils::contains(cell_methods,timeid+":")) {
-    auto idx=cell_methods.find(timeid+":");
+  if (!cell_methods.empty() && strutils::contains(cell_methods,timeid+": ")) {
+    auto idx=cell_methods.find(timeid+": ");
     if (idx == std::string::npos) {
 	return "";
     }
     if (idx != 0) {
 	cell_methods=cell_methods.substr(idx);
     }
-    strutils::replace_all(cell_methods,timeid+":","");
+    strutils::replace_all(cell_methods,timeid+": ","");
     strutils::trim(cell_methods);
-    if ( (idx=cell_methods.find(":")) != std::string::npos) {
+    if ( (idx=cell_methods.find(": ")) != std::string::npos) {
 	auto idx2=cell_methods.find(")");
 	if (idx2 == std::string::npos) {
 // no extra information in parentheses
