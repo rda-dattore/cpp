@@ -92,7 +92,7 @@ public:
     ~Chunk();
     Chunk& operator=(const Chunk& source);
     void allocate();
-    bool fill(std::fstream& fs,const Dataset& dataset,bool show_debug);
+    bool fill(std::fstream& fs,const Dataset& dataset);
 
     long long address;
     std::unique_ptr<unsigned char[]> buffer;
@@ -122,7 +122,7 @@ public:
 	Member() : name(),byte_offset(0),datatype() {}
 
 	std::string name;
-	int byte_offset;
+	size_t byte_offset;
 	Datatype datatype;
     };
     CompoundDatatype() : members() {}
@@ -156,7 +156,7 @@ public:
     void *get() const { return value; }
     short precision() const { return precision_; }
     void print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const;
-    bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace,bool show_debug);
+    bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace);
 
     short _class_,precision_;
     size_t size;
@@ -246,10 +246,9 @@ public:
     unsigned char flags;
   };
 
-  InputHDF5Stream() : sb_version(0),sizes(),group_K(),base_addr(0),eof_addr(0),undef_addr(0),root_group(),ref_table(nullptr),show_debug(false) {}
+  InputHDF5Stream() : sb_version(0),sizes(),group_K(),base_addr(0),eof_addr(0),undef_addr(0),root_group(),ref_table(nullptr) {}
   ~InputHDF5Stream();
   void close();
-  bool debug_is_on() const { return show_debug; }
   Attribute attribute(std::string xpath);
   std::shared_ptr<Dataset> dataset(std::string xpath);
   std::list<InputHDF5Stream::DatasetEntry> datasets_with_attribute(std::string attribute_path,Group *g = nullptr);
@@ -264,7 +263,6 @@ public:
   void print_data(Dataset& dataset);
   void print_fill_value(std::string xpath);
   int read(unsigned char *buffer,size_t buffer_length);
-  void set_debug(bool show_debug_messages) { show_debug=show_debug_messages; }
   void show_file_structure();
 
 protected:
@@ -299,7 +297,6 @@ protected:
   unsigned long long base_addr,eof_addr,undef_addr;
   Group root_group;
   std::shared_ptr<my::map<ReferenceEntry>> ref_table;
-  bool show_debug;
 };
 
 namespace HDF5 {
@@ -307,12 +304,14 @@ namespace HDF5 {
 class DataArray {
 public:
   static const double default_missing_value;
-  enum {null_=0,short_,int_,long_long_,float_,double_,string_};
+  enum {null_=0,byte_,short_,int_,long_long_,float_,double_,string_};
   DataArray() : num_values(0),type(0),values(nullptr),dimensions() {}
   DataArray(const DataArray& source) : DataArray() { *this=source; }
+  DataArray(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,size_t compound_member_index = 0) : DataArray() { fill(istream,dataset,compound_member_index); }
   ~DataArray() { clear(); }
   DataArray& operator=(const DataArray& source);
   bool fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,size_t compound_member_index = 0);
+  unsigned char byte_value(size_t index) const;
   short short_value(size_t index) const;
   int int_value(size_t index) const;
   long long long_long_value(size_t index) const;
@@ -334,10 +333,10 @@ void print_data_value(InputHDF5Stream::Datatype& datatype,void *value);
 
 std::string datatype_class_to_string(const InputHDF5Stream::Datatype& datatype);
 
-bool decode_compound_datatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype,bool show_debug);
+bool decode_compound_datatype(const InputHDF5Stream::Datatype& datatype,InputHDF5Stream::CompoundDatatype& compound_datatype);
 bool decode_compound_data_value(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,void ***values);
-bool decode_dataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace,bool show_debug);
-bool decode_datatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype,bool show_debug);
+bool decode_dataspace(unsigned char *buffer,unsigned long long size_of_lengths,InputHDF5Stream::Dataspace& dataspace);
+bool decode_datatype(unsigned char *buffer,InputHDF5Stream::Datatype& datatype);
 //bool decodeFixedPointNumberArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,int num_values,size_t& index,size_t chunk_length);
 //bool decodeFloatingPointNumberArray(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,int& precision,int num_values,size_t& index,size_t chunk_length);
 

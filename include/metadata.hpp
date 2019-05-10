@@ -19,13 +19,13 @@
 namespace metautils {
 
 struct Directives {
-  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),rdadb_username(),rdadb_password(),metadb_username(),metadb_password(),metadata_manager(),server_root(),dss_root(),local_root(),hpss_root(),dss_bindir(),rdadata_home(),parameter_map_path(),level_map_path() {}
+  Directives() : temp_path(),data_root(),data_root_alias(),host(),web_server(),database_server(),rdadb_username(),rdadb_password(),metadb_username(),metadb_password(),metadata_manager(),server_root(),decs_root(),local_root(),hpss_root(),decs_bindir(),rdadata_home(),parameter_map_path(),level_map_path() {}
 
   std::string temp_path,data_root,data_root_alias;
   std::string host,web_server,database_server,rdadb_username,rdadb_password,metadb_username,metadb_password;
   std::string metadata_manager;
-  std::string server_root,dss_root,local_root,hpss_root;
-  std::string dss_bindir,rdadata_home,parameter_map_path,level_map_path;
+  std::string server_root,decs_root,local_root,hpss_root;
+  std::string decs_bindir,rdadata_home,parameter_map_path,level_map_path;
 };
 struct Args {
   Args() : args_string(),dsnum(),data_format(),reg_key(),path(),filename(),local_name(),member_name(),temp_loc(),update_db(true),update_summary(true),override_primary_check(false),overwrite_only(false),regenerate(true),update_graphics(true),inventory_only(false) {}
@@ -217,7 +217,8 @@ struct TimeRangeEntry {
   std::shared_ptr<Data> data;
 };
 
-DateTime actual_date_time(double time,TimeData& time_data,std::string& error);
+DateTime actual_date_time(double time,const TimeData& time_data,std::string& error);
+DateTime reference_date_time(std::string units_attribute_value);
 
 std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,const TimeData& time_data,std::string method,std::string& error);
 std::string time_method_from_cell_methods(std::string cell_methods,std::string timeid);
