@@ -1154,7 +1154,7 @@ void InputNetCDFStream::fill_attributes(std::vector<Attribute>& attributes)
 	  fs.read(reinterpret_cast<char *>(tmpbuf),4);
 	  bits::get(tmpbuf,attributes[n].num_values,0,32);
 	  attributes[n].values=new unsigned char[attributes[n].num_values];
-	  fs.read(reinterpret_cast<char *>(attributes[n].values),1);
+	  fs.read(reinterpret_cast<char *>(attributes[n].values),attributes[n].num_values);
 	  if ( (attributes[n].num_values % 4) != 0) {
 	    fs.seekg(4-(attributes[n].num_values % 4),std::ios_base::cur);
 	  }
@@ -1990,6 +1990,13 @@ void OutputNetCDFStream::add_attribute(std::vector<Attribute>& attributes_to_gro
   attributes_to_grow[n].nc_type=nc_type;
   attributes_to_grow[n].num_values=num_values;
   switch (nc_type) {
+    case NcType::BYTE: {
+	(attributes_to_grow[n].values)=new unsigned char[num_values];
+	for (m=0; m < num_values; ++m) {
+	  (reinterpret_cast<unsigned char *>(attributes_to_grow[n].values))[m]=(reinterpret_cast<unsigned char *>(values))[m];
+	}
+	break;
+    }
     case NcType::CHAR: {
 	attributes_to_grow[n].values=new std::string;
 	(*reinterpret_cast<std::string *>(attributes_to_grow[n].values))=(*reinterpret_cast<std::string *>(values));
@@ -1997,26 +2004,30 @@ void OutputNetCDFStream::add_attribute(std::vector<Attribute>& attributes_to_gro
     }
     case NcType::SHORT: {
 	attributes_to_grow[n].values=new short[num_values];
-	for (m=0; m < num_values; m++)
+	for (m=0; m < num_values; ++m) {
 	  (reinterpret_cast<short *>(attributes_to_grow[n].values))[m]=(reinterpret_cast<short *>(values))[m];
+	}
 	break;
     }
     case NcType::INT: {
 	(attributes_to_grow[n].values)=new int[num_values];
-	for (m=0; m < num_values; m++)
+	for (m=0; m < num_values; ++m) {
 	  (reinterpret_cast<int *>(attributes_to_grow[n].values))[m]=(reinterpret_cast<int *>(values))[m];
+	}
 	break;
     }
     case NcType::FLOAT: {
 	(attributes_to_grow[n].values)=new float[num_values];
-	for (m=0; m < num_values; m++)
+	for (m=0; m < num_values; ++m) {
 	  (reinterpret_cast<float *>(attributes_to_grow[n].values))[m]=(reinterpret_cast<float *>(values))[m];
+	}
 	break;
     }
     case NcType::DOUBLE: {
 	(attributes_to_grow[n].values)=new double[num_values];
-	for (m=0; m < num_values; m++)
+	for (m=0; m < num_values; ++m) {
 	  (reinterpret_cast<double *>(attributes_to_grow[n].values))[m]=(reinterpret_cast<double *>(values))[m];
+	}
 	break;
     }
     default: {}
@@ -2071,6 +2082,17 @@ void OutputNetCDFStream::put_attributes(const std::vector<Attribute>& attributes
 	  bits::set(tmpbuf,dum,0,32);
 	  fs.write(reinterpret_cast<char *>(tmpbuf),4);
 	  curr_offset+=4;
+for (m=0; m < attributes_to_put[n].num_values; ++m) {
+fs.write(&(reinterpret_cast<char *>(attributes_to_put[n].values))[m],nc_size[static_cast<int>(NcType::BYTE)]);
+curr_offset+=nc_size[static_cast<int>(NcType::BYTE)];
+}
+auto fill=(attributes_to_put[n].num_values % 4);
+if (fill != 0) {
+fill=4-fill;
+fs.write(zero,fill);
+curr_offset+=nc_size[static_cast<int>(NcType::BYTE)]*fill;
+}
+/*
 	  dum=(reinterpret_cast<unsigned char *>(attributes_to_put[n].values))[0];
 	  bits::set(tmpbuf,dum,0,nc_size[static_cast<int>(NcType::BYTE)]*8);
 	  fs.write(reinterpret_cast<char *>(tmpbuf),nc_size[static_cast<int>(NcType::BYTE)]);
@@ -2079,6 +2101,7 @@ void OutputNetCDFStream::put_attributes(const std::vector<Attribute>& attributes
 	    fs.write(zero,(attributes_to_put[n].num_values % 4));
 	    curr_offset+=(nc_size[static_cast<int>(NcType::BYTE)]*(attributes_to_put[n].num_values % 4));
 	  }
+*/
 	  break;
 	}
 	case NcType::CHAR: {
