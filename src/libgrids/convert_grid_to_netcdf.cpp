@@ -291,7 +291,53 @@ std::string get_grib2_time_range(GRIB2Grid& grid)
 	case 207:
 	{
 	  if (grid.source() == 7 || grid.source() == 60) {
-	    trange="FcstAvg"+strutils::itos(spranges[0].period_time_increment.value)+"_"+strutils::itos(spranges[0].period_length.value);
+	    trange="FcstAvg";
+	    if (spranges.size() > 1) {
+		auto value=spranges[1].period_length.value;
+		std::string units;
+		switch (spranges[1].period_length.unit) {
+		  case 0: {
+		    units="min";
+		    break;
+		  }
+		  case 1: {
+		    units="hr";
+		    break;
+		  }
+		  case 2: {
+		    units="dy";
+		    break;
+		  }
+		  case 3: {
+		    units="mon";
+		    break;
+		  }
+		  case 4: {
+		    units="yr";
+		    break;
+		  }
+		  case 10: {
+		    value*=3;
+		    units="hr";
+		    break;
+		  }
+		  case 11: {
+		    value*=6;
+		    units="hr";
+		    break;
+		  }
+		  case 12: {
+		    value*=12;
+		    units="hr";
+		    break;
+		  }
+		  case 13: {
+		    units="sec";
+		    break;
+		  }
+		}
+		trange+=strutils::itos(value)+units;
+	    }
 	  }
 	  else {
 	    std::cerr << "Error: no mapping for sprange 0 type " << spranges[0].type << " and center " << grid.source() << std::endl;
