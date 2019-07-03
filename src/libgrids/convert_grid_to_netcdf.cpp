@@ -291,7 +291,7 @@ std::string get_grib2_time_range(GRIB2Grid& grid)
 	case 207:
 	{
 	  if (grid.source() == 7 || grid.source() == 60) {
-	    trange="FcstAvg";
+	    trange="FcstAvg"+strutils::itos(spranges[0].period_time_increment.value)+"_"+strutils::itos(spranges[0].period_length.value);
 	  }
 	  else {
 	    std::cerr << "Error: no mapping for sprange 0 type " << spranges[0].type << " and center " << grid.source() << std::endl;
@@ -744,9 +744,7 @@ struct LevelListEntry {
 
 std::string level_list_key(netCDFStream::UniqueVariableEntry& ve)
 {
-  std::string key;
-
-  key=strutils::itos(ve.data->num_levels);
+  std::string key=strutils::itos(ve.data->num_levels);
   key+="!"+strutils::ftos(*(((ve.data->data.front()).level)->value),3);
   if (ve.data->is_layer) {
     key+="!"+strutils::ftos(*(((ve.data->data.front()).level)->value2),3);
@@ -828,7 +826,7 @@ void write_netcdf_header_from_grib_file(InputGRIBStream& istream,OutputNetCDFStr
   GRIBMessage *msg=nullptr;
   Grid *grid=nullptr;
   short edition=0;
-  size_t n,dim_off=0,lev_off;
+  size_t n,dim_off=0;
   int m;
   std::string sdum,sdum2;
   Grid::GridDefinition ref_def;
@@ -994,7 +992,7 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
     }
   }
 // add any level dimensions
-  lev_off=0;
+  size_t lev_off=0;
   for (auto& key : hk.unique_variable_table.keys()) {
     hk.unique_variable_table.found(key,ve);
     if (ve.data->unique_levels.size() > 1 && static_cast<int>((ve.data->unique_levels.size()*ve.data->unique_times.size())) == ve.data->num_levels) {
@@ -1767,8 +1765,9 @@ exit(1);
 	}
 	ostream->add_record_data(gridpoints,l);
 	grid_data.num_parameters_written++;
-	if (grid_data.num_parameters_written == grid_data.num_parameters_in_file)
+	if (grid_data.num_parameters_written == grid_data.num_parameters_in_file) {
 	  grid_data.num_parameters_written=0;
+	}
 	break;
     }
     case Grid::cgcm1Format:
