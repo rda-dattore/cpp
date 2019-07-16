@@ -10,7 +10,7 @@ namespace metautils {
 const std::string GLOBAL_CONFIG_HOME="/gpfs/u/home/dattore/conf";
 const std::string GLOBAL_DSS_ROOT="/ncar/rda/setuid";
 const std::string LOCAL_CONFIG_HOME="/home/dattore/conf";
-const std::string LOCAL_DSS_ROOT="/usr/local/dss";
+const std::string LOCAL_DSS_ROOT="/usr/local/decs";
 
 bool read_config(std::string caller,std::string user,bool restrict_to_user_rdadata)
 {
@@ -22,20 +22,20 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
   directives.server_root="/"+strutils::token(directives.host,".",0);
   struct stat buf;
   if (stat(LOCAL_DSS_ROOT.c_str(),&buf) == 0) {
-    directives.dss_root=LOCAL_DSS_ROOT;
+    directives.decs_root=LOCAL_DSS_ROOT;
   }
   else if (stat(GLOBAL_DSS_ROOT.c_str(),&buf) == 0) {
-    directives.dss_root=GLOBAL_DSS_ROOT;
+    directives.decs_root=GLOBAL_DSS_ROOT;
   }
-  if (directives.dss_root.empty()) {
-    myerror="Error locating dss root directory on "+directives.host;
+  if (directives.decs_root.empty()) {
+    myerror="Error locating decs root directory on "+directives.host;
     return false;
   }
-  if (stat("/local/dss/bin/cmd_util",&buf) == 0) {
-    directives.local_root="/local/dss";
+  if (stat("/local/decs/bin/cmd_util",&buf) == 0) {
+    directives.local_root="/local/decs";
   }
-  else if (stat("/usr/local/dss/bin/cmd_util",&buf) == 0) {
-    directives.local_root="/usr/local/dss";
+  else if (stat("/usr/local/decs/bin/cmd_util",&buf) == 0) {
+    directives.local_root="/usr/local/decs";
   }
   else if (stat("/ncar/rda/setuid/bin/cmd_util",&buf) == 0) {
     directives.local_root="/ncar/rda/setuid";
@@ -178,16 +178,16 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
     myerror="unable to set path for temporary files";
     return false;
   }
-  if (directives.dss_root == GLOBAL_DSS_ROOT) {
+  if (directives.decs_root == GLOBAL_DSS_ROOT) {
     for (const auto& e : global_bin_subdirectories) {
 	if (std::regex_search(directives.host,std::regex(e.first))) {
-	  directives.dss_root=directives.rdadata_home;
-	  directives.dss_bindir=directives.dss_root+"/bin/"+e.second;
+	  directives.decs_root=directives.rdadata_home;
+	  directives.decs_bindir=directives.decs_root+"/bin/"+e.second;
 	}
     }
   }
   else {
-    directives.dss_bindir=directives.dss_root+"/bin";
+    directives.decs_bindir=directives.decs_root+"/bin";
   }
   return true;
 }
