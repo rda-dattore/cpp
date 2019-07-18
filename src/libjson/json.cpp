@@ -232,23 +232,22 @@ void JSON::Object::fill(std::string json_object)
     size_t next_start=0;
     for (auto end : csv_ends) {
 	auto pair=json_object.substr(next_start,end-next_start);
-	auto in_quotes=0;
+	bool in_quotes=false;
 	size_t idx=0;
 	for (size_t n=0; n < pair.length(); ++n) {
 	  switch (pair[n]) {
-	    case '"':
-	    {
-		in_quotes=1-in_quotes;
+	    case '"': {
+		in_quotes=!in_quotes;
 		break;
 	    }
-	    case ':':
-	    {
-		idx=n;
-		n=pair.length();
+	    case ':': {
+		if (!in_quotes) {
+		  idx=n;
+		  n=pair.length();
+		}
 		break;
 	    }
-	    default:
-	    {}
+	    default: {}
 	  }
 	}
 	auto key=pair.substr(0,idx);
