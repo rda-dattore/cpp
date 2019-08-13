@@ -3400,8 +3400,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
     case 2:
     case 3:
     case 40:
-    case 40000:
-    {
+    case 40000: {
 	bits::get(stream_buffer,idum,off+88,32);
 	bits::get(stream_buffer,g2->grib.E,off+120,16);
 	if (g2->grib.E > 0x8000)
@@ -3445,8 +3444,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="data template "+strutils::itos(g2->grib2.data_rep)+" is not understood";
 	exit(1);
     }
@@ -3549,8 +3547,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   if (!fill_header_only) {
     g2->stats.max_val=-Grid::missing_value;
     switch (g2->grib2.data_rep) {
-	case 0:
-	{
+	case 0: {
 	  g2->galloc();
 	  off+=40;
 	  size_t x=0;
@@ -3577,8 +3574,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 2:
-	{
+	case 2: {
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef2 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3592,13 +3588,30 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  }
 	  off+=40;
 	  groups.ref_vals=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	  bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  if (g2->grib.pack_width > 0) {
+	    bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  }
+	  else {
+	    for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		groups.ref_vals[n]=0;
+	    }
+	  }
 	  off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib.pack_width;
 	  if ( (pad=(off % 8)) > 0) {
 	    off+=8-pad;
 	  }
 	  groups.widths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	  bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	  if (g2->grib2.complex_pack.grid_point.width_pack_width > 0) {
+	    bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		groups.widths[n]+=g2->grib2.complex_pack.grid_point.width_ref;
+	    }
+	  }
+	  else {
+	    for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		groups.widths[n]=g2->grib2.complex_pack.grid_point.width_ref;
+	    }
+	  }
 	  off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.width_pack_width;
 	  if ( (pad=(off % 8)) > 0) {
 	    off+=8-pad;
@@ -3674,8 +3687,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 3:
-	{
+	case 3: {
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef3 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3701,13 +3713,30 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    }
 	    off+=g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8;
 	    groups.ref_vals=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	    bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    if (g2->grib.pack_width > 0) {
+		bits::get(stream_buffer,groups.ref_vals,off,g2->grib.pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    }
+	    else {
+		for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		  groups.ref_vals[n]=0;
+		}
+	    }
 	    off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib.pack_width;
 	    if ( (pad=(off % 8)) > 0) {
 		off+=8-pad;
 	    }
 	    groups.widths=new int[g2->grib2.complex_pack.grid_point.num_groups];
-	    bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+	    if (g2->grib2.complex_pack.grid_point.width_pack_width > 0) {
+		bits::get(stream_buffer,groups.widths,off,g2->grib2.complex_pack.grid_point.width_pack_width,0,g2->grib2.complex_pack.grid_point.num_groups);
+		for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		  groups.widths[n]+=g2->grib2.complex_pack.grid_point.width_ref;
+		}
+	    }
+	    else {
+		for (int n=0; n < g2->grib2.complex_pack.grid_point.num_groups; ++n) {
+		  groups.widths[n]=g2->grib2.complex_pack.grid_point.width_ref;
+		}
+	    }
 	    off+=g2->grib2.complex_pack.grid_point.num_groups*g2->grib2.complex_pack.grid_point.width_pack_width;
 	    if ( (pad=(off % 8)) > 0) {
 		off+=8-pad;
@@ -3832,8 +3861,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	}
 #ifdef __JASPER
 	case 40:
-	case 40000:
-	{
+	case 40000: {
 	  len=lengths_.ds-5;
 	  jvals=new int[g2->dim.size];
 	  if (len > 0) {
@@ -3872,8 +3900,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  break;
 	}
 #endif
-	default:
-	{
+	default: {
 	  myerror="unable to decode data section for data representation "+strutils::itos(g2->grib2.data_rep);
 	  exit(1);
 	}
