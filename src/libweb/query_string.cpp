@@ -5,46 +5,40 @@
 
 void QueryString::fill(int method,bool convert_codes)
 {
-  std::ofstream ofs;
-  char *env;
-  std::string sdum,filename,name_of_file;
-  Pair p;
-
   switch (method) {
-    case GET:
-    {
+    case GET: {
+	char *env;
 	if ( (env=getenv("QUERY_STRING")) != nullptr) {
 	  fill(env);
 	}
 	break;
     }
-    case POST:
-    {
+    case POST: {
+	char *env;
 	if ( (env=getenv("CONTENT_LENGTH")) != nullptr) {
 	  auto content_length=atoi(env);
 	  char *buffer=new char[content_length];
 	  std::cin.read(buffer,content_length);
 	  if (std::string(buffer,2) == "--") {
-	    sdum.assign(buffer,content_length);
-	    auto idx=sdum.find("\r\n");
+	    std::string content(buffer,content_length);
+	    auto idx=content.find("\r\n");
 	    if (idx == std::string::npos) {
-		idx=sdum.find("\n");
+		idx=content.find("\n");
 	    }
-	    auto boundary=sdum.substr(0,idx);
+	    auto boundary=content.substr(0,idx);
 	    auto m=0;
+	    std::string field_name,filename,name_of_file;
 	    auto file_start=0;
 	    auto file_end=0;
 	    for (size_t n=0; n < content_length-boundary.length(); ++n) {
 		if (std::string(&buffer[n],boundary.length()) == boundary) {
 		  if (m > 0) {
-		    if (filename.length() == 0) {
-			sdum.assign(&buffer[m],n-m-2);
-			if (!name_value_table.found(p.key,p)) {
-			  p.data.reset(new Pair::Data);
-			  p.data->raw_name=p.key;
-			  name_value_table.insert(p);
+		    if (filename.empty()) {
+			std::string value(&buffer[m],n-m-2);
+			if (name_value_table.find(field_name) == name_value_table.end()) {
+			  name_value_table.emplace(field_name,std::make_tuple(field_name,std::list<std::string>()));
 			}
-			p.data->values.emplace_back(sdum);
+			(std::get<1>(name_value_table[field_name])).emplace_back(value);
 		    }
 		    else {
 			file_start=m;
@@ -59,19 +53,18 @@ void QueryString::fill(int method,bool convert_codes)
 		    while (m < (content_length-1) && (buffer[m] != 0xd || buffer[m+1] != 0xa)) {
 			++m;
 		    }
-		    sdum.assign(&buffer[n],m-n);
-		    p.key=sdum.substr(sdum.find("name=\"")+6);
-		    p.key=p.key.substr(0,p.key.find("\""));
-		    if ( (idx=sdum.find("filename")) != std::string::npos) {
-			filename=sdum.substr(idx+10);
+		    std::string content_disposition(&buffer[n],m-n);
+		    Pair p;
+		    field_name=content_disposition.substr(content_disposition.find("name=\"")+6);
+		    field_name=field_name.substr(0,field_name.find("\""));
+		    if ( (idx=content_disposition.find("filename")) != std::string::npos) {
+			filename=content_disposition.substr(idx+10);
 			filename=filename.substr(0,filename.find("\""));
-			if (!name_value_table.found(p.key,p)) {
-			  p.data.reset(new Pair::Data);
-			  p.data->raw_name=p.key;
-			  name_value_table.insert(p);
+			if (name_value_table.find(field_name) == name_value_table.end()) {
+			  name_value_table.emplace(field_name,std::make_tuple(field_name,std::list<std::string>()));
 			}
-			p.data->values.emplace_back(filename);
-			name_of_file=p.key;
+			(std::get<1>(name_value_table[field_name])).emplace_back(filename);
+			name_of_file=field_name;
 		    }
 		    else {
 			filename="";
@@ -82,8 +75,8 @@ void QueryString::fill(int method,bool convert_codes)
 		    while (m < (content_length-1) && (buffer[m] != 0xd || buffer[m+1] != 0xa)) {
 			++m;
 		    }
-		    sdum.assign(&buffer[n],m-n);
-		    if (sdum.length() > 0) {
+		    std::string line(&buffer[n],m-n);
+		    if (!line.empty()) {
 // if found Content-type, then skip blank line
 			n=m+2;
 			m=n;
@@ -99,12 +92,13 @@ void QueryString::fill(int method,bool convert_codes)
 	    if (file_end > 0) {
 // save uploaded file
 		filename=value(name_of_file);
-		sdum=value("directory");
-		if (sdum.length() > 0) {
-		  if (sdum[0] != '/') {
-		    sdum=std::string(getenv("DOCUMENT_ROOT"))+"/"+sdum;
+		auto directory=value("directory");
+		std::ofstream ofs;
+		if (!directory.empty()) {
+		  if (directory[0] != '/') {
+		    directory=std::string(getenv("DOCUMENT_ROOT"))+"/"+directory;
 		  }
-		  ofs.open((sdum+"/"+filename).c_str());
+		  ofs.open((directory+"/"+filename).c_str());
 		}
 		else {
 		  ofs.open(("/usr/local/www/server_root/tmp/"+filename).c_str());
@@ -135,31 +129,29 @@ void QueryString::fill(std::string query_string,bool convert_codes)
     strutils::chop(query_string);
     query_string=query_string.substr(1);
   }
-  auto sp=strutils::split(query_string,"&");
-  for (size_t n=0; n < sp.size(); ++n) {
-    auto sdum=sp[n];
+  auto nv_pairs=strutils::split(query_string,"&");
+  for (size_t n=0; n < nv_pairs.size(); ++n) {
+    auto nv_pair=nv_pairs[n];
     if (convert_codes) {
-	webutils::cgi::convert_codes(sdum);
+	webutils::cgi::convert_codes(nv_pair);
     }
-    strutils::trim(sdum);
-    auto spx=strutils::split(sdum,"=");
-    if (spx.size() != 2) {
-	if (strutils::contains(sdum,"=") && !strutils::contains(sdum,"=[")) {
-	  sdum=sdum.substr(0,sdum.find("="))+"=["+sdum.substr(sdum.find("=")+1);
+    strutils::trim(nv_pair);
+    auto parts=strutils::split(nv_pair,"=");
+    if (parts.size() != 2) {
+	if (strutils::contains(nv_pair,"=") && !strutils::contains(nv_pair,"=[")) {
+	  nv_pair=nv_pair.substr(0,nv_pair.find("="))+"=["+nv_pair.substr(nv_pair.find("=")+1);
 	}
-	spx=strutils::split(sdum,"=[");
-	if (spx.size() != 2) {
+	parts=strutils::split(nv_pair,"=[");
+	if (parts.size() != 2) {
 	  name_value_table.clear();
 	  return;
 	}
     }
-    p.key=strutils::to_lower(spx[0]);
-    if (!name_value_table.found(p.key,p)) {
-	p.data.reset(new Pair::Data);
-	p.data->raw_name=spx[0];
-	name_value_table.insert(p);
+    auto key=strutils::to_lower(parts[0]);
+    if (name_value_table.find(key) == name_value_table.end()) {
+	name_value_table.emplace(key,std::make_tuple(parts[0],std::list<std::string>()));
     }
-    p.data->values.emplace_back(spx[1]);
+    (std::get<1>(name_value_table[key]).emplace_back(parts[1]));
   }
 }
 
@@ -169,83 +161,75 @@ void QueryString::fill(const char * buffer,size_t buffer_length,bool convert_cod
   fill(query_string,convert_codes);
 }
 
+std::list<std::string> QueryString::names()
+{
+  std::list<std::string> name_list;
+  for (const auto& e : name_value_table) {
+    name_list.emplace_back(e.first);
+  }
+  return name_list;
+}
+
 std::string QueryString::raw_name(std::string name)
 {
-  Pair p;
-  if (name_value_table.found(strutils::to_lower(name),p)) {
-    return p.data->raw_name;
+  auto it=name_value_table.find(strutils::to_lower(name));
+  if (it != name_value_table.end()) {
+    return std::get<0>(it->second);
   }
   else {
     return "";
   }
 }
 
-bool QueryString::has_value(std::string name)
+bool QueryString::has_value(std::string name) const
 {
-  Pair p;
-  return name_value_table.found(strutils::to_lower(name),p);
+  return (name_value_table.find(strutils::to_lower(name)) != name_value_table.end());
 }
 
 std::list<std::string> QueryString::raw_names()
 {
   std::list<std::string> raw_name_list;
-  Pair p;
-  for (auto& key : name_value_table.keys()) {
-    name_value_table.found(key,p);
-    raw_name_list.emplace_back(p.data->raw_name);
+  for (const auto& e : name_value_table) {
+    raw_name_list.emplace_back(std::get<0>(e.second));
   }
   return raw_name_list;
 }
 
-std::list<std::string> QueryString::values(std::string name)
+std::list<std::string> QueryString::values(std::string name) const
 {
-  Pair p;
-  std::list<std::string>::iterator it,end;
-
-  if (name_value_table.found(strutils::to_lower(name),p)) {
-    for (it=p.data->values.begin(),end=p.data->values.end(); it != end; ++it) {
-	if (it->length() == 0) {
-	  p.data->values.erase(it--);
-	}
-    }
-    return p.data->values;
+  auto it=name_value_table.find(strutils::to_lower(name));
+  if (it != name_value_table.end()) {
+    return std::get<1>(it->second);
   }
   else {
-    std::list<std::string> l;
-    return l;
+    return std::list<std::string>();
   }
 }
 
 std::list<std::string> QueryString::values_that_begin_with(std::string name)
 {
-  Pair p;
   std::list<std::string> list;
-  std::string sdum;
-
-  for (auto& key : name_value_table.keys()) {
-    sdum=key;
-    if (strutils::has_beginning(sdum,strutils::to_lower(name))) {
-	name_value_table.found(sdum,p);
+  for (const auto& e : name_value_table) {
+    if (strutils::has_beginning(e.first,strutils::to_lower(name))) {
 	auto it=list.end();
-	list.insert(it,p.data->values.begin(),p.data->values.end());
+	auto values=std::get<1>(e.second);
+	list.insert(it,values.begin(),values.end());
     }
   }
   return list;
 }
 
-std::string QueryString::value(std::string name,const char *separator)
+std::string QueryString::value(std::string name,const char *separator) const
 {
-  std::list<std::string> list;
-  std::string s;
-
-  list=values(name);
+  std::string value;
+  auto list=values(name);
   for (auto& item : list) {
-    if (s.length() > 0) {
-	s+=separator;
+    if (!value.empty()) {
+	value+=separator;
     }
-    s+=item;
+    value+=item;
   }
-  return s;
+  return value;
 }
 
 std::string QueryString::value_that_begins_with(std::string name,const char *separator)
