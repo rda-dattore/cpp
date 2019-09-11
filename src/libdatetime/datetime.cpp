@@ -107,23 +107,26 @@ void DateTime::add_minutes(size_t minutes_to_add,std::string calendar)
 
 void DateTime::add_months(size_t months_to_add,std::string calendar)
 {
-  size_t *days;
+  size_t *days=nullptr;
+  auto check_for_leap=true;
   if (calendar == "360_day") {
     days=const_cast<size_t *>(days_in_month_360_day);
+    check_for_leap=false;
   }
   else if (calendar == "365_day" || calendar == "noleap") {
     days=const_cast<size_t *>(days_in_month_noleap);
-  }
-  else {
-     if (dateutils::is_leap_year(year_,calendar)) {
-	days=const_cast<size_t *>(days_in_month_leap);
-    }
-    else {
-	days=const_cast<size_t *>(days_in_month_noleap);
-    }
-    calendar="";
+    check_for_leap=false;
   }
   for (size_t n=0; n < months_to_add; ++n) {
+    if (check_for_leap) {
+	if (dateutils::is_leap_year(year_,calendar)) {
+	  days=const_cast<size_t *>(days_in_month_leap);
+	}
+	else {
+	  days=const_cast<size_t *>(days_in_month_noleap);
+	}
+	calendar="";
+    }
     add_days(days[month_],calendar);
   }
 }
@@ -551,14 +554,22 @@ void DateTime::subtract_minutes(size_t minutes_to_subtract,std::string calendar)
 
 void DateTime::subtract_months(size_t months_to_subtract,std::string calendar)
 {
-  size_t days[]={0,31,28,31,30,31,30,31,31,30,31,30,31};
   for (size_t n=0; n < months_to_subtract; ++n) {
-    days[2]= (dateutils::is_leap_year(year_,calendar)) ? 29 : 28;
-    auto mm=month_-1;
-    if (mm == 0) {
-	mm=12;
+    --month_;
+    if (month_ == 0) {
+	--year_;
+	month_=12;
     }
-    subtract_days(days[mm],calendar);
+  }
+  size_t *days;
+  if (dateutils::is_leap_year(year_,calendar)) {
+    days=const_cast<size_t *>(days_in_month_leap);
+  }
+  else {
+    days=const_cast<size_t *>(days_in_month_noleap);
+  }
+  if (day_ > static_cast<int>(days[month_])) {
+    day_=days[month_];
   }
 }
 
