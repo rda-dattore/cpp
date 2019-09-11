@@ -41,6 +41,7 @@ extern std::string lltos(long long val,size_t w = 0,char fill = ' ');
 extern std::string number_with_commas(std::string s);
 extern std::string number_with_commas(long long l);
 extern std::string soundex(const std::string& s);
+extern std::string sql_ready(std::string s);
 extern std::string strand(size_t length);
 extern std::string substitute(const std::string& s,const std::string& old_s,const std::string& new_s);
 extern std::string to_capital(const std::string& s);

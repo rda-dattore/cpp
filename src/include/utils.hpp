@@ -42,6 +42,7 @@ extern double crayconv(const unsigned char *buf,size_t off);
 extern double cyberconv(const unsigned char *buf,size_t off);
 extern double cyberconv64(const unsigned char *buf,size_t off);
 extern double ibmconv(const unsigned char *buf,size_t off);
+extern double ibm36conv(const unsigned char *buf,size_t off);
 
 extern size_t ibmconv(double native_real);
 extern size_t precision(double value);
@@ -131,7 +132,6 @@ namespace xtox {
 
 extern int otoi(int octal);
 
-extern long long hex2long(char *hex_string,int num_chars);
 extern long long htoi(std::string hex_string);
 extern long long itoo(int ival);
 extern long long ltoo(long long ival);

@@ -157,6 +157,77 @@ private:
   size_t _num_rows;
 };
 
+class PreparedStatement;
+class PreparedStatementIterator
+{
+public:
+  PreparedStatementIterator(PreparedStatement& pstmt,bool is_end) : _pstmt(pstmt),_is_end(is_end),row() {}
+  bool operator !=(const PreparedStatementIterator& source) { return (_is_end != source._is_end); }
+  const PreparedStatementIterator& operator++();
+  Row& operator*();
+
+private:
+  PreparedStatement &_pstmt;
+  bool _is_end;
+  Row row;
+};
+
+class PreparedStatement
+{
+public:
+  PreparedStatement() : STMT(nullptr),statement(),_error(),input_bind(),result_bind(),column_list() {}
+  bool bind_parameter(size_t parameter_number,float parameter_specification,bool is_null);
+  bool bind_parameter(size_t parameter_number,int parameter_specification,bool is_null);
+  bool bind_parameter(size_t parameter_number,std::string parameter_specification,bool is_null);
+  bool bind_parameter(size_t parameter_number,const char *parameter_specification,bool is_null);
+  std::string error() const { return _error; }
+  bool fetch_row(Row& row) const;
+  size_t num_rows() const;
+  void set(std::string statement_specification,std::vector<enum_field_types> parameter_types);
+  int submit(Server& server);
+
+// range-base support
+  PreparedStatementIterator begin();
+  PreparedStatementIterator end();
+
+private:
+  struct MYSQL_STMT_DELETER {
+    void operator()(MYSQL_STMT *STMT) {
+	mysql_stmt_close(STMT);
+    }
+  };
+  std::unique_ptr<MYSQL_STMT,MYSQL_STMT_DELETER> STMT;
+  std::string statement,_error;
+  struct MYSQL_BIND_S {
+    MYSQL_BIND_S() : binds(nullptr),lengths(),is_nulls(),errors(),field_count(0) {}
+
+    struct MYSQL_BIND_DELETER {
+	void operator()(MYSQL_BIND *BIND) {
+	  switch (BIND->buffer_type) {
+	    case (MYSQL_TYPE_FLOAT): {
+		delete reinterpret_cast<float *>(BIND->buffer);
+		break;
+	    }
+	    case (MYSQL_TYPE_LONG): {
+		delete reinterpret_cast<int *>(BIND->buffer);
+		break;
+	    }
+	    case (MYSQL_TYPE_STRING): {
+		delete[] reinterpret_cast<char *>(BIND->buffer);
+		break;
+	    }
+	    default: {}
+	  }
+	}
+    };
+    std::unique_ptr<MYSQL_BIND[],MYSQL_BIND_DELETER> binds;
+    std::vector<size_t> lengths;
+    std::vector<my_bool> is_nulls,errors;
+    size_t field_count;
+  } input_bind,result_bind;
+  std::unordered_map<std::string,size_t> column_list;
+};
+
 bool table_exists(Server& server,std::string absolute_table);
 bool field_exists(Server& server,std::string absolute_table,std::string field);
 std::list<std::string> table_names(Server& server,std::string database,std::string like_expr,std::string& error);
