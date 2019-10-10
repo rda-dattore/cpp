@@ -4589,7 +4589,7 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
 	exit(0);
     }
     else if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
-	myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
+	myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
 	exit(0);
     }
   }
@@ -8872,7 +8872,7 @@ void GRIBGrid::print(std::ostream& outs) const
     }
     if (def.type == Grid::gaussianLatitudeLongitudeType) {
 	if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
-	  myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
+	  myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
 	  exit(0);
 	}
     }
@@ -9518,7 +9518,7 @@ GRIBGrid interpolate_gaussian_to_lat_lon(const GRIBGrid& source,std::string path
   if (source.def.type != Grid::gaussianLatitudeLongitudeType)
     return source;
   if (!gridutils::fill_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,source.def.num_circles,(source.grib.scan_mode&0x40) != 0x40)) {
-    myerror="unable to get gaussian latitudes for "+strutils::itos(source.def.num_circles)+" circles";
+    myerror="unable to get gaussian latitudes for "+strutils::itos(source.def.num_circles)+" circles from '"+path_to_gauslat_lists+"'";
     exit(0);
   }
   grib_data.reference_date_time=source.reference_date_time_;
@@ -9750,7 +9750,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	exit(0);
     }
     else if (!gridutils::fill_gaussian_latitudes(source.path_to_gaussian_latitude_data(),gaus_lats,subset_grid.def.num_circles,(subset_grid.grib.scan_mode&0x40) != 0x40)) {
-	myerror="unable to get gaussian latitudes for "+strutils::itos(subset_grid.def.num_circles)+" circles";
+	myerror="unable to get gaussian latitudes for "+strutils::itos(subset_grid.def.num_circles)+" circles from '"+source.path_to_gaussian_latitude_data()+"'";
 	exit(0);
     }
     glat_entry.key=subset_grid.def.num_circles;
@@ -10123,7 +10123,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  case Grid::gaussianLatitudeLongitudeType:
 	  {
 	    if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
-		myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles";
+		myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
 		exit(0);
 	    }
 	    gaus_lats.found(def.num_circles,glat_entry);
