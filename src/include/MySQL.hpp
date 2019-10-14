@@ -106,7 +106,7 @@ public:
   Query(std::string columns,std::string absolute_table,std::string where_conditions = "") : Query() { set(columns,absolute_table,where_conditions); }
   Query(std::string query_specification) : Query() { set(query_specification); }
   virtual ~Query() {}
-  operator bool() const { return (query.length() > 0); }
+  operator bool() const { return (!query.empty()); }
   std::string error() const { return _error; };
   virtual bool fetch_row(Row& row) const;
   size_t length() const { return num_fields; }
@@ -176,6 +176,7 @@ class PreparedStatement
 {
 public:
   PreparedStatement() : STMT(nullptr),statement(),_error(),input_bind(),result_bind(),column_list() {}
+  operator bool() const { return (!statement.empty()); }
   bool bind_parameter(size_t parameter_number,float parameter_specification,bool is_null);
   bool bind_parameter(size_t parameter_number,int parameter_specification,bool is_null);
   bool bind_parameter(size_t parameter_number,std::string parameter_specification,bool is_null);
@@ -183,6 +184,7 @@ public:
   std::string error() const { return _error; }
   bool fetch_row(Row& row) const;
   size_t num_rows() const;
+  void rewind() { mysql_stmt_data_seek(STMT.get(),0); }
   void set(std::string statement_specification,std::vector<enum_field_types> parameter_types);
   std::string show() const { return statement; }
   int submit(Server& server);
