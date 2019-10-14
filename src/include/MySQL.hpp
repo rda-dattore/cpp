@@ -184,6 +184,7 @@ public:
   bool fetch_row(Row& row) const;
   size_t num_rows() const;
   void set(std::string statement_specification,std::vector<enum_field_types> parameter_types);
+  std::string show() const { return statement; }
   int submit(Server& server);
 
 // range-base support
