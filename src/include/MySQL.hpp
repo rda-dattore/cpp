@@ -233,7 +233,10 @@ private:
 
 bool table_exists(Server& server,std::string absolute_table);
 bool field_exists(Server& server,std::string absolute_table,std::string field);
+
 std::list<std::string> table_names(Server& server,std::string database,std::string like_expr,std::string& error);
+
+bool run_prepared_statement(MySQL::Server& server,std::string prepared_statement_text,const std::vector<enum_field_types>& parameter_types,const std::vector<std::string>& parameters,MySQL::PreparedStatement& prepared_statement,std::string& error);
 
 extern "C" void mysqlqueryerror_(int *query);
 extern "C" void mysqlqueryerror64_(long long *query);
