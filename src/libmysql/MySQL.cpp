@@ -721,6 +721,13 @@ int PreparedStatement::submit(Server& server)
   }
   result_bind.field_count=mysql_stmt_field_count(STMT.get());
   if (result_bind.field_count > 0) {
+    auto field_metadata=mysql_stmt_result_metadata(STMT.get());
+    auto columns=mysql_fetch_fields(field_metadata);
+    if (column_list.size() == 0) {
+	for (size_t n=0; n < mysql_num_fields(field_metadata); ++n) {
+	  column_list[columns[n].name]=n;
+	}
+    }
     result_bind.binds.reset(new MYSQL_BIND[result_bind.field_count]);
     result_bind.lengths.resize(result_bind.field_count);
     result_bind.is_nulls.resize(result_bind.field_count);
@@ -728,7 +735,15 @@ int PreparedStatement::submit(Server& server)
     std::vector<char *> fields;
     for (size_t n=0; n < result_bind.field_count; ++n) {
 	result_bind.binds[n].buffer_type=MYSQL_TYPE_STRING;
-	result_bind.binds[n].buffer_length=255;
+	switch (columns[n].type) {
+	  case MYSQL_TYPE_BLOB: {
+	    result_bind.binds[n].buffer_length=32768;
+	    break;
+	  }
+	  default: {
+	    result_bind.binds[n].buffer_length=255;
+	  }
+	}
 	fields.emplace_back(new char[result_bind.binds[n].buffer_length]);
 	result_bind.binds[n].buffer=fields[n];
 	result_bind.binds[n].length=&result_bind.lengths[n];
@@ -742,13 +757,6 @@ int PreparedStatement::submit(Server& server)
     if (mysql_stmt_store_result(STMT.get()) != 0) {
 	_error="unable to store the result set";
 	return -1;
-    }
-    if (column_list.size() == 0) {
-	auto field_metadata=mysql_stmt_result_metadata(STMT.get());
-	auto columns=mysql_fetch_fields(field_metadata);
-	for (size_t n=0; n < mysql_num_fields(field_metadata); ++n) {
-	  column_list[columns[n].name]=n;
-	}
     }
   }
   return 0;
@@ -844,6 +852,45 @@ std::list<std::string> table_names(Server& server,std::string database,std::stri
     error=query.error();
   }
   return list;
+}
+
+bool run_prepared_statement(MySQL::Server& server,std::string prepared_statement_text,const std::vector<enum_field_types>& parameter_types,const std::vector<std::string>& parameters,MySQL::PreparedStatement& prepared_statement,std::string& error)
+{
+  if (parameter_types.size() != parameters.size()) {
+    error="numbers of parameter types and parameters don't agree";
+    return false;
+  }
+  prepared_statement.set(prepared_statement_text,parameter_types);
+  for (size_t n=0; n < parameters.size(); ++n) {
+    auto bind_successful=false;
+    switch (parameter_types[n]) {
+	case MYSQL_TYPE_STRING: {
+	  bind_successful=prepared_statement.bind_parameter(n,parameters[n],false);
+	  break;
+	}
+	case MYSQL_TYPE_LONG: {
+	  bind_successful=prepared_statement.bind_parameter(n,std::stoi(parameters[n]),false);
+	  break;
+	}
+	case MYSQL_TYPE_FLOAT: {
+	  bind_successful=prepared_statement.bind_parameter(n,std::stof(parameters[n]),false);
+	  break;
+	}
+	default: {
+	  error="invalid parameter type";
+	  return false;
+	}
+    }
+    if (!bind_successful) {
+	error="bind ("+strutils::itos(n)+") failed - '"+prepared_statement.error()+"'";
+	return false;
+    }
+  }
+  if (prepared_statement.submit(server) < 0) {
+    error="prepared statement failed - '"+prepared_statement.error()+"'";
+    return false;
+  }
+  return true;
 }
 
 } // end namespace MySQL
