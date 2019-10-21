@@ -856,6 +856,7 @@ std::list<std::string> table_names(Server& server,std::string database,std::stri
 
 bool run_prepared_statement(MySQL::Server& server,std::string prepared_statement_text,const std::vector<enum_field_types>& parameter_types,const std::vector<std::string>& parameters,MySQL::PreparedStatement& prepared_statement,std::string& error)
 {
+  error="";
   if (parameter_types.size() != parameters.size()) {
     error="numbers of parameter types and parameters don't agree";
     return false;
