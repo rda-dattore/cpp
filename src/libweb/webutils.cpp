@@ -14,7 +14,7 @@ namespace cgi {
 
 bool read_config(Directives& directives)
 {
-  std::ifstream ifs((std::string(getenv("DOCUMENT_ROOT"))+"/cgi-bin/conf/cgi.conf").c_str());
+  std::ifstream ifs("/usr/local/decs/bin/conf/cgi.conf");
   if (ifs.is_open()) {
     char line[256];
     ifs.getline(line,256);
@@ -59,8 +59,11 @@ bool read_config(Directives& directives)
 	ifs.getline(line,256);
     }
     ifs.close();
+    return true;
   }
-  return true;
+  else {
+    return false;
+  }
 }
 
 void convert_codes(std::string& string)
@@ -96,6 +99,17 @@ std::string post_data()
     _post_data.assign(buffer.get(),content_length);
   }
   return _post_data;
+}
+
+std::string server_variable(std::string variable_name)
+{
+  char *env;
+  if ( (env=getenv(variable_name.c_str())) != nullptr) {
+    return env;
+  }
+  else {
+    return "";
+  }
 }
 
 } // end namespace cgi

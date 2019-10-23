@@ -3,27 +3,32 @@
 #include <strutils.hpp>
 #include <web/web.hpp>
 
-std::string duser()
+std::string rda_username()
 {
-  std::string duser_;
+  std::string rda_username_;
   char *env;
   if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    duser_=env;
+    rda_username_=env;
     size_t idx;
-    if ( (idx=duser_.find("duser=")) != std::string::npos) {
-	duser_=duser_.substr(idx+6);
-	if ( (idx=duser_.find(";")) != std::string::npos) {
-	  duser_=duser_.substr(0,idx);
+    if ( (idx=rda_username_.find("duser=")) != std::string::npos) {
+	rda_username_=rda_username_.substr(idx+6);
+	if ( (idx=rda_username_.find(";")) != std::string::npos) {
+	  rda_username_=rda_username_.substr(0,idx);
 	}
-	if ( (idx=duser_.find(":")) != std::string::npos) {
-	  duser_=duser_.substr(0,idx);
+	if ( (idx=rda_username_.find(":")) != std::string::npos) {
+	  rda_username_=rda_username_.substr(0,idx);
 	}
     }
     else {
-	duser_="";
+	rda_username_="";
     }
   }
-  return duser_;
+  return rda_username_;
+}
+
+std::string duser()
+{
+  return rda_username();
 }
 
 std::string session_ID()
