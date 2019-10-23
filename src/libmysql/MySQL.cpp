@@ -32,10 +32,16 @@ void Row::fill(MYSQL_ROW& Row,unsigned long *lengths,size_t num_fields,std::unor
 
 void Row::fill(const std::string& Row,const char *separator,std::unordered_map<std::string,size_t> *p_column_list)
 {
-  auto cols=strutils::split(Row,separator);
-  columns.resize(cols.size());
-  for (size_t n=0; n < columns.size(); ++n) {
-    columns[n]=cols[n];
+  if (Row.empty()) {
+    columns.resize(1);
+    columns[0]="";
+  }
+  else {
+    auto cols=strutils::split(Row,separator);
+    columns.resize(cols.size());
+    for (size_t n=0; n < columns.size(); ++n) {
+	columns[n]=cols[n];
+    }
   }
   column_list=p_column_list;
 }
@@ -667,7 +673,7 @@ bool PreparedStatement::fetch_row(Row& row) const
   if (mysql_stmt_fetch(STMT.get()) == 0) {
     std::stringstream row_ss;
     for (size_t n=0; n < result_bind.field_count; ++n) {
-	if (!row_ss.str().empty()) {
+	if (n > 0) {
 	  row_ss << "<!>";
 	}
 	row_ss << std::string(reinterpret_cast<char *>(result_bind.binds[n].buffer),*result_bind.binds[n].length);
