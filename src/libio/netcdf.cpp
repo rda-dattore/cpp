@@ -498,6 +498,8 @@ bool InputNetCDFStream::close()
   dims.clear();
   gattrs.clear();
   vars.clear();
+  var_indexes.clear();
+  var_buf.first_offset=0;
   size_=0;
   return true;
 }
@@ -534,6 +536,71 @@ void InputNetCDFStream::print_header() const
   print_dimensions();
   print_global_attributes();
   print_variables();
+}
+
+double InputNetCDFStream::value_at(std::string variable_name,size_t index)
+{
+//  auto var_index=find_variable(variable_name);
+auto var_index=var_indexes[variable_name];
+  size_t max_num_vals=vars[var_index].dimids[0];
+  if (max_num_vals == 0 && vars[var_index].is_rec) {
+    max_num_vals=num_recs;
+  }
+  for (size_t n=1; n < vars[var_index].dimids.size(); ++n) {
+    max_num_vals*=dims[vars[var_index].dimids[n]].length;
+  }
+  if (index >= max_num_vals) {
+    return DOUBLE_NOT_SET;
+  }
+  long long f_offset;
+  if (vars[var_index].is_rec) {
+    f_offset=vars[var_index].offset+(index*rec_size);
+  }
+  else {
+    f_offset=vars[var_index].offset+(index*nc_size[static_cast<int>(vars[var_index].nc_type)]);
+  }
+  if (var_buf.first_offset == 0 || f_offset < var_buf.first_offset || f_offset > (var_buf.first_offset+var_buf.buf_size-nc_size[static_cast<int>(vars[var_index].nc_type)])) {
+    fs.seekg(f_offset,std::ios_base::beg);
+    if (!fs.read(var_buf.buffer,var_buf.MAX_BUF_SIZE)) {
+	var_buf.buf_size=fs.gcount();
+	fs.clear();
+    }
+    else {
+	var_buf.buf_size=var_buf.MAX_BUF_SIZE;
+    }
+    var_buf.first_offset=f_offset;
+  }
+  switch (vars[var_index].nc_type) {
+    case NcType::SHORT: {
+	short s;
+	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),s,0,nc_size[static_cast<int>(NcType::SHORT)]*8);
+	return static_cast<double>(s);
+    }
+    case NcType::INT: {
+	int i;
+	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::INT)]*8);
+	return static_cast<double>(i);
+    }
+    case NcType::FLOAT: {
+	union {
+	  int i;
+	  float f;
+	};
+	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::FLOAT)]*8);
+	return static_cast<double>(f);
+    }
+    case NcType::DOUBLE: {
+	union {
+	  long long l;
+	  double d;
+	};
+	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),l,0,nc_size[static_cast<int>(NcType::DOUBLE)]*8);
+	return d;
+    }
+    default: {
+	return DOUBLE_NOT_SET;
+    }
+  }
 }
 
 netCDFStream::NcType InputNetCDFStream::variable_data(std::string variable_name,VariableData& variable_data)
@@ -730,10 +797,34 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
   fs.seekg(vars[var_index].offset,std::ios_base::beg);
   std::cout << "Variable: " << vars[var_index].name << std::endl;
   std::cout << "Type: " << netCDFStream::nc_type[static_cast<int>(vars[var_index].nc_type)] << std::endl;
+  DateTime base;
+  std::string time_unit;
   if (vars[var_index].attrs.size() > 0) {
     std::cout << "Attributes: " << vars[var_index].attrs.size() << std::endl;
     for (size_t n=0; n < vars[var_index].attrs.size(); ++n) {
 	print_attribute(vars[var_index].attrs[n],2);
+	if (vars[var_index].attrs[n].name == "units" && vars[var_index].attrs[n].nc_type == netCDFStream::NcType::CHAR) {
+	  auto attr_value=*(reinterpret_cast<std::string *>(vars[var_index].attrs[n].values));
+	  auto idx=attr_value.find("since");
+	  if (idx != std::string::npos) {
+	    time_unit=attr_value.substr(0,idx);
+	    strutils::trim(time_unit);
+	    attr_value=attr_value.substr(idx+5);
+	    strutils::trim(attr_value);
+	    if (attr_value[4] == '-' && attr_value[7] == '-' && attr_value[13] == ':' && attr_value[16] == ':') {
+		auto yr=std::stoi(attr_value.substr(0,4));
+		auto mo=std::stoi(attr_value.substr(5,2));
+		auto dy=std::stoi(attr_value.substr(8,2));
+		auto hr=std::stoi(attr_value.substr(11,2));
+		auto min=std::stoi(attr_value.substr(14,2));
+		auto sec=std::stoi(attr_value.substr(17,2));
+		base.set(yr,mo,dy,hr*10000+min*100+sec,0);
+	    }
+	    else {
+		time_unit="";
+	    }
+	  }
+	}
     }
   }
   size_t num_vals=1;
@@ -752,10 +843,27 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
 	    if (print_indexes(vars[var_index],n+m)) {
 		switch(vars[var_index].nc_type) {
 		  case NcType::BYTE: {
-		    auto data=new unsigned char;
-		    fs.read(reinterpret_cast<char *>(data),1);
-		    std::cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
-		    delete data;
+		    if (vars[var_index].dimids.size() == 2) {
+			auto nv=dims[vars[var_index].dimids.back()].length;
+			auto data=new unsigned char[nv];
+			fs.read(reinterpret_cast<char *>(data),nv);
+			std::cout << "  ";
+			for (size_t l=0; l < nv; ++l) {
+			  if (l > 0) {
+			    std::cout << ", ";
+			  }
+			  std::cout << static_cast<int>((reinterpret_cast<unsigned char *>(data))[l]);
+			}
+			std::cout << std::endl;
+			m+=(nv-1);
+			delete[] data;
+		    }
+		    else {
+			auto data=new unsigned char;
+			fs.read(reinterpret_cast<char *>(data),1);
+			std::cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
+			delete data;
+		    }
 		    break;
 		  }
 		  case NcType::CHAR: {
@@ -770,7 +878,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
 			m=num_vals;
 		    }
 		    else {
-			m--;
+			--m;
 		    }
 		    delete data;
 		    break;
@@ -806,13 +914,19 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
 		    break;
 		  }
 		  case NcType::DOUBLE: {
-		    auto data=new double;
+		    union {
+			long long ldata;
+			double data;
+		    };
 		    auto tmpbuf=new unsigned char[nc_size[static_cast<int>(NcType::DOUBLE)]];
 		    fs.read(reinterpret_cast<char *>(tmpbuf),nc_size[static_cast<int>(NcType::DOUBLE)]);
-		    bits::get(tmpbuf,*(reinterpret_cast<long long *>(data)),0,nc_size[static_cast<int>(NcType::DOUBLE)]*8);
-		    std::cout << "  " << *(reinterpret_cast<double *>(data)) << std::endl;
+		    bits::get(tmpbuf,ldata,0,nc_size[static_cast<int>(NcType::DOUBLE)]*8);
+		    std::cout << "  " << data;
+		    if (!time_unit.empty() && data >= 0.) {
+			std::cout << " : " << base.added(time_unit,data).to_string();
+		    }
+		    std::cout << std::endl;
 		    delete[] tmpbuf;
-		    delete data;
 		    break;
 		  }
 		  default: {
@@ -1233,6 +1347,7 @@ void InputNetCDFStream::fill_variables()
   vars.resize(num_vars);
   for (size_t n=0; n < num_vars; ++n) {
     fill_string(vars[n].name);
+    var_indexes[vars[n].name]=n;
     fs.read(reinterpret_cast<char *>(tmpbuf),4);
     size_t num_dims;
     bits::get(tmpbuf,num_dims,0,32);
