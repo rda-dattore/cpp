@@ -4,6 +4,7 @@
 #include <fstream>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include <datetime.hpp>
 #include <mymap.hpp>
 
@@ -170,7 +171,7 @@ protected:
 class InputNetCDFStream : public netCDFStream
 {
 public:
-  InputNetCDFStream() : size_(0) {}
+  InputNetCDFStream() : var_buf(),size_(0),var_indexes() {}
   bool close();
   bool open(std::string filename);
   void print_dimensions() const;
@@ -179,6 +180,7 @@ public:
   void print_variable_data(std::string variable_name,std::string string_of_indexes);
   void print_variables() const;
   off_t size() const { return size_; }
+  double value_at(std::string variable_name,size_t index);
   NcType variable_data(std::string variable_name,VariableData& variable_data);
   size_t variable_dimensions(std::string variable_name,size_t **address_of_dimension_array) const;
   void variable_value(std::string variable_name,std::string indexes,void **value);
@@ -191,7 +193,16 @@ private:
   void print_attribute(const Attribute& attribute,size_t left_margin_spacing) const;
   bool print_indexes(const Variable& variable,size_t elem_num) const;
 
+  struct VariableBuffer {
+    VariableBuffer() : MAX_BUF_SIZE(4000000),buffer(new char[MAX_BUF_SIZE]),buf_size(MAX_BUF_SIZE),first_offset(0) {}
+
+    size_t MAX_BUF_SIZE;
+    char *buffer;
+    int buf_size;
+    long long first_offset;
+  } var_buf;
   off_t size_;
+  std::unordered_map<std::string,size_t> var_indexes;
 };
 
 class OutputNetCDFStream : public netCDFStream
