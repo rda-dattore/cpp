@@ -121,8 +121,11 @@ std::string value_from_cookie(std::string name)
   char *env;
   if ( (env=getenv("HTTP_COOKIE")) != NULL) {
     value=env;
-    size_t idx;
-    if ( (idx=value.find(name+"=")) != std::string::npos) {
+    auto idx=value.find(name+"=");
+    while (idx != std::string::npos && idx > 0 && value.substr(idx-2,2) != "; ") {
+	idx=value.find(name+"=",idx+1);
+    }
+    if (idx != std::string::npos) {
 	value=value.substr(idx+name.length()+1);
 	if ( (idx=value.find(";")) != std::string::npos) {
 	  value=value.substr(0,idx);
