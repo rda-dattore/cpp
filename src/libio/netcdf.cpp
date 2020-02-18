@@ -538,67 +538,101 @@ void InputNetCDFStream::print_header() const
   print_variables();
 }
 
-double InputNetCDFStream::value_at(std::string variable_name,size_t index)
+const netCDFStream::Variable& InputNetCDFStream::variable(std::string variable_name) const
 {
-//  auto var_index=find_variable(variable_name);
-auto var_index=var_indexes[variable_name];
-  size_t max_num_vals=vars[var_index].dimids[0];
-  if (max_num_vals == 0 && vars[var_index].is_rec) {
-    max_num_vals=num_recs;
-  }
-  for (size_t n=1; n < vars[var_index].dimids.size(); ++n) {
-    max_num_vals*=dims[vars[var_index].dimids[n]].length;
-  }
-  if (index >= max_num_vals) {
-    return DOUBLE_NOT_SET;
-  }
-  long long f_offset;
-  if (vars[var_index].is_rec) {
-    f_offset=vars[var_index].offset+(index*rec_size);
+  static const Variable EMPTY_VAR;
+  if (var_indexes.find(variable_name) == var_indexes.end()) {
+    return EMPTY_VAR;
   }
   else {
-    f_offset=vars[var_index].offset+(index*nc_size[static_cast<int>(vars[var_index].nc_type)]);
+    return vars[var_indexes.at(variable_name)];
   }
-  if (var_buf.first_offset == 0 || f_offset < var_buf.first_offset || f_offset > (var_buf.first_offset+var_buf.buf_size-nc_size[static_cast<int>(vars[var_index].nc_type)])) {
-    fs.seekg(f_offset,std::ios_base::beg);
-    if (!fs.read(var_buf.buffer,var_buf.MAX_BUF_SIZE)) {
-	var_buf.buf_size=fs.gcount();
-	fs.clear();
+}
+
+std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t index)
+{
+  if (var_indexes.find(variable_name) == var_indexes.end()) {
+    return std::move(std::vector<double>());
+  }
+  else {
+    auto var_index=var_indexes[variable_name];
+    size_t max_num_vals=vars[var_index].dimids[0];
+    if (max_num_vals == 0 && vars[var_index].is_rec) {
+	max_num_vals=num_recs;
+    }
+    auto vector_size=1;
+    for (size_t n=1; n < vars[var_index].dimids.size(); ++n) {
+	max_num_vals*=dims[vars[var_index].dimids[n]].length;
+	vector_size*=dims[vars[var_index].dimids[n]].length;
+    }
+    if (index >= max_num_vals) {
+	return std::move(std::vector<double>());
+    }
+    long long f_offset;
+    if (vars[var_index].is_rec) {
+	f_offset=vars[var_index].offset+(index*rec_size);
     }
     else {
-	var_buf.buf_size=var_buf.MAX_BUF_SIZE;
+	f_offset=vars[var_index].offset+(index*nc_size[static_cast<int>(vars[var_index].nc_type)]);
     }
-    var_buf.first_offset=f_offset;
-  }
-  switch (vars[var_index].nc_type) {
-    case NcType::SHORT: {
-	short s;
-	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),s,0,nc_size[static_cast<int>(NcType::SHORT)]*8);
-	return static_cast<double>(s);
+    if (var_buf.first_offset == 0 || f_offset < var_buf.first_offset || f_offset > (var_buf.first_offset+var_buf.buf_size-nc_size[static_cast<int>(vars[var_index].nc_type)])) {
+	fs.seekg(f_offset,std::ios_base::beg);
+	if (!fs.read(var_buf.buffer,var_buf.MAX_BUF_SIZE)) {
+	  var_buf.buf_size=fs.gcount();
+	  fs.clear();
+	}
+	else {
+	  var_buf.buf_size=var_buf.MAX_BUF_SIZE;
+	}
+	var_buf.first_offset=f_offset;
     }
-    case NcType::INT: {
-	int i;
-	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::INT)]*8);
-	return static_cast<double>(i);
-    }
-    case NcType::FLOAT: {
-	union {
-	  int i;
-	  float f;
-	};
-	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::FLOAT)]*8);
-	return static_cast<double>(f);
-    }
-    case NcType::DOUBLE: {
-	union {
-	  long long l;
-	  double d;
-	};
-	bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),l,0,nc_size[static_cast<int>(NcType::DOUBLE)]*8);
-	return d;
-    }
-    default: {
-	return DOUBLE_NOT_SET;
+    switch (vars[var_index].nc_type) {
+	case NcType::BYTE: {
+	  auto b=new unsigned char[vector_size];
+	  bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),b,0,nc_size[static_cast<int>(NcType::BYTE)]*8,0,vector_size);
+	  std::vector<double> v(&b[0],&b[vector_size]);
+	  delete b;
+	  return std::move(v);
+	}
+	case NcType::SHORT: {
+	  auto s=new short[vector_size];
+	  bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),s,0,nc_size[static_cast<int>(NcType::SHORT)]*8,0,vector_size);
+	  std::vector<double> v(&s[0],&s[vector_size]);
+	  delete s;
+	  return std::move(v);
+	}
+	case NcType::INT: {
+	  auto i=new int[vector_size];
+	  bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::INT)]*8,0,vector_size);
+	  std::vector<double> v(&i[0],&i[vector_size]);
+	  delete i;
+	  return std::move(v);
+	}
+	case NcType::FLOAT: {
+	  union {
+	    int *i;
+	    float *f;
+	  };
+	  i=new int[vector_size];
+	  bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,nc_size[static_cast<int>(NcType::FLOAT)]*8,0,vector_size);
+	  std::vector<double> v(&f[0],&f[vector_size]);
+	  delete i;
+	  return std::move(v);
+	}
+	case NcType::DOUBLE: {
+	  union {
+	    long long *l;
+	    double *d;
+	  };
+	  l=new long long[1];
+	  bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),l[0],0,nc_size[static_cast<int>(NcType::DOUBLE)]*8);
+	  std::vector<double> v(&d[0],&d[1]);
+	  delete l;
+	  return std::move(v);
+	}
+	default: {
+	  return std::move(std::vector<double>());
+	}
     }
   }
 }
@@ -1365,6 +1399,46 @@ void InputNetCDFStream::fill_variables()
 	vars[n].is_coord=false;
     }
     fill_attributes(vars[n].attrs);
+    for (const auto& attr : vars[n].attrs) {
+	if (attr.name == "long_name") {
+	  vars[n].long_name=*(reinterpret_cast<std::string *>(attr.values));
+	  strutils::trim(vars[n].long_name);
+	}
+	else if (attr.name == "standard_name") {
+	  vars[n].standard_name=*(reinterpret_cast<std::string *>(attr.values));
+	  strutils::trim(vars[n].standard_name);
+	}
+	else if (attr.name == "units") {
+	  vars[n].units=*(reinterpret_cast<std::string *>(attr.values));
+	  strutils::trim(vars[n].units);
+	}
+	else if (attr.name == "_FillValue" || attr.name == "missing_value") {
+	  vars[n]._FillValue.resize(attr.nc_type);
+	  switch (attr.nc_type) {
+	    case netCDFStream::NcType::CHAR: {
+		vars[n]._FillValue.set(*(reinterpret_cast<char *>(attr.values)));
+		break;
+	    }
+	    case netCDFStream::NcType::SHORT: {
+		vars[n]._FillValue.set(*(reinterpret_cast<short *>(attr.values)));
+		break;
+	    }
+	    case netCDFStream::NcType::INT: {
+		vars[n]._FillValue.set(*(reinterpret_cast<int *>(attr.values)));
+		break;
+	    }
+	    case netCDFStream::NcType::FLOAT: {
+		vars[n]._FillValue.set(*(reinterpret_cast<float *>(attr.values)));
+		break;
+	    }
+	    case netCDFStream::NcType::DOUBLE: {
+		vars[n]._FillValue.set(*(reinterpret_cast<double *>(attr.values)));
+		break;
+	    }
+	    default: {}
+	  }
+	}
+    }
     fs.read(reinterpret_cast<char *>(tmpbuf),8);
     int i;
     bits::get(tmpbuf,i,0,32);
@@ -1839,6 +1913,14 @@ void OutputNetCDFStream::add_variable(std::string name,NcType nc_type,const std:
   }
   else {
     vars[n].is_rec=false;
+  }
+}
+
+void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,unsigned char value)
+{
+  int n;
+  if ( (n=find_variable(variable_name)) >= 0) {
+    add_attribute(vars[n].attrs,attribute_name,NcType::BYTE,1,&value);
   }
 }
 
