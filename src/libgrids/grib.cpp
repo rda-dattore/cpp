@@ -1175,7 +1175,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->grib.scan_mode=0x40;
   if (g->grid.src == 7) {
     switch (g->grib.grid_catalog_id) {
-	case 21: {
+	case 21:
+	{
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1187,7 +1188,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 22: {
+	case 22:
+	{
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1199,7 +1201,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 23: {
+	case 23:
+	{
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1211,7 +1214,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 24: {
+	case 24:
+	{
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1223,7 +1227,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 25: {
+	case 25:
+	{
 	  g->dim.y=18;
 	  g->dim.x=72;
 	  g->dim.size=1297;
@@ -1235,7 +1240,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 26: {
+	case 26:
+	{
 	  g->dim.y=18;
 	  g->dim.x=72;
 	  g->dim.size=1297;
@@ -1247,7 +1253,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 61: {
+	case 61:
+	{
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1259,7 +1266,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 62: {
+	case 62:
+	{
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1271,7 +1279,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 63: {
+	case 63:
+	{
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1283,7 +1292,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 64: {
+	case 64:
+	{
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1295,7 +1305,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	default: {
+	default:
+	{
 	  g->grib.scan_mode=0x0;
 	}
     }
@@ -1328,14 +1339,16 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     case 125:
     case 160:
     case 200:
-    case 201: {
+    case 201:
+    {
 	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum;
 	g->grid.level2=0.;
 	g->grid.level2_type=-1;
 	break;
     }
-    case 101: {
+    case 101:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1344,7 +1357,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	break;
     }
     case 107:
-    case 119: {
+    case 119:
+    {
 	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum/10000.;
 	g->grid.level2=0.;
@@ -1352,7 +1366,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	break;
     }
     case 108:
-    case 120: {
+    case 120:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum/100.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1360,7 +1375,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 114: {
+    case 114:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=475.-dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1368,7 +1384,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 121: {
+    case 121:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1100.-dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1376,7 +1393,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 128: {
+    case 128:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1.1-dum/1000.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1384,7 +1402,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 141: {
+    case 141:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1392,7 +1411,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    default: {
+    default:
+    {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1408,7 +1428,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   hr=hr*100+min;
   bits::get(stream_buffer,g->grib.time_unit,off+136,8);
   switch (edition_) {
-    case 0: {
+    case 0:
+    {
 	if (yr > 20) {
 	  yr+=1900;
 	}
@@ -1419,7 +1440,8 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grib.D=0;
 	break;
     }
-    case 1: {
+    case 1:
+    {
 	bits::get(stream_buffer,g->grib.century,off+192,8);
 	yr=yr+(g->grib.century-1)*100;
 	bits::get(stream_buffer,g->grib.sub_center,off+200,8);
@@ -1435,11 +1457,13 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->grid.nmean=g->grib.nmean_missing=0;
   g->grib.p2=0;
   switch (g->grib.t_range) {
-    case 10: {
+    case 10:
+    {
 	bits::get(stream_buffer,g->grib.p1,off+144,16);
 	break;
     }
-    default: {
+    default:
+    {
 	bits::get(stream_buffer,g->grib.p1,off+144,8);
 	bits::get(stream_buffer,g->grib.p2,off+152,8);
 	bits::get(stream_buffer,g->grid.nmean,off+168,16);
@@ -3376,7 +3400,8 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
     case 2:
     case 3:
     case 40:
-    case 40000: {
+    case 40000:
+    {
 	bits::get(stream_buffer,idum,off+88,32);
 	bits::get(stream_buffer,g2->grib.E,off+120,16);
 	if (g2->grib.E > 0x8000)
@@ -3420,7 +3445,8 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="data template "+strutils::itos(g2->grib2.data_rep)+" is not understood";
 	exit(1);
     }
@@ -3523,7 +3549,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   if (!fill_header_only) {
     g2->stats.max_val=-Grid::missing_value;
     switch (g2->grib2.data_rep) {
-	case 0: {
+	case 0:
+	{
 	  g2->galloc();
 	  off+=40;
 	  size_t x=0;
@@ -3550,7 +3577,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 2: {
+	case 2:
+	{
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef2 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3663,7 +3691,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 3: {
+	case 3:
+	{
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef3 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3837,7 +3866,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	}
 #ifdef __JASPER
 	case 40:
-	case 40000: {
+	case 40000:
+	{
 	  len=lengths_.ds-5;
 	  jvals=new int[g2->dim.size];
 	  if (len > 0) {
@@ -3876,7 +3906,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  break;
 	}
 #endif
-	default: {
+	default:
+	{
 	  myerror="unable to decode data section for data representation "+strutils::itos(g2->grib2.data_rep);
 	  exit(1);
 	}
@@ -4077,8 +4108,9 @@ jpclen=100000;
 	  noff=off/8+5;
 	  len=enc_jpeg2000(cin,&pwidth,&pheight,&pnbits,&ltype,&ratio,&retry,reinterpret_cast<char *>(&output_buffer[noff]),&jpclen);
 	}
-	else
+	else {
 	  len=0;
+	}
 	delete[] cin;
 	bits::set(output_buffer,len+5,off,32);
 	offset+=(len+5);
@@ -4096,7 +4128,6 @@ jpclen=100000;
 off_t GRIB2Message::copy_to_buffer(unsigned char *output_buffer,const size_t buffer_length)
 {
   off_t offset;
-
   pack_is(output_buffer,offset,grids.front().get());
   if (offset > static_cast<off_t>(buffer_length)) {
     myerror="buffer overflow in copy_to_buffer()";
@@ -10939,7 +10970,8 @@ std::string time_range_129_to_string(std::string format,short center,short subce
     tu=const_cast<char **>(grib2_time_unit);
   }
   switch (center) {
-    case 7: {
+    case 7:
+    {
 	if (tunit >= 1 && tunit <= 2) {
 	  int n= (tunit == 2) ? 1 : 24/p2;
 	  if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
@@ -10954,24 +10986,29 @@ std::string time_range_129_to_string(std::string format,short center,short subce
 	}
 	product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Accumulation (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	switch (tunit) {
-	  case 1: {
+	  case 1:
+	  {
 	    last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 	    break;
 	  }
-	  case 2: {
+	  case 2:
+	  {
 	    last_valid_date_time=first_valid_date_time.days_added(navg*(p2-p1));
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="unable to compute last_valid_date_time for center 7 from time units "+strutils::itos(tunit)+" (time_range_129_to_string)";
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 34: {
+    case 34:
+    {
 	switch (subcenter) {
-	  case 241: {
+	  case 241:
+	  {
 	    if (tunit == 1) {
 		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg) < 3) {
 		  product="Monthly Variance/Covariance (1 per day) of Forecasts of ";
@@ -10985,25 +11022,29 @@ std::string time_range_129_to_string(std::string format,short center,short subce
 	    }
 	    product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	    switch (tunit) {
-		case 1: {
+		case 1:
+		{
 		  last_valid_date_time=first_valid_date_time.hours_added((navg-1)*24+p2);
 		  break;
 		}
-		default: {
+		default:
+		{
 		  myerror="unable to compute last_valid_date_time for center 34, subcenter 241 from time units "+strutils::itos(tunit)+" (time_range_129_to_string)";
 		  exit(1);
 		}
             }
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="time range code 129 is not defined for center  34, subcenter "+strutils::itos(center);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="time range code 129 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11016,11 +11057,13 @@ std::string time_range_130_to_string(std::string format,short center,short subce
   std::string product;
   switch (center) {
 // NCEP
-    case 7: {
+    case 7:
+    {
 	product=interval_24_hour_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	break;
     }
-    case 34: {
+    case 34:
+    {
 	switch (subcenter) {
 	  case 241:
 	  {
@@ -11036,7 +11079,8 @@ std::string time_range_130_to_string(std::string format,short center,short subce
 	break;
     }
 // ECMWF
-    case 98: {
+    case 98:
+    {
 	if (tunit == 1) {
 	  last_valid_date_time=first_valid_date_time.hours_added(navg);
 	  if (navg == static_cast<int>(dateutils::days_in_month(last_valid_date_time.year(),last_valid_date_time.month()))*24) {
@@ -11053,7 +11097,8 @@ std::string time_range_130_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="time range code 130 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11072,13 +11117,16 @@ std::string time_range_131_to_string(std::string format,short center,short subce
     tu=const_cast<char **>(grib2_time_unit);
   }
   switch (center) {
-    case 7: {
+    case 7:
+    {
 	product=successive_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	break;
     }
-    case 34: {
+    case 34:
+    {
 	switch (subcenter) {
-	  case 241: {
+	  case 241:
+	  {
 	    if (tunit == 1) {
 		int n=24/p2;
 		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
@@ -11093,25 +11141,29 @@ std::string time_range_131_to_string(std::string format,short center,short subce
 	    }
 	    product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	    switch (tunit) {
-		case 1: {
+		case 1:
+		{
 		  last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 		  break;
 		}
-		default: {
+		default:
+		{
 		  myerror="unable to compute last_valid_date_time for center 34, subcenter 241 from time units "+strutils::itos(tunit)+" (time_range_131_to_string)";
 		  exit(1);
 		}
 	    }
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="time range code 131 is not defined for center 34, subcenter "+strutils::itos(subcenter);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="time range code 131 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11123,7 +11175,8 @@ std::string time_range_132_to_string(std::string format,short center,short subce
 {
   std::string product;
   switch (center) {
-    case 34: {
+    case 34:
+    {
 	switch (subcenter) {
 	  case 241:
 	  {
@@ -11138,7 +11191,8 @@ std::string time_range_132_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default: {
+    default:
+    {
         myerror="time range code 132 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11151,7 +11205,8 @@ std::string time_range_133_to_string(std::string format,short center,short subce
   std::string product;
   switch (center) {
 // ECMWF
-    case 98: {
+    case 98:
+    {
 	if (tunit == 1) {
 	  auto num_per_day=24/(p1 % 24);
 	  auto temporal_resolution=24/num_per_day;
@@ -11170,7 +11225,8 @@ std::string time_range_133_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="time range code 133 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11190,7 +11246,8 @@ std::string time_range_137_to_string(std::string format,short center,short subce
   }
   switch (center) {
     case 7:
-    case 60: {
+    case 60:
+    {
 	if (tunit >= 1 && tunit <= 2) {
 	  if (navg/4 == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (4 per day) of ";
@@ -11220,7 +11277,8 @@ std::string time_range_137_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="time range code 137 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11293,37 +11351,44 @@ std::string time_range_138_to_string(std::string format,short center,short subce
 void set_forecast_date_time(size_t p1,short tunits,const DateTime& reference_date_time,DateTime& forecast_date_time,size_t& fcst_time)
 {
   switch (tunits) {
-    case 0: {
+    case 0:
+    {
 	forecast_date_time=reference_date_time.minutes_added(p1);
 	fcst_time=p1*100;
 	break;
     }
-    case 1: {
+    case 1:
+    {
 	forecast_date_time=reference_date_time.hours_added(p1);
 	fcst_time=p1*10000;
 	break;
     }
-    case 2: {
+    case 2:
+    {
 	forecast_date_time=reference_date_time.days_added(p1);
 	fcst_time=p1*240000;
 	break;
     }
-    case 3: {
+    case 3:
+    {
 	forecast_date_time=reference_date_time.months_added(p1);
 	fcst_time=forecast_date_time.time_since(reference_date_time);
 	break;
     }
-    case 4: {
+    case 4:
+    {
 	forecast_date_time=reference_date_time.years_added(p1);
 	fcst_time=forecast_date_time.time_since(reference_date_time);
 	break;
     }
-    case 12: {
+    case 12:
+    {
 	forecast_date_time=reference_date_time.hours_added(p1*12);
 	fcst_time=p1*12*10000;
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="unable to convert forecast hour for time units "+strutils::itos(tunits);
 	exit(1);
     }
@@ -11339,7 +11404,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
   short p2=grid->P2()*grib1_unit_mult[tunits];
   switch (grid->time_range()) {
     case 0:
-    case 10: {
+    case 10:
+    {
 	if (p1 == 0) {
 	  product_description="Analysis";
 	  fcst_time=0;
@@ -11352,18 +11418,21 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	valid_date_time=forecast_date_time;
 	break;
     }
-    case 1: {
+    case 1:
+    {
 	product_description=strutils::itos(p1)+"-"+grib1_time_unit[tunits]+" Forecast";
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	valid_date_time=forecast_date_time;
 	break;
     }
-    case 2: {
+    case 2:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_2_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 3: {
+    case 3:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	if (p1 == 0 && tunits == 2 && p2 == static_cast<int>(dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()))) {
 	  product_description="Monthly Average";
@@ -11372,19 +11441,23 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	  product_description=strutils::itos(p2-p1)+"-"+grib1_time_unit[tunits]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	}
 	switch (tunits) {
-	  case 1: {
+	  case 1:
+	  {
 	    valid_date_time=forecast_date_time.hours_added(p2-p1);
 	    break;
 	  }
-	  case 2: {
+	  case 2:
+	  {
 	    valid_date_time=forecast_date_time.days_added(p2-p1);
 	    break;
 	  }
-	  case 3: {
+	  case 3:
+	  {
 	    valid_date_time=forecast_date_time.months_added(p2-p1);
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="unable to compute valid_date_time from time units "+strutils::itos(tunits);
 	    exit(1);
 	  }
@@ -11392,7 +11465,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	break;
     }
     case 4:
-    case 5: {
+    case 5:
+    {
 	fcst_time=0;
 	product_description=strutils::itos(std::abs(p2-p1))+"-"+grib1_time_unit[tunits]+" ";
 	if (grid->time_range() == 4) {
@@ -11418,7 +11492,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	product_description+=strutils::itos(p2)+")";
 	forecast_date_time=valid_date_time=grid->reference_date_time();
 	switch (tunits) {
-	  case 1: {
+	  case 1:
+	  {
 	    if (p2 < 0) {
 		valid_date_time.subtract_hours(-p2);
 	    }
@@ -11430,7 +11505,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  case 2: {
+	  case 2:
+	  {
 	    if (p2 < 0) {
 		valid_date_time.subtract_days(-p2);
 	    }
@@ -11442,7 +11518,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  case 3: {
+	  case 3:
+	  {
 	    if (p2 < 0) {
 		valid_date_time.subtract_months(-p2);
 	    }
@@ -11454,19 +11531,22 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="unable to compute valid_date_time from time units "+strutils::itos(tunits);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 7: {
+    case 7:
+    {
 	if (grid->source() == 7) {
 	  if (p2 == 0) {
 	    forecast_date_time=valid_date_time=grid->reference_date_time();
 	    switch (tunits) {
-		case 2: {
+		case 2:
+		{
 		  forecast_date_time.subtract_days(p1);
 		  size_t n=p1+1;
 		  if (dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()) == n) {
@@ -11483,7 +11563,8 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 		  }
 		  break;
 		}
-		default: {
+		default:
+		{
 		  myerror="time unit "+strutils::itos(tunits)+" not recognized for time range indicator 7 and P2 == 0";
 		  exit(1);
 		}
@@ -11500,82 +11581,98 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	}
 	break;
     }
-    case 51: {
+    case 51:
+    {
 	product_description=strutils::itos(grid->number_averaged())+"-year Climatology of ";
 	switch (tunits) {
-	  case 3: {
+	  case 3:
+	  {
 	    product_description+="Monthly Means";
 	    forecast_date_time=valid_date_time=grid->reference_date_time().years_added(grid->number_averaged()-1).months_added(1);
 	    break;
 	  }
-	  default: {
+	  default:
+	  {
 	    myerror="bad P2 "+strutils::itos(p2)+" for climatological mean";
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 113: {
+    case 113:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_113_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 118: {
+    case 118:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_118_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 120: {
+    case 120:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_120_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 123: {
+    case 123:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_123_to_string("grib",forecast_date_time,valid_date_time,tunits,p2,grid->number_averaged());
 	break;
     }
-    case 128: {
+    case 128:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_128_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 129: {
+    case 129:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_129_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 130: {
+    case 130:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_130_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 131: {
+    case 131:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_131_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 132: {
+    case 132:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_132_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 133: {
+    case 133:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_133_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 137: {
+    case 137:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_137_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 138: {
+    case 138:
+    {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_138_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    default: {
+    default:
+    {
 	myerror="GRIB time range indicator "+strutils::itos((reinterpret_cast<GRIBGrid *>(grid))->time_range())+" not recognized";
 	exit(1);
     }
