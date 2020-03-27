@@ -4906,19 +4906,17 @@ void GRIBGrid::remap_parameters()
 
 void GRIBGrid::set_scale_and_packing_width(short decimal_scale_factor,short maximum_pack_width)
 {
-  double range,d;
-  long long lrange;
-
   grib.D=decimal_scale_factor;
-  d=pow(10.,grib.D);
-  range=lroundf(stats.max_val*d)-lroundf(stats.min_val*d);
-  lrange=llround(range);
+  double d=pow(10.,grib.D);
+  double range=lroundf(stats.max_val*d)-lroundf(stats.min_val*d);
+  long long lrange=llround(range);
   grib.pack_width=1;
-  while (grib.pack_width < maximum_pack_width && lrange >= pow(2.,grib.pack_width))
-    grib.pack_width++;
+  while (grib.pack_width < maximum_pack_width && lrange >= pow(2.,grib.pack_width)) {
+    ++grib.pack_width;
+  }
   grib.E=0;
   while (grib.E < 20 && lrange >= pow(2.,grib.pack_width)) {
-    grib.E++;
+    ++grib.E;
     lrange/=2;
   }
   if (lrange >= pow(2.,grib.pack_width)) {
@@ -9735,22 +9733,18 @@ combined.grid.num_missing=0;
 
 GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float top_latitude,float left_longitude,float right_longitude)
 {
-  GRIBGrid subset_grid;
-  int n,m;
-  size_t cnt=0,avg_cnt=0;
-  my::map<Grid::GLatEntry> gaus_lats;
-  Grid::GLatEntry glat_entry;
-  size_t lat_index,lon_index;
-
   if (right_longitude < left_longitude) {
     myerror="bad subset specified";
     exit(1);
   }
+  GRIBGrid subset_grid;
   subset_grid.reference_date_time_=source.reference_date_time_;
   subset_grid.valid_date_time_=source.valid_date_time_;
   subset_grid.grib.scan_mode=source.grib.scan_mode;
   subset_grid.def.laincrement=source.def.laincrement;
   subset_grid.def.type=source.def.type;
+  Grid::GLatEntry glat_entry;
+  my::map<Grid::GLatEntry> gaus_lats;
   if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
     if (source.path_to_gaussian_latitude_data().empty()) {
 	myerror="path to gaussian latitude data was not specified";
@@ -9794,7 +9788,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	}
 	if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
 	  subset_grid.dim.y=0;
-	  for (n=0; n < static_cast<int>(subset_grid.def.num_circles*2); ++n) {
+	  for (size_t n=0; n < subset_grid.def.num_circles*2; ++n) {
 	    if ((glat_entry.lats[n] > subset_grid.def.elatitude && glat_entry.lats[n] < subset_grid.def.slatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.elatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.slatitude)) {
 		subset_grid.dim.y++;
 	    }
@@ -9842,7 +9836,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	}
 	if (subset_grid.def.type == Grid::gaussianLatitudeLongitudeType) {
 	  subset_grid.dim.y=0;
-	  for (n=0; n < static_cast<int>(subset_grid.def.num_circles*2); ++n) {
+	  for (size_t n=0; n < subset_grid.def.num_circles*2; ++n) {
 	    if (glat_entry.lats[n] >= subset_grid.def.slatitude && glat_entry.lats[n] <= subset_grid.def.elatitude) {
 		subset_grid.dim.y++;
 	    }
@@ -9854,7 +9848,8 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	break;
     }
   }
-  if ( (lat_index=source.latitude_index_of(subset_grid.def.slatitude,&gaus_lats)) >= static_cast<size_t>(source.dim.y)) {
+  auto lat_index=source.latitude_index_of(subset_grid.def.slatitude,&gaus_lats);
+  if (lat_index >= source.dim.y) {
     subset_grid.grid.filled=false;
     return subset_grid;
   }
@@ -9892,9 +9887,10 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
   subset_grid.stats.max_val=-Grid::missing_value;
   subset_grid.stats.min_val=Grid::missing_value;
   subset_grid.stats.avg_val=0.;
-  for (n=0; n < subset_grid.dim.y; ++n) {
-    for (m=0; m < subset_grid.dim.x; ++m) {
-	lon_index=source.longitude_index_of(subset_grid.def.slongitude+m*subset_grid.def.loincrement);
+  size_t cnt=0,avg_cnt=0;
+  for (int n=0; n < subset_grid.dim.y; ++n) {
+    for (int m=0; m < subset_grid.dim.x; ++m) {
+	auto lon_index=source.longitude_index_of(subset_grid.def.slongitude+m*subset_grid.def.loincrement);
 	subset_grid.gridpoints_[n][m]=source.gridpoint(lon_index,lat_index);
 	if (floatutils::myequalf(subset_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  subset_grid.bitmap.map[cnt]=0;
