@@ -999,7 +999,7 @@ void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid
 	  {
 //	    packed[cnt]=lroundf(((double)g->grid.pole-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
-	    cnt++;
+	    ++cnt;
 	    break;
 	  }
 	}
@@ -1009,8 +1009,8 @@ packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 	case 3:
 	case 4:
 	{
-	  for (n=0; n < g->dim.y; n++) {
-	    for (m=0; m < g->dim.x; m++) {
+	  for (n=0; n < g->dim.y; ++n) {
+	    for (m=0; m < g->dim.x; ++m) {
 		if (!floatutils::myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
 //		  packed[cnt]=lroundf(((double)g->gridpoints_[n][m]-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e);
@@ -1830,9 +1830,10 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 	    g->bitmap.map=new unsigned char[g->bitmap.capacity];
 	  }
 	  bits::get(stream_buffer,g->bitmap.map,off+48,1,0,g->dim.size);
-	  for (n=0; n < static_cast<int>(g->dim.size); n++) {
-	    if (g->bitmap.map[n] == 0)
-		g->grid.num_missing++;
+	  for (n=0; n < static_cast<int>(g->dim.size); ++n) {
+	    if (g->bitmap.map[n] == 0) {
+		++g->grid.num_missing;
+	    }
 	  }
 	}
 	break;
@@ -2029,8 +2030,8 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
 			    g->stats.max_j=n+1;
 			  }
 			  g->stats.avg_val+=g->gridpoints_[n][m];
-			  avg_cnt++;
-			  cnt++;
+			  ++avg_cnt;
+			  ++cnt;
 			}
 			else {
 			  g->gridpoints_[n][m]=Grid::missing_value;
@@ -2066,8 +2067,8 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
 			  g->stats.max_j=n+1;
 			}
 			g->stats.avg_val+=g->gridpoints_[n][m];
-			avg_cnt++;
-			cnt++;
+			++avg_cnt;
+			++cnt;
 		    }
 		  }
 		}
@@ -2808,7 +2809,7 @@ exit(1);
 }
 */
 	    noff=368;
-	    for (n=0; n < num_ranges; n++) {
+	    for (n=0; n < num_ranges; ++n) {
 		bits::get(stream_buffer,stat_process_range.type,off+noff,8);
 		bits::get(stream_buffer,stat_process_range.time_increment_type,off+noff+8,8);
 		bits::get(stream_buffer,stat_process_range.period_length.unit,off+noff+16,8);
@@ -3057,7 +3058,7 @@ std::cerr << "unable to finish packing PDS for product type " << g2->grib2.produ
 	    bits::set(output_buffer,g2->grib2.stat_process_ranges.size(),off+328,8);
 	    bits::set(output_buffer,g2->grib2.stat_process_nmissing,off+336,32);
 	    noff=368;
-	    for (n=0; n < static_cast<int>(g2->grib2.stat_process_ranges.size()); n++) {
+	    for (n=0; n < static_cast<int>(g2->grib2.stat_process_ranges.size()); ++n) {
 		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].type,off+noff,8);
 		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].time_increment_type,off+noff+8,8);
 		bits::set(output_buffer,g2->grib2.stat_process_ranges[n].period_length.unit,off+noff+16,8);
@@ -3558,19 +3559,19 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    for (int m=0; m < g2->dim.x; ++m) {
 		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
 		  bits::get(stream_buffer,pval,off,g2->grib.pack_width);
-		  num_packed++;
+		  ++num_packed;
 		  g2->gridpoints_[n][m]=g2->stats.min_val+pval*E/D;
 		  if (g2->gridpoints_[n][m] > g2->stats.max_val) {
 		    g2->stats.max_val=g2->gridpoints_[n][m];
 		  }
 		  g2->stats.avg_val+=g2->gridpoints_[n][m];
-		  avg_cnt++;
+		  ++avg_cnt;
 		  off+=g2->grib.pack_width;
 		}
 		else {
 		  g2->gridpoints_[n][m]=Grid::missing_value;
 		}
-		x++;
+		++x;
 	    }
 	  }
 	  g2->stats.avg_val/=static_cast<double>(avg_cnt);
@@ -4058,8 +4059,8 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
     case 0:
     {
 	pval=new int[g2->dim.size];
-	for (n=0; n < g2->dim.y; n++) {
-	  for (m=0; m < g2->dim.x; m++) {
+	for (n=0; n < g2->dim.y; ++n) {
+	  for (m=0; m < g2->dim.x; ++m) {
 	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1)
 		pval[cnt++]=static_cast<int>(lround((g2->gridpoints_[n][m]-g2->stats.min_val)*pow(10.,g2->grib.D))/pow(2.,g2->grib.E));
 	  }
@@ -4082,17 +4083,17 @@ if (jpclen < 100000)
 jpclen=100000;
 	bps=cps*8;
 	cin=new unsigned char[jpclen];
-	for (n=0; n < g2->dim.y; n++) {
-	  for (m=0; m < g2->dim.x; m++) {
+	for (n=0; n < g2->dim.y; ++n) {
+	  for (m=0; m < g2->dim.x; ++m) {
 	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
 		if (g2->gridpoints_[n][m] == Grid::missing_value)
 		  jval=0;
 		else
 		  jval=lround((lround(g2->gridpoints_[n][m]*d)-lround(g2->stats.min_val*d))/e);
 		bits::set(cin,jval,y*bps,bps);
-		y++;
+		++y;
 	    }
-	    x++;
+	    ++x;
 	  }
 	}
 	if (g2->bitmap.applies) {
@@ -4520,7 +4521,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIBGrid& source)
     map.lvl=new short[255];
     map.lvl2=new short[255];
     map.mult=new float[255];
-    for (n=0; n < 255; n++) {
+    for (n=0; n < 255; ++n) {
 	map.param[n]=source.map.param[n];
 	map.level_type[n]=source.map.level_type[n];
 	map.lvl[n]=source.map.lvl[n];
@@ -4866,7 +4867,7 @@ void GRIBGrid::remap_parameters()
 	map.lvl=new short[255];
 	map.lvl2=new short[255];
 	map.mult=new float[255];
-	for (n=0; n < 255; n++) {
+	for (n=0; n < 255; ++n) {
 	  map.param[n]=map.level_type[n]=-1;
 	}
 	ifs.getline(line,80);
@@ -4962,8 +4963,8 @@ void GRIBGrid::operator+=(const GRIBGrid& source)
 	  mult=source.grid.nmean;
 	else
 	  mult=1.;
-	for (n=0; n < dim.y; n++) {
-	  for (m=0; m < dim.x; m++) {
+	for (n=0; n < dim.y; ++n) {
+	  for (m=0; m < dim.x; ++m) {
 	    l= (source.grib.scan_mode == grib.scan_mode) ? n : dim.y-n-1;
 	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && !floatutils::myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
 		gridpoints_[n][m]+=(source.gridpoints_[l][m]*mult);
@@ -4980,7 +4981,7 @@ void GRIBGrid::operator+=(const GRIBGrid& source)
 	    else {
 		gridpoints_[n][m]=(Grid::missing_value*mult);
 		bitmap.map[cnt++]=0;
-		grid.num_missing++;
+		++grid.num_missing;
 	    }
 	  }
 	}
@@ -4990,10 +4991,12 @@ void GRIBGrid::operator+=(const GRIBGrid& source)
 	else {
 	  bitmap.applies=true;
 	}
-	if (source.grib.t_range == 51)
+	if (source.grib.t_range == 51) {
 	  grid.nmean=grid.nmean+source.grid.nmean;
-	else
-	  grid.nmean++;
+	}
+	else {
+	  ++grid.nmean;
+	}
 	if (avg_cnt > 0)
 	  stats.avg_val/=static_cast<double>(avg_cnt);
     }
@@ -5050,8 +5053,8 @@ void GRIBGrid::operator-=(const GRIBGrid& source)
 	stats.max_val=-Grid::missing_value;
 	stats.min_val=Grid::missing_value;
 	stats.avg_val=0;
-	for (n=0; n < dim.y; n++) {
-	  for (m=0; m < dim.x; m++) {
+	for (n=0; n < dim.y; ++n) {
+	  for (m=0; m < dim.x; ++m) {
 	    l= (source.grib.scan_mode == grib.scan_mode) ? n : dim.y-n-1;
 	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && !floatutils::myequalf(source.gridpoints_[l][m],Grid::missing_value)) {
 		gridpoints_[n][m]-=source.gridpoints_[l][m];
@@ -5763,7 +5766,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 	  stats.avg_val+=gridpoints_[n][m];
 	  ++avg_cnt;
 	}
-	cnt++;
+	++cnt;
     }
   }
   if (avg_cnt > 0) {
@@ -5925,7 +5928,7 @@ GRIBGrid& GRIBGrid::operator=(const SLPGrid& source)
     gridpoints_[n][m]=source.pole_value();
     if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	bitmap.map[cnt]=0;
-	grid.num_missing++;
+	++grid.num_missing;
     }
     else {
 	gridpoints_[n][m]*=100.;
@@ -6198,7 +6201,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	gridpoints_[n][m]=source.gridpoint(m,n);
 	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  gridpoints_[n][m]*=mult;
@@ -6403,12 +6406,12 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
   stats.min_val=Grid::missing_value;
   stats.avg_val=0.;
   l=dim.y-1;
-  for (n=0; n < dim.y; n++,l--) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y; ++n,l--) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,l);
 	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  bitmap.map[cnt]=1;
@@ -6525,12 +6528,12 @@ GRIBGrid& GRIBGrid::operator=(const USSRSLPGrid& source)
   stats.avg_val=0.;
   stats.min_val=Grid::missing_value;
   stats.max_val=-Grid::missing_value;
-  for (n=0; n < dim.y; n++) {
-    for (m=0; m < dim.x; m++) {
+  for (n=0; n < dim.y; ++n) {
+    for (m=0; m < dim.x; ++m) {
 	gridpoints_[n][m]=source.gridpoint(m,n);
 	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
 	  bitmap.map[cnt]=0;
-	  grid.num_missing++;
+	  ++grid.num_missing;
 	}
 	else {
 	  bitmap.map[cnt]=1;
@@ -8641,7 +8644,7 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 	  exit(1);
 	}
 	stat_process_ranges=grid.statistical_process_ranges();
-	for (n=0; n < stat_process_ranges.size(); n++) {
+	for (n=0; n < stat_process_ranges.size(); ++n) {
 	  switch(stat_process_ranges[n].type) {
 	    case 0:
 	    case 1:
@@ -8902,13 +8905,13 @@ void GRIBGrid::print(std::ostream& outs) const
 		}
 		outs.precision(2);
 		outs << "\n LAT \\  +-";
-		for (i=0; i < cnt; i++)
+		for (i=0; i < cnt; ++i)
 		  outs << "----------";
 		outs << std::endl;
 		switch (grib.scan_mode) {
 		  case 0x0:
 		  {
-		    for (j=0; j < dim.y; j++) {
+		    for (j=0; j < dim.y; ++j) {
 			if (def.type == Grid::latitudeLongitudeType) {
 			  outs.precision(3);
 			  outs << std::setw(7) << (def.slatitude-j*def.laincrement) << " | ";
@@ -8932,7 +8935,7 @@ void GRIBGrid::print(std::ostream& outs) const
 			  else
 			    outs.precision(0);
 			}
-			for (i=n; i < n+cnt; i++) {
+			for (i=n; i < n+cnt; ++i) {
 			  if (gridpoints_[j][i] >= Grid::missing_value)
 			    outs << "   MISSING";
 			  else
@@ -8969,7 +8972,7 @@ void GRIBGrid::print(std::ostream& outs) const
 			}
 			else
 			  outs.precision(grib.D);
-			for (i=n; i < n+cnt; i++) {
+			for (i=n; i < n+cnt; ++i) {
 			  if (gridpoints_[j][i] >= Grid::missing_value)
 			    outs << "   MISSING";
 			  else
@@ -8991,7 +8994,7 @@ void GRIBGrid::print(std::ostream& outs) const
 	  else {
 	    glat_entry.key=def.num_circles;
 	    gaus_lats.found(glat_entry.key,glat_entry);
-	    for (j=0; j < dim.y; j++) {
+	    for (j=0; j < dim.y; ++j) {
 		std::cout << "\nLAT\\LON";
 		for (i=1; i <= static_cast<int>(gridpoints_[j][0]); ++i) {
 		  std::cout << std::setw(10) << (def.elongitude-def.slongitude)/(gridpoints_[j][0]-1.)*static_cast<float>(i-1);
@@ -9053,7 +9056,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		{
 		  for (j=dim.y-1; j >= 0; --j) {
 		    outs << std::setw(3) << j+1 << " | ";
-		    for (k=i; k < max_i; k++) {
+		    for (k=i; k < max_i; ++k) {
 			if (floatutils::myequalf(gridpoints_[j][k],Grid::missing_value)) {
 			  outs << "   MISSING";
 			}
@@ -9617,12 +9620,12 @@ GRIBGrid pow(const GRIBGrid& source,double exponent)
   pow_grid.stats.max_val=::pow(pow_grid.stats.max_val,exponent);
   pow_grid.stats.min_val=::pow(pow_grid.stats.min_val,exponent);
   pow_grid.stats.avg_val=0.;
-  for (n=0; n < pow_grid.dim.y; n++) {
-    for (m=0; m < pow_grid.dim.x; m++) {
+  for (n=0; n < pow_grid.dim.y; ++n) {
+    for (m=0; m < pow_grid.dim.x; ++m) {
 	if (!floatutils::myequalf(pow_grid.gridpoints_[n][m],Grid::missing_value)) {
 	  pow_grid.gridpoints_[n][m]=::pow(pow_grid.gridpoints_[n][m],exponent);
 	  pow_grid.stats.avg_val+=pow_grid.gridpoints_[n][m];
-	  avg_cnt++;
+	  ++avg_cnt;
 	}
     }
   }
@@ -9790,7 +9793,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	  subset_grid.dim.y=0;
 	  for (size_t n=0; n < subset_grid.def.num_circles*2; ++n) {
 	    if ((glat_entry.lats[n] > subset_grid.def.elatitude && glat_entry.lats[n] < subset_grid.def.slatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.elatitude) || floatutils::myequalf(glat_entry.lats[n],subset_grid.def.slatitude)) {
-		subset_grid.dim.y++;
+		++subset_grid.dim.y;
 	    }
 	  }
 	}
@@ -9838,7 +9841,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	  subset_grid.dim.y=0;
 	  for (size_t n=0; n < subset_grid.def.num_circles*2; ++n) {
 	    if (glat_entry.lats[n] >= subset_grid.def.slatitude && glat_entry.lats[n] <= subset_grid.def.elatitude) {
-		subset_grid.dim.y++;
+		++subset_grid.dim.y;
 	    }
 	  }
 	}
@@ -10044,16 +10047,6 @@ this->divide_by(grid.nmean);
 
 GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,int latitude_stride,double west_longitude,double east_longitude,int longitude_stride) const
 {
-  GRIB2Grid new_grid;
-  float dval,fdum;
-  int n,m,x;
-  int start_x=-1,end_x=-1,ex;
-  int start_y=-1,end_y=-1;
-  my::map<Grid::GLatEntry> gaus_lats;
-  Grid::GLatEntry glat_entry;
-  double wlon=west_longitude;
-  bool crosses_greenwich=false;
-
 // check for filled grid
   if (!grid.filled) {
     myerror="can't create subset from unfilled grid";
@@ -10063,7 +10056,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
     myerror="can't create subset for scanning mode "+strutils::itos(grib.scan_mode);
     exit(1);
   }
-  new_grid=*this;
+  GRIB2Grid new_grid=*this;
   new_grid.grid.src=60;
   new_grid.grib.sub_center=1;
   if (latitude_stride < 1) {
@@ -10076,10 +10069,10 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
     case Grid::latitudeLongitudeType:
     case Grid::gaussianLatitudeLongitudeType:
     {
-	dval=(def.elongitude-def.slongitude)/(dim.x-1);
+	auto lon=(def.elongitude-def.slongitude)/(dim.x-1);
 // special case of -180 to +180
 	if (static_cast<int>(west_longitude) == -180 && static_cast<int>(east_longitude) == 180) {
-	  east_longitude-=dval;
+	  east_longitude-=lon;
 	}
 	if (def.slongitude >= 0. && def.elongitude >= 0.) {
 	  if (west_longitude < 0.) {
@@ -10089,15 +10082,17 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	    east_longitude+=360.;
 	  }
 	}
-	for (m=0; m < dim.x; ++m) {
-	  fdum=def.slongitude+m*dval;
-	  if (start_x < 0 && fdum >= west_longitude) {
+	int start_x=-1,end_x=-1;
+	int start_y=-1,end_y=-1;
+	for (int m=0; m < dim.x; ++m) {
+	  auto index_longitude=def.slongitude+m*lon;
+	  if (start_x < 0 && index_longitude >= west_longitude) {
 	    start_x=m;
-	    new_grid.def.slongitude=fdum;
+	    new_grid.def.slongitude=index_longitude;
 	  }
-	  if (end_x < 0 && fdum > east_longitude) {
+	  if (end_x < 0 && index_longitude > east_longitude) {
 	    end_x=m-1;
-	    new_grid.def.elongitude=fdum-dval;
+	    new_grid.def.elongitude=index_longitude-lon;
 	  }
 	}
 	if (end_x < 0) {
@@ -10106,16 +10101,16 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	switch (def.type) {
 	  case Grid::latitudeLongitudeType:
 	  {
-	    dval=(def.slatitude-def.elatitude)/(dim.y-1);
-	    for (n=0; n < dim.y; ++n) {
-		fdum=def.slatitude-n*dval;
-		if (start_y < 0 && fdum <= north_latitude) {
+	    auto lat=(def.slatitude-def.elatitude)/(dim.y-1);
+	    for (int n=0; n < dim.y; ++n) {
+		auto index_latitude=def.slatitude-n*lat;
+		if (start_y < 0 && index_latitude <= north_latitude) {
 		  start_y=n;
-		  new_grid.def.slatitude=fdum;
+		  new_grid.def.slatitude=index_latitude;
 		}
-		if (end_y < 0 && fdum < south_latitude) {
+		if (end_y < 0 && index_latitude < south_latitude) {
 		  end_y=n-1;
-		  new_grid.def.elatitude=fdum+dval;
+		  new_grid.def.elatitude=index_latitude+lat;
 		}
 	    }
 	    if (end_y < 0) {
@@ -10125,12 +10120,15 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  }
 	  case Grid::gaussianLatitudeLongitudeType:
 	  {
+	    my::map<Grid::GLatEntry> gaus_lats;
 	    if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
 		myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
 		exit(0);
 	    }
+	    Grid::GLatEntry glat_entry;
 	    gaus_lats.found(def.num_circles,glat_entry);
-	    for (n=0; n < static_cast<int>(def.num_circles*2); n++) {
+	    size_t n=0;
+	    for (; n < def.num_circles*2; ++n) {
 		if (start_y < 0 && glat_entry.lats[n] <= north_latitude) {
 		  start_y=n;
 		  new_grid.def.slatitude=glat_entry.lats[n];
@@ -10146,7 +10144,8 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	    break;
 	  }
 	}
-	if (end_x < start_x || (end_x == start_x && wlon == -(east_longitude))) {
+	auto crosses_greenwich=false;
+	if (end_x < start_x || (end_x == start_x && west_longitude == -(east_longitude))) {
 	  crosses_greenwich=true;
 	  new_grid.dim.x=end_x+(dim.x-start_x)+1;
 	  new_grid.def.slongitude-=360.;
@@ -10158,22 +10157,20 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	new_grid.dim.size=new_grid.dim.x*new_grid.dim.y;
 	new_grid.stats.min_val=Grid::missing_value;
 	new_grid.stats.max_val=-Grid::missing_value;
-	x=0;
+	auto bitmap_idx=0;
 	new_grid.grid.num_missing=0;
-	for (n=start_y; n <= end_y; ++n) {
+	for (int n=start_y; n <= end_y; ++n) {
+	  auto ex=end_x;
 	  if (crosses_greenwich) {
 	    ex=dim.x-1;
 	  }
-	  else {
-	    ex=end_x;
-	  }
-	  for (m=start_x; m <= ex; ++m) {
+	  for (int m=start_x; m <= ex; ++m) {
 	    if (new_grid.bitmap.capacity > 0) {
-		new_grid.bitmap.map[x]=bitmap.map[n*dim.x+m];
-		if (new_grid.bitmap.map[x] == 0) {
+		new_grid.bitmap.map[bitmap_idx]=bitmap.map[n*dim.x+m];
+		if (new_grid.bitmap.map[bitmap_idx] == 0) {
 		  ++new_grid.grid.num_missing;
 		}
-		++x;
+		++bitmap_idx;
 	    }
 	    new_grid.gridpoints_[n-start_y][m-start_x]=gridpoints_[n][m];
 	    if (gridpoints_[n][m] < new_grid.stats.min_val) {
@@ -10184,13 +10181,13 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	    }
 	  }
 	  if (crosses_greenwich) {
-	    for (m=0; m <= end_x; ++m) {
+	    for (int m=0; m <= end_x; ++m) {
 		if (new_grid.bitmap.capacity > 0) {
-		  new_grid.bitmap.map[x]=bitmap.map[n*dim.x+m];
-		  if (new_grid.bitmap.map[x] == 0) {
+		  new_grid.bitmap.map[bitmap_idx]=bitmap.map[n*dim.x+m];
+		  if (new_grid.bitmap.map[bitmap_idx] == 0) {
 		    ++new_grid.grid.num_missing;
 		  }
-		  ++x;
+		  ++bitmap_idx;
 		}
 		new_grid.gridpoints_[n-start_y][m+dim.x-start_x]=gridpoints_[n][m];
 		if (gridpoints_[n][m] < new_grid.stats.min_val) {
@@ -11703,7 +11700,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
     {
 	std::vector<GRIB2Grid::StatisticalProcessRange> spranges=grid->statistical_process_ranges();
 	product_description="";
-	for (size_t n=0; n < spranges.size(); n++) {
+	for (size_t n=0; n < spranges.size(); ++n) {
 	  if (!product_description.empty()) {
 	    product_description+=" of ";
 	  }
