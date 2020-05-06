@@ -41,17 +41,19 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
     }
     auto num_contributors=0;
     while (query.fetch_row(row)) {
-	auto name_parts=strutils::split(row[0]," > ");
-	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
-	  auto contact_parts=strutils::split(row[1],",");
-	  if (contact_parts.size() > 0) {
-	    ofs << "<meta name=\"DC.creator\" content\"" << contact_parts.front() << "\" />" << std::endl;
+	if (!row[0].empty()) {
+	  auto name_parts=strutils::split(row[0]," > ");
+	  if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+	    auto contact_parts=strutils::split(row[1],",");
+	    if (contact_parts.size() > 0) {
+		ofs << "<meta name=\"DC.creator\" content\"" << contact_parts.front() << "\" />" << std::endl;
+		++num_contributors;
+	    }
+	  }
+	  else {
+	    ofs << "<meta name=\"DC.creator\" content=\"" << strutils::substitute(name_parts.back(),", ","/") << "\" />" << std::endl;
 	    ++num_contributors;
 	  }
-	}
-	else {
-	  ofs << "<meta name=\"DC.creator\" content=\"" << strutils::substitute(name_parts.back(),", ","/") << "\" />" << std::endl;
-	  ++num_contributors;
 	}
     }
     if (num_contributors == 0) {
