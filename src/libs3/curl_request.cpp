@@ -55,7 +55,17 @@ int debug_callback(CURL *handle,curl_infotype type,char *data,size_t size,void *
   return 0;
 }
 
-size_t header_callback(char *buffer,size_t size,size_t nitems,void *userdata)
+size_t full_header_callback(char *buffer,size_t size,size_t nitems,void *userdata)
+{
+  std::string header(buffer,size*nitems);
+  if (header.find(":") != std::string::npos) {
+    std::string *s=reinterpret_cast<std::string *>(userdata);
+    s->append(header);
+  }
+  return size*nitems;
+}
+
+size_t etag_header_callback(char *buffer,size_t size,size_t nitems,void *userdata)
 {
   static std::regex etag_re("^ETag:");
   std::string header(buffer,size*nitems);
@@ -81,7 +91,7 @@ std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canon
   curl_easy_setopt(curl_handle,CURLOPT_WRITEFUNCTION,handle_s3_response);
   std::string server_response;
   curl_easy_setopt(curl_handle,CURLOPT_WRITEDATA,&server_response);
-  curl_easy_setopt(curl_handle,CURLOPT_HEADERFUNCTION,header_callback);
+  curl_easy_setopt(curl_handle,CURLOPT_HEADERFUNCTION,etag_header_callback);
   curl_easy_setopt(curl_handle,CURLOPT_HEADERDATA,&server_response);
   struct curl_slist *header_list=nullptr;
   header_list=curl_slist_append(header_list,("Authorization: AWS4-HMAC-SHA256 Credential="+access_key+"/"+canonical_request.date()+"/"+region+"/s3/"+terminal+", SignedHeaders="+canonical_request.signed_headers()+", Signature="+signature).c_str());
@@ -134,6 +144,11 @@ curl_easy_setopt(curl_handle,CURLOPT_VERBOSE,1);
 curl_easy_setopt(curl_handle,CURLOPT_DEBUGFUNCTION,debug_callback);
 */
   }
+  else if (canonical_request.method() == "HEAD") {
+    curl_easy_setopt(curl_handle,CURLOPT_CUSTOMREQUEST,"HEAD");
+    curl_easy_setopt(curl_handle,CURLOPT_NOBODY,1);
+    curl_easy_setopt(curl_handle,CURLOPT_HEADERFUNCTION,full_header_callback);
+  }
   else {
     throw std::runtime_error("invalid request method '"+canonical_request.method()+"'");
   }
@@ -144,6 +159,58 @@ curl_easy_setopt(curl_handle,CURLOPT_DEBUGFUNCTION,debug_callback);
   if (fp != nullptr) {
     fclose(fp);
   }
+  return server_response;
+}
+
+size_t write_to_buffer(char *ptr,size_t size,size_t nmemb,void *vector_address)
+{
+  size_t num_bytes=nmemb*size;
+  std::vector<unsigned char> *v=reinterpret_cast<std::vector<unsigned char> *>(vector_address);
+  auto curr_size=v->size();
+  v->resize(curr_size+num_bytes);
+  std::copy(ptr,ptr+num_bytes,&(*v)[curr_size]);
+  return num_bytes;
+}
+
+std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canonical_request,std::string access_key,std::string region,std::string terminal,std::string signature,std::unique_ptr<unsigned char[]>& buffer)
+{
+  static char error_buffer[CURL_ERROR_SIZE];
+  curl_easy_reset(curl_handle);
+  curl_easy_setopt(curl_handle,CURLOPT_ERRORBUFFER,error_buffer);
+  curl_easy_setopt(curl_handle,CURLOPT_WRITEFUNCTION,handle_s3_response);
+  std::string server_response;
+  curl_easy_setopt(curl_handle,CURLOPT_WRITEDATA,&server_response);
+  curl_easy_setopt(curl_handle,CURLOPT_HEADERFUNCTION,etag_header_callback);
+  curl_easy_setopt(curl_handle,CURLOPT_HEADERDATA,&server_response);
+  struct curl_slist *header_list=nullptr;
+  header_list=curl_slist_append(header_list,("Authorization: AWS4-HMAC-SHA256 Credential="+access_key+"/"+canonical_request.date()+"/"+region+"/s3/"+terminal+", SignedHeaders="+canonical_request.signed_headers()+", Signature="+signature).c_str());
+  auto headers=strutils::split(canonical_request.headers(),"\n");
+  for (const auto& header : headers) {
+    header_list=curl_slist_append(header_list,header.c_str());
+  }
+  curl_easy_setopt(curl_handle,CURLOPT_HTTPHEADER,header_list);
+  std::string url="http://"+canonical_request.host()+canonical_request.uri();
+  if (!canonical_request.query_string().empty()) {
+    url+="?"+canonical_request.query_string();
+  }
+  curl_easy_setopt(curl_handle,CURLOPT_URL,url.c_str());
+  std::vector<unsigned char> v;
+  if (canonical_request.method() == "GET") {
+    curl_easy_setopt(curl_handle,CURLOPT_WRITEFUNCTION,write_to_buffer);
+    curl_easy_setopt(curl_handle,CURLOPT_WRITEDATA,&v);
+    if (!canonical_request.range_bytes().empty()) {
+	curl_easy_setopt(curl_handle,CURLOPT_RANGE,canonical_request.range_bytes().c_str());
+    }
+  }
+  else {
+    throw std::runtime_error("invalid request method '"+canonical_request.method()+"'");
+  }
+  auto status=curl_easy_perform(curl_handle);
+  if (status != CURLE_OK) {
+    throw std::runtime_error("curl error code: "+strutils::itos(status)+", error message: "+error_buffer);
+  }
+  buffer.reset(new unsigned char[v.size()]);
+  std::copy(v.begin(),v.end(),buffer.get());
   return server_response;
 }
 
