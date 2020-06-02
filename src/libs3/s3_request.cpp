@@ -13,7 +13,8 @@ CanonicalRequest::CanonicalRequest(std::string method,std::string uri,std::strin
 
 std::string CanonicalRequest::hashed() const
 {
-  return uhash_to_string(sha256(method_+"\n"+uri_+"\n"+query_string_+"\n"+headers_+"\n\n"+signed_headers_+"\n"+payload_hash_),32);
+  unsigned char message_digest[32];
+  return uhash_to_string(sha256(method_+"\n"+uri_+"\n"+query_string_+"\n"+headers_+"\n\n"+signed_headers_+"\n"+payload_hash_,message_digest),32);
 }
 
 void CanonicalRequest::reset(std::string method,std::string uri,std::string host,std::string payload,PayloadType payload_type)
@@ -36,11 +37,12 @@ void CanonicalRequest::reset(std::string method,std::string uri,std::string host
     payload_hash_="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
   }
   else {
+    unsigned char message_digest[32];
     if (payload_type_ == PayloadType::STRING_) {
-	payload_hash_=uhash_to_string(sha256(payload_),32);
+	payload_hash_=uhash_to_string(sha256(payload_,message_digest),32);
     }
     else if (payload_type_ == PayloadType::FILE_) {
-	payload_hash_=uhash_to_string(sha256_file(payload_),32);
+	payload_hash_=uhash_to_string(sha256_file(payload_,message_digest),32);
     }
   }
   headers_+=payload_hash_;
