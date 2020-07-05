@@ -24,7 +24,7 @@ bool open_ds_overview(XMLDocument& xdoc,std::string dsnum)
     if (!temp_dir.create("/tmp")) {
 	return false;
     }
-    fname=unixutils::remote_web_file("http://rda.ucar.edu/datasets/ds"+dsnum+"/metadata/dsOverview.xml",temp_dir.name());
+    fname=unixutils::remote_web_file("https://rda.ucar.edu/datasets/ds"+dsnum+"/metadata/dsOverview.xml",temp_dir.name());
   }
   if (xdoc.open(fname)) {
     return true;
@@ -157,7 +157,7 @@ std::string formatted_access_date(std::string access_date,bool htmlized)
   return formatted_access_date_;
 }
 
-std::string citation(std::string dsnum,std::string style,std::string access_date,MySQL::Row& row,XMLSnippet& xsnip,MySQL::Server& server,bool htmlized)
+std::string citation(std::string dsnum,std::string style,std::string access_date,const MySQL::Row& row,XMLSnippet& xsnip,MySQL::Server& server,bool htmlized)
 {
   std::string citation;
   style=strutils::to_lower(style);
@@ -184,7 +184,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
-	citation+="http://rda.ucar.edu/datasets/ds"+dsnum+"/";
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
     }
     citation+=". "+formatted_access_date(access_date,htmlized);
   }
@@ -194,7 +194,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
-	citation+="http://rda.ucar.edu/datasets/ds"+dsnum+"/";
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
     }
     citation+=", "+DATA_CENTER+", Boulder, Colo.";
     auto e=xsnip.element("dsOverview/continuingUpdate");
@@ -209,9 +209,19 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
-	citation+="http://rda.ucar.edu/datasets/ds"+dsnum+"/";
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
     }
     citation+=".] "+formatted_access_date(access_date,htmlized);
+  }
+  else if (style == "copernicus") {
+    citation=list_authors(xsnip,server,32768,"",false)+": "+row[0]+", "+DATA_CENTER+", ";
+    if (!row[2].empty()) {
+	citation+=DOI_URL_BASE+"/"+row[2];
+    }
+    else {
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
+    }
+    citation+=", "+row[1].substr(0,4)+". "+formatted_access_date(access_date,htmlized);
   }
   else if (style == "datacite") {
     citation=list_authors(xsnip,server,32768,"",false)+" ("+row[1].substr(0,4)+"): "+row[0]+". "+DATA_CENTER+". Dataset. ";
@@ -219,7 +229,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
-	citation+="http://rda.ucar.edu/datasets/ds"+dsnum+"/";
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
     }
     citation+=". "+formatted_access_date(access_date,htmlized);
   }
@@ -229,7 +239,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	citation+=DOI_URL_BASE+"/"+row[2];
     }
     else {
-	citation+="http://rda.ucar.edu/datasets/ds"+dsnum+"/";
+	citation+="https://rda.ucar.edu/datasets/ds"+dsnum+"/";
     }
     citation+=". "+formatted_access_date(access_date,htmlized);
   }
@@ -252,6 +262,11 @@ std::string add_citation_style_changer(std::string style)
     style_changer+=" selected";
   }
   style_changer+=">American Meteorological Society (AMS)</option>";
+  style_changer+="<option value=\"copernicus\"";
+  if (style == "copernicus") {
+    style_changer+=" selected";
+  }
+  style_changer+=">Copernicus Publications</option>";
   style_changer+="<option value=\"datacite\"";
   if (style == "datacite") {
     style_changer+=" selected";
@@ -286,7 +301,6 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
   if (open_ds_overview(xdoc,dsparts[0])) {
     MySQL::LocalQuery query;
     query.set("select s.title,s.pub_date,d.doi,min(d.start_date) sd,max(d.end_date) ed,group_concat(d.status) from search.datasets as s left join dssdb.dsvrsn as d on d.dsid = concat('ds',s.dsid) where s.dsid = '"+dsparts[0]+"' and (d.status in ('A','H') or isnull(d.doi)) group by d.doi order by locate('A',group_concat(d.status)) desc,sd desc");
-    MySQL::Row row;
     if (query.submit(server) == 0) {
 	if (query.num_rows() > 1) {
 	  if (htmlized) {
@@ -295,7 +309,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	  citation_+="<img src=\"/images/alert.gif\" width=\"12\" height=\"12\" />&nbsp;This dataset has more than one DOI. You are viewing the citation for data downloaded <form name=\"doi_select\" style=\"display: inline\"><select name=\"doi\" onChange=\"changeCitation()\">";
 	  std::string cm;
 	  auto is_first=true;
-	  while (query.fetch_row(row)) {
+	  for (const auto& row : query) {
 	    if (is_first && std::regex_search(row[5],std::regex("A"))) {
 		citation_+="<option value=\""+row[2]+"\"";
 		if (row[2] == doi) {
@@ -317,6 +331,7 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	  }
 	  if (cm.empty()) {
 	    query.rewind();
+	    MySQL::Row row;
 	    query.fetch_row(row);
 	    cm=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
 	  }
@@ -326,8 +341,11 @@ std::string citation(std::string dsnum,std::string style,std::string access_date
 	  }
 	  citation_+=cm;
 	}
-	else if (query.fetch_row(row)) {
-	  citation_+=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
+	else {
+	  MySQL::Row row;
+	  if (query.fetch_row(row)) {
+	    citation_+=citation(dsparts[0],style,access_date,row,xdoc,server,htmlized);
+	  }
 	}
     }
     if (htmlized) {
@@ -431,7 +449,7 @@ void export_to_ris(std::ostream& ofs,std::string dsnum,std::string access_date,M
 	  ofs << "UR  - " << DOI_URL_BASE << "/" << row[3] << "\r" << std::endl;
 	}
 	else {
-	  ofs << "UR  - http://rda.ucar.edu/datasets/ds" << dsnum << "/\r" << std::endl;
+	  ofs << "UR  - https://rda.ucar.edu/datasets/ds" << dsnum << "/\r" << std::endl;
 	}
     }
     ofs << "PB  - " << DATA_CENTER << "\r" << std::endl;
@@ -449,7 +467,7 @@ void export_to_bibtex(std::ostream& ofs,std::string dsnum,std::string access_dat
 {
   XMLDocument xdoc;
   if (open_ds_overview(xdoc,dsnum)) {
-    ofs << "@misc{cisl_rda_ds" << dsnum << std::endl;
+    ofs << "@misc{cisl_rda_ds" << dsnum << "," << std::endl;
     ofs << " author = \"";
     auto elist=xdoc.element_list("dsOverview/author");
     auto n=0;
@@ -468,14 +486,16 @@ void export_to_bibtex(std::ostream& ofs,std::string dsnum,std::string access_dat
 	}
     }
     else {
-	elist=xdoc.element_list("dsOverview/contributor");
-	for (const auto& e : elist) {
-	  if (n > 0) {
-	    ofs << " and ";
+	MySQL::LocalQuery query("select g.path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD' and c.citable = 'Y' order by c.disp_order");
+	if (query.submit(server) == 0) {
+	  for (const auto& row : query) {
+	    if (n > 0) {
+		ofs << " and ";
+	    }
+	    auto path_parts=strutils::split(row[0]," > ");
+	    ofs << path_parts.back();
+	    ++n;
 	  }
-	  auto nparts=strutils::split(e.attribute_value("name")," > ");
-	  ofs << nparts[1];
-	  ++n;
 	}
     }
     ofs << "\"," << std::endl;
@@ -490,7 +510,7 @@ void export_to_bibtex(std::ostream& ofs,std::string dsnum,std::string access_dat
 	  ofs << " url = \"" << DOI_URL_BASE << "/" << row[3] << "\"" << std::endl;
 	}
 	else {
-	  ofs << " url = \"http://rda.ucar.edu/datasets/ds" << dsnum << "/\"" << std::endl;
+	  ofs << " url = \"https://rda.ucar.edu/datasets/ds" << dsnum << "/\"" << std::endl;
 	}
     }
     ofs << "}" << std::endl;
