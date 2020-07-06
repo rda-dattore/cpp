@@ -493,7 +493,7 @@ void export_to_bibtex(std::ostream& ofs,std::string dsnum,std::string access_dat
 		ofs << " and ";
 	    }
 	    auto path_parts=strutils::split(row[0]," > ");
-	    ofs << path_parts.back();
+	    ofs << "{" << path_parts.back() << "}";
 	    ++n;
 	  }
 	}
