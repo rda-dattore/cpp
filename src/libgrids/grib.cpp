@@ -9317,6 +9317,14 @@ std::string GRIB2Grid::parameter_units(xmlutils::ParameterMapper& parameter_mapp
   return parameter_mapper.units("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param));
 }
 
+void GRIB2Grid::set_data_representation(unsigned short data_representation_code)
+{
+  if (data_representation_code == 0 && data_representation_code != grib2.data_rep) {
+    this->set_scale_and_packing_width(this->grib.D,32);
+  }
+  grib2.data_rep=data_representation_code;
+}
+
 void GRIB2Grid::compute_mean()
 {
 //  double cnt;
