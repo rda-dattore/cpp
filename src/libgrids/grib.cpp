@@ -28,8 +28,7 @@ int InputGRIBStream::peek()
 	return bfstream::error;
     }
     switch (static_cast<int>(buffer[7])) {
-	case 0:
-	{
+	case 0: {
 	  len=4;
 	  fs.seekg(curr_offset+4,std::ios_base::beg);
 	  fs.read(reinterpret_cast<char *>(buffer),3);
@@ -58,8 +57,7 @@ int InputGRIBStream::peek()
 	  len+=4;
 	  break;
 	}
-	case 1:
-	{
+	case 1: {
 	  bits::get(buffer,len,32,24);
 	  if (len >= 0x800000) {
 // check for ECMWF large-file
@@ -107,13 +105,11 @@ int InputGRIBStream::peek()
 	  }
 	  break;
 	}
-	case 2:
-	{
+	case 2: {
 	  bits::get(buffer,len,96,32);
 	  break;
 	}
-	default:
-	{
+	default: {
 	  return peek();
 	}
     }
@@ -142,8 +138,7 @@ int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
 	}
     }
     switch (static_cast<int>(buffer[7])) {
-	case 0:
-	{
+	case 0: {
 	  fs.read(reinterpret_cast<char *>(&buffer[16]),15);
 	  bytes_read+=fs.gcount();
 	  if (bytes_read != 31) {
@@ -176,8 +171,7 @@ int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
 	  bytes_read+=fs.gcount();
 	  break;
 	}
-	case 1:
-	{
+	case 1: {
 	  bits::get(buffer,len,32,24);
 	  if (len > static_cast<int>(buffer_length)) {
 	    myerror="GRIB1 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
@@ -268,8 +262,7 @@ int InputGRIBStream::read(unsigned char *buffer,size_t buffer_length)
 	  }
 	  break;
 	}
-	case 2:
-	{
+	case 2: {
 	  bits::get(buffer,len,96,32);
 	  if (len > static_cast<int>(buffer_length)) {
 	    myerror="GRIB2 length "+strutils::itos(len)+" overflows buffer length "+strutils::itos(buffer_length)+" on record "+strutils::itos(num_read+1);
@@ -295,8 +288,7 @@ exit(1);
 	  }
 	  break;
 	}
-	default:
-	{
+	default: {
 	  return read(buffer,buffer_length);
 	}
     }
@@ -467,8 +459,7 @@ void GRIBMessage::append_grid(const Grid *grid)
   Grid *g=nullptr;
   switch (edition_) {
     case 0:
-    case 1:
-    {
+    case 1: {
 	g=new GRIBGrid;
 	*(reinterpret_cast<GRIBGrid *>(g))=*(reinterpret_cast<GRIBGrid *>(const_cast<Grid *>(grid)));
 	if (reinterpret_cast<GRIBGrid *>(g)->bitmap.applies) {
@@ -476,8 +467,7 @@ void GRIBMessage::append_grid(const Grid *grid)
 	}
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	g=new GRIB2Grid;
 	*(reinterpret_cast<GRIB2Grid *>(g))=*(reinterpret_cast<GRIB2Grid *>(const_cast<Grid *>(grid)));
 	break;
@@ -498,8 +488,7 @@ void GRIBMessage::convert_to_grib1()
   }
   auto g=reinterpret_cast<GRIBGrid *>(grids.front().get());
   switch (edition_) {
-    case 0:
-    {
+    case 0: {
 	lengths_.is=8;
 	lengths_.pds=28;
 	edition_=1;
@@ -523,13 +512,11 @@ void GRIBMessage::convert_to_grib1()
 void GRIBMessage::pack_length(unsigned char *output_buffer) const
 {
   switch (edition_) {
-    case 1:
-    {
+    case 1: {
 	bits::set(output_buffer,mlength,32,24);
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	bits::set(output_buffer,mlength,64,64);
 	break;
     }
@@ -540,22 +527,19 @@ void GRIBMessage::pack_is(unsigned char *output_buffer,off_t& offset,Grid *g) co
 {
   bits::set(output_buffer,0x47524942,0,32);
   switch (edition_) {
-    case 1:
-    {
+    case 1: {
 	bits::set(output_buffer,edition_,56,8);
 	offset=8;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	bits::set(output_buffer,0,32,16);
 	bits::set(output_buffer,(reinterpret_cast<GRIB2Grid *>(g))->discipline(),48,8);
 	bits::set(output_buffer,edition_,56,8);
 	offset=16;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to encode GRIB "+strutils::itos(edition_);
 	exit(1);
     }
@@ -605,8 +589,7 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
   bits::set(output_buffer,g->grid.param,off+64,8);
   bits::set(output_buffer,g->grid.level1_type,off+72,8);
   switch (g->grid.level1_type) {
-    case 101:
-    {
+    case 101: {
 	dum=g->grid.level1/10.;
 	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2/10.;
@@ -614,38 +597,33 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
 	break;
     }
     case 107:
-    case 119:
-    {
+    case 119: {
 	dum=g->grid.level1*10000.;
 	bits::set(output_buffer,dum,off+80,16);
 	break;
     }
-    case 108:
-    {
+    case 108: {
 	dum=g->grid.level1*100.;
 	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2*100.;
 	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
-    case 114:
-    {
+    case 114: {
 	dum=475.-(g->grid.level1);
 	bits::set(output_buffer,dum,off+80,8);
 	dum=475.-(g->grid.level2);
 	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
-    case 128:
-    {
+    case 128: {
 	dum=(1.1-(g->grid.level1))*1000.;
 	bits::set(output_buffer,dum,off+80,8);
 	dum=(1.1-(g->grid.level2))*1000.;
 	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
-    case 141:
-    {
+    case 141: {
 	dum=g->grid.level1/10.;
 	bits::set(output_buffer,dum,off+80,8);
 	dum=1100.-(g->grid.level2);
@@ -658,16 +636,14 @@ void GRIBMessage::pack_pds(unsigned char *output_buffer,off_t& offset,Grid *grid
     case 112:
     case 116:
     case 120:
-    case 121:
-    {
+    case 121: {
 	dum=g->grid.level1;
 	bits::set(output_buffer,dum,off+80,8);
 	dum=g->grid.level2;
 	bits::set(output_buffer,dum,off+88,8);
 	break;
     }
-    default:
-    {
+    default: {
 	dum=g->grid.level1;
 	bits::set(output_buffer,dum,off+80,16);
     }
@@ -723,8 +699,7 @@ bits::set(output_buffer,255,off+32,8);
   bits::set(output_buffer,g->grid.grid_type,off+40,8);
   switch (g->grid.grid_type) {
     case 0:
-    case 4:
-    {
+    case 4: {
 // Latitude/Longitude
 // Gaussian Lat/Lon
 	bits::set(output_buffer,g->dim.x,off+48,16);
@@ -798,8 +773,7 @@ bits::set(output_buffer,255,off+32,8);
 	break;
     }
     case 3:
-    case 5:
-    {
+    case 5: {
 // Lambert Conformal
 // Polar Stereographic
 	bits::set(output_buffer,g->dim.x,off+48,16);
@@ -899,8 +873,7 @@ void GRIBMessage::pack_bms(unsigned char *output_buffer,off_t& offset,Grid *grid
 
   switch (edition_) {
     case 0:
-    case 1:
-    {
+    case 1: {
 	g=reinterpret_cast<GRIBGrid *>(grid);
 	ub=8-(g->dim.size % 8);
 	bits::set(output_buffer,ub,off+24,8);
@@ -910,8 +883,7 @@ bits::set(output_buffer,0,off+32,16);
 	offset+=(g->dim.size+7)/8+6;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	g2=reinterpret_cast<GRIB2Grid *>(grid);
 	bits::set(output_buffer,6,off+32,8);
 	if (g2->bitmap.applies) {
@@ -995,8 +967,7 @@ void GRIBMessage::pack_bds(unsigned char *output_buffer,off_t& offset,Grid *grid
 	  case 24:
 	  case 26:
 	  case 63:
-	  case 64:
-	  {
+	  case 64: {
 //	    packed[cnt]=lroundf(((double)g->grid.pole-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 	    ++cnt;
@@ -1007,8 +978,7 @@ packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
     switch (g->grid.grid_type) {
 	case 0:
 	case 3:
-	case 4:
-	{
+	case 4: {
 	  for (n=0; n < g->dim.y; ++n) {
 	    for (m=0; m < g->dim.x; ++m) {
 		if (!floatutils::myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
@@ -1024,8 +994,7 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
 		case 22:
 		case 25:
 		case 61:
-		case 62:
-		{
+		case 62: {
 //		  packed[cnt]=lroundf(((double)g->grid.pole-(double)g->stats.min_val)*d/e);
 packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 		  break;
@@ -1034,8 +1003,7 @@ packed[cnt]=lround((lround(g->grid.pole*d)-lround(g->stats.min_val*d))/e);
 	  }
 	  break;
 	}
-	case 5:
-	{
+	case 5: {
 	  for (n=0; n < g->dim.y; ++n) {
 	    for (m=0; m < g->dim.x; ++m) {
 		if (!floatutils::myequalf(g->gridpoints_[n][m],Grid::missing_value)) {
@@ -1047,8 +1015,7 @@ packed[cnt]=lround((lround(g->gridpoints_[n][m]*d)-lround(g->stats.min_val*d))/e
 	  }
 	  break;
 	}
-	default:
-	{
+	default: {
 	  std::cerr << "Warning: pack_bds does not recognize grid type " << g->grid.grid_type << std::endl;
 	}
     }
@@ -1131,19 +1098,16 @@ void GRIBMessage::unpack_is(const unsigned char *stream_buffer)
   }
   bits::get(stream_buffer,edition_,56,8);
   switch (edition_) {
-    case 0:
-    {
+    case 0: {
 	mlength=lengths_.is=offsets_.is=curr_off=4;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	bits::get(stream_buffer,mlength,32,24);
 	lengths_.is=offsets_.is=curr_off=8;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	bits::get(stream_buffer,mlength,64,64);
 	lengths_.is=offsets_.is=curr_off=16;
 	break;
@@ -1175,8 +1139,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->grib.scan_mode=0x40;
   if (g->grid.src == 7) {
     switch (g->grib.grid_catalog_id) {
-	case 21:
-	{
+	case 21: {
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1188,8 +1151,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 22:
-	{
+	case 22: {
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1201,8 +1163,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 23:
-	{
+	case 23: {
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1214,8 +1175,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 24:
-	{
+	case 24: {
 	  g->dim.y=36;
 	  g->dim.x=37;
 	  g->dim.size=1333;
@@ -1227,8 +1187,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 25:
-	{
+	case 25: {
 	  g->dim.y=18;
 	  g->dim.x=72;
 	  g->dim.size=1297;
@@ -1240,8 +1199,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 26:
-	{
+	case 26: {
 	  g->dim.y=18;
 	  g->dim.x=72;
 	  g->dim.size=1297;
@@ -1253,8 +1211,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=5.;
 	  break;
 	}
-	case 61:
-	{
+	case 61: {
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1266,8 +1223,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 62:
-	{
+	case 62: {
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1279,8 +1235,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 63:
-	{
+	case 63: {
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1292,8 +1247,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	case 64:
-	{
+	case 64: {
 	  g->dim.y=45;
 	  g->dim.x=91;
 	  g->dim.size=4096;
@@ -1305,8 +1259,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	  g->def.loincrement=2.;
 	  break;
 	}
-	default:
-	{
+	default: {
 	  g->grib.scan_mode=0x0;
 	}
     }
@@ -1339,16 +1292,14 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
     case 125:
     case 160:
     case 200:
-    case 201:
-    {
+    case 201: {
 	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum;
 	g->grid.level2=0.;
 	g->grid.level2_type=-1;
 	break;
     }
-    case 101:
-    {
+    case 101: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1357,8 +1308,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	break;
     }
     case 107:
-    case 119:
-    {
+    case 119: {
 	bits::get(stream_buffer,dum,off+80,16);
 	g->grid.level1=dum/10000.;
 	g->grid.level2=0.;
@@ -1366,8 +1316,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	break;
     }
     case 108:
-    case 120:
-    {
+    case 120: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum/100.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1375,8 +1324,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 114:
-    {
+    case 114: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=475.-dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1384,8 +1332,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 121:
-    {
+    case 121: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1100.-dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1393,8 +1340,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 128:
-    {
+    case 128: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=1.1-dum/1000.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1402,8 +1348,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    case 141:
-    {
+    case 141: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum*10.;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1411,8 +1356,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grid.level2_type=g->grid.level1_type;
 	break;
     }
-    default:
-    {
+    default: {
 	bits::get(stream_buffer,dum,off+80,8);
 	g->grid.level1=dum;
 	bits::get(stream_buffer,dum,off+88,8);
@@ -1428,8 +1372,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   hr=hr*100+min;
   bits::get(stream_buffer,g->grib.time_unit,off+136,8);
   switch (edition_) {
-    case 0:
-    {
+    case 0: {
 	if (yr > 20) {
 	  yr+=1900;
 	}
@@ -1440,8 +1383,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	g->grib.D=0;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	bits::get(stream_buffer,g->grib.century,off+192,8);
 	yr=yr+(g->grib.century-1)*100;
 	bits::get(stream_buffer,g->grib.sub_center,off+200,8);
@@ -1457,13 +1399,11 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   g->grid.nmean=g->grib.nmean_missing=0;
   g->grib.p2=0;
   switch (g->grib.t_range) {
-    case 10:
-    {
+    case 10: {
 	bits::get(stream_buffer,g->grib.p1,off+144,16);
 	break;
     }
-    default:
-    {
+    default: {
 	bits::get(stream_buffer,g->grib.p1,off+144,8);
 	bits::get(stream_buffer,g->grib.p2,off+152,8);
 	bits::get(stream_buffer,g->grid.nmean,off+168,16);
@@ -1493,50 +1433,41 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 // NCEP ensemble grids are described in the PDS extension
     if (g->grid.src == 7 && g->grib.sub_center == 2 && pds_supp[0] == 1) {
 	switch (pds_supp[1]) {
-	  case 1:
-	  {
+	  case 1: {
 	    switch (pds_supp[2]) {
-		case 1:
-		{
+		case 1: {
 		  g->ensdata.fcst_type="HRCTL";
 		  break;
 		}
-		case 2:
-		{
+		case 2: {
 		  g->ensdata.fcst_type="LRCTL";
 		  break;
 		}
 	    }
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    g->ensdata.fcst_type="NEG";
 	    g->ensdata.id=strutils::itos(pds_supp[2]);
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 	    g->ensdata.fcst_type="POS";
 	    g->ensdata.id=strutils::itos(pds_supp[2]);
 	    break;
 	  }
-	  case 5:
-	  {
+	  case 5: {
 	    g->ensdata.id="ALL";
 	    switch (static_cast<int>(pds_supp[3])) {
-		case 1:
-		{
+		case 1: {
 		  g->ensdata.fcst_type="UNWTD_MEAN";
 		  break;
 		}
-		case 11:
-		{
+		case 11: {
 		  g->ensdata.fcst_type="STDDEV";
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="PDS byte 44 value "+std::string(&(reinterpret_cast<char *>(pds_supp.get()))[3],1)+" not recognized";
 		  exit(1);
 		}
@@ -1546,8 +1477,7 @@ void GRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	    }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="PDS byte 42 value "+std::string(&(reinterpret_cast<char *>(pds_supp.get()))[1],1)+" not recognized";
 	    exit(1);
 	  }
@@ -1575,8 +1505,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   bits::get(stream_buffer,lengths_.gds,off,24);
   PL=0xff;
   switch (edition_) {
-    case 1:
-    {
+    case 1: {
 	bits::get(stream_buffer,PV,off+32,8);
 	if (PV != 0xff) {
 	  bits::get(stream_buffer,NV,off+24,8);
@@ -1607,34 +1536,28 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   }
   bits::get(stream_buffer,g->grid.grid_type,off+40,8);
   switch (g->grid.grid_type) {
-    case 0:
-    {
+    case 0: {
 	g->def.type=Grid::latitudeLongitudeType;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	g->def.type=Grid::mercatorType;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	g->def.type=Grid::lambertConformalType;
 	break;
     }
-    case 5:
-    {
+    case 5: {
 	g->def.type=Grid::polarStereographicType;
 	break;
     }
     case 4:
-    case 10:
-    {
+    case 10: {
 	g->def.type=Grid::gaussianLatitudeLongitudeType;
 	break;
     }
-    case 50:
-    {
+    case 50: {
 	g->def.type=Grid::sphericalHarmonicsType;
 	break;
     }
@@ -1642,8 +1565,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   switch (g->grid.grid_type) {
     case 0:
     case 4:
-    case 10:
-    {
+    case 10: {
 // Latitude/Longitude
 // Gaussian Lat/Lon
 // Rotated Lat/Lon
@@ -1717,8 +1639,7 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	break;
     }
     case 3:
-    case 5:
-    {
+    case 5: {
 // Lambert Conformal
 // Polar Stereographic
 	bits::get(stream_buffer,g->dim.x,off+48,16);
@@ -1790,16 +1711,14 @@ void GRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	}
 	break;
     }
-    case 50:
-    {
+    case 50: {
 	g->dim.x=g->dim.y=g->dim.size=1;
 	bits::get(stream_buffer,g->def.trunc1,off+48,16);
 	bits::get(stream_buffer,g->def.trunc2,off+64,16);
 	bits::get(stream_buffer,g->def.trunc3,off+80,16);
 	break;
     }
-    default:
-    {
+    default: {
 	std::cerr << "Warning: unpack_gds does not recognize data representation " << g->grid.grid_type << std::endl;
     }
   }
@@ -1816,8 +1735,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 
   offsets_.bms=curr_off;
   switch (edition_) {
-    case 1:
-    {
+    case 1: {
 	g=reinterpret_cast<GRIBGrid *>(grids.back().get());
 	bits::get(stream_buffer,lengths_.bms,off,24);
 	bits::get(stream_buffer,ind,off+32,16);
@@ -1838,8 +1756,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 	}
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
 	bits::get(stream_buffer,lengths_.bms,off,32);
 	bits::get(stream_buffer,sec_num,off+32,8);
@@ -1848,8 +1765,7 @@ void GRIBMessage::unpack_bms(const unsigned char *stream_buffer)
 	}
 	bits::get(stream_buffer,ind,off+40,8);
 	switch (ind) {
-	  case 0:
-	  {
+	  case 0: {
 // bitmap applies and is specified in this section
 	    if ( (len=(lengths_.bms-6)*8) > 0) {
 		if (len > static_cast<int>(g2->bitmap.capacity)) {
@@ -1873,20 +1789,17 @@ bits::get(stream_buffer,g2->bitmap.map,off+48,1,0,len);
 	    }
 	    break;
 	  }
-	  case 254:
-	  {
+	  case 254: {
 // bitmap has already been defined for the current GRIB2 message
 	    g2->bitmap.applies=true;
 	    break;
 	  }
-	  case 255:
-	  {
+	  case 255: {
 // bitmap does not apply to this message
 	    g2->bitmap.applies=false;
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="not currently setup to deal with pre-defined bitmaps";
 	    exit(1);
 	  }
@@ -1986,8 +1899,7 @@ void GRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_header
 	  case 0:
 	  case 3:
 	  case 4:
-	  case 5:
-	  {
+	  case 5: {
 	    if (pole_at >= 0) {
 		g->grid.pole=g->stats.min_val+pval[pole_at]*e/d;
 	    }
@@ -2142,8 +2054,7 @@ exit(1);
 	    }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    std::cerr << "Warning: unpack_bds does not recognize grid type " << g->grid.grid_type << std::endl;
 	  }
 	}
@@ -2417,18 +2328,15 @@ void GRIBMessage::initialize(short edition_number,unsigned char *pds_supplement,
 {
   edition_=edition_number;
   switch (edition_) {
-    case 0:
-    {
+    case 0: {
 	myerror="can't create GRIB0";
 	exit(1);
     }
-    case 1:
-    {
+    case 1: {
 	lengths_.is=8;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	lengths_.is=16;
 	break;
     }
@@ -2571,8 +2479,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
     case 11:
     case 12:
     case 15:
-    case 61:
-    {
+    case 61: {
 	bits::get(stream_buffer,g2->grib2.param_cat,off+72,8);
 	bits::get(stream_buffer,g2->grid.param,off+80,8);
 	bits::get(stream_buffer,g2->grib.process,off+88,8);
@@ -2634,37 +2541,30 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 	switch (g2->grib2.product_type) {
 	  case 1:
 	  case 11:
-	  case 61:
-	  {
+	  case 61: {
 	    bits::get(stream_buffer,dum,off+272,8);
 	    switch (dum) {
-		case 0:
-		{
+		case 0: {
 		  g2->ensdata.fcst_type="HRCTL";
 		  break;
 		}
-		case 1:
-		{
+		case 1: {
 		  g2->ensdata.fcst_type="LRCTL";
 		  break;
 		}
-		case 2:
-		{
+		case 2: {
 		  g2->ensdata.fcst_type="NEG";
 		  break;
 		}
-		case 3:
-		{
+		case 3: {
 		  g2->ensdata.fcst_type="POS";
 		  break;
 		}
-		case 255:
-		{
+		case 255: {
 		  g2->ensdata.fcst_type="UNK";
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="no ensemble type mapping for "+strutils::itos(dum);
 		  exit(1);
 		}
@@ -2673,8 +2573,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 	    g2->ensdata.id=strutils::itos(dum);
 	    bits::get(stream_buffer,g2->ensdata.total_size,off+288,8);
 	    switch (g2->grib2.product_type) {
-		case 61:
-		{
+		case 61: {
 		  bits::get(stream_buffer,yr,off+296,16);
 		  bits::get(stream_buffer,mo,off+312,8);
 		  bits::get(stream_buffer,dy,off+320,8);
@@ -2684,8 +2583,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
 		  g2->grib2.modelv_date.set(yr,mo,dy,hr*10000+min*100+sec);
 		  off+=56;
 		}
-		case 11:
-		{
+		case 11: {
 		  bits::get(stream_buffer,yr,off+296,16);
 		  bits::get(stream_buffer,mo,off+312,8);
 		  bits::get(stream_buffer,dy,off+320,8);
@@ -2712,47 +2610,38 @@ exit(1);
 	    break;
 	  }
 	  case 2:
-	  case 12:
-	  {
+	  case 12: {
 	    bits::get(stream_buffer,dum,off+272,8);
 	    switch (dum) {
-		case 0:
-		{
+		case 0: {
 		  g2->ensdata.fcst_type="UNWTD_MEAN";
 		  break;
 		}
-		case 1:
-		{
+		case 1: {
 		  g2->ensdata.fcst_type="WTD_MEAN";
 		  break;
 		}
-		case 2:
-		{
+		case 2: {
 		  g2->ensdata.fcst_type="STDDEV";
 		  break;
 		}
-		case 3:
-		{
+		case 3: {
 		  g2->ensdata.fcst_type="STDDEV_NORMED";
 		  break;
 		}
-		case 4:
-		{
+		case 4: {
 		  g2->ensdata.fcst_type="SPREAD";
 		  break;
 		}
-		case 5:
-		{
+		case 5: {
 		  g2->ensdata.fcst_type="LRG_ANOM_INDEX";
 		  break;
 		}
-		case 6:
-		{
+		case 6: {
 		  g2->ensdata.fcst_type="UNWTD_MEAN";
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="no ensemble type mapping for "+strutils::itos(dum);
 		  exit(1);
 		}
@@ -2760,8 +2649,7 @@ exit(1);
 	    g2->ensdata.id="ALL";
 	    bits::get(stream_buffer,g2->ensdata.total_size,off+280,8);
 	    switch (g2->grib2.product_type) {
-		case 12:
-		{
+		case 12: {
 		  bits::get(stream_buffer,yr,off+288,16);
 		  bits::get(stream_buffer,mo,off+304,8);
 		  bits::get(stream_buffer,dy,off+312,8);
@@ -2787,8 +2675,7 @@ exit(1);
 	    }
 	    break;
 	  }
-	  case 8:
-	  {
+	  case 8: {
 	    bits::get(stream_buffer,yr,off+272,16);
 	    bits::get(stream_buffer,mo,off+288,8);
 	    bits::get(stream_buffer,dy,off+296,8);
@@ -2821,8 +2708,7 @@ exit(1);
 	    }
 	    break;
 	  }
-	  case 15:
-	  {
+	  case 15: {
 	    bits::get(stream_buffer,g2->grib2.spatial_process.stat_process,off+272,8);
 	    bits::get(stream_buffer,g2->grib2.spatial_process.type,off+280,8);
 	    bits::get(stream_buffer,g2->grib2.spatial_process.num_points,off+288,8);
@@ -2831,39 +2717,32 @@ exit(1);
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="product template "+strutils::itos(g2->grib2.product_type)+" not recognized";
 	exit(1);
     }
   }
   switch (g2->grib.time_unit) {
-case 0:
-{
+case 0: {
 break;
 }
-    case 1:
-    {
+    case 1: {
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	ddum=g2->reference_date_time_.months_added(g2->grid.fcst_time);
 	g2->grid.fcst_time=ddum.hours_since(g2->reference_date_time_);
 	break;
     }
-    case 11:
-    {
+    case 11: {
 	g2->grid.fcst_time*=6;
 	break;
     }
-    case 12:
-    {
+    case 12: {
 	g2->grid.fcst_time*=12;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to adjust valid time for time units "+strutils::itos(g2->grib.time_unit);
 	exit(1);
     }
@@ -2927,8 +2806,7 @@ bits::set(output_buffer,0,off+40,16);
     case 2:
     case 8:
     case 11:
-    case 12:
-    {
+    case 12: {
 	bits::set(output_buffer,g2->grib2.param_cat,off+72,8);
 	bits::set(output_buffer,g2->grid.param,off+80,8);
 	bits::set(output_buffer,g2->grib.process,off+88,8);
@@ -3026,26 +2904,22 @@ bits::set(output_buffer,0,off+40,16);
 	  bits::set(output_buffer,sign,off+240,1);
 	}
 	switch (g2->grib2.product_type) {
-	  case 0:
-	  {
+	  case 0: {
 	    bits::set(output_buffer,34,off,32);
 	    offset+=34;
 	    break;
 	  }
 	  case 1:
-	  case 11:
-	  {
+	  case 11: {
 std::cerr << "unable to finish packing PDS for product type " << g2->grib2.product_type << std::endl;
 	    break;
 	  }
 	  case 2:
-	  case 12:
-	  {
+	  case 12: {
 std::cerr << "unable to finish packing PDS for product type " << g2->grib2.product_type << std::endl;
 	    break;
 	  }
-	  case 8:
-	  {
+	  case 8: {
 	    bits::set(output_buffer,g2->grib2.stat_period_end.year(),off+272,16);
 	    bits::set(output_buffer,g2->grib2.stat_period_end.month(),off+288,8);
 	    bits::set(output_buffer,g2->grib2.stat_period_end.day(),off+296,8);
@@ -3107,36 +2981,30 @@ exit(1);
 // template number
   bits::get(stream_buffer,g2->grid.grid_type,off+96,16);
   switch (g2->grid.grid_type) {
-    case 0:
-    {
+    case 0: {
 	g2->def.type=Grid::latitudeLongitudeType;
 	break;
     }
-    case 10:
-    {
+    case 10: {
 	g2->def.type=Grid::mercatorType;
 	break;
     }
-    case 30:
-    {
+    case 30: {
 	g2->def.type=Grid::lambertConformalType;
 	break;
     }
-    case 40:
-    {
+    case 40: {
 	g2->def.type=Grid::gaussianLatitudeLongitudeType;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="no unpacking for grid type "+strutils::itos(g2->grid.grid_type);
 	exit(1);
     }
   }
   switch (g2->grid.grid_type) {
     case 0:
-    case 40:
-    {
+    case 40: {
 	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
 	bits::get(stream_buffer,g2->dim.x,off+256,16);
 	bits::get(stream_buffer,g2->dim.y,off+288,16);
@@ -3175,8 +3043,7 @@ exit(1);
 	off=576;
 	break;
     }
-    case 10:
-    {
+    case 10: {
 	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
 	bits::get(stream_buffer,g2->dim.x,off+256,16);
 	bits::get(stream_buffer,g2->dim.y,off+288,16);
@@ -3218,8 +3085,7 @@ exit(1);
 	g2->def.dy=sdum/1000000.;
 	break;
     }
-    case 30:
-    {
+    case 30: {
 	bits::get(stream_buffer,g2->grib2.earth_shape,off+112,8);
 	bits::get(stream_buffer,g2->dim.x,off+256,16);
 	bits::get(stream_buffer,g2->dim.y,off+288,16);
@@ -3280,8 +3146,7 @@ exit(1);
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="grid template "+strutils::itos(dum)+" not recognized";
 	exit(1);
     }
@@ -3314,8 +3179,7 @@ bits::set(output_buffer,0,off+40,8);
   bits::set(output_buffer,g2->grid.grid_type,off+96,16);
   switch (g2->grid.grid_type) {
     case 0:
-    case 40:
-    {
+    case 40: {
 	bits::set(output_buffer,g2->grib2.earth_shape,off+112,8);
 	bits::set(output_buffer,0,off+240,16);
 	bits::set(output_buffer,g2->dim.x,off+256,16);
@@ -3366,8 +3230,7 @@ sdum=llround(g2->def.laincrement*1000000.);
 	offset+=72;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to pack GDS for template "+strutils::itos(g2->grid.grid_type);
 	exit(1);
     }
@@ -3401,8 +3264,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
     case 2:
     case 3:
     case 40:
-    case 40000:
-    {
+    case 40000: {
 	bits::get(stream_buffer,idum,off+88,32);
 	bits::get(stream_buffer,g2->grib.E,off+120,16);
 	if (g2->grib.E > 0x8000)
@@ -3446,8 +3308,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="data template "+strutils::itos(g2->grib2.data_rep)+" is not understood";
 	exit(1);
     }
@@ -3473,8 +3334,7 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
     case 2:
     case 3:
     case 40:
-    case 40000:
-    {
+    case 40000: {
 	dum=lroundf(g2->stats.min_val*pow(10.,g2->grib.D));
 	bits::set(output_buffer,idum,off+88,32);
 	idum=g2->grib.E;
@@ -3488,23 +3348,20 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
 	bits::set(output_buffer,g2->grib.pack_width,off+152,8);
 	bits::set(output_buffer,g2->grib2.orig_val_type,off+160,8);
 	switch (g2->grib2.data_rep) {
-	  case 0:
-	  {
+	  case 0: {
 	    bits::set(output_buffer,21,off,32);
 	    offset+=21;
 	    break;
 	  }
 	  case 2:
-	  case 3:
-	  {
+	  case 3: {
 	    bits::set(output_buffer,g2->grib2.complex_pack.grid_point.split_method,off+168,8);
 	    bits::set(output_buffer,g2->grib2.complex_pack.grid_point.miss_val_mgmt,off+176,8);
 	    bits::set(output_buffer,23,off,32);
 	    offset+=23;
 	    break;
 	  }
-	  case 40:
-	  {
+	  case 40: {
 	    bits::set(output_buffer,0,off+168,8);
 	    bits::set(output_buffer,0xff,off+176,8);
 	    bits::set(output_buffer,23,off,32);
@@ -3514,8 +3371,7 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to pack data template "+strutils::itos(g2->grib2.data_rep);
 	exit(1);
     }
@@ -3550,8 +3406,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   if (!fill_header_only) {
     g2->stats.max_val=-Grid::missing_value;
     switch (g2->grib2.data_rep) {
-	case 0:
-	{
+	case 0: {
 	  g2->galloc();
 	  off+=40;
 	  size_t x=0;
@@ -3578,8 +3433,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 2:
-	{
+	case 2: {
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef2 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3692,8 +3546,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  g2->grid.filled=true;
 	  break;
 	}
-	case 3:
-	{
+	case 3: {
 	  if (g2->grib.scan_mode != 0) {
 	    myerror="unable to decode ddef3 for scan mode "+strutils::itos(g2->grib.scan_mode);
 	    exit(1);
@@ -3867,8 +3720,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	}
 #ifdef __JASPER
 	case 40:
-	case 40000:
-	{
+	case 40000: {
 	  len=lengths_.ds-5;
 	  jvals=new int[g2->dim.size];
 	  if (len > 0) {
@@ -3907,8 +3759,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  break;
 	}
 #endif
-	default:
-	{
+	default: {
 	  myerror="unable to decode data section for data representation "+strutils::itos(g2->grib2.data_rep);
 	  exit(1);
 	}
@@ -4056,8 +3907,7 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
 
   bits::set(output_buffer,7,off+32,8);
   switch (g2->grib2.data_rep) {
-    case 0:
-    {
+    case 0: {
 	pval=new int[g2->dim.size];
 	for (n=0; n < g2->dim.y; ++n) {
 	  for (m=0; m < g2->dim.x; ++m) {
@@ -4074,8 +3924,7 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
     }
 #ifdef __JASPER
     case 40:
-    case 40000:
-    {
+    case 40000: {
 	cps=(g2->grib.pack_width+7)/8;
 	jpclen=g2->dim.size*cps;
 // for some unknown reason, enc_jpeg2000 fails if jpclen is too small
@@ -4118,8 +3967,7 @@ jpclen=100000;
 	break;
     }
 #endif
-    default:
-    {
+    default: {
 	myerror="unable to encode data section for data representation "+strutils::itos(g2->grib2.data_rep);
 	exit(1);
     }
@@ -4228,38 +4076,31 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
 	}
 	last_sec_num=sec_num;
 	switch (sec_num) {
-	  case 1:
-	  {
+	  case 1: {
 	    unpack_ids(stream_buffer);
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    unpack_lus(stream_buffer);
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 	    unpack_gds(stream_buffer);
 	    break;
 	  }
-	  case 4:
-	  {
+	  case 4: {
 	    unpack_pds(stream_buffer);
 	    break;
 	  }
-	  case 5:
-	  {
+	  case 5: {
 	    unpack_drs(stream_buffer);
 	    break;
 	  }
-	  case 6:
-	  {
+	  case 6: {
 	    unpack_bms(stream_buffer);
 	    break;
 	  }
-	  case 7:
-	  {
+	  case 7: {
 	    unpack_ds(stream_buffer,fill_header_only);
 	    break;
 	  }
@@ -4318,18 +4159,15 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	grids.emplace_back(g2);
     }
     switch (sec_num) {
-	case 1:
-	{
+	case 1: {
 	  curr_off+=test;
 	  break;
 	}
-	case 2:
-	{
+	case 2: {
 	  curr_off+=test;
 	  break;
 	}
-	case 3:
-	{
+	case 3: {
 	  off=curr_off*8;
 	  bits::get(stream_buffer,g2->dim.size,off+48,32);
 	  bits::get(stream_buffer,g2->dim.x,off+256,16);
@@ -4342,25 +4180,21 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	    case 40:
 	    case 41:
 	    case 42:
-	    case 43:
-	    {
+	    case 43: {
 		bits::get(stream_buffer,g2->grib.scan_mode,off+568,8);
 		break;
 	    }
-	    case 10:
-	    {
+	    case 10: {
 		bits::get(stream_buffer,g2->grib.scan_mode,off+472,8);
 		break;
 	    }
 	    case 20:
 	    case 30:
-	    case 31:
-	    {
+	    case 31: {
 		bits::get(stream_buffer,g2->grib.scan_mode,off+512,8);
 		break;
 	    }
-	    default:
-	    {
+	    default: {
 		std::cerr << "Error: quick_fill not implemented for grid type " << g2->grid.grid_type << std::endl;
 		exit(1);
 	    }
@@ -4368,21 +4202,18 @@ void GRIB2Message::quick_fill(const unsigned char *stream_buffer)
 	  curr_off+=test;
 	  break;
 	}
-	case 4:
-	{
+	case 4: {
 	  off=curr_off*8;
 	  bits::get(stream_buffer,g2->grib2.param_cat,off+72,8);
 	  bits::get(stream_buffer,g2->grid.param,off+80,8);
 	  curr_off+=test;
 	  break;
 	}
-	case 5:
-	{
+	case 5: {
 	  unpack_drs(stream_buffer);
 	  break;
 	}
-	case 6:
-	{
+	case 6: {
 unpack_bms(stream_buffer);
 /*
 	  off=curr_off*8;
@@ -4413,8 +4244,7 @@ unpack_bms(stream_buffer);
 */
 	  break;
 	}
-	case 7:
-	{
+	case 7: {
 	  unpack_ds(stream_buffer,false);
 	  break;
 	}
@@ -4618,14 +4448,12 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
     case 125:
     case 160:
     case 200:
-    case 201:
-    {
+    case 201: {
 	grid.level1=source.levels[0];
 	grid.level2=0.;
 	break;
     }
-    default:
-    {
+    default: {
 	grid.level1=source.levels[0];
 	grid.level2=source.levels[1];
     }
@@ -4638,14 +4466,12 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
   grib.nmean_missing=0;
   switch (grib.t_range) {
     case 4:
-    case 10:
-    {
+    case 10: {
 	grib.p1=source.p1;
 	grib.p2=0;
 	break;
     }
-    default:
-    {
+    default: {
 	grib.p1=source.p1;
 	grib.p2=source.p2;
     }
@@ -5179,13 +5005,11 @@ void GRIBGrid::divide_by(double div)
     return;
   }
   switch (grib.t_range) {
-    case 114:
-    {
+    case 114: {
 	grib.t_range=113;
 	break;
     }
-    case 151:
-    {
+    case 151: {
 	grib.t_range=51;
 	break;
     }
@@ -5222,18 +5046,15 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
   grib.p2=0;
   grib.t_range=10;
   switch (source.model()) {
-    case 6:
-    {
+    case 6: {
 	switch (source.parameter()) {
-	  case 1000:
-	  {
+	  case 1000: {
 // Height
 	    grid.param=7;
 	    grid.level1_type=100;
 	    break;
 	  }
-	  case 1201:
-	  {
+	  case 1201: {
 // MSLP
 	    grid.param=2;
 	    grid.level1_type=102;
@@ -5241,23 +5062,20 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    grib.D-=2;
 	    break;
 	  }
-	  case 2000:
-	  {
+	  case 2000: {
 // temperature
 	    grid.param=11;
 	    grid.level1_type=100;
 	    break;
 	  }
-	  case 3000:
-	  {
+	  case 3000: {
 // RH
 	    grid.param=52;
 	    grid.level1_type=100;
 	    break;
 	  }
 	  case 3001:
-	  case 3002:
-	  {
+	  case 3002: {
 // mean RH through a sigma layer
 	    grid.param=52;
 	    grid.level1_type=108;
@@ -5265,8 +5083,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    grid.level2=100.;
 	    break;
 	  }
-	  case 3211:
-	  {
+	  case 3211: {
 // 6-hr total precip
 	    grid.param=61;
 	    grid.level1_type=1;
@@ -5285,8 +5102,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    grib.t_range=4;
 	    break;
 	  }
-	  case 3221:
-	  {
+	  case 3221: {
 // 12-hr total precip
 	    grid.param=61;
 	    grid.level1_type=1;
@@ -5305,39 +5121,34 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    grib.t_range=4;
 	    break;
 	  }
-	  case 3350:
-	  {
+	  case 3350: {
 // total precipitable water
 	    grid.param=54;
 	    grid.level1_type=200;
 	    break;
 	  }
-	  case 4000:
-	  {
+	  case 4000: {
 // u-component of the wind
 	    grid.param=33;
 	    grid.level1_type=100;
 	    grib.rescomp|=0x8;
 	    break;
 	  }
-	  case 4020:
-	  {
+	  case 4020: {
 // 10m u-component
 	    grid.param=33;
 	    grid.level1_type=105;
 	    grib.rescomp|=0x8;
 	    break;
 	  }
-	  case 4100:
-	  {
+	  case 4100: {
 // v-component of the wind
 	    grid.param=34;
 	    grid.level1_type=100;
 	    grib.rescomp|=0x8;
 	    break;
 	  }
-	  case 4120:
-	  {
+	  case 4120: {
 // 10m v-component
 	    grid.param=34;
 	    grid.level1_type=105;
@@ -5345,8 +5156,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    break;
 	  }
 	  case 5000:
-	  case 5003:
-	  {
+	  case 5003: {
 // vertical velocity
 	    grid.param=39;
 	    grid.level1_type=100;
@@ -5354,8 +5164,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	    grib.D-=2;
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to convert parameter "+strutils::itos(source.parameter());
 	    exit(1);
 	  }
@@ -5363,8 +5172,7 @@ GRIBGrid& GRIBGrid::operator=(const TDLGRIBGrid& source)
 	grib.process=39;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unrecognized model "+strutils::itos(source.model());
 	exit(1);
     }
@@ -5417,18 +5225,15 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
 
   grib.table=3;
   switch (source.source()) {
-    case 1:
-    {
+    case 1: {
 	grid.src=7;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	grid.src=58;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="source code "+strutils::itos(source.source())+" not recognized";
 	exit(1);
     }
@@ -5438,8 +5243,7 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
   grid.param=octagonal_grid_parameter_map[source.parameter()];
   grid.level2_type=-1;
   switch (grid.param) {
-    case 1:
-    {
+    case 1: {
 	if (floatutils::myequalf(source.first_level_value(),1013.)) {
 	  grid.level1_type=2;
 	  grid.param=2;
@@ -5449,19 +5253,16 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
 	factor=100.;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	grid.level1_type=2;
 	break;
     }
-    case 7:
-    {
+    case 7: {
 	grid.level1_type=100;
 	break;
     }
     case 11:
-    case 12:
-    {
+    case 12: {
 	if (floatutils::myequalf(source.first_level_value(),1001.)) {
 	  grid.level1_type=1;
 	}
@@ -5473,24 +5274,20 @@ GRIBGrid& GRIBGrid::operator=(const OctagonalGrid& source)
     }
     case 33:
     case 34:
-    case 39:
-    {
+    case 39: {
 	grid.level1_type=100;
 	break;
     }
-    case 52:
-    {
+    case 52: {
 	grid.level1_type=101;
 	break;
     }
-    case 80:
-    {
+    case 80: {
 	grid.level1_type=1;
 	offset=273.15;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to convert parameter "+strutils::itos(source.parameter());
 	exit(1);
     }
@@ -5590,23 +5387,19 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
   grib.table=3;
   switch (source.source()) {
     case 1:
-    case 5:
-    {
+    case 5: {
 	grid.src=7;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	grid.src=57;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	grid.src=58;
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	grid.src=255;
 /*
 	grib.lengths_.pds_supp=10;
@@ -5618,8 +5411,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 */
 	break;
     }
-    case 9:
-    {
+    case 9: {
 	if (floatutils::myequalf(source.first_level_value(),700.)) {
 	  grid.src=7;
 	}
@@ -5629,8 +5421,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="source code "+strutils::itos(source.source())+" not recognized";
 	exit(1);
     }
@@ -5640,8 +5431,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
   grid.param=octagonal_grid_parameter_map[source.parameter()];
   grid.level2_type=-1;
   switch (grid.param) {
-    case 1:
-    {
+    case 1: {
 	if (floatutils::myequalf(source.first_level_value(),1013.)) {
 	  grid.level1_type=2;
 	  grid.param=2;
@@ -5652,13 +5442,11 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 	factor=100.;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	grid.level1_type=2;
 	break;
     }
-    case 7:
-    {
+    case 7: {
 	grid.level1_type=100;
 	if (floatutils::myequalf(source.first_level_value(),700.) && source.source() == 9) {
 	  factor=0.01;
@@ -5666,8 +5454,7 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
 	break;
     }
     case 11:
-    case 12:
-    {
+    case 12: {
 	if (floatutils::myequalf(source.first_level_value(),1001.)) {
 	  grid.level1_type=1;
 	}
@@ -5679,24 +5466,20 @@ GRIBGrid& GRIBGrid::operator=(const LatLonGrid& source)
     }
     case 33:
     case 34:
-    case 39:
-    {
+    case 39: {
 	grid.level1_type=100;
 	break;
     }
-    case 52:
-    {
+    case 52: {
 	grid.level1_type=101;
 	break;
     }
-    case 80:
-    {
+    case 80: {
 	grid.level1_type=1;
 	offset=273.15;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to convert parameter "+strutils::itos(source.parameter());
 	exit(1);
     }
@@ -5799,43 +5582,35 @@ GRIBGrid& GRIBGrid::operator=(const SLPGrid& source)
 
   grib.table=3;
   switch (source.source()) {
-    case 3:
-    {
+    case 3: {
 	grid.src=58;
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	grid.src=57;
 	break;
     }
-    case 11:
-    {
+    case 11: {
 	grid.src=255;
 	break;
     }
-    case 10:
-    {
+    case 10: {
 	grid.src=59;
 	break;
     }
-    case 12:
-    {
+    case 12: {
 	grid.src=74;
 	break;
     }
-    case 28:
-    {
+    case 28: {
 	grid.src=7;
 	break;
     }
-    case 29:
-    {
+    case 29: {
 	grid.src=255;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="source code "+strutils::itos(source.source())+" not recognized";
 	exit(1);
     }
@@ -5979,26 +5754,22 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
   grid.param=on84_grid_parameter_map[source.parameter()];
   grib.D=2;
   switch (grid.param) {
-    case 1:
-    {
+    case 1: {
 	mult=100.;
 	grib.D=0;
 	break;
     }
-    case 39:
-    {
+    case 39: {
 	mult=100.;
 	grib.D=3;
 	break;
     }
-    case 61:
-    {
+    case 61: {
 	mult=1000.;
 	grib.D=1;
 	break;
     }
-    case 210:
-    {
+    case 210: {
 	precision=5;
 	grib.D=0;
 	grib.table=129;
@@ -6011,8 +5782,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
   }
   grid.level2_type=-1;
   switch (source.first_level_type()) {
-    case 6:
-    {
+    case 6: {
 // height above ground
 	grid.level1_type=105;
 	grid.level1=source.first_level_value();
@@ -6023,24 +5793,21 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	}
 	break;
     }
-    case 8:
-    {
+    case 8: {
 // pressure level
 	grid.level1_type=100;
 	grid.level1=source.first_level_value();
 	grid.level2=source.second_level_value();
 	break;
     }
-    case 128:
-    {
+    case 128: {
 // mean sea-level
 	grid.level1_type=102;
 	grid.level1=grid.level2=0.;
 	if (grid.param == 1) grid.param=2;
 	break;
     }
-    case 129:
-    {
+    case 129: {
 // surface
 	if (source.parameter() == 16) {
 	  grid.level1_type=105;
@@ -6053,22 +5820,19 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	}
 	break;
     }
-    case 130:
-    {
+    case 130: {
 // tropopause level
 	grid.level1_type=7;
 	grid.level1=grid.level2=0.;
 	break;
     }
-    case 131:
-    {
+    case 131: {
 // maximum wind speed level
 	grid.level1_type=6;
 	grid.level1=grid.level2=0.;
 	break;
     }
-    case 144:
-    {
+    case 144: {
 // boundary
 	if (floatutils::myequalf(source.first_level_value(),0.) && floatutils::myequalf(source.second_level_value(),1.)) {
 	  grid.level1_type=107;
@@ -6081,8 +5845,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	}
 	break;
     }
-    case 145:
-    {
+    case 145: {
 // troposphere
 // sigma level
 	if (floatutils::myequalf(source.second_level_value(),0.)) {
@@ -6104,15 +5867,13 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	}
 	break;
     }
-    case 148:
-    {
+    case 148: {
 // entire atmosphere
 	grid.level1_type=200;
 	grid.level1=grid.level2=0.;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to convert level type "+strutils::itos(source.first_level_type());
 	exit(1);
     }
@@ -6120,16 +5881,14 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
   reference_date_time_=source.reference_date_time();
   if (!source.is_averaged_grid()) {
     switch (source.time_marker()) {
-	case 0:
-	{
+	case 0: {
 	  grib.p1=source.forecast_time()/10000;
 	  grib.p2=0;
 	  grib.t_range=10;
 	  grib.time_unit=1;
 	  break;
 	}
-	case 3:
-	{
+	case 3: {
 	  if (grid.param == 61) {
 	    grib.p1=source.F1()-source.F2();
 	    grib.p2=source.F1();
@@ -6142,8 +5901,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
 	  }
 	  break;
 	}
-	default:
-	{
+	default: {
 	  myerror="unable to convert time marker "+strutils::itos(source.time_marker());
 	  exit(1);
 	}
@@ -6157,8 +5915,7 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
   grib.sub_center=0;
   switch (source.type()) {
     case 29:
-    case 30:
-    {
+    case 30: {
 	grid.grid_type=0;
 	grib.scan_mode=0x40;
 	break;
@@ -6166,16 +5923,14 @@ GRIBGrid& GRIBGrid::operator=(const ON84Grid& source)
     case 27:
     case 28:
     case 36:
-    case 47:
-    {
+    case 47: {
 	grid.grid_type=5;
 	def.projection_flag=0;
 	grib.scan_mode=0x40;
 	grib.sub_center=11;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to convert grid type "+strutils::itos(source.type());
 	exit(1);
     }
@@ -6416,20 +6171,17 @@ GRIBGrid& GRIBGrid::operator=(const CGCM1Grid& source)
 	else {
 	  bitmap.map[cnt]=1;
 	  switch (grid.param) {
-	    case 2:
-	    {
+	    case 2: {
 		gridpoints_[n][m]*=100.;
 		break;
 	    }
 	    case 11:
 	    case 15:
-	    case 16:
-	    {
+	    case 16: {
 		gridpoints_[n][m]+=273.15;
 		break;
 	    }
-	    case 61:
-	    {
+	    case 61: {
 		gridpoints_[n][m]*=86400.;
 		break;
 	    }
@@ -6473,12 +6225,10 @@ bool GRIBGrid::is_averaged_grid() const
     case 113:
     case 115:
     case 117:
-    case 123:
-    {
+    case 123: {
 	return true;
     }
-    default:
-    {
+    default: {
 	return false;
     }
   }
@@ -6572,92 +6322,71 @@ GRIBGrid& GRIBGrid::operator=(const USSRSLPGrid& source)
 short mapped_parameter_data(short center,size_t disc,short param_cat,short param_num,short& table)
 {
   switch (disc) {
-    case 0:
-    {
+    case 0: {
 // meteorological products
 	switch (param_cat) {
-	  case 0:
-	  {
+	  case 0: {
 // temperature parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 11;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 12;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 13;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 14;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 15;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 16;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 17;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 18;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 19;
 		}
-		case 9:
-		{
+		case 9: {
 		  return 25;
 		}
-		case 10:
-		{
+		case 10: {
 		  return 121;
 		}
-		case 11:
-		{
+		case 11: {
 		  return 122;
 		}
-		case 12:
-		{
+		case 12: {
 		  myerror="there is no GRIB1 parameter code for 'Heat index'";
 		  exit(1);
 		}
-		case 13:
-		{
+		case 13: {
 		  myerror="there is no GRIB1 parameter code for 'Wind chill factor'";
 		  exit(1);
 		}
-		case 14:
-		{
+		case 14: {
 		  myerror="there is no GRIB1 parameter code for 'Minimum dew point depression'";
 		  exit(1);
 		}
-		case 15:
-		{
+		case 15: {
 		  myerror="there is no GRIB1 parameter code for 'Virtual potential temperature'";
 		  exit(1);
 		}
-		case 16:
-		{
+		case 16: {
 		  myerror="there is no GRIB1 parameter code for 'Snow phase change heat flux'";
 		  exit(1);
 		}
-		case 21:
-		{
+		case 21: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=131;
 			return 193;
 		    }
@@ -6665,11 +6394,9 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 		  myerror="there is no GRIB1 parameter code for 'Apparent temperature'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 229;
 		    }
 		  }
@@ -6677,380 +6404,298 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 1:
-	  {
+	  case 1: {
 // moisture parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 51;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 52;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 53;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 54;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 55;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 56;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 57;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 59;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 61;
 		}
-		case 9:
-		{
+		case 9: {
 		  return 62;
 		}
-		case 10:
-		{
+		case 10: {
 		  return 63;
 		}
-		case 11:
-		{
+		case 11: {
 		  return 66;
 		}
-		case 12:
-		{
+		case 12: {
 		  return 64;
 		}
-		case 13:
-		{
+		case 13: {
 		  return 65;
 		}
-		case 14:
-		{
+		case 14: {
 		  return 78;
 		}
-		case 15:
-		{
+		case 15: {
 		  return 79;
 		}
-		case 16:
-		{
+		case 16: {
 		  return 99;
 		}
-		case 17:
-		{
+		case 17: {
 		  myerror="there is no GRIB1 parameter code for 'Snow age'";
 		  exit(1);
 		}
-		case 18:
-		{
+		case 18: {
 		  myerror="there is no GRIB1 parameter code for 'Absolute humidity'";
 		  exit(1);
 		}
-		case 19:
-		{
+		case 19: {
 		  myerror="there is no GRIB1 parameter code for 'Precipitation type'";
 		  exit(1);
 		}
-		case 20:
-		{
+		case 20: {
 		  myerror="there is no GRIB1 parameter code for 'Integrated liquid water'";
 		  exit(1);
 		}
-		case 21:
-		{
+		case 21: {
 		  myerror="there is no GRIB1 parameter code for 'Condensate water'";
 		  exit(1);
 		}
-		case 22:
-		{
+		case 22: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 153;
 		    }
 		  }
 		  myerror="there is no GRIB1 parameter code for 'Cloud mixing ratio'";
 		  exit(1);
 		}
-		case 23:
-		{
+		case 23: {
 		  myerror="there is no GRIB1 parameter code for 'Ice water mixing ratio'";
 		  exit(1);
 		}
-		case 24:
-		{
+		case 24: {
 		  myerror="there is no GRIB1 parameter code for 'Rain mixing ratio'";
 		  exit(1);
 		}
-		case 25:
-		{
+		case 25: {
 		  myerror="there is no GRIB1 parameter code for 'Snow mixing ratio'";
 		  exit(1);
 		}
-		case 26:
-		{
+		case 26: {
 		  myerror="there is no GRIB1 parameter code for 'Horizontal moisture convergence'";
 		  exit(1);
 		}
-		case 27:
-		{
+		case 27: {
 		  myerror="there is no GRIB1 parameter code for 'Maximum relative humidity'";
 		  exit(1);
 		}
-		case 28:
-		{
+		case 28: {
 		  myerror="there is no GRIB1 parameter code for 'Maximum absolute humidity'";
 		  exit(1);
 		}
-		case 29:
-		{
+		case 29: {
 		  myerror="there is no GRIB1 parameter code for 'Total snowfall'";
 		  exit(1);
 		}
-		case 30:
-		{
+		case 30: {
 		  myerror="there is no GRIB1 parameter code for 'Precipitable water category'";
 		  exit(1);
 		}
-		case 31:
-		{
+		case 31: {
 		  myerror="there is no GRIB1 parameter code for 'Hail'";
 		  exit(1);
 		}
-		case 32:
-		{
+		case 32: {
 		  myerror="there is no GRIB1 parameter code for 'Graupel (snow pellets)'";
 		  exit(1);
 		}
-		case 33:
-		{
+		case 33: {
 		  myerror="there is no GRIB1 parameter code for 'Categorical rain'";
 		  exit(1);
 		}
-		case 34:
-		{
+		case 34: {
 		  myerror="there is no GRIB1 parameter code for 'Categorical freezing rain'";
 		  exit(1);
 		}
-		case 35:
-		{
+		case 35: {
 		  myerror="there is no GRIB1 parameter code for 'Categorical ice pellets'";
 		  exit(1);
 		}
-		case 36:
-		{
+		case 36: {
 		  myerror="there is no GRIB1 parameter code for 'Categorical snow'";
 		  exit(1);
 		}
-		case 37:
-		{
+		case 37: {
 		  myerror="there is no GRIB1 parameter code for 'Convective precipitation rate'";
 		  exit(1);
 		}
-		case 38:
-		{
+		case 38: {
 		  myerror="there is no GRIB1 parameter code for 'Horizontal moisture divergence'";
 		  exit(1);
 		}
-		case 39:
-		{
+		case 39: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 194;
 		    }
 		  }
 		  myerror="there is no GRIB1 parameter code for 'Percent frozen precipitation'";
 		  exit(1);
 		}
-		case 40:
-		{
+		case 40: {
 		  myerror="there is no GRIB1 parameter code for 'Potential evaporation'";
 		  exit(1);
 		}
-		case 41:
-		{
+		case 41: {
 		  myerror="there is no GRIB1 parameter code for 'Potential evaporation rate'";
 		  exit(1);
 		}
-		case 42:
-		{
+		case 42: {
 		  myerror="there is no GRIB1 parameter code for 'Snow cover'";
 		  exit(1);
 		}
-		case 43:
-		{
+		case 43: {
 		  myerror="there is no GRIB1 parameter code for 'Rain fraction of total water'";
 		  exit(1);
 		}
-		case 44:
-		{
+		case 44: {
 		  myerror="there is no GRIB1 parameter code for 'Rime factor'";
 		  exit(1);
 		}
-		case 45:
-		{
+		case 45: {
 		  myerror="there is no GRIB1 parameter code for 'Total column integrated rain'";
 		  exit(1);
 		}
-		case 46:
-		{
+		case 46: {
 		  myerror="there is no GRIB1 parameter code for 'Total column integrated snow'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 140;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 141;
 		    }
 		  }
 		}
-		case 194:
-		{
+		case 194: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 142;
 		    }
 		  }
 		}
-		case 195:
-		{
+		case 195: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 143;
 		    }
 		  }
 		}
-		case 196:
-		{
+		case 196: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 214;
 		    }
 		  }
 		}
-		case 197:
-		{
+		case 197: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 135;
 		    }
 		  }
 		}
-		case 199:
-		{
+		case 199: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 228;
 		    }
 		  }
 		}
-		case 200:
-		{
+		case 200: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 145;
 		    }
 		  }
 		}
-		case 201:
-		{
+		case 201: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 238;
 		    }
 		  }
 		}
-		case 206:
-		{
+		case 206: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 186;
 		    }
 		  }
 		}
-		case 207:
-		{
+		case 207: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 198;
 		    }
 		  }
 		}
-		case 208:
-		{
+		case 208: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 239;
 		    }
 		  }
 		}
-		case 213:
-		{
+		case 213: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 243;
 		    }
 		  }
 		}
-		case 214:
-		{
+		case 214: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 245;
 		    }
 		  }
 		}
-		case 215:
-		{
+		case 215: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 249;
 		    }
 		  }
 		}
-		case 216:
-		{
+		case 216: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 159;
 		    }
 		  }
@@ -7058,208 +6703,162 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 // momentum parameters
 	    switch(param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 31;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 32;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 33;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 34;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 35;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 36;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 37;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 38;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 39;
 		}
-		case 9:
-		{
+		case 9: {
 		  return 40;
 		}
-		case 10:
-		{
+		case 10: {
 		  return 41;
 		}
-		case 11:
-		{
+		case 11: {
 		  return 42;
 		}
-		case 12:
-		{
+		case 12: {
 		  return 43;
 		}
-		case 13:
-		{
+		case 13: {
 		  return 44;
 		}
-		case 14:
-		{
+		case 14: {
 		  return 4;
 		}
-		case 15:
-		{
+		case 15: {
 		  return 45;
 		}
-		case 16:
-		{
+		case 16: {
 		  return 46;
 		}
-		case 17:
-		{
+		case 17: {
 		  return 124;
 		}
-		case 18:
-		{
+		case 18: {
 		  return 125;
 		}
-		case 19:
-		{
+		case 19: {
 		  return 126;
 		}
-		case 20:
-		{
+		case 20: {
 		  return 123;
 		}
-		case 21:
-		{
+		case 21: {
 		  myerror="there is no GRIB1 parameter code for 'Maximum wind speed'";
 		  exit(1);
 		}
-		case 22:
-		{
+		case 22: {
 		  switch (center) {
-		    case 7:
-			return 180;
-		    default:
+		    case 7: return 180;
+		    default: {
 			myerror="there is no GRIB1 parameter code for 'Wind speed (gust)'";
 			exit(1);
+		    }
 		  }
 		}
-		case 23:
-		{
+		case 23: {
 		  myerror="there is no GRIB1 parameter code for 'u-component of wind (gust)'";
 		  exit(1);
 		}
-		case 24:
-		{
+		case 24: {
 		  myerror="there is no GRIB1 parameter code for 'v-component of wind (gust)'";
 		  exit(1);
 		}
-		case 25:
-		{
+		case 25: {
 		  myerror="there is no GRIB1 parameter code for 'Vertical speed shear'";
 		  exit(1);
 		}
-		case 26:
-		{
+		case 26: {
 		  myerror="there is no GRIB1 parameter code for 'Horizontal momentum flux'";
 		  exit(1);
 		}
-		case 27:
-		{
+		case 27: {
 		  myerror="there is no GRIB1 parameter code for 'u-component storm motion'";
 		  exit(1);
 		}
-		case 28:
-		{
+		case 28: {
 		  myerror="there is no GRIB1 parameter code for 'v-component storm motion'";
 		  exit(1);
 		}
-		case 29:
-		{
+		case 29: {
 		  myerror="there is no GRIB1 parameter code for 'Drag coefficient'";
 		  exit(1);
 		}
-		case 30:
-		{
+		case 30: {
 		  myerror="there is no GRIB1 parameter code for 'Frictional velocity'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 136;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 172;
 		    }
 		  }
 		}
-		case 194:
-		{
+		case 194: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 196;
 		    }
 		  }
 		}
-		case 195:
-		{
+		case 195: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 197;
 		    }
 		  }
 		}
-		case 196:
-		{
+		case 196: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 252;
 		    }
 		  }
 		}
-		case 197:
-		{
+		case 197: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 253;
 		    }
 		  }
 		}
-		case 224:
-		{
+		case 224: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=129;
 			return 241;
 		    }
@@ -7268,176 +6867,137 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 // mass parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 1;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 2;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 3;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 5;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 6;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 7;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 8;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 9;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 26;
 		}
-		case 9:
-		{
+		case 9: {
 		  return 27;
 		}
-		case 10:
-		{
+		case 10: {
 		  return 89;
 		}
-		case 11:
-		{
+		case 11: {
 		  myerror="there is no GRIB1 parameter code for 'Altimeter setting'";
 		  exit(1);
 		}
-		case 12:
-		{
+		case 12: {
 		  myerror="there is no GRIB1 parameter code for 'Thickness'";
 		  exit(1);
 		}
-		case 13:
-		{
+		case 13: {
 		  myerror="there is no GRIB1 parameter code for 'Pressure altitude'";
 		  exit(1);
 		}
-		case 14:
-		{
+		case 14: {
 		  myerror="there is no GRIB1 parameter code for 'Density altitude'";
 		  exit(1);
 		}
-		case 15:
-		{
+		case 15: {
 		  myerror="there is no GRIB1 parameter code for '5-wave geopotential height'";
 		  exit(1);
 		}
-		case 16:
-		{
+		case 16: {
 		  myerror="there is no GRIB1 parameter code for 'Zonal flux of gravity wave stress'";
 		  exit(1);
 		}
-		case 17:
-		{
+		case 17: {
 		  myerror="there is no GRIB1 parameter code for 'Meridional flux of gravity wave stress'";
 		  exit(1);
 		}
-		case 18:
-		{
+		case 18: {
 		  myerror="there is no GRIB1 parameter code for 'Planetary boundary layer height'";
 		  exit(1);
 		}
-		case 19:
-		{
+		case 19: {
 		  myerror="there is no GRIB1 parameter code for '5-wave geopotential height anomaly'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 130;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 222;
 		    }
 		  }
 		}
-		case 194:
-		{
+		case 194: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 147;
 		    }
 		  }
 		}
-		case 195:
-		{
+		case 195: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 148;
 		    }
 		  }
 		}
-		case 196:
-		{
+		case 196: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 221;
 		    }
 		  }
 		}
-		case 197:
-		{
+		case 197: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 230;
 		    }
 		  }
 		}
-		case 198:
-		{
+		case 198: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 129;
 		    }
 		  }
 		}
-		case 199:
-		{
+		case 199: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 137;
 		    }
 		  }
 		}
-		case 200:
-		{
+		case 200: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=129;
 			return 141;
 		    }
@@ -7446,71 +7006,55 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 4:
-	  {
+	  case 4: {
 // short-wave radiation parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 111;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 113;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 116;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 117;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 118;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 119;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 120;
 		}
-		case 7:
-		{
+		case 7: {
 		  myerror="there is no GRIB1 parameter code for 'Downward short-wave radiation flux'";
 		  exit(1);
 		}
-		case 8:
-		{
+		case 8: {
 		  myerror="there is no GRIB1 parameter code for 'Upward short-wave radiation flux'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 204;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 211;
 		    }
 		  }
 		}
-		case 196:
-		{
+		case 196: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 161;
 		    }
 		  }
@@ -7518,46 +7062,36 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 5:
-	  {
+	  case 5: {
 // long-wave radiation parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 112;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 114;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 115;
 		}
-		case 3:
-		{
+		case 3: {
 		  myerror="there is no GRIB1 parameter code for 'Downward long-wave radiation flux'";
 		  exit(1);
 		}
-		case 4:
-		{
+		case 4: {
 		  myerror="there is no GRIB1 parameter code for 'Upward long-wave radiation flux'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 205;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 212;
 		    }
 		  }
@@ -7565,136 +7099,107 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 6:
-	  {
+	  case 6: {
 // cloud parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 58;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 71;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 72;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 73;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 74;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 75;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 76;
 		}
-		case 7:
-		{
+		case 7: {
 		  myerror="there is no GRIB1 parameter code for 'Cloud amount'";
 		  exit(1);
 		}
-		case 8:
-		{
+		case 8: {
 		  myerror="there is no GRIB1 parameter code for 'Cloud type'";
 		  exit(1);
 		}
-		case 9:
-		{
+		case 9: {
 		  myerror="there is no GRIB1 parameter code for 'Thunderstorm maximum tops'";
 		  exit(1);
 		}
-		case 10:
-		{
+		case 10: {
 		  myerror="there is no GRIB1 parameter code for 'Thunderstorm coverage'";
 		  exit(1);
 		}
-		case 11:
-		{
+		case 11: {
 		  myerror="there is no GRIB1 parameter code for 'Cloud base'";
 		  exit(1);
 		}
-		case 12:
-		{
+		case 12: {
 		  myerror="there is no GRIB1 parameter code for 'Cloud top'";
 		  exit(1);
 		}
-		case 13:
-		{
+		case 13: {
 		  myerror="there is no GRIB1 parameter code for 'Ceiling'";
 		  exit(1);
 		}
-		case 14:
-		{
+		case 14: {
 		  myerror="there is no GRIB1 parameter code for 'Non-convective cloud cover'";
 		  exit(1);
 		}
-		case 15:
-		{
+		case 15: {
 		  myerror="there is no GRIB1 parameter code for 'Cloud work function'";
 		  exit(1);
 		}
-		case 16:
-		{
+		case 16: {
 		  myerror="there is no GRIB1 parameter code for 'Convective cloud efficiency'";
 		  exit(1);
 		}
-		case 17:
-		{
+		case 17: {
 		  myerror="there is no GRIB1 parameter code for 'Total condensate'";
 		  exit(1);
 		}
-		case 18:
-		{
+		case 18: {
 		  myerror="there is no GRIB1 parameter code for 'Total column-integrated cloud water'";
 		  exit(1);
 		}
-		case 19:
-		{
+		case 19: {
 		  myerror="there is no GRIB1 parameter code for 'Total column-integrated cloud ice'";
 		  exit(1);
 		}
-		case 20:
-		{
+		case 20: {
 		  myerror="there is no GRIB1 parameter code for 'Total column-integrated cloud condensate'";
 		  exit(1);
 		}
-		case 21:
-		{
+		case 21: {
 		  myerror="there is no GRIB1 parameter code for 'Ice fraction of total condensate'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 213;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 146;
 		    }
 		  }
 		}
-		case 201:
-		{
+		case 201: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=133;
 			return 191;
 		    }
@@ -7703,123 +7208,97 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 7:
-	  {
+	  case 7: {
 // thermodynamic stability index parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 24;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 77;
 		}
-		case 2:
-		{
+		case 2: {
 		  myerror="there is no GRIB1 parameter code for 'K index'";
 		  exit(1);
 		}
-		case 3:
-		{
+		case 3: {
 		  myerror="there is no GRIB1 parameter code for 'KO index'";
 		  exit(1);
 		}
-		case 4:
-		{
+		case 4: {
 		  myerror="there is no GRIB1 parameter code for 'Total totals index'";
 		  exit(1);
 		}
-		case 5:
-		{
+		case 5: {
 		  myerror="there is no GRIB1 parameter code for 'Sweat index'";
 		  exit(1);
 		}
-		case 6:
-		{
+		case 6: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 157;
 		    }
-		    default:
-		    {
+		    default: {
 			myerror="there is no GRIB1 parameter code for 'Convective available potential energy'";
 			exit(1);
 		    }
 		  }
 		}
-		case 7:
-		{
+		case 7: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 156;
 		    }
-		    default:
-		    {
+		    default: {
 			myerror="there is no GRIB1 parameter code for 'Convective inhibition'";
 			exit(1);
 		    }
 		  }
 		}
-		case 8:
-		{
+		case 8: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 190;
 		    }
-		    default:
-		    {
+		    default: {
 			myerror="there is no GRIB1 parameter code for 'Storm-relative helicity'";
 			exit(1);
 		    }
 		  }
 		}
-		case 9:
-		{
+		case 9: {
 		  myerror="there is no GRIB1 parameter code for 'Energy helicity index'";
 		  exit(1);
 		}
-		case 10:
-		{
+		case 10: {
 		  myerror="there is no GRIB1 parameter code for 'Surface lifted index'";
 		  exit(1);
 		}
-		case 11:
-		{
+		case 11: {
 		  myerror="there is no GRIB1 parameter code for 'Best (4-layer) lifted index'";
 		  exit(1);
 		}
-		case 12:
-		{
+		case 12: {
 		  myerror="there is no GRIB1 parameter code for 'Richardson number'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 131;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 132;
 		    }
 		  }
 		}
-		case 194:
-		{
+		case 194: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 254;
 		    }
 		  }
@@ -7827,36 +7306,29 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 13:
-	  {
+	  case 13: {
 // aerosol parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  myerror="there is no GRIB1 parameter code for 'Aerosol type'";
 		  exit(1);
 		}
 	    }
 	    break;
 	  }
-	  case 14:
-	  {
+	  case 14: {
 // trace gas parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 10;
 		}
-		case 1:
-		{
+		case 1: {
 		  myerror="there is no GRIB1 parameter code for 'Ozone mixing ratio'";
 		  exit(1);
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 154;
 		    }
 		  }
@@ -7864,160 +7336,127 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 15:
-	  {
+	  case 15: {
 // radar parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  myerror="there is no GRIB1 parameter code for 'Base spectrum width'";
 		  exit(1);
 		}
-		case 1:
-		{
+		case 1: {
 		  myerror="there is no GRIB1 parameter code for 'Base reflectivity'";
 		  exit(1);
 		}
-		case 2:
-		{
+		case 2: {
 		  myerror="there is no GRIB1 parameter code for 'Base radial velocity'";
 		  exit(1);
 		}
-		case 3:
-		{
+		case 3: {
 		  myerror="there is no GRIB1 parameter code for 'Vertically-integrated liquid'";
 		  exit(1);
 		}
-		case 4:
-		{
+		case 4: {
 		  myerror="there is no GRIB1 parameter code for 'Layer-maximum base reflectivity'";
 		  exit(1);
 		}
-		case 5:
-		{
+		case 5: {
 		  myerror="there is no GRIB1 parameter code for 'Radar precipitation'";
 		  exit(1);
 		}
-		case 6:
-		{
+		case 6: {
 		  return 21;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 22;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 23;
 		}
 	    }
 	    break;
 	  }
-	  case 18:
-	  {
+	  case 18: {
 // nuclear/radiology parameters
 	    break;
 	  }
-	  case 19:
-	  {
+	  case 19: {
 // physical atmospheric property parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 20;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 84;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 60;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 67;
 		}
-		case 4:
-		{
+		case 4: {
 		  myerror="there is no GRIB1 parameter code for 'Volcanic ash'";
 		  exit(1);
 		}
-		case 5:
-		{
+		case 5: {
 		  myerror="there is no GRIB1 parameter code for 'Icing top'";
 		  exit(1);
 		}
-		case 6:
-		{
+		case 6: {
 		  myerror="there is no GRIB1 parameter code for 'Icing base'";
 		  exit(1);
 		}
-		case 7:
-		{
+		case 7: {
 		  myerror="there is no GRIB1 parameter code for 'Icing'";
 		  exit(1);
 		}
-		case 8:
-		{
+		case 8: {
 		  myerror="there is no GRIB1 parameter code for 'Turbulence top'";
 		  exit(1);
 		}
-		case 9:
-		{
+		case 9: {
 		  myerror="there is no GRIB1 parameter code for 'Turbulence base'";
 		  exit(1);
 		}
-		case 10:
-		{
+		case 10: {
 		  myerror="there is no GRIB1 parameter code for 'Turbulence'";
 		  exit(1);
 		}
-		case 11:
-		{
+		case 11: {
 		  myerror="there is no GRIB1 parameter code for 'Turbulent kinetic energy'";
 		  exit(1);
 		}
-		case 12:
-		{
+		case 12: {
 		  myerror="there is no GRIB1 parameter code for 'Planetary boundary layer regime'";
 		  exit(1);
 		}
-		case 13:
-		{
+		case 13: {
 		  myerror="there is no GRIB1 parameter code for 'Contrail intensity'";
 		  exit(1);
 		}
-		case 14:
-		{
+		case 14: {
 		  myerror="there is no GRIB1 parameter code for 'Contrail engine type'";
 		  exit(1);
 		}
-		case 15:
-		{
+		case 15: {
 		  myerror="there is no GRIB1 parameter code for 'Contrail top'";
 		  exit(1);
 		}
-		case 16:
-		{
+		case 16: {
 		  myerror="there is no GRIB1 parameter code for 'Contrail base'";
 		  exit(1);
 		}
-		case 17:
-		{
+		case 17: {
 		  myerror="there is no GRIB1 parameter code for 'Maximum snow albedo'";
 		  exit(1);
 		}
-		case 18:
-		{
+		case 18: {
 		  myerror="there is no GRIB1 parameter code for 'Snow-free albedo'";
 		  exit(1);
 		}
-		case 204:
-		{
+		case 204: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 209;
 		    }
 		  }
@@ -8028,51 +7467,40 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	}
 	break;
     }
-    case 1:
-    {
+    case 1: {
 // hydrologic products
 	switch (param_cat) {
-	  case 0:
-	  {
+	  case 0: {
 // hydrology basic products
 	    switch (param_num) {
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 234;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 235;
 		    }
 		  }
 		}
 	    }
 	  }
-	  case 1:
-	  {
+	  case 1: {
 	    switch (param_num) {
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 194;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 195;
 		    }
 		  }
@@ -8082,116 +7510,90 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	  }
 	}
     }
-    case 2:
-    {
+    case 2: {
 // land surface products
 	switch (param_cat) {
-	  case 0:
-	  {
+	  case 0: {
 // vegetation/biomass
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 81;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 83;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 85;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 86;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 87;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 90;
 		}
-		case 192:
-		{
+		case 192: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 144;
 		    }
 		  }
 		}
-		case 193:
-		{
+		case 193: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 155;
 		    }
 		  }
 		}
-		case 194:
-		{
+		case 194: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 207;
 		    }
 		  }
 		}
-		case 195:
-		{
+		case 195: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 208;
 		    }
 		  }
 		}
-		case 196:
-		{
+		case 196: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 223;
 		    }
 		  }
 		}
-		case 197:
-		{
+		case 197: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 226;
 		    }
 		  }
 		}
-		case 198:
-		{
+		case 198: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 225;
 		    }
 		  }
 		}
-		case 201:
-		{
+		case 201: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=130;
 			return 219;
 		    }
 		  }
 		}
-		case 207:
-		{
+		case 207: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			return 201;
 		    }
 		  }
@@ -8199,15 +7601,12 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	    }
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 // soil products
  	    switch (param_num) {
-		case 203:
-		{
+		case 203: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=130;
 			return 220;
 		    }
@@ -8216,15 +7615,12 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
  	    }
 	    break;
 	  }
-	  case 4:
-	  {
+	  case 4: {
 // fire weather
 	    switch (param_num) {
-		case 2:
-		{
+		case 2: {
 		  switch (center) {
-		    case 7:
-		    {
+		    case 7: {
 			table=129;
 			return 250;
 		    }
@@ -8236,168 +7632,130 @@ short mapped_parameter_data(short center,size_t disc,short param_cat,short param
 	}
 	break;
     }
-    case 10:
-    {
+    case 10: {
 // oceanographic products
 	switch (param_cat) {
-	  case 0:
-	  {
+	  case 0: {
 // waves parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 28;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 29;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 30;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 100;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 101;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 102;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 103;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 104;
 		}
-		case 8:
-		{
+		case 8: {
 		  return 105;
 		}
-		case 9:
-		{
+		case 9: {
 		  return 106;
 		}
-		case 10:
-		{
+		case 10: {
 		  return 107;
 		}
-		case 11:
-		{
+		case 11: {
 		  return 108;
 		}
-		case 12:
-		{
+		case 12: {
 		  return 109;
 		}
-		case 13:
-		{
+		case 13: {
 		  return 110;
 		}
 	    }
 	    break;
 	  }
-	  case 1:
-	  {
+	  case 1: {
 // currents parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 47;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 48;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 49;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 50;
 		}
 	    }
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 // ice parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 91;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 92;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 93;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 94;
 		}
-		case 4:
-		{
+		case 4: {
 		  return 95;
 		}
-		case 5:
-		{
+		case 5: {
 		  return 96;
 		}
-		case 6:
-		{
+		case 6: {
 		  return 97;
 		}
-		case 7:
-		{
+		case 7: {
 		  return 98;
 		}
 	    }
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 // surface properties parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 80;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 82;
 		}
 	    }
 	    break;
 	  }
-	  case 4:
-	  {
+	  case 4: {
 // sub-surface properties parameters
 	    switch (param_num) {
-		case 0:
-		{
+		case 0: {
 		  return 69;
 		}
-		case 1:
-		{
+		case 1: {
 		  return 70;
 		}
-		case 2:
-		{
+		case 2: {
 		  return 68;
 		}
-		case 3:
-		{
+		case 3: {
 		  return 88;
 		}
 	    }
@@ -8419,58 +7777,47 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
   }
   level1=level2=0.;
   switch (grid.first_level_type()) {
-    case 1:
-    {
+    case 1: {
 	level_type=1;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	level_type=2;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	level_type=3;
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	level_type=4;
 	break;
     }
-    case 5:
-    {
+    case 5: {
 	level_type=5;
 	break;
     }
-    case 6:
-    {
+    case 6: {
 	level_type=6;
 	break;
     }
-    case 7:
-    {
+    case 7: {
 	level_type=7;
 	break;
     }
-    case 8:
-    {
+    case 8: {
 	level_type=8;
 	break;
     }
-    case 9:
-    {
+    case 9: {
 	level_type=9;
 	break;
     }
-    case 20:
-    {
+    case 20: {
 	level_type=20;
 	break;
     }
-    case 100:
-    {
+    case 100: {
 	if (grid.second_level_type() == 255) {
 	  level_type=100;
 	  level1=grid.first_level_value();
@@ -8482,13 +7829,11 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 101:
-    {
+    case 101: {
 	level_type=102;
 	break;
     }
-    case 102:
-    {
+    case 102: {
 	if (grid.second_level_type() == 255) {
 	  level_type=103;
 	  level1=grid.first_level_value();
@@ -8500,8 +7845,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 103:
-    {
+    case 103: {
 	if (grid.second_level_type() == 255) {
 	  level_type=105;
 	  level1=grid.first_level_value();
@@ -8513,8 +7857,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 104:
-    {
+    case 104: {
 	if (grid.second_level_type() == 255) {
 	  level_type=107;
 	  level1=grid.first_level_value()*10000.;
@@ -8526,8 +7869,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 105:
-    {
+    case 105: {
 	level1=grid.first_level_value();
 	if (floatutils::myequalf(grid.second_level_value(),255.)) {
 	  level_type=109;
@@ -8538,8 +7880,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 106:
-    {
+    case 106: {
 	level1=grid.first_level_value()*100.;
 	if (grid.second_level_type() == 255) {
 	  level_type=111;
@@ -8550,8 +7891,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 107:
-    {
+    case 107: {
 	if (grid.second_level_type() == 255) {
 	  level_type=113;
 	  level1=grid.first_level_value();
@@ -8563,8 +7903,7 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 108:
-    {
+    case 108: {
 	level1=grid.first_level_value();
 	if (grid.second_level_type() == 255) {
 	  level_type=115;
@@ -8575,14 +7914,12 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 109:
-    {
+    case 109: {
 	level_type=117;
 	level1=grid.first_level_value();
 	break;
     }
-    case 111:
-    {
+    case 111: {
 	if (grid.second_level_type() == 255) {
 	  level_type=119;
 	  level1=grid.first_level_value()*10000.;
@@ -8594,22 +7931,18 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
 	}
 	break;
     }
-    case 117:
-    {
+    case 117: {
 	myerror="there is no GRIB1 level code for 'Mixed layer depth'";
 	exit(1);
     }
-    case 160:
-    {
+    case 160: {
 	level_type=160;
 	level1=grid.first_level_value();
 	break;
     }
-    case 200:
-    {
+    case 200: {
 	switch (grid.source()) {
-	  case 7:
-	  {
+	  case 7: {
 	    level_type=200;
 	    break;
 	  }
@@ -8627,8 +7960,7 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
   switch (grid.product_type()) {
     case 0:
     case 1:
-    case 2:
-    {
+    case 2: {
 	t_range=0;
 	p1=grid.forecast_time();
 	p2=0;
@@ -8637,8 +7969,7 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
     }
     case 8:
     case 11:
-    case 12:
-    {
+    case 12: {
 	if (grid.number_of_statistical_process_ranges() > 1) {
 	  myerror="unable to map multiple ("+strutils::itos(grid.number_of_statistical_process_ranges())+") statistical processes to GRIB1";
 	  exit(1);
@@ -8648,23 +7979,19 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 	  switch(stat_process_ranges[n].type) {
 	    case 0:
 	    case 1:
-	    case 4:
-	    {
+	    case 4: {
 		switch(stat_process_ranges[n].type) {
-		  case 0:
-		  {
+		  case 0: {
 // average
 		    t_range=3;
 		    break;
 		  }
-		  case 1:
-		  {
+		  case 1: {
 // accumulation
 		    t_range=4;
 		    break;
 		  }
-		  case 4:
-		  {
+		  case 4: {
 // difference
 		    t_range=5;
 		    break;
@@ -8682,8 +8009,7 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 		break;
 	    }
 	    case 2:
-	    case 3:
-	    {
+	    case 3: {
 // maximum
 // minimum
 		t_range=2;
@@ -8698,16 +8024,14 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 		}
 		break;
 	    }
-	    default:
-	    {
+	    default: {
 // patch for NCEP grids
 		if (stat_process_ranges[n].type == 255 && grid.source() == 7) {
  		  if (grid.discipline() == 0) {
 		    if (grid.parameter_category() == 0) {
 			switch (grid.parameter()) {
 			  case 4:
-			  case 5:
-			  {
+			  case 5: {
 			    t_range=2;
 			    p1=grid.forecast_time();
 			    p2=gributils::p2_from_statistical_end_time(grid);
@@ -8734,8 +8058,7 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
 	nmean_missing=grid.number_missing_from_statistical_process();
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to map time range for Product Definition Template "+strutils::itos(grid.product_type())+" into GRIB1";
 	exit(1);
     }
@@ -8774,8 +8097,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
   fill_time_range_data(source,grib.p1,grib.p2,grib.t_range,grid.nmean,grib.nmean_missing);
   reference_date_time_=source.reference_date_time_;
   switch (source.grid.grid_type) {
-    case 0:
-    {
+    case 0: {
 // lat-lon
 	grid.grid_type=0;
 	dim=source.dim;
@@ -8792,8 +8114,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
 	}
 	break;
     }
-    case 30:
-    {
+    case 30: {
 // lambert-conformal
 	grid.grid_type=3;
 	dim=source.dim;
@@ -8810,8 +8131,7 @@ GRIBGrid& GRIBGrid::operator=(const GRIB2Grid& source)
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to map Grid Definition Template "+strutils::itos(source.grid.grid_type)+" into GRIB1";
 	exit(1);
     }
@@ -8852,12 +8172,10 @@ bool GRIBGrid::is_accumulated_grid() const
   switch (grib.t_range) {
     case 114:
     case 116:
-    case 124:
-    {
+    case 124: {
 	return true;
     }
-    default:
-    {
+    default: {
 	return false;
     }
   }
@@ -8886,8 +8204,7 @@ void GRIBGrid::print(std::ostream& outs) const
     }
     switch (def.type) {
 	case Grid::latitudeLongitudeType:
-	case Grid::gaussianLatitudeLongitudeType:
-	{
+	case Grid::gaussianLatitudeLongitudeType: {
 // non-reduced grid
 	  if (dim.x != -1) {
 	    for (n=0; n < dim.x; n+=14) {
@@ -8909,8 +8226,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		  outs << "----------";
 		outs << std::endl;
 		switch (grib.scan_mode) {
-		  case 0x0:
-		  {
+		  case 0x0: {
 		    for (j=0; j < dim.y; ++j) {
 			if (def.type == Grid::latitudeLongitudeType) {
 			  outs.precision(3);
@@ -8950,8 +8266,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		    }
 		    break;
 		  }
-		  case 0x40:
-		  {
+		  case 0x40: {
 		    for (j=dim.y-1; j >= 0; j--) {
 			if (def.type == Grid::latitudeLongitudeType) {
 			  outs.precision(3);
@@ -9010,8 +8325,7 @@ void GRIBGrid::print(std::ostream& outs) const
 	  break;
 	}
 	case Grid::polarStereographicType:
-	case Grid::lambertConformalType:
-	{
+	case Grid::lambertConformalType: {
 	  for (i=0; i < dim.x; i+=14) {
 	    max_i=i+14;
 	    if (max_i > dim.x) max_i=dim.x;
@@ -9025,8 +8339,7 @@ void GRIBGrid::print(std::ostream& outs) const
 	    }
 	    outs << std::endl;
 	    switch (grib.scan_mode) {
-		case 0x0:
-		{
+		case 0x0: {
 		  for (j=0; j < dim.y; ++j) {
 		    outs << std::setw(3) << dim.y-j << " | ";
 		    for (k=i; k < max_i; ++k) {
@@ -9052,8 +8365,7 @@ void GRIBGrid::print(std::ostream& outs) const
 		  }
 		  break;
 		}
-		case 0x40:
-		{
+		case 0x40: {
 		  for (j=dim.y-1; j >= 0; --j) {
 		    outs << std::setw(3) << j+1 << " | ";
 		    for (k=i; k < max_i; ++k) {
@@ -9228,13 +8540,11 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  case 117:
 	  case 119:
 	  case 125:
-	  case 160:
-	  {
+	  case 160: {
 	    outs << "  Level: " << std::setw(5) << grid.level1 << level_type_units[grid.level1_type] << " " << level_type_short_name[grid.level1_type];
 	    break;
 	  }
-	  case 107:
-	  {
+	  case 107: {
 	    outs.precision(4);
 	    outs << "  Level: " << std::setw(6) << grid.level1 << " " << level_type_short_name[grid.level1_type];
 	    outs.precision(2);
@@ -9249,32 +8559,27 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  case 116:
 	  case 120:
 	  case 121:
-	  case 141:
-	  {
+	  case 141: {
 	    outs << "  Layer- Top: " << std::setw(5) << grid.level1 << level_type_units[grid.level1_type] << " Bottom: " << std::setw(5) << grid.level2 << level_type_units[grid.level1_type] << " " << level_type_short_name[grid.level1_type];
 	    break;
 	  }
-	  case 108:
-	  {
+	  case 108: {
 	    outs << "  Layer- Top: " << std::setw(5) << grid.level1 << " Bottom: " << std::setw(5) << grid.level2 << " " << level_type_short_name[grid.level1_type];
 	    break;
 	  }
-	  case 128:
-	  {
+	  case 128: {
 	    outs.precision(3);
 	    outs << "  Layer- Top: " << std::setw(5) << 1.1-grid.level1 << " Bottom: " << std::setw(5) << 1.1-grid.level2 << " " << level_type_short_name[grid.level1_type];
 	    outs.precision(2);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    outs << "  Level/Layer: " << std::setw(3) << grid.level1_type << " " << std::setw(5) << grid.level1 << " " << std::setw(5) << grid.level2;
 	  }
 	}
     }
     switch (grid.grid_type) {
-	case 0:
-	{
+	case 0: {
 // Latitude/Longitude
 	  outs.precision(3);
 	  outs << "\n  Grid: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  Type: " << std::setw(3) << grid.grid_type << "  LonRange: " << std::setw(7) << def.slongitude << " to " << std::setw(3) << def.elongitude << " by " << std::setw(5) << def.loincrement << "  LatRange: " << std::setw(3) << def.slatitude << " to " << std::setw(7) << def.elatitude << " by " << std::setw(5) << def.laincrement << "  ScanMode: 0x" << std::hex << grib.scan_mode << std::dec;
@@ -9282,8 +8587,7 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  break;
 	}
 	case 4:
-	case 10:
-	{
+	case 10: {
 // Gaussian Lat/Lon
 // Rotated Lat/Lon
 	  outs.precision(3);
@@ -9292,8 +8596,7 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  break;
 	}
 	case 3:
-	case 5:
-	{
+	case 5: {
 // Lambert Conformal
 // Polar Stereographic
 	  outs.precision(3);
@@ -9305,8 +8608,7 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  outs.precision(2);
 	  break;
 	}
-	case 50:
-	{
+	case 50: {
 	  outs << "\n  Type: " << std::setw(3) << grid.grid_type << "  Truncation Parameters: " << std::setw(3) << def.trunc1 << std::setw(5) << def.trunc2 << std::setw(5) << def.trunc3;
 	  break;
 	}
@@ -9374,13 +8676,11 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  case 117:
 	  case 119:
 	  case 125:
-	  case 160:
-	  {
+	  case 160: {
 	    outs << " Level=" << grid.level1 << level_type_units[grid.level1_type];
 	    break;
 	  }
-	  case 107:
-	  {
+	  case 107: {
 	    outs.precision(4);
 	    outs << " Level=" << grid.level1;
 	    outs.precision(2);
@@ -9395,25 +8695,21 @@ void GRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	  case 116:
 	  case 120:
 	  case 121:
-	  case 141:
-	  {
+	  case 141: {
 	    outs << " Layer=" << grid.level1 << level_type_units[grid.level1_type] << "," << grid.level2 << level_type_units[grid.level1_type];
 	    break;
 	  }
-	  case 108:
-	  {
+	  case 108: {
 	    outs << " Layer=" << grid.level1 << "," << grid.level2;
 	    break;
 	  }
-	  case 128:
-	  {
+	  case 128: {
 	    outs.precision(3);
 	    outs << " Layer=" << 1.1-grid.level1 << "," << 1.1-grid.level2;
 	    outs.precision(2);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    outs << " Levels=" << grid.level1_type << "," << grid.level1 << "," << grid.level2;
 	  }
 	}
@@ -9447,8 +8743,7 @@ void GRIBGrid::reverse_scan()
 
   switch (grib.scan_mode) {
     case 0x0:
-    case 0x40:
-    {
+    case 0x40: {
 	temp=def.slatitude;
 	def.slatitude=def.elatitude;
 	def.elatitude=temp;
@@ -9689,8 +8984,7 @@ exit(1);
     combined.gridpoints_[n]=new double[combined.dim.x];
   }
   switch (nhgrid.grib.scan_mode) {
-    case 0x0:
-    {
+    case 0x0: {
 	combined=nhgrid;
 	combined.def.elatitude=shgrid.def.elatitude;
 	addon=&shgrid;
@@ -9702,8 +8996,7 @@ exit(1);
 	}
 	break;
     }
-    case 0x40:
-    {
+    case 0x40: {
 	combined=shgrid;
 	combined.def.elatitude=nhgrid.def.elatitude;
 	addon=&nhgrid;
@@ -9715,8 +9008,7 @@ exit(1);
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	return combined;
     }
   }
@@ -9764,8 +9056,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     }
   }
   switch (subset_grid.grib.scan_mode) {
-    case 0x0:
-    {
+    case 0x0: {
 // top down
 	if (!floatutils::myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.elatitude=bottom_latitude;
@@ -9802,8 +9093,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
 	}
 	break;
     }
-    case 0x40:
-    {
+    case 0x40: {
 // bottom up
 	if (!floatutils::myequalf(source.gridpoint_at(bottom_latitude,source.def.slongitude),Grid::bad_value)) {
 	  subset_grid.def.slatitude=bottom_latitude;
@@ -10067,8 +9357,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
   }
   switch (def.type) {
     case Grid::latitudeLongitudeType:
-    case Grid::gaussianLatitudeLongitudeType:
-    {
+    case Grid::gaussianLatitudeLongitudeType: {
 	auto lon=(def.elongitude-def.slongitude)/(dim.x-1);
 // special case of -180 to +180
 	if (static_cast<int>(west_longitude) == -180 && static_cast<int>(east_longitude) == 180) {
@@ -10099,8 +9388,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	  end_x=dim.x-1;
 	}
 	switch (def.type) {
-	  case Grid::latitudeLongitudeType:
-	  {
+	  case Grid::latitudeLongitudeType: {
 	    auto lat=(def.slatitude-def.elatitude)/(dim.y-1);
 	    for (int n=0; n < dim.y; ++n) {
 		auto index_latitude=def.slatitude-n*lat;
@@ -10118,8 +9406,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	    }
 	    break;
 	  }
-	  case Grid::gaussianLatitudeLongitudeType:
-	  {
+	  case Grid::gaussianLatitudeLongitudeType: {
 	    my::map<Grid::GLatEntry> gaus_lats;
 	    if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
 		myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
@@ -10201,8 +9488,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude,double north_latitude,i
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="GRIB2Grid::create_subset(): unable to create a subset for grid type "+strutils::itos(def.type);
 	exit(1);
     }
@@ -10225,18 +9511,15 @@ void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
     outs << "  Dimensions: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  Type: " << std::setw(3) << grid.grid_type;
     switch (grid.grid_type) {
 	case 0:
-	case 40:
-	{
+	case 40: {
 	  outs.precision(6);
 	  outs << "  LonRange: " << std::setw(11) << def.slongitude << " to " << std::setw(11) << def.elongitude << " by " << std::setw(8) << def.loincrement << "  LatRange: " << std::setw(10) << def.slatitude << " to " << std::setw(10) << def.elatitude;
 	  switch (grid.grid_type) {
-	    case 0:
-	    {
+	    case 0: {
 		outs << " by " << std::setw(8) << def.laincrement;
 		break;
 	    }
-	    case 40:
-	    {
+	    case 40: {
 		outs << " Circles: " << std::setw(4) << def.num_circles;
 		break;
 	    }
@@ -10250,8 +9533,7 @@ void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
     switch (grib2.product_type) {
 	case 0:
 	case 1:
-	case 8:
-	{
+	case 8: {
 	  outs << "  Generating Process: " << grib.process << "/" << grib2.backgen_process << "/" << grib2.fcstgen_process;
 //	  if (!floatutils::myequalf(grid.level2,Grid::missing_value))
 	  if (grid.level2_type != 255) {
@@ -10270,21 +9552,18 @@ void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
 		outs << "/" << grid.level1;
 	  }
 	  switch (grib2.product_type) {
-	    case 1:
-	    {
+	    case 1: {
 		outs << "  Ensemble Type/ID/Size: " << ensdata.fcst_type << "/" << ensdata.id << "/" << ensdata.total_size;
 		break;
 	    }
-	    case 8:
-	    {
+	    case 8: {
 		outs << "  Outermost Statistical Process: " << grib2.stat_process_ranges[0].type;
 		break;
 	    }
 	  }
 	  break;
 	}
-	default:
-	{
+	default: {
 	  outs << "  Product: " << grib2.product_type << "?";
 	}
     }
@@ -10295,8 +9574,7 @@ void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
     outs << "|PDef=" << grib2.product_type << "|Ctr=" << grid.src << "-" << grib.sub_center << "|Tbls=" << grib.table << "." << grib2.local_table << "|RTime=" << grib2.time_sig << ":" << reference_date_time_.to_string("%Y%m%d%H%MM%SS") << "|Fcst=" << grid.fcst_time << "|GDef=" << grid.grid_type << "," << dim.x << "," << dim.y << ",";
     switch (grid.grid_type) {
 	case 0:
-	case 40:
-	{
+	case 40: {
 	  outs << def.slatitude << "," << def.slongitude << "," << def.elatitude << "," << def.elongitude << "," << def.loincrement << ",";
 	  if (grid.grid_type == 0) {
 	    outs << def.laincrement;
@@ -10307,13 +9585,11 @@ void GRIB2Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
 	  outs << "," << grib2.earth_shape;
 	  break;
 	}
-	case 10:
-	{
+	case 10: {
 	  outs << def.slatitude << "," << def.slongitude << "," << def.llatitude << "," << def.olongitude << "," << def.stdparallel1 << "," << def.dx << "," << def.dy << "," << grib2.earth_shape;
 	  break;
 	}
-	case 30:
-	{
+	case 30: {
 	  outs << def.slatitude << "," << def.slongitude << "," << def.llatitude << "," << def.olongitude << ",";
 	  if ( (def.projection_flag&0x40) == 0) {
 	    if ( (def.projection_flag&0x80) == 0x80) {
@@ -10457,8 +9733,7 @@ std::cerr << "A " << source.grid.src << " " << grib2.stat_process_ranges.size() 
 		if (source.grid.src == 7) {
 		  switch (source.grib2.stat_process_ranges[0].type) {
 		    case 193:
-		    case 194:
-		    {
+		    case 194: {
 			if (source.grib2.stat_process_ranges.size() == 2) {
 			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
 std::cerr << "B194 " << x << " " << source.reference_date_time_.year() << " " << source.reference_date_time_.month() << std::endl;
@@ -10475,8 +9750,7 @@ std::cerr << "B194 " << x << " " << source.reference_date_time_.year() << " " <<
 			}
 			break;
 		    }
-		    case 204:
-		    {
+		    case 204: {
 			if (source.grib2.stat_process_ranges.size() == 2) {
 			  float x=source.grib2.stat_process_ranges[0].period_length.value/static_cast<float>(dateutils::days_in_month(source.reference_date_time_.year(),source.reference_date_time_.month()));
 std::cerr << "B204 " << x << " " << source.reference_date_time_.year() << " " << source.reference_date_time_.month() << std::endl;
@@ -10578,18 +9852,15 @@ std::string interval_24_hour_forecast_averages_to_string(std::string format,Date
   }
   product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*24+(p2-p1));
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time=first_valid_date_time.days_added((navg-1)+(p2-p1));
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	exit(1);
     }
@@ -10622,23 +9893,19 @@ std::string successive_forecast_averages_to_string(std::string format,DateTime& 
   }
   product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time=first_valid_date_time.days_added(navg*(p2-p1));
 	break;
     }
-    case 11:
-    {
+    case 11: {
 	last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1)*6);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit)+" (successive_forecast_averages_to_string)";
 	exit(1);
     }
@@ -10687,18 +9954,15 @@ std::string time_range_2_to_string(std::string format,DateTime& first_valid_date
     }
   }
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time.add_hours(p2-p1);
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time.add_hours((p2-p1)*24);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	exit(1);
     }
@@ -10739,18 +10003,15 @@ std::string time_range_113_to_string(std::string format,DateTime& first_valid_da
     product="Mean of "+strutils::itos(navg)+" "+strutils::itos(p1)+"-"+tu[tunit]+" Forecasts at "+strutils::itos(p2)+"-"+tu[tunit]+" intervals";
   }
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2);
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2*24);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	exit(1);
     }
@@ -10780,18 +10041,15 @@ std::string time_range_118_to_string(std::string format,DateTime& first_valid_da
     product="Variance/Covariance of "+strutils::itos(navg)+" "+strutils::itos(p1)+"-"+grib1_time_unit[tunit]+" Forecasts at "+strutils::itos(p2)+"-"+grib1_time_unit[tunit]+" intervals";
   }
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2);
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2*24);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit)+" (time_range_118_to_string)";
 	exit(1);
     }
@@ -10824,13 +10082,11 @@ std::string time_range_120_to_string(std::string format,DateTime& first_valid_da
   }
   product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Accumulation (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit)+" (time_range_120_to_string)";
 	exit(1);
     }
@@ -10862,18 +10118,15 @@ std::string time_range_123_to_string(std::string format,DateTime& first_valid_da
     product="Mean of "+strutils::itos(navg)+" Analyses at "+strutils::itos(p2)+"-"+tu[tunit]+" intervals";
   }
   switch (tunit) {
-    case 1:
-    {
+    case 1: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2);
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	last_valid_date_time=first_valid_date_time.hours_added((navg-1)*p2*24);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	exit(1);
     }
@@ -10894,8 +10147,7 @@ std::string time_range_128_to_string(std::string format,short center,short subce
   }
   switch (center) {
     case 7:
-    case 60:
-    {
+    case 60: {
 	if (tunit >= 1 && tunit <= 2) {
 	  if (navg == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (1 per day) of ";
@@ -10909,42 +10161,35 @@ std::string time_range_128_to_string(std::string format,short center,short subce
 	}
 	product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Accumulation (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	switch (tunit) {
-	  case 1:
-	  {
+	  case 1: {
 	    last_valid_date_time=first_valid_date_time.hours_added((navg-1)*24+(p2-p1));
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    last_valid_date_time=first_valid_date_time.days_added((navg-1)+(p2-p1));
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 34:
-    {
+    case 34: {
 	switch (subcenter) {
-	  case 241:
-	  {
+	  case 241: {
 	    product=interval_24_hour_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="time range code 128 is not defined for center 34, subcenter "+strutils::itos(subcenter);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 128 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -10963,8 +10208,7 @@ std::string time_range_129_to_string(std::string format,short center,short subce
     tu=const_cast<char **>(grib2_time_unit);
   }
   switch (center) {
-    case 7:
-    {
+    case 7: {
 	if (tunit >= 1 && tunit <= 2) {
 	  int n= (tunit == 2) ? 1 : 24/p2;
 	  if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
@@ -10979,29 +10223,24 @@ std::string time_range_129_to_string(std::string format,short center,short subce
 	}
 	product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Accumulation (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	switch (tunit) {
-	  case 1:
-	  {
+	  case 1: {
 	    last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    last_valid_date_time=first_valid_date_time.days_added(navg*(p2-p1));
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute last_valid_date_time for center 7 from time units "+strutils::itos(tunit)+" (time_range_129_to_string)";
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 34:
-    {
+    case 34: {
 	switch (subcenter) {
-	  case 241:
-	  {
+	  case 241: {
 	    if (tunit == 1) {
 		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg) < 3) {
 		  product="Monthly Variance/Covariance (1 per day) of Forecasts of ";
@@ -11015,29 +10254,25 @@ std::string time_range_129_to_string(std::string format,short center,short subce
 	    }
 	    product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	    switch (tunit) {
-		case 1:
-		{
+		case 1: {
 		  last_valid_date_time=first_valid_date_time.hours_added((navg-1)*24+p2);
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="unable to compute last_valid_date_time for center 34, subcenter 241 from time units "+strutils::itos(tunit)+" (time_range_129_to_string)";
 		  exit(1);
 		}
             }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="time range code 129 is not defined for center  34, subcenter "+strutils::itos(center);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 129 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11050,21 +10285,17 @@ std::string time_range_130_to_string(std::string format,short center,short subce
   std::string product;
   switch (center) {
 // NCEP
-    case 7:
-    {
+    case 7: {
 	product=interval_24_hour_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	break;
     }
-    case 34:
-    {
+    case 34: {
 	switch (subcenter) {
-	  case 241:
-	  {
+	  case 241: {
 	    product=successive_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="time range code 130 is not defined for center 34, subcenter "+strutils::itos(subcenter);
 	    exit(1);
 	  }
@@ -11072,8 +10303,7 @@ std::string time_range_130_to_string(std::string format,short center,short subce
 	break;
     }
 // ECMWF
-    case 98:
-    {
+    case 98: {
 	if (tunit == 1) {
 	  last_valid_date_time=first_valid_date_time.hours_added(navg);
 	  if (navg == static_cast<int>(dateutils::days_in_month(last_valid_date_time.year(),last_valid_date_time.month()))*24) {
@@ -11090,8 +10320,7 @@ std::string time_range_130_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 130 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11110,16 +10339,13 @@ std::string time_range_131_to_string(std::string format,short center,short subce
     tu=const_cast<char **>(grib2_time_unit);
   }
   switch (center) {
-    case 7:
-    {
+    case 7: {
 	product=successive_forecast_averages_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	break;
     }
-    case 34:
-    {
+    case 34: {
 	switch (subcenter) {
-	  case 241:
-	  {
+	  case 241: {
 	    if (tunit == 1) {
 		int n=24/p2;
 		if ( (dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month())-navg/n) < 3) {
@@ -11134,29 +10360,25 @@ std::string time_range_131_to_string(std::string format,short center,short subce
 	    }
 	    product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	    switch (tunit) {
-		case 1:
-		{
+		case 1: {
 		  last_valid_date_time=first_valid_date_time.hours_added(navg*(p2-p1));
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="unable to compute last_valid_date_time for center 34, subcenter 241 from time units "+strutils::itos(tunit)+" (time_range_131_to_string)";
 		  exit(1);
 		}
 	    }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="time range code 131 is not defined for center 34, subcenter "+strutils::itos(subcenter);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 131 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11168,24 +10390,20 @@ std::string time_range_132_to_string(std::string format,short center,short subce
 {
   std::string product;
   switch (center) {
-    case 34:
-    {
+    case 34: {
 	switch (subcenter) {
-	  case 241:
-	  {
+	  case 241: {
 	    product=time_range_118_to_string(format,first_valid_date_time,last_valid_date_time,tunit,p1,p2,navg);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="time range code 132 is not defined for center 34, subcenter "+strutils::itos(subcenter);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
         myerror="time range code 132 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11198,8 +10416,7 @@ std::string time_range_133_to_string(std::string format,short center,short subce
   std::string product;
   switch (center) {
 // ECMWF
-    case 98:
-    {
+    case 98: {
 	if (tunit == 1) {
 	  auto num_per_day=24/(p1 % 24);
 	  auto temporal_resolution=24/num_per_day;
@@ -11218,8 +10435,7 @@ std::string time_range_133_to_string(std::string format,short center,short subce
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 133 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11239,8 +10455,7 @@ std::string time_range_137_to_string(std::string format,short center,short subce
   }
   switch (center) {
     case 7:
-    case 60:
-    {
+    case 60: {
 	if (tunit >= 1 && tunit <= 2) {
 	  if (navg/4 == static_cast<int>(dateutils::days_in_month(first_valid_date_time.year(),first_valid_date_time.month()))) {
 	    product="Monthly Mean (4 per day) of ";
@@ -11257,21 +10472,18 @@ std::string time_range_137_to_string(std::string format,short center,short subce
 	}
 	product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Accumulation (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	switch (tunit) {
-	  case 1:
-	  {
+	  case 1: {
 	    last_valid_date_time=first_valid_date_time.hours_added((navg-1)*6+(p2-p1));
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="time range code 137 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11293,8 +10505,7 @@ std::string time_range_138_to_string(std::string format,short center,short subce
   }
   switch (center) {
     case 7:
-    case 60:
-    {
+    case 60: {
 	if (tunit == 11) {
 	  p1*=6;
 	  p2*=6;
@@ -11319,21 +10530,18 @@ std::string time_range_138_to_string(std::string format,short center,short subce
 	product+=strutils::itos(p2-p1)+"-"+tu[tunit]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	last_valid_date_time=first_valid_date_time;
 	switch (tunit) {
-	  case 1:
-	  {
+	  case 1: {
 	    last_valid_date_time.add_hours(hours_to_last+(p2-p1));
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute last_valid_date_time from time units "+strutils::itos(tunit);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    default:
-    {
+    default: {
         myerror="time range code 138 is not defined for center "+strutils::itos(center);
 	exit(1);
     }
@@ -11344,44 +10552,37 @@ std::string time_range_138_to_string(std::string format,short center,short subce
 void set_forecast_date_time(size_t p1,short tunits,const DateTime& reference_date_time,DateTime& forecast_date_time,size_t& fcst_time)
 {
   switch (tunits) {
-    case 0:
-    {
+    case 0: {
 	forecast_date_time=reference_date_time.minutes_added(p1);
 	fcst_time=p1*100;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	forecast_date_time=reference_date_time.hours_added(p1);
 	fcst_time=p1*10000;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	forecast_date_time=reference_date_time.days_added(p1);
 	fcst_time=p1*240000;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	forecast_date_time=reference_date_time.months_added(p1);
 	fcst_time=forecast_date_time.time_since(reference_date_time);
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	forecast_date_time=reference_date_time.years_added(p1);
 	fcst_time=forecast_date_time.time_since(reference_date_time);
 	break;
     }
-    case 12:
-    {
+    case 12: {
 	forecast_date_time=reference_date_time.hours_added(p1*12);
 	fcst_time=p1*12*10000;
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unable to convert forecast hour for time units "+strutils::itos(tunits);
 	exit(1);
     }
@@ -11397,8 +10598,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
   short p2=grid->P2()*grib1_unit_mult[tunits];
   switch (grid->time_range()) {
     case 0:
-    case 10:
-    {
+    case 10: {
 	if (p1 == 0) {
 	  product_description="Analysis";
 	  fcst_time=0;
@@ -11411,21 +10611,18 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	valid_date_time=forecast_date_time;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	product_description=strutils::itos(p1)+"-"+grib1_time_unit[tunits]+" Forecast";
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	valid_date_time=forecast_date_time;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_2_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	if (p1 == 0 && tunits == 2 && p2 == static_cast<int>(dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()))) {
 	  product_description="Monthly Average";
@@ -11434,23 +10631,19 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	  product_description=strutils::itos(p2-p1)+"-"+grib1_time_unit[tunits]+" Average (initial+"+strutils::itos(p1)+" to initial+"+strutils::itos(p2)+")";
 	}
 	switch (tunits) {
-	  case 1:
-	  {
+	  case 1: {
 	    valid_date_time=forecast_date_time.hours_added(p2-p1);
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    valid_date_time=forecast_date_time.days_added(p2-p1);
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 	    valid_date_time=forecast_date_time.months_added(p2-p1);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute valid_date_time from time units "+strutils::itos(tunits);
 	    exit(1);
 	  }
@@ -11458,8 +10651,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	break;
     }
     case 4:
-    case 5:
-    {
+    case 5: {
 	fcst_time=0;
 	product_description=strutils::itos(std::abs(p2-p1))+"-"+grib1_time_unit[tunits]+" ";
 	if (grid->time_range() == 4) {
@@ -11485,8 +10677,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	product_description+=strutils::itos(p2)+")";
 	forecast_date_time=valid_date_time=grid->reference_date_time();
 	switch (tunits) {
-	  case 1:
-	  {
+	  case 1: {
 	    if (p2 < 0) {
 		valid_date_time.subtract_hours(-p2);
 	    }
@@ -11498,8 +10689,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  case 2:
-	  {
+	  case 2: {
 	    if (p2 < 0) {
 		valid_date_time.subtract_days(-p2);
 	    }
@@ -11511,8 +10701,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 	    if (p2 < 0) {
 		valid_date_time.subtract_months(-p2);
 	    }
@@ -11524,22 +10713,19 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	    }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="unable to compute valid_date_time from time units "+strutils::itos(tunits);
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 7:
-    {
+    case 7: {
 	if (grid->source() == 7) {
 	  if (p2 == 0) {
 	    forecast_date_time=valid_date_time=grid->reference_date_time();
 	    switch (tunits) {
-		case 2:
-		{
+		case 2: {
 		  forecast_date_time.subtract_days(p1);
 		  size_t n=p1+1;
 		  if (dateutils::days_in_month(forecast_date_time.year(),forecast_date_time.month()) == n) {
@@ -11556,8 +10742,7 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 		  }
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="time unit "+strutils::itos(tunits)+" not recognized for time range indicator 7 and P2 == 0";
 		  exit(1);
 		}
@@ -11574,98 +10759,82 @@ std::string grib_product_description(GRIBGrid *grid,DateTime& forecast_date_time
 	}
 	break;
     }
-    case 51:
-    {
+    case 51: {
 	product_description=strutils::itos(grid->number_averaged())+"-year Climatology of ";
 	switch (tunits) {
-	  case 3:
-	  {
+	  case 3: {
 	    product_description+="Monthly Means";
 	    forecast_date_time=valid_date_time=grid->reference_date_time().years_added(grid->number_averaged()-1).months_added(1);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="bad P2 "+strutils::itos(p2)+" for climatological mean";
 	    exit(1);
 	  }
 	}
 	break;
     }
-    case 113:
-    {
+    case 113: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_113_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 118:
-    {
+    case 118: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_118_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 120:
-    {
+    case 120: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_120_to_string("grib",forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 123:
-    {
+    case 123: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_123_to_string("grib",forecast_date_time,valid_date_time,tunits,p2,grid->number_averaged());
 	break;
     }
-    case 128:
-    {
+    case 128: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_128_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 129:
-    {
+    case 129: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_129_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 130:
-    {
+    case 130: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_130_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 131:
-    {
+    case 131: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_131_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 132:
-    {
+    case 132: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_132_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 133:
-    {
+    case 133: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_133_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 137:
-    {
+    case 137: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_137_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    case 138:
-    {
+    case 138: {
 	set_forecast_date_time(p1,tunits,grid->reference_date_time(),forecast_date_time,fcst_time);
 	product_description=time_range_138_to_string("grib",grid->source(),grid->sub_center_id(),forecast_date_time,valid_date_time,tunits,p1,p2,grid->number_averaged());
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="GRIB time range indicator "+strutils::itos((reinterpret_cast<GRIBGrid *>(grid))->time_range())+" not recognized";
 	exit(1);
     }
@@ -11683,8 +10852,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
   switch (ptype) {
     case 0:
     case 1:
-    case 2:
-    {
+    case 2: {
 	if (fcst_hr == 0) {
 	  product_description="Analysis";
 	}
@@ -11696,8 +10864,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
     case 8:
     case 11:
     case 12:
-    case 61:
-    {
+    case 61: {
 	std::vector<GRIB2Grid::StatisticalProcessRange> spranges=grid->statistical_process_ranges();
 	product_description="";
 	for (size_t n=0; n < spranges.size(); ++n) {
@@ -11707,51 +10874,42 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
 	  if (spranges.size() == 2 && spranges[n].type >= 192) {
 	    switch (grid->source()) {
 		case 7:
-		case 60:
-		{
+		case 60: {
 		  switch (spranges[0].type) {
-		    case 193:
-		    {
+		    case 193: {
 // average of analyses
 			product_description+=time_range_113_to_string("grib2",forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 194:
-		    {
+		    case 194: {
 			product_description+=time_range_123_to_string("grib2",forecast_date_time,valid_date_time,tunits,spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 195:
-		    {
+		    case 195: {
 // average of foreast accumulations at 24-hour intervals
 			product_description+=time_range_128_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 197:
-		    {
+		    case 197: {
 // average of foreast averages at 24-hour intervals
 			product_description+=time_range_130_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 204:
-		    {
+		    case 204: {
 // average of foreast accumulations at 6-hour intervals
 			product_description+=time_range_137_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 205:
-		    {
+		    case 205: {
 // average of foreast averages at 6-hour intervals
 			product_description+=time_range_138_to_string("grib2",grid->source(),(reinterpret_cast<GRIB2Grid *>(grid))->sub_center_id(),forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    case 255:
-		    {
+		    case 255: {
 			product_description+=time_range_2_to_string("grib2",forecast_date_time,valid_date_time,tunits,(spranges[0].period_time_increment.value-spranges[1].period_length.value),spranges[0].period_time_increment.value,spranges[0].period_length.value);
 			break;
 		    }
-		    default:
-		    {
+		    default: {
 			myerror="unable to decode NCEP local-use statistical process type "+strutils::itos(spranges[0].type);
 			exit(1);
 		    }
@@ -11759,8 +10917,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
 		  n=spranges.size();
 		  break;
 		}
-		default:
-		{
+		default: {
 		  myerror="unable to decode local-use statistical processing for center "+strutils::itos(grid->source());
 		  exit(1);
 		}
@@ -11791,8 +10948,7 @@ std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_date_ti
 // continuous processes
 	    if (spranges[n].period_length.value < 0) {
 		switch (spranges[n].type) {
-		  case 1:
-		  {
+		  case 1: {
 		    product_description+=strutils::itos(-spranges[n].period_length.value*grib2_unit_mult[spranges[n].period_length.unit])+"-"+grib2_time_unit[spranges[n].period_length.unit]+" Accumulation (initial";
 //		    forecast_date_time.subtract(grib2_time_unit[spranges[n].period_length.unit]+std::string("s"),-spranges[n].period_length.value*grib2_unit_mult[spranges[n].period_length.unit]);
 forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period_length.unit]+std::string("s"),-spranges[n].period_length.value*grib2_unit_mult[spranges[n].period_length.unit]);
@@ -11812,8 +10968,7 @@ forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period
 		    product_description+=")";
 		    break;
 		  }
-		  default:
-		  {
+		  default: {
 		    myerror="no decoding for negative period and statistical process type "+strutils::itos(spranges[n].type)+", length: "+strutils::itos(spranges[n].period_length.value)+"; date - "+forecast_date_time.to_string();
 		    exit(1);
 		  }
@@ -11830,31 +10985,25 @@ forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period
 		  case 1:
 		  case 2:
 		  case 3:
-		  case 255:
-		  {
+		  case 255: {
 		    switch (spranges[n].type) {
-			case 0:
-			{
+			case 0: {
 			  product_description="Average";
 			  break;
 			}
-			case 1:
-			{
+			case 1: {
 			  product_description="Accumulation";
 			  break;
 			}
-			case 2:
-			{
+			case 2: {
 			  product_description="Maximum";
 			  break;
 			}
-			case 3:
-			{
+			case 3: {
 			  product_description="Minimum";
 			  break;
 			}
-			case 255:
-			{
+			case 255: {
 			  product_description="Period";
 			  break;
 			}
@@ -11872,8 +11021,7 @@ forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period
 		    valid_date_time=forecast_date_time.added(grib2_time_unit[spranges[n].period_length.unit]+std::string("s"),spranges[n].period_length.value*grib2_unit_mult[spranges[n].period_length.unit]);
 		    break;
 		  }
-		  default:
-		  {
+		  default: {
 		    myerror="no decoding for positive period and statistical process type "+strutils::itos(spranges[n].type);
 		    exit(1);
 		  }
@@ -11887,9 +11035,10 @@ forecast_date_time=valid_date_time.subtracted(grib2_time_unit[spranges[n].period
 	}
 	break;
     }
-    default:
+    default: {
 	myerror="product type "+strutils::itos(ptype)+" not recognized";
 	exit(1);
+    }
   }
   return product_description;
 }
@@ -11899,28 +11048,22 @@ short p2_from_statistical_end_time(const GRIB2Grid& grid)
   DateTime dt1=grid.reference_date_time(),dt2=grid.statistical_process_end_date_time();
 
   switch (grid.time_unit()) {
-    case 0:
-    {
+    case 0: {
 	return (dt2.time()/100 % 100)-(dt1.time()/100 % 100);
     }
-    case 1:
-    {
+    case 1: {
 	 return (dt2.time()/10000-dt1.time()/10000);
     }
-    case 2:
-    {
+    case 2: {
 	return (dt2.day()-dt1.day());
     }
-    case 3:
-    {
+    case 3: {
 	return (dt2.month()-dt1.month());
     }
-    case 4:
-    {
+    case 4: {
 	return (dt2.year()-dt1.year());
     }
-    default:
-    {
+    default: {
 	myerror="unable to map end time with units "+strutils::itos(grid.time_unit())+" to GRIB1";
 	exit(1);
     }
