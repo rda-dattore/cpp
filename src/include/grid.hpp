@@ -7,6 +7,7 @@
 #include <math.h>
 #include <list>
 #include <deque>
+#include <unordered_set>
 #include <iodstream.hpp>
 #include <datetime.hpp>
 #include <netcdf.hpp>
@@ -437,6 +438,7 @@ public:
   void compute_mean();
   GRIB2Grid create_subset(double south_latitude,double north_latitude,int latitude_stride,double west_longitude,double east_longitude,int longitude_stride) const;
   short background_process() const { return grib2.backgen_process; }
+  short data_representation() const { return grib2.data_rep; }
   size_t data_type() const { return grib2.data_type; }
   size_t discipline() const { return grib2.discipline; }
   DateTime earliest_valid_date_time() const { return valid_date_time_; }
@@ -455,7 +457,7 @@ public:
   virtual std::string parameter_units(xmlutils::ParameterMapper& parameter_mapper) const;
   short product_type() const { return grib2.product_type; }
   DateTime statistical_process_end_date_time() const { return grib2.stat_period_end; }
-  void set_data_representation(unsigned short data_representation_code) { grib2.data_rep=data_representation_code; }
+  void set_data_representation(unsigned short data_representation_code);
   void set_statistical_process_ranges(const std::vector<StatisticalProcessRange>& source);
   void set_table_versions(short master_table_version,short local_table_version) { grib.table=master_table_version; grib2.local_table=local_table_version; }
   void operator+=(const GRIB2Grid& source);
@@ -1125,10 +1127,10 @@ public:
   bool wrote_header;
 };
 struct HouseKeeping {
-  HouseKeeping() : unique_variable_table(),include_parameter_table(nullptr) {}
+  HouseKeeping() : unique_variable_table(),include_parameter_set(nullptr) {}
 
   my::map<netCDFStream::UniqueVariableEntry> unique_variable_table;
-  std::shared_ptr<my::map<gributils::StringEntry>> include_parameter_table;
+  std::shared_ptr<std::unordered_set<std::string>> include_parameter_set;
 };
 
 extern int convert_grid_to_netcdf(Grid *source_grid,size_t format,OutputNetCDFStream *ostream,GridData& grid_data,std::string path_to_level_map);
