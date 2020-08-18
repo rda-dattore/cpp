@@ -486,13 +486,17 @@ private:
 	ComplexPack() : grid_point() {}
 
 	struct GridPoint {
-	  GridPoint() : split_method(0),miss_val_mgmt(0),width_ref(0),width_pack_width(0),length_incr(0),length_pack_width(0),primary_miss_sub(0.),secondary_miss_sub(0.),num_groups(0),length_ref(0),last_length(0),spatial_diff() {}
+	  GridPoint() : split_method(0),miss_val_mgmt(0),width_ref(0),width_pack_width(0),length_incr(0),length_pack_width(0),primary_miss_sub(0.),secondary_miss_sub(0.),num_groups(0),length_ref(0),last_length(0),ref_vals(),widths(),lengths(),pvals(),spatial_diff() {}
+
 	  short split_method,miss_val_mgmt,width_ref,width_pack_width,length_incr,length_pack_width;
 	  double primary_miss_sub,secondary_miss_sub;
 	  int num_groups,length_ref,last_length;
+	  std::vector<int> ref_vals,widths,lengths,pvals;
 	  struct SpatialDiff {
-	    SpatialDiff() : order(0),order_vals_width(0) {}
+	    SpatialDiff() : order(0),order_vals_width(0),first_vals() {}
+
 	    short order,order_vals_width;
+	    std::vector<int> first_vals;
 	  } spatial_diff;
 	} grid_point;
     } complex_pack;
