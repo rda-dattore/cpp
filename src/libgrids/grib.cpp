@@ -3387,7 +3387,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   struct {
     short sign;
-    int *first_vals,omin;
+    int omin;
     long long miss_val,group_miss_val;
     int max_length;
   } groups;
@@ -3560,7 +3560,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	    off+=40;
 	    g2->grib2.complex_pack.grid_point.spatial_diff.first_vals.resize(g2->grib2.complex_pack.grid_point.spatial_diff.order);
 	    for (int n=0; n < g2->grib2.complex_pack.grid_point.spatial_diff.order; ++n) {
-		bits::get(stream_buffer,groups.first_vals[n],off,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8);
+		bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.spatial_diff.first_vals[n],off,g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8);
 		off+=g2->grib2.complex_pack.grid_point.spatial_diff.order_vals_width*8;
 	    }
 	    bits::get(stream_buffer,groups.sign,off,1);
@@ -3662,7 +3662,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		g2->gridpoints_[j][i]=Grid::missing_value;
 	    }
 	    for (int n=g2->grib2.complex_pack.grid_point.spatial_diff.order-1; n > 0; --n) {
-		auto lastgp=groups.first_vals[n]-groups.first_vals[n-1];
+		auto lastgp=g2->grib2.complex_pack.grid_point.spatial_diff.first_vals[n]-g2->grib2.complex_pack.grid_point.spatial_diff.first_vals[n-1];
 		int num_not_missing=0;
 		for (size_t l=0; l < g2->dim.size; ++l) {
 		  j=l/g2->dim.x;
@@ -3683,8 +3683,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 		i=(l % g2->dim.x);
 		if (g2->gridpoints_[j][i] != Grid::missing_value) {
 		  if (num_not_missing < g2->grib2.complex_pack.grid_point.spatial_diff.order) {
-		    g2->gridpoints_[j][i]=g2->stats.min_val+groups.first_vals[num_not_missing]/D*E;
-		    lastgp=g2->stats.min_val*D/E+groups.first_vals[num_not_missing];
+		    g2->gridpoints_[j][i]=g2->stats.min_val+g2->grib2.complex_pack.grid_point.spatial_diff.first_vals[num_not_missing]/D*E;
+		    lastgp=g2->stats.min_val*D/E+g2->grib2.complex_pack.grid_point.spatial_diff.first_vals[num_not_missing];
 		  }
 		  else {
 		    lastgp+=g2->gridpoints_[j][i];
