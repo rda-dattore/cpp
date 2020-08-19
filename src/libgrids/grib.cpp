@@ -3383,8 +3383,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
   off_t off=curr_off*8;
   short sec_num;
   size_t avg_cnt=0,pval=0;
-  int len;
-  int *jvals,num_packed=0;
+  int len,num_packed=0;
   GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grids.back().get());
   struct {
     short sign;
@@ -3716,40 +3715,8 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	case 40:
 	case 40000: {
 	  len=lengths_.ds-5;
-	  jvals=new int[g2->dim.size];
-	  if (len > 0) {
-	    if (gributils::dec_jpeg2000(reinterpret_cast<char *>(const_cast<unsigned char *>(&stream_buffer[curr_off+5])),len,jvals) < 0) {
-		for (size_t n=0; n < g2->dim.size; ++n) {
-		  jvals[n]=0;
-		}
-	    }
-	  }
-	  else {
-	    for (size_t n=0; n < g2->dim.size; ++n) {
-		jvals[n]=0;
-	    }
-	  }
 	  g2->galloc();
-	  size_t x=0,y=0;
-	  for (int n=0; n < g2->dim.y; ++n) {
-	    for (int m=0; m < g2->dim.x; ++m) {
-		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
-		  g2->gridpoints_[n][m]=g2->stats.min_val+jvals[y++]*E/D;
-		  if (g2->gridpoints_[n][m] > g2->stats.max_val) {
-		    g2->stats.max_val=g2->gridpoints_[n][m];
-		  }
-		  g2->stats.avg_val+=g2->gridpoints_[n][m];
-		  ++avg_cnt;
-		}
-		else {
-		  g2->gridpoints_[n][m]=Grid::missing_value;
-		}
-		++x;
-	    }
-	  }
-	  delete[] jvals;
-	  g2->stats.avg_val/=static_cast<double>(avg_cnt);
-	  g2->grid.filled=true;
+	  decode_jpeg2000(&stream_buffer[curr_off+5],len,jas_matrix,g2,D,E);
 	  break;
 	}
 #endif
@@ -11072,89 +11039,82 @@ short p2_from_statistical_end_time(const GRIB2Grid& grid)
   }
 }
 
-#ifdef __JASPER
-extern "C" int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
-/*$$$  SUBPROGRAM DOCUMENTATION BLOCK
-*                .      .    .                                       .
-* SUBPROGRAM:    dec_jpeg2000      Decodes JPEG2000 code stream
-*   PRGMMR: Gilbert          ORG: W/NP11     DATE: 2002-12-02
-*
-* ABSTRACT: This Function decodes a JPEG2000 code stream specified in the
-*   JPEG2000 Part-1 standard (i.e., ISO/IEC 15444-1) using JasPer 
-*   Software version 1.500.4 (or 1.700.2) written by the University of British
-*   Columbia and Image Power Inc, and others.
-*   JasPer is available at http://www.ece.uvic.ca/~mdadams/jasper/.
-*
-* PROGRAM HISTORY LOG:
-* 2002-12-02  Gilbert
-*
-* USAGE:     int dec_jpeg2000(char *injpc,int bufsize,int *outfld)
-*
-*   INPUT ARGUMENTS:
-*      injpc - Input JPEG2000 code stream.
-*    bufsize - Length (in bytes) of the input JPEG2000 code stream.
-*
-*   OUTPUT ARGUMENTS:
-*     outfld - Output matrix of grayscale image values.
-*
-*   RETURN VALUES :
-*          0 = Successful decode
-*         -3 = Error decode jpeg2000 code stream.
-*         -5 = decoded image had multiple color components.
-*              Only grayscale is expected.
-*
-* REMARKS:
-*
-*      Requires JasPer Software version 1.500.4 or 1.700.2
-*
-* ATTRIBUTES:
-*   LANGUAGE: C
-*   MACHINE:  IBM SP
-*
-*$$$*/
-{
-    int ier;
-    int i,j,k;
-    jas_image_t *image=0;
-    jas_stream_t *jpcstream;
-    jas_image_cmpt_t *pcmpt;
-    char *opts=0;
-    jas_matrix_t *data;
+} // end namespace gributils
 
-//    jas_init();
-    ier=0;
-// Create jas_stream_t containing input JPEG200 codestream in memory.
-    jpcstream=jas_stream_memopen(injpc,bufsize);
-// Decode JPEG200 codestream into jas_image_t structure.
-    image=jpc_decode(jpcstream,opts);
-    if ( image == 0 ) {
-       jas_eprintf(" jpc_decode return = %d \n",ier);
-       return -3;
+#ifdef __JASPER
+void decode_jpeg2000(const unsigned char *jpc_bitstream,size_t jpc_bitstream_length,GRIB2Message::JasMatrix& jas_matrix,GRIB2Grid *g2,double D,double E)
+{
+  jas_image_t *jas_image=nullptr;
+  if (jpc_bitstream_length > 0) {
+// create a jas_stream_t
+    auto jas_stream=jas_stream_memopen(reinterpret_cast<char *>(const_cast<unsigned char *>(jpc_bitstream)),jpc_bitstream_length);
+// decode the image
+    char *image_opts=nullptr;
+    jas_image=jpc_decode(jas_stream,image_opts);
+    jas_stream_close(jas_stream);
+  }
+// if image failed to decode, or it's not a grayscale, fill gridpoint array
+//   with the reference value
+  if (jas_image == nullptr || jas_image->numcmpts_ != 1) {
+    size_t x=0;
+    auto avg_cnt=0;
+    for (int n=0; n < g2->dim.y; ++n) {
+	for (int m=0; m < g2->dim.x; ++m) {
+	  if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
+		g2->gridpoints_[n][m]=g2->stats.min_val;
+		if (g2->gridpoints_[n][m] > g2->stats.max_val) {
+		  g2->stats.max_val=g2->gridpoints_[n][m];
+		}
+		g2->stats.avg_val+=g2->gridpoints_[n][m];
+		++avg_cnt;
+	  }
+	  else {
+		g2->gridpoints_[n][m]=Grid::missing_value;
+	  }
+	  ++x;
+	}
     }
-    pcmpt=image->cmpts_[0];
-// Expecting jpeg2000 image to be grayscale only.
-// No color components.
-    if (image->numcmpts_ != 1 ) {
-       jas_eprintf("dec_jpeg2000: Found color image.  Grayscale expected.\n");
-       return (-5);
+    g2->stats.avg_val/=static_cast<double>(avg_cnt);
+    g2->grid.filled=true;
+    return;
+  }
+// reallocate the data matrix, if needed
+  auto h=jas_image_height(jas_image);
+  auto w=jas_image_width(jas_image);
+  if (h != jas_matrix.height || w != jas_matrix.width) {
+    if (jas_matrix.data != nullptr) {
+	jas_matrix_destroy(jas_matrix.data);
     }
-// Create a data matrix of grayscale image values decoded from the jpeg2000 code
-// stream.
-    data=jas_matrix_create(jas_image_height(image), jas_image_width(image));
-    jas_image_readcmpt(image,0,0,0,jas_image_width(image),
-                       jas_image_height(image),data);
-// Copy data matrix to output integer array.
-    k=0;
-    for (i=0;i<pcmpt->height_;i++) 
-      for (j=0;j<pcmpt->width_;j++) 
-        outfld[k++]=data->rows_[i][j];
-// Clean up JasPer work structures.
-    jas_matrix_destroy(data);
-    ier=jas_stream_close(jpcstream);
-    jas_image_destroy(image);
-    return 0;
+    jas_matrix.data=jas_matrix_create(h,w);
+    jas_matrix.height=h;
+    jas_matrix.width=w;
+  }
+// read the only image component into the data matrix
+  jas_image_readcmpt(jas_image,0,0,0,jas_matrix.width,jas_matrix.height,jas_matrix.data);
+// fill the gridpoint array
+  size_t x=0,y=0;
+  auto avg_cnt=0;
+  for (int n=0; n < g2->dim.y; ++n) {
+    for (int m=0; m < g2->dim.x; ++m) {
+	if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
+	    g2->gridpoints_[n][m]=g2->stats.min_val+jas_matrix.data->data_[y++]*E/D;
+	    if (g2->gridpoints_[n][m] > g2->stats.max_val) {
+		g2->stats.max_val=g2->gridpoints_[n][m];
+	    }
+	    g2->stats.avg_val+=g2->gridpoints_[n][m];
+	    ++avg_cnt;
+	}
+	else {
+	    g2->gridpoints_[n][m]=Grid::missing_value;
+	}
+	++x;
+    }
+  }
+  g2->stats.avg_val/=static_cast<double>(avg_cnt);
+  g2->grid.filled=true;
+// clean up
+  jas_image_destroy(jas_image);
 }
 #endif
 
-} // end namespace gributils
 #endif
