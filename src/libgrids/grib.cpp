@@ -3409,7 +3409,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
 	  for (int n=0; n < g2->dim.y; ++n) {
 	    for (int m=0; m < g2->dim.x; ++m) {
 		if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
-		  size_t pval;
+		  size_t pval=0;
 		  bits::get(stream_buffer,pval,off,g2->grib.pack_width);
 		  g2->gridpoints_[n][m]=g2->stats.min_val+pval*E/D;
 		  if (g2->gridpoints_[n][m] > g2->stats.max_val) {
@@ -9913,7 +9913,7 @@ std::string time_range_2_to_string(std::string format,DateTime& first_valid_date
   }
   if (p1 == 0) {
     if (p2 == 0) {
-	product+="Analyses";
+	product+="Analysis";
     }
     else {
 	product+=strutils::itos(p2)+"-"+tu[tunit]+" Product";
