@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <string>
 #include <list>
+#include <thread>
 #include <grid.hpp>
 #include <gridutils.hpp>
 #include <strutils.hpp>
@@ -11116,10 +11117,10 @@ void decode_jpeg2000(const unsigned char *jpc_bitstream,size_t jpc_bitstream_len
 	++x;
     }
   }
-  g2->stats.avg_val/=static_cast<double>(avg_cnt);
-  g2->grid.filled=true;
 // clean up
   jas_image_destroy(jas_image);
+  g2->stats.avg_val/=static_cast<double>(avg_cnt);
+  g2->grid.filled=true;
 }
 #endif
 
