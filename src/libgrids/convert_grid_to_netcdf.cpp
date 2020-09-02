@@ -925,11 +925,11 @@ void write_netcdf_header_from_grib_file(InputGRIBStream& istream,OutputNetCDFStr
     msg->fill(&buffer[0],true);
     for (n=0; n < msg->number_of_grids(); n++) {
 	grid=msg->grid(n);
-	if (hk.include_parameter_table != nullptr) {
+	if (hk.include_parameter_set != nullptr) {
 	  include_parameter=false;
 	  if (edition == 2) {
-	    se.key=strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->discipline())+"."+strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->parameter_category())+"."+strutils::itos(grid->parameter());
-	    if (hk.include_parameter_table->found(se.key,se)) {
+	    auto key=strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->discipline())+"."+strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->parameter_category())+"."+strutils::itos(grid->parameter());
+	    if (hk.include_parameter_set->find(key) != hk.include_parameter_set->end()) {
 		include_parameter=true;
 	    }
 	  }
@@ -1788,19 +1788,20 @@ lastValidDateTime=g2->valid_date_time();
 	  ostream->add_record_data(nctime);
 	}
 	gridpoints.resize(source_grid->dimensions().x*source_grid->dimensions().y,netCDFStream::NcType::FLOAT);
+	auto precision_set=pow(10.,reinterpret_cast<GRIBGrid *>(source_grid)->decimal_scale_factor());
 	if (g->scan_mode() == 0x0) {
 	  for (n=grid_data.subset_definition.min_y,l=0; n <= grid_data.subset_definition.max_y; ++n) {
 	    if (grid_data.subset_definition.crosses_greenwich) {
 		for (m=grid_data.subset_definition.min_x; m < source_grid->dimensions().x; ++m) {
-		  gridpoints.set(l++,source_grid->gridpoint(m,n));
+		  gridpoints.set(l++,lround(source_grid->gridpoint(m,n)*precision_set)/precision_set);
 		}
 		for (m=0; m <= grid_data.subset_definition.max_x; ++m) {
-		  gridpoints.set(l++,source_grid->gridpoint(m,n));
+		  gridpoints.set(l++,lround(source_grid->gridpoint(m,n)*precision_set)/precision_set);
 		}
 	    }
 	    else {
 		for (m=grid_data.subset_definition.min_x; m <= grid_data.subset_definition.max_x; ++m) {
-		  gridpoints.set(l++,source_grid->gridpoint(m,n));
+		  gridpoints.set(l++,lround(source_grid->gridpoint(m,n)*precision_set)/precision_set);
 		}
 	    }
 	  }
@@ -1945,6 +1946,7 @@ void convert_grib_file_to_netcdf_as_non_record_variables(FILE *fp,OutputNetCDFSt
 	msg->fill(buffer,false);
 	for (l=0; l < static_cast<int>(msg->number_of_grids()); ++l) {
 	  grid=msg->grid(l);
+	  auto precision_set=pow(10.,reinterpret_cast<GRIBGrid *>(grid)->decimal_scale_factor());
 	  trange="";
 	  if (edition == 2) {
 	    trange=get_grib2_time_range(*(reinterpret_cast<GRIB2Grid *>(grid)));
@@ -1970,15 +1972,15 @@ void convert_grib_file_to_netcdf_as_non_record_variables(FILE *fp,OutputNetCDFSt
 		if (subset_definition.crosses_greenwich) {
 		  max_x= (greenwich_appears_twice) ? grid->dimensions().x-1 : grid->dimensions().x;
 		  for (m=subset_definition.min_x; m < max_x; ++m) {
-		    gridpoints[npoints++]=grid->gridpoint(m,n);
+		    gridpoints[npoints++]=lround(grid->gridpoint(m,n)*precision_set)/precision_set;
 		  }
 		  for (m=0; m <= subset_definition.max_x; ++m) {
-		    gridpoints[npoints++]=grid->gridpoint(m,n);
+		    gridpoints[npoints++]=lround(grid->gridpoint(m,n)*precision_set)/precision_set;
 		  }
 		}
 		else {
 		  for (m=subset_definition.min_x; m <= subset_definition.max_x; ++m) {
-		    gridpoints[npoints++]=grid->gridpoint(m,n);
+		    gridpoints[npoints++]=lround(grid->gridpoint(m,n)*precision_set)/precision_set;
 		  }
 		}
 	    }
