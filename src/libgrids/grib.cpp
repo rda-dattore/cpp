@@ -2813,6 +2813,7 @@ bits::set(output_buffer,0,off+40,16);
 	bits::set(output_buffer,g2->grib.process,off+88,8);
 	bits::set(output_buffer,g2->grib2.backgen_process,off+96,8);
 	bits::set(output_buffer,g2->grib2.fcstgen_process,off+104,8);
+	for (auto n=offset+14; n < offset+17; output_buffer[n++]=0);
 	bits::set(output_buffer,g2->grib.time_unit,off+136,8);
 	bits::set(output_buffer,fcst_time,off+144,32);
 	bits::set(output_buffer,g2->grid.level1_type,off+176,8);
@@ -3182,6 +3183,7 @@ bits::set(output_buffer,0,off+40,8);
     case 0:
     case 40: {
 	bits::set(output_buffer,g2->grib2.earth_shape,off+112,8);
+	for (auto n=offset+15; n < offset+30; output_buffer[n++]=0);
 	bits::set(output_buffer,0,off+240,16);
 	bits::set(output_buffer,g2->dim.x,off+256,16);
 	bits::set(output_buffer,0,off+272,16);
@@ -4542,10 +4544,9 @@ float GRIBGrid::latitude_at(int index,my::map<GLatEntry> *gaus_lats) const
 
 int GRIBGrid::latitude_index_of(float latitude,my::map<GLatEntry> *gaus_lats) const
 {
-  GLatEntry glat_entry;
   size_t n=0;
-
   if (def.type == Grid::gaussianLatitudeLongitudeType) {
+    GLatEntry glat_entry;
     glat_entry.key=def.num_circles;
     if (gaus_lats == nullptr || !gaus_lats->found(glat_entry.key,glat_entry)) {
 	return -1;
@@ -9125,7 +9126,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source,float bottom_latitude,float t
     subset_grid.def.elongitude=right_longitude;
   }
   else {
-    subset_grid.def.elongitude=subset_grid.def.loincrement*source.longitude_index_east_of(right_longitude);
+    subset_grid.def.elongitude=source.longitude_index_east_of(right_longitude)-subset_grid.def.loincrement;
   }
   if (subset_grid.def.elongitude < subset_grid.def.slongitude) {
     subset_grid.dim.x=lroundf((subset_grid.def.elongitude+360.-subset_grid.def.slongitude)/subset_grid.def.loincrement)+1;
