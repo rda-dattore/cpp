@@ -235,8 +235,10 @@ int Grid::latitude_index_south_of(float latitude,my::map<GLatEntry> *gaus_lats) 
 
 int Grid::longitude_index_of(float longitude) const
 {
-  if (def.elongitude > 180. && longitude < 0.) {
-    longitude+=360.;
+  if (longitude < 0.) {
+    if (def.elongitude > 180. || def.elongitude < def.slongitude) {
+	longitude+=360.;
+    }
   }
   double x=(longitude-def.slongitude)/def.loincrement;
   int m=lroundf(x);
