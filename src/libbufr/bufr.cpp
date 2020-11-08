@@ -1144,9 +1144,12 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 	sdum=strutils::to_lower(bentry.units);
 	if (!strutils::contains(sdum,"code") && !strutils::contains(sdum,"flag")) {
 	  if (!strutils::contains(sdum,"ccitt") && report.local_desc_width == 0) {
-	    bentry.width=bentry.width+report.change_width;
+	    bentry.width+=report.change_width;
+	    bentry.scale+=report.change_scale;
 	  }
-	  bentry.scale=bentry.scale+report.change_scale;
+	  else if (strutils::contains(sdum,"ccitt") && report.change_ccitt_width > 0) {
+	    bentry.width=report.change_ccitt_width;
+	  }
 	  bentry.ref_val*=report.change_ref_val;
 	}
 	report.local_desc_width=0;
@@ -1402,6 +1405,10 @@ std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descri
 		report.change_scale=0;
 		report.change_ref_val=1;
 	    }
+	    break;
+	  }
+	  case 8: {
+	    report.change_ccitt_width=descriptor.y*8;
 	    break;
 	  }
 	  case 22: {
