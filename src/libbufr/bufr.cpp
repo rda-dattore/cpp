@@ -90,7 +90,7 @@ int InputBUFRStream::read(unsigned char *buffer,size_t buffer_length)
 		    break;
 		  default:
 		    switch (buffer[3]) {
-			case 0x42:
+			case 0x42: {
 			  buffer[0]=buffer[3];
 			  fs.read(reinterpret_cast<char *>(&buffer[1]),3);
 			  if (fs.gcount() < 3) {
@@ -98,11 +98,13 @@ int InputBUFRStream::read(unsigned char *buffer,size_t buffer_length)
 			  }
 			  bytes_read=4;
 			  break;
-			default:
+			}
+			default: {
 			  fs.read(reinterpret_cast<char *>(&buffer[0]),4);
 			  if (fs.gcount() < 4) {
 			    return bfstream::eof;
 			  }
+			}
 		    }
 		}
 	  }
@@ -420,7 +422,6 @@ void InputBUFRStream::fill_table_b(std::string path_to_bufr_tables,short src,sho
     exit(1);
   }
   add_table_b_entries(ifs);
-//  add_table_b_entries(ifs);
   ifs.close();
   ifs.open((path_to_bufr_tables+"/TableB."+strutils::itos(src)+"-"+strutils::itos(sub_center)).c_str());
   if (ifs.is_open()) {
@@ -535,7 +536,7 @@ BUFRReport& BUFRReport::operator=(const BUFRReport& source)
   if (num_descriptors > descriptors.size()) {
     descriptors.resize(num_descriptors);
   }
-  for (size_t n=0; n < num_descriptors; n++) {
+  for (size_t n=0; n < num_descriptors; ++n) {
     descriptors[n]=source.descriptors[n];
   }
   return *this;
@@ -603,7 +604,7 @@ void BUFRReport::print_descriptor_group(std::string indent,size_t index,int num_
   static int width=0;
   if (width == 0) {
     while (num_descriptors > static_cast<size_t>(pow(10.,width))) {
-	width++;
+	++width;
     }
   }
   for (int n=0; n < num_to_print; ++n) {
@@ -621,7 +622,7 @@ void BUFRReport::print_descriptor_group(std::string indent,size_t index,int num_
 	  std::cout << std::endl;
 	  --num_to_print;
 	}
-	index++;
+	++index;
 	print_descriptor_group(indent+"  ",index,np,istream,verbose);
 	num_to_print-=np;
 	index+=np;
@@ -690,8 +691,7 @@ void BUFRReport::unpack_ids(const unsigned char *input_buffer)
   size_t hr,min,sec=0;
   switch (report.edition) {
     case 2:
-    case 3:
-    {
+    case 3: {
 	if (report.edition == 2) {
 	  bits::get(input_buffer,report.src,off+32,16);
 	  report.sub_center=255;
@@ -727,8 +727,7 @@ void BUFRReport::unpack_ids(const unsigned char *input_buffer)
 	bits::get(input_buffer,min,off+128,8);
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	bits::get(input_buffer,report.src,off+32,16);
 	bits::get(input_buffer,report.sub_center,off+48,16);
 	bits::get(input_buffer,report.update,off+64,8);
@@ -753,8 +752,7 @@ void BUFRReport::unpack_ids(const unsigned char *input_buffer)
 	bits::get(input_buffer,sec,off+168,8);
 	break;
     }
-    default:
-    {
+    default: {
 	myerror="unsupported edition: "+strutils::itos(report.edition);
 	exit(1);
     }
@@ -773,113 +771,107 @@ void BUFRReport::decode_sequence(unsigned char xx,unsigned char yy,InputBUFRStre
 {
   Descriptor d;
   switch (xx) {
-    case 0:
-    {
+    case 0: {
 	switch (yy) {
-	  case 2:
-	  {
+	  case 2: {
 	    d.f=0;
 	    d.x=0;
 	    d.y=2;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=3;
 	    descriptor_list.insert(it,d);
 	    break;
 	  }
-	  case 3:
-	  {
+	  case 3: {
 	    d.f=0;
 	    d.x=0;
 	    d.y=10;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=11;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=12;
 	    descriptor_list.insert(it,d);
 	    break;
 	  }
-	  case 4:
-	  {
+	  case 4: {
 	    d.f=3;
 	    d.x=0;
 	    d.y=3;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=13;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=14;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=15;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=16;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=17;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=18;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=19;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=20;
 	    descriptor_list.insert(it,d);
 	    break;
 	  }
-	  case 10:
-	  {
+	  case 10: {
 	    d.f=3;
 	    d.x=0;
 	    d.y=3;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=1;
 	    d.x=0;
 	    d.y=0;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=31;
 	    d.y=1;
 	    it=descriptor_list.insert(it,d);
-	    it++;
+	    ++it;
 	    d.f=0;
 	    d.x=0;
 	    d.y=30;
 	    descriptor_list.insert(it,d);
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    myerror="no Table D entry for sequence 3 "+strutils::itos(xx)+" "+strutils::itos(yy);
 	    exit(1);
 	  }
@@ -895,7 +887,7 @@ void BUFRReport::decode_sequence(unsigned char xx,unsigned char yy,InputBUFRStre
 	}
 	for (const auto& s : entry.sequence) {
 	  it=descriptor_list.insert(it,s);
-	  it++;
+	  ++it;
 	}
 	break;
     }
@@ -1032,7 +1024,7 @@ void BUFRReport::unpack_dds(InputBUFRStream& istream,const unsigned char *input_
 	    else {
 		rep.end[rep.num]=n+descriptor.x;
 	    }
-	    rep.num++;
+	    ++rep.num;
 	  }
 	  else if (descriptor.f == 3) {
 	    loop_through_descriptors=true;
@@ -1102,7 +1094,7 @@ void BUFRReport::do_substitution(size_t& offset,Descriptor descriptor,InputBUFRS
     ++it;
   }
   while (data_present.bitmap[data_present.bitmap_index] == '1') {
-    data_present.bitmap_index++;
+    ++data_present.bitmap_index;
     ++it;
     while (it->f == 2) {
 	decode_descriptor(offset,*it,istream,input_buffer,subset,fill_header_only);
@@ -1140,8 +1132,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
   double *parray;
 
   switch (descriptor.f) {
-    case 0:
-    {
+    case 0: {
 	bentry=istream.table_b_entry(0,descriptor.x,descriptor.y);
 	if (report.local_desc_width > 0) {
 	  bentry.width=report.local_desc_width;
@@ -1188,21 +1179,18 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 	  std::cout << std::endl;
 	}
 	switch (descriptor.x) {
-	  case 0:
-	  {
+	  case 0: {
 // table entries
 	    auto num_chars=bentry.width/8;
 	    switch (descriptor.y) {
-		case 1:
-		{
+		case 1: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  aentry.key=std::stoi(dum);
 		  aentry.description="";
 		  break;
 		}
-		case 2:
-		{
+		case 2: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  aentry.description+=std::string(dum);
@@ -1210,8 +1198,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  istream.add_entry_to_table_a(aentry);
 		  break;
 		}
-		case 3:
-		{
+		case 3: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  aentry.description+=std::string(dum);
@@ -1219,29 +1206,25 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  istream.update_table_a_entry(aentry);
 		  break;
 		}
-		case 10:
-		{
+		case 10: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  report.def.f=std::stoi(dum);
 		  break;
 		}
-		case 11:
-		{
+		case 11: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  report.def.x=std::stoi(dum);
 		  break;
 		}
-		case 12:
-		{
+		case 12: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  report.def.y=std::stoi(dum);
 		  break;
 		}
-		case 13:
-		{
+		case 13: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  n=num_chars-1;
@@ -1251,8 +1234,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  }
 		  break;
 		}
-		case 14:
-		{
+		case 14: {
 		  n=strlen(dum);
 		  bits::get(input_buffer,&dum[n],offset,8,0,num_chars);
 		  n+=num_chars;
@@ -1265,8 +1247,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  istream.define_table_b_element_name(report.def,dum);
 		  break;
 		}
-		case 15:
-		{
+		case 15: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  n=num_chars-1;
@@ -1277,41 +1258,35 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  istream.define_table_b_units_name(report.def,dum);
 		  break;
 		}
-		case 16:
-		{
+		case 16: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  istream.define_table_b_scale_sign(report.def,dum[0]);
 		  break;
 		}
-		case 17:
-		{
+		case 17: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  istream.define_table_b_scale(report.def,std::stoi(dum));
 		  break;
 		}
-		case 18:
-		{
+		case 18: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  istream.define_table_b_reference_value_sign(report.def,dum[0]);
 		  break;
 		}
-		case 19:
-		{
+		case 19: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  istream.define_table_b_reference_value(report.def,std::stoi(dum));
 		  break;
 		}
-		case 20:
-		{
+		case 20: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
 		  istream.define_table_b_data_width(report.def,std::stoi(dum));
 		  break;
 		}
-		case 30:
-		{
+		case 30: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  strutils::strget(dum,sequence_descriptor.f,1);
 		  strutils::strget(&dum[1],sequence_descriptor.x,2);
@@ -1322,8 +1297,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 	    }
 	    break;
 	  }
-	  default:
-	  {
+	  default: {
 	    if (descriptor.x == 31 && descriptor.y == 31) {
 		if (!data_present.bitmap_started) {
 		  data_present.bitmap="";
@@ -1331,10 +1305,12 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		}
 		if (subset >= 0) {
 		  bits::get(input_buffer,n,offset,1);
-		  if (n == 0)
+		  if (n == 0) {
 		    data_present.bitmap+="0";
-		  else
+		  }
+		  else {
 		    data_present.bitmap+="1";
+		  }
 		}
 		else {
 		  unpack_bufr_values(input_buffer,offset,1,0,0,&parray,report.nsubs);
@@ -1374,14 +1350,14 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 	}
 	break;
     }
-    case 2:
+    case 2: {
 /*
 if (descriptor.x >= 21) {
 std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descriptor.y << " data present descriptors length = " << data_present.descriptors.length() << " " << data_present.bitmap.length() << " '" << data_present.bitmap << "'" << std::endl;
 }
 */
 	switch(descriptor.x) {
-	  case 1:
+	  case 1: {
 	    if (descriptor.y > 0) {
 		report.change_width=report.change_width+descriptor.y-128;
 	    }
@@ -1389,7 +1365,8 @@ std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descri
 		report.change_width=0;
 	    }
 	    break;
-	  case 2:
+	  }
+	  case 2: {
 	    if (descriptor.y > 0) {
 		report.change_scale=report.change_scale+descriptor.y-128;
 	    }
@@ -1397,7 +1374,8 @@ std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descri
 		report.change_scale=0;
 	    }
 	    break;
-	  case 5:
+	  }
+	  case 5: {
 	    if (report.dump_descriptors) {
 		std::unique_ptr<unsigned char []> temp(new unsigned char[descriptor.y]);
 		bits::get(input_buffer,temp.get(),offset,8,0,descriptor.y);
@@ -1408,10 +1386,12 @@ std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descri
 	    }
 	    offset+=(descriptor.y*8);
 	    break;
-	  case 6:
+	  }
+	  case 6: {
 	    report.local_desc_width=descriptor.y;
 	    break;
-	  case 7:
+	  }
+	  case 7: {
 	    if (descriptor.y > 0) {
 		report.change_width=report.change_width+((10.*descriptor.y)+2.)/3.;
 		report.change_scale=report.change_scale+descriptor.y;
@@ -1423,119 +1403,150 @@ std::cerr << (int)descriptor.f << " " << (int)descriptor.x << " " << (int)descri
 		report.change_ref_val=1;
 	    }
 	    break;
-	  case 22:
+	  }
+	  case 22: {
 	    switch (descriptor.y) {
 		default:
 		  data_present.add_to_descriptors=false;
 		  break;
 	    }
 	    break;
-	  case 23:
+	  }
+	  case 23: {
 	    switch (descriptor.y) {
-		case 0:
-		  data_present.add_to_descriptors=false;
-		  data_present.bitmap_index=0;
-		  break;
-		case 255:
-		  do_substitution(offset,descriptor,istream,input_buffer,subset,fill_header_only);
-		  break;
-		default:
-		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
-		  exit(1);
-	    }
-	    break;
-	  case 24:
-	    switch (descriptor.y) {
-		case 0:
+		case 0: {
 		  data_present.add_to_descriptors=false;
 		  data_present.bitmap_index=0;
 		  break;
-		case 255:
+		}
+		case 255: {
 		  do_substitution(offset,descriptor,istream,input_buffer,subset,fill_header_only);
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  case 25:
+	  }
+	  case 24: {
 	    switch (descriptor.y) {
-		case 0:
+		case 0: {
 		  data_present.add_to_descriptors=false;
 		  data_present.bitmap_index=0;
 		  break;
-		case 255:
+		}
+		case 255: {
 		  do_substitution(offset,descriptor,istream,input_buffer,subset,fill_header_only);
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  case 32:
+	  }
+	  case 25: {
 	    switch (descriptor.y) {
-		case 0:
+		case 0: {
 		  data_present.add_to_descriptors=false;
 		  data_present.bitmap_index=0;
 		  break;
-		case 255:
+		}
+		case 255: {
 		  do_substitution(offset,descriptor,istream,input_buffer,subset,fill_header_only);
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  case 35:
+	  }
+	  case 32: {
 	    switch (descriptor.y) {
-		case 0:
+		case 0: {
+		  data_present.add_to_descriptors=false;
+		  data_present.bitmap_index=0;
+		  break;
+		}
+		case 255: {
+		  do_substitution(offset,descriptor,istream,input_buffer,subset,fill_header_only);
+		  break;
+		}
+		default: {
+		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
+		  exit(1);
+		}
+	    }
+	    break;
+	  }
+	  case 35: {
+	    switch (descriptor.y) {
+		case 0: {
 		  data_present.add_to_descriptors=true;
 		  data_present.num_operators=0;
 		  data_present.descriptors.clear();
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  case 36:
+	  }
+	  case 36: {
 	    switch (descriptor.y) {
-		case 0:
+		case 0: {
 		  data_present.add_to_descriptors=false;
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  case 37:
+	  }
+	  case 37: {
 	    switch (descriptor.y) {
-		case 0:
+		case 0: {
 		  data_present.add_to_descriptors=false;
 		  data_present.bitmap_index=0;
 		  break;
-		case 255:
+		}
+		case 255: {
 		  data_present.add_to_descriptors=true;
 		  data_present.num_operators=0;
 		  data_present.descriptors.clear();
 		  break;
-		default:
+		}
+		default: {
 		  myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 		  exit(1);
+		}
 	    }
 	    break;
-	  default:
+	  }
+	  default: {
 	    myerror="bad operand descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
 	    exit(1);
+	  }
 	}
 	if (descriptor.x < 21 && data_present.add_to_descriptors) {
 	  data_present.descriptors.emplace_back(descriptor);
-	  data_present.num_operators++;
+	  ++data_present.num_operators;
 	}
 	break;
-    default:
+    }
+    default: {
 	myerror="bad value for \"F\"";
 	exit(1);
+    }
   }
 }
 
@@ -1551,8 +1562,8 @@ for (n=offset/8-3; n < offset/8+800; n++)
 std::cerr << (int)input_buffer[n] << " ";
 std::cerr << std::dec << std::endl;
 */
-  for (n=0; n < num_reps; n++) {
-    for (m=start_index; m < start_index+num_to_decode; m++) {
+  for (n=0; n < num_reps; ++n) {
+    for (m=start_index; m < start_index+num_to_decode; ++m) {
 	if (descriptors[m].f != 0 || descriptors[m].x != 31 || descriptors[m].y != 31) {
 	  data_present.bitmap_started=false;
 	}
@@ -1621,14 +1632,14 @@ void unpack_bufr_values(const unsigned char *buffer,size_t offset,short width,sh
 {
   double r0;
   long long packed=0;
-  short nbinc,n;
+  short nbinc;
 
   *packed_values=new double[num_values];
   bits::get(buffer,packed,offset,width);
   r0=bufr_value(packed,width,scale,reference_value);
   bits::get(buffer,nbinc,offset+width,6);
   offset+=(width+6);
-  for (n=0; n < num_values; n++) {
+  for (auto n=0; n < num_values; ++n) {
     if (r0 < -99998.) {
 	(*packed_values)[n]=r0;
     }
