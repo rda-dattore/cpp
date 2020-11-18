@@ -5,38 +5,29 @@
 
 namespace metautils {
 
-std::list<std::string> cmd_databases(std::string caller,std::string user)
+std::vector<CMD_DATABASE> cmd_databases(std::string caller,std::string user)
 {
-  std::list<std::string> databases;
+  std::vector<CMD_DATABASE> databases;
   MySQL::Server server(directives.database_server,directives.metadb_username,directives.metadb_password,"");
   if (!server) {
     log_error("cmd_databases() could not connect to the metadata server",caller,user);
   }
-  MySQL::Query query("show databases where `Database` like '%ML' and `Database` not like 'W%'");
-  if (query.submit(server) < 0) {
-    log_error("cmd_databases(): '"+query.error()+"'",caller,user);
+  MySQL::LocalQuery databases_query("show databases where `Database` like '%ML'");
+  if (databases_query.submit(server) < 0) {
+    log_error("cmd_databases(): '"+databases_query.error()+"'",caller,user);
   }
-  my::map<StringEntry> table;
-  MySQL::Row row;
-  while (query.fetch_row(row)) {
-    databases.emplace_back(row[0]);
-    StringEntry se;
-    se.key=row[0];
-    table.insert(se);
-  }
-  query.set("show databases where `Database` like 'W%ML'");
-  if (query.submit(server) < 0) {
-    log_error("cmd_databases(): '"+query.error()+"'",caller,user);
-  }
-  while (query.fetch_row(row)) {
-    StringEntry se;
-    se.key=row[0].substr(1);
-    if (!table.found(se.key,se)) {
-	databases.emplace_back(row[0]);
+  for (const auto& databases_row : databases_query) {
+    std::string data_type;
+    MySQL::LocalQuery data_type_query("select data_type from metautil.cmd_databases where name = '"+databases_row[0]+"'");
+    if (data_type_query.submit(server) == 0 && data_type_query.num_rows() > 0) {
+	MySQL::Row data_type_row;
+	data_type_query.fetch_row(data_type_row);
+	data_type=data_type_row[0];
     }
+    databases.emplace_back(std::make_tuple(databases_row[0],data_type));
   }
   server.disconnect();
-  return databases;
+  return std::move(databases);
 }
 
 void check_for_existing_cmd(std::string cmd_type)
