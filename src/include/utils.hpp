@@ -117,13 +117,18 @@ extern void untar(std::string dirname,std::string filename);
 
 inline bool system_is_big_endian()
 {
-  union {
-    uint32_t i;
-    char c[4];
-  } test;
-
-  test.i=0x04030201;
-  return (test.c[0] == 4);
+  static bool is_big_endian;
+  static bool checked=false;
+  if (!checked) {
+    union {
+	uint32_t i;
+	char c[4];
+    } test;
+    test.i=0x04030201;
+    is_big_endian=(test.c[0] == 4);
+    checked=true;
+  }
+  return is_big_endian;
 }
 
 } // end namespace unixutils
