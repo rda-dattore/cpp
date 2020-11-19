@@ -25,8 +25,13 @@ public:
     bool operator>(long long l) const;
     bool operator<(long long l) const;
     bool operator==(long long l) const;
+    bool operator!=(long long l) const { return !(*this == l); }
     bool operator>=(long long l) const;
     bool operator<=(long long l) const;
+    bool operator==(std::string s) const;
+    bool operator!=(std::string s) const { return !(*this == s); }
+    bool operator==(const char *s) const;
+    bool operator!=(const char *s) const { return !(*this == s); }
     friend std::ostream& operator<<(std::ostream& o,const Value& v);
     friend bool operator==(const Value& v1,const Value& v2);
     friend bool operator!=(const Value& v1,const Value& v2);
