@@ -147,13 +147,15 @@ public:
   };
   class DataValue {
   public:
-    DataValue() : _class_(-1),precision_(0),size(0),dim_sizes(),value(nullptr),compound(),vlen() {}
+    enum class ArrayType {_NULL=0,BYTE,SHORT,INT,LONG_LONG,FLOAT,DOUBLE,STRING};
+    DataValue() : _class_(-1),precision_(0),size(0),dim_sizes(),array(nullptr),capacity(0),array_type(ArrayType::_NULL),compound(),vlen() {}
     DataValue(const DataValue& source) : DataValue() { *this=source; }
     ~DataValue() { clear(); }
     DataValue& operator=(const DataValue& source);
+    void allocate(ArrayType type,size_t count);
     short class_() const { return _class_; }
     void clear();
-    void *get() const { return value; }
+    void *get() const { return array; }
     short precision() const { return precision_; }
     void print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const;
     bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace);
@@ -161,7 +163,9 @@ public:
     short _class_,precision_;
     size_t size;
     std::vector<unsigned long long> dim_sizes;
-    void *value;
+    void *array;
+    size_t capacity;
+    ArrayType array_type;
     struct Compound {
 	struct Member {
 	  Member() : name(),class_(-1),precision_(0),size(0) {}
@@ -304,8 +308,8 @@ namespace HDF5 {
 class DataArray {
 public:
   static const double default_missing_value;
-  enum {null_=0,byte_,short_,int_,long_long_,float_,double_,string_};
-  DataArray() : num_values(0),type(0),values(nullptr),dimensions() {}
+  enum class Type {_NULL=0,BYTE,SHORT,INT,LONG_LONG,FLOAT,DOUBLE,STRING};
+  DataArray() : num_values(0),type(Type::_NULL),values(nullptr),dimensions() {}
   DataArray(const DataArray& source) : DataArray() { *this=source; }
   DataArray(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,size_t compound_member_index = 0) : DataArray() { fill(istream,dataset,compound_member_index); }
   ~DataArray() { clear(); }
@@ -320,7 +324,8 @@ public:
   std::string string_value(size_t index) const;
   double value(size_t index) const;
 
-  size_t num_values,type;
+  size_t num_values;
+  Type type;
   void *values;
   std::vector<size_t> dimensions;
 
