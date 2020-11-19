@@ -279,7 +279,13 @@ extern std::string clean_id(std::string id);
 extern std::string relative_web_filename(std::string url);
 extern std::string web_home();
 
-extern std::list<std::string> cmd_databases(std::string caller,std::string user);
+/*
+** CMD_DATABASE is a tuple:
+**    database name
+**    data type
+*/
+typedef std::tuple<std::string,std::string> CMD_DATABASE;
+extern std::vector<CMD_DATABASE> cmd_databases(std::string caller,std::string user);
 
 extern bool read_config(std::string caller,std::string user,bool restrict_to_user_rdadata = true);
 
