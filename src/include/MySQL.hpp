@@ -98,6 +98,20 @@ private:
   Row row;
 };
 
+class ConstQueryIterator
+{
+public:
+  ConstQueryIterator(const Query& query,bool is_end) : _query(query),_is_end(is_end),row() {}
+  bool operator !=(const ConstQueryIterator& source) { return (_is_end != source._is_end); }
+  const ConstQueryIterator& operator++();
+  const Row& operator*();
+
+private:
+  const Query &_query;
+  bool _is_end;
+  Row row;
+};
+
 class Query
 {
 public:
@@ -116,9 +130,11 @@ public:
   virtual int submit(Server& server);
   int thread_ID() const { return _thread_id; }
 
-// range-base support
+// range-based support
   QueryIterator begin();
+  ConstQueryIterator begin() const;
   QueryIterator end();
+  ConstQueryIterator end() const;
 
 protected:
   struct MYSQL_RES_DELETER {
@@ -149,9 +165,11 @@ public:
   int explain(Server& server);
   size_t num_rows() const { return _num_rows; }
   void rewind() { mysql_data_seek(RESULT.get(),0); }
+  void rewind() const { mysql_data_seek(RESULT.get(),0); }
 
-// range-base support
+// range-based support
   QueryIterator begin();
+  ConstQueryIterator begin() const;
 
 private:
   size_t _num_rows;
@@ -189,7 +207,7 @@ public:
   std::string show() const { return statement; }
   int submit(Server& server);
 
-// range-base support
+// range-based support
   PreparedStatementIterator begin();
   PreparedStatementIterator end();
 

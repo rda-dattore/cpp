@@ -480,6 +480,34 @@ Row& QueryIterator::operator*()
   return row;
 }
 
+ConstQueryIterator Query::begin() const
+{
+  auto i=ConstQueryIterator(*this,false);
+  ++i;
+  return i;
+}
+
+ConstQueryIterator Query::end() const
+{
+  return ConstQueryIterator(*this,true);
+}
+
+const ConstQueryIterator& ConstQueryIterator::operator++()
+{
+  if (!_query.fetch_row(row)) {
+    _is_end=true;
+  }
+  return *this;
+}
+
+const Row& ConstQueryIterator::operator*()
+{
+  if (_is_end) {
+    row=Row();
+  }
+  return row;
+}
+
 bool LocalQuery::fetch_row(Row& row) const
 {
   if (RESULT == nullptr) {
@@ -557,6 +585,12 @@ int LocalQuery::explain(Server& server)
 }
 
 QueryIterator LocalQuery::begin()
+{
+  rewind();
+  return Query::begin();
+}
+
+ConstQueryIterator LocalQuery::begin() const
 {
   rewind();
   return Query::begin();
