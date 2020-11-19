@@ -845,6 +845,13 @@ std::string token(const std::string& s,const std::string& separator,size_t token
   }
 }
 
+std::string trimmed(std::string s)
+{
+  std::string trimmed_string=s;
+  trim(s);
+  return std::move(s);
+}
+
 std::string uuid_gen()
 {
   time_t tm=time(NULL);

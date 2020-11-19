@@ -50,6 +50,7 @@ extern std::string to_lower(const std::string& s);
 extern std::string to_title(const std::string& s);
 extern std::string to_upper(const std::string& s,size_t start,size_t num_chars);
 extern std::string to_upper(const std::string& s);
+extern std::string trimmed(std::string s);
 extern std::string token(const std::string& s,const std::string& separator,size_t token_number);
 extern std::string uuid_gen();
 extern std::string wrap(const std::string& s,size_t wrap_width = 80,size_t indent_width = 0);
