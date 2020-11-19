@@ -8,27 +8,27 @@
 namespace metautils {
 
 const std::string GLOBAL_CONFIG_HOME="/gpfs/u/home/dattore/conf";
-const std::string GLOBAL_DSS_ROOT="/ncar/rda/setuid";
+const std::string GLOBAL_DECS_ROOT="/ncar/rda/setuid";
 const std::string LOCAL_CONFIG_HOME="/home/dattore/conf";
-const std::string LOCAL_DSS_ROOT="/usr/local/decs";
+const std::string LOCAL_DECS_ROOT="/usr/local/decs";
 
 bool read_config(std::string caller,std::string user,bool restrict_to_user_rdadata)
 {
   directives.host=unixutils::host_name();
-  if (restrict_to_user_rdadata && geteuid() != 15968 && directives.host != "rda-web-prod.ucar.edu" && directives.host != "rda-web-dev.ucar.edu" && geteuid() != 8342) {
-    myerror="Error: "+strutils::itos(geteuid())+" not authorized "+caller;
+  if (restrict_to_user_rdadata && geteuid() != 15968 && directives.host != "rda-web-prod.ucar.edu" && directives.host != "rda-web-test.ucar.edu" && directives.host != "rda-web-dev.ucar.edu" && geteuid() != 8342) {
+    myerror=strutils::itos(geteuid())+" not authorized "+caller;
     return false;
   }
   directives.server_root="/"+strutils::token(directives.host,".",0);
   struct stat buf;
-  if (stat(LOCAL_DSS_ROOT.c_str(),&buf) == 0) {
-    directives.decs_root=LOCAL_DSS_ROOT;
+  if (stat(LOCAL_DECS_ROOT.c_str(),&buf) == 0) {
+    directives.decs_root=LOCAL_DECS_ROOT;
   }
-  else if (stat(GLOBAL_DSS_ROOT.c_str(),&buf) == 0) {
-    directives.decs_root=GLOBAL_DSS_ROOT;
+  else if (stat(GLOBAL_DECS_ROOT.c_str(),&buf) == 0) {
+    directives.decs_root=GLOBAL_DECS_ROOT;
   }
   if (directives.decs_root.empty()) {
-    myerror="Error locating decs root directory on "+directives.host;
+    myerror="unable to locate decs root directory on "+directives.host;
     return false;
   }
   if (stat("/local/decs/bin/cmd_util",&buf) == 0) {
@@ -41,7 +41,7 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
     directives.local_root="/ncar/rda/setuid";
   }
   if (directives.local_root.empty()) {
-    myerror="Error locating DSS local directory on "+directives.host;
+    myerror="unable to locate DECS local directory on "+directives.host;
     return false;
   }
   std::ifstream ifs;
@@ -52,7 +52,7 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
     ifs.open((GLOBAL_CONFIG_HOME+"/metautils.conf").c_str());
   }
   if (!ifs.is_open()) {
-    myerror="Error opening metautils.conf";
+    myerror="unable to open metautils.conf";
     return false;
   }
   std::unordered_map<std::string,std::string> global_bin_subdirectories;
@@ -60,7 +60,7 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
   ifs.getline(line,256);
   while (!ifs.eof()) {
     if (line[0] != '#') {
-	auto conf_parts=strutils::split(line);
+	auto conf_parts=strutils::split(strutils::trimmed(line));
 	if (conf_parts[0] == "service") {
 	  if (conf_parts.size() != 2) {
 	    myerror="configuration error on 'service' line";
@@ -178,7 +178,7 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
     myerror="unable to set path for temporary files";
     return false;
   }
-  if (directives.decs_root == GLOBAL_DSS_ROOT) {
+  if (directives.decs_root == GLOBAL_DECS_ROOT) {
     for (const auto& e : global_bin_subdirectories) {
 	if (std::regex_search(directives.host,std::regex(e.first))) {
 	  directives.decs_root=directives.rdadata_home;
