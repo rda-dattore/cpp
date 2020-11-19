@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <memory>
 #include <vector>
@@ -8,34 +9,28 @@
 void JSON::Value::clear()
 {
   switch (_type) {
-    case ValueType::String:
-    {
+    case ValueType::String: {
 	delete reinterpret_cast<String *>(_json_value);
 	break;
     }
-    case ValueType::Number:
-    {
+    case ValueType::Number: {
 	delete reinterpret_cast<Number *>(_json_value);
 	break;
     }
-    case ValueType::Object:
-    {
+    case ValueType::Object: {
 	delete reinterpret_cast<Object *>(_json_value);
 	break;
     }
-    case ValueType::Array:
-    {
+    case ValueType::Array: {
 	delete reinterpret_cast<Array *>(_json_value);
 	break;
     }
-    case ValueType::Boolean:
-    {
+    case ValueType::Boolean: {
 	delete reinterpret_cast<Boolean *>(_json_value);
 	break;
     }
     case ValueType::Null:
-    case ValueType::Nonexistent:
-    {
+    case ValueType::Nonexistent: {
 	delete reinterpret_cast<Null *>(_json_value);
 	break;
     }
@@ -45,12 +40,10 @@ void JSON::Value::clear()
 std::vector<std::string> JSON::Value::keys() const
 {
   switch (_type) {
-    case ValueType::Object:
-    {
+    case ValueType::Object: {
 	return reinterpret_cast<Object *>(_json_value)->keys();
     }
-    default:
-    {
+    default: {
 	return std::vector<std::string>{};
     }
   }
@@ -61,20 +54,16 @@ size_t JSON::Value::size() const
   switch (_type) {
     case ValueType::String:
     case ValueType::Number:
-    case ValueType::Boolean:
-    {
+    case ValueType::Boolean: {
 	return 1;
     }
-    case ValueType::Object:
-    {
+    case ValueType::Object: {
 	return reinterpret_cast<Object *>(_json_value)->size();
     }
-    case ValueType::Array:
-    {
+    case ValueType::Array: {
 	return reinterpret_cast<Array *>(_json_value)->size();
     }
-    default:
-    {
+    default: {
 	return 0;
     }
   }
@@ -83,28 +72,22 @@ size_t JSON::Value::size() const
 std::string JSON::Value::to_string() const
 {
   switch (_type) {
-    case ValueType::String:
-    {
+    case ValueType::String: {
 	return reinterpret_cast<String *>(_json_value)->to_string();
     }
-    case ValueType::Number:
-    {
+    case ValueType::Number: {
 	return reinterpret_cast<Number *>(_json_value)->to_string();
     }
-    case ValueType::Object:
-    {
+    case ValueType::Object: {
 	return reinterpret_cast<Object *>(_json_value)->to_string();
     }
-    case ValueType::Array:
-    {
+    case ValueType::Array: {
 	return reinterpret_cast<Array *>(_json_value)->to_string();
     }
-    case ValueType::Boolean:
-    {
+    case ValueType::Boolean: {
 	return reinterpret_cast<Boolean *>(_json_value)->to_string();
     }
-    default:
-    {
+    default: {
 	return "";
     }
   }
@@ -120,12 +103,10 @@ const JSON::Value& JSON::Value::operator[](std::string key) const
   static const void *n=new Null();
   static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
   switch (_type) {
-    case ValueType::Object:
-    {
+    case ValueType::Object: {
 	return (*(reinterpret_cast<Object *>(_json_value)))[key];
     }
-    default:
-    {
+    default: {
 	return nonexistent;
     }
   }
@@ -141,12 +122,10 @@ const JSON::Value& JSON::Value::operator[](size_t index) const
   static const void *n=new Null();
   static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
   switch (_type) {
-    case ValueType::Array:
-    {
+    case ValueType::Array: {
 	return (*(reinterpret_cast<Array *>(_json_value)))[index];
     }
-    default:
-    {
+    default: {
 	return nonexistent;
     }
   }
@@ -200,6 +179,21 @@ bool JSON::Value::operator<=(long long l) const
   else {
     return false;
   }
+}
+
+bool JSON::Value::operator==(std::string s) const
+{
+  if (_type == ValueType::String) {
+    return (reinterpret_cast<String *>(_json_value)->to_string() == s);
+  }
+  else {
+    return false;
+  }
+}
+
+bool JSON::Value::operator==(const char *s) const
+{
+  return (*this == std::string(s));
 }
 
 void JSON::Object::clear()
@@ -332,33 +326,27 @@ std::vector<std::string> JSON::Object::keys() const
 std::ostream& operator<<(std::ostream& o,const JSON::Value& v)
 {
   switch (v._type) {
-    case JSON::ValueType::String:
-    {
+    case JSON::ValueType::String: {
 	o << *(reinterpret_cast<JSON::String *>(v._json_value));
 	break;
     }
-    case JSON::ValueType::Number:
-    {
+    case JSON::ValueType::Number: {
 	o << *(reinterpret_cast<JSON::Number *>(v._json_value));
 	break;
     }
-    case JSON::ValueType::Object:
-    {
+    case JSON::ValueType::Object: {
 	o << *(reinterpret_cast<JSON::Object *>(v._json_value));
 	break;
     }
-    case JSON::ValueType::Array:
-    {
+    case JSON::ValueType::Array: {
 	o << *(reinterpret_cast<JSON::Array *>(v._json_value));
 	break;
     }
-    case JSON::ValueType::Boolean:
-    {
+    case JSON::ValueType::Boolean: {
 	o << *(reinterpret_cast<JSON::Boolean *>(v._json_value));
 	break;
     }
-    default:
-    {}
+    default: {}
   }
   return o;
 }
@@ -367,24 +355,18 @@ bool operator==(const JSON::Value& v1,const JSON::Value& v2)
 {
   if (v1._type == v2._type) {
     switch (v1._type) {
-	case JSON::ValueType::String:
-	{
+	case JSON::ValueType::String: {
 	}
-	case JSON::ValueType::Number:
-	{
+	case JSON::ValueType::Number: {
 	  return (reinterpret_cast<JSON::Number *>(v1._json_value)->number() == reinterpret_cast<JSON::Number *>(v2._json_value)->number());
 	}
-	case JSON::ValueType::Object:
-	{
+	case JSON::ValueType::Object: {
 	}
-	case JSON::ValueType::Array:
-	{
+	case JSON::ValueType::Array: {
 	}
-	case JSON::ValueType::Boolean:
-	{
+	case JSON::ValueType::Boolean: {
 	}
-	default:
-	{
+	default: {
 	  return true;
 	}
     }
