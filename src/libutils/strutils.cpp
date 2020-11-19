@@ -243,6 +243,12 @@ void trim(std::string& s)
   trim_back(s);
 }
 
+void unquote(std::string& s) {
+  if (s.front() == s.back() && (s.front() == '"' || s.front() == '\'')) {
+    s=s.substr(1,s.length()-2);
+  }
+}
+
 bool contains(const std::string& s,const std::string& sub_s)
 {
   if (sub_s.empty()) {
@@ -651,6 +657,12 @@ std::string soundex(const std::string& s)
   while (tail.length() < 3)
     tail+="0";
   return head+tail;
+}
+
+std::string sql_ready(std::string s)
+{
+  replace_all(s,"'","\\'");
+  return s;
 }
 
 std::string strand(size_t length)

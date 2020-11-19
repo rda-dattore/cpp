@@ -15,6 +15,7 @@ extern void strput(char *string,int numeric,int num_chars,char fill = ' ',bool i
 extern void trim_back(std::string& s);
 extern void trim_front(std::string& s);
 extern void trim(std::string& s);
+extern void unquote(std::string& s);
 
 extern bool contains(const std::string& s,const std::string& sub_s);
 extern bool has_beginning(const std::string& s,const std::string& beginning);
