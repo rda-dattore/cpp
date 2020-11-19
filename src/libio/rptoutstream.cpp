@@ -158,14 +158,14 @@ int irstream::peek()
   return lroundf(static_cast<float>(rptlen)/8);
 }
 
-int irstream::read(unsigned char *buffer,size_t num_bytes)
+int irstream::read(unsigned char *buffer,size_t buffer_length)
 {
   auto rptlen=peek();
   if (rptlen == eof || rptlen == error || rptlen == craystream::eod) {
     return rptlen;
   }
   ++num_read;
-  if (rptlen <= static_cast<int>(num_bytes)) {
+  if (rptlen <= static_cast<int>(buffer_length)) {
     bits::get(file_buf.get(),buffer,file_buf_pos,8,0,rptlen);
     int irptlen;
     bits::get(file_buf.get(),irptlen,file_buf_pos,12);
@@ -173,11 +173,11 @@ int irstream::read(unsigned char *buffer,size_t num_bytes)
     return rptlen;
   }
   else {
-    if (num_bytes > 0) {
-	std::copy(&file_buf[file_buf_pos],&file_buf[file_buf_pos+num_bytes],buffer);
+    if (buffer_length > 0) {
+	std::copy(&file_buf[file_buf_pos],&file_buf[file_buf_pos+buffer_length],buffer);
     }
     file_buf_pos+=rptlen;
-    return num_bytes;
+    return buffer_length;
   }
 }
 
