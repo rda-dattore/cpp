@@ -42,8 +42,24 @@ public:
     size_t num_values;
     void *values;
   };
+  class DataValue {
+  public:
+    DataValue() : value(nullptr),nc_type(NcType::_NULL) {}
+    DataValue(const DataValue& source) : DataValue() { *this=source; }
+    ~DataValue() { clear(); };
+    DataValue& operator=(const DataValue& source);
+    void clear();
+    double get() const;
+    void resize(NcType type);
+    void set(double source_value);
+    NcType type() const { return nc_type; }
+
+  private:
+    void *value;
+    NcType nc_type;
+  };
   struct Variable {
-    Variable() : name(),dimids(),attrs(),nc_type(),size(0),offset(0),is_rec(false),is_coord(false) {}
+    Variable() : name(),dimids(),attrs(),nc_type(),size(0),offset(0),long_name(),standard_name(),units(),_FillValue(),is_rec(false),is_coord(false) {}
 
     std::string name;
     std::vector<size_t> dimids;
@@ -51,6 +67,8 @@ public:
     NcType nc_type;
     size_t size;
     off_t offset;
+    std::string long_name,standard_name,units;
+    DataValue _FillValue;
     bool is_rec,is_coord;
   };
   struct UniqueVariableStringEntry {
@@ -97,22 +115,6 @@ public:
 
     std::string key;
     std::shared_ptr<Data> data;
-  };
-  class DataValue {
-  public:
-    DataValue() : value(nullptr),nc_type(NcType::_NULL) {}
-    DataValue(const DataValue& source) : DataValue() { *this=source; }
-    ~DataValue() { clear(); };
-    DataValue& operator=(const DataValue& source);
-    void clear();
-    double get() const;
-    void resize(NcType type);
-    void set(double source_value);
-    NcType type() const { return nc_type; }
-
-  private:
-    void *value;
-    NcType nc_type;
   };
   class VariableData {
   public:
@@ -180,7 +182,8 @@ public:
   void print_variable_data(std::string variable_name,std::string string_of_indexes);
   void print_variables() const;
   off_t size() const { return size_; }
-  double value_at(std::string variable_name,size_t index);
+  std::vector<double> value_at(std::string variable_name,size_t index);
+  const Variable& variable(std::string variable_name) const;
   NcType variable_data(std::string variable_name,VariableData& variable_data);
   size_t variable_dimensions(std::string variable_name,size_t **address_of_dimension_array) const;
   void variable_value(std::string variable_name,std::string indexes,void **value);
@@ -223,6 +226,7 @@ public:
   void add_variable(std::string name,NcType nc_type,size_t dimension_id) { add_variable(name,nc_type,1,&dimension_id); }
   void add_variable(std::string name,NcType nc_type,size_t num_ids,size_t *dimension_ids);
   void add_variable(std::string name,NcType nc_type,const std::vector<size_t>& dimension_ids);
+  void add_variable_attribute(std::string variable_name,std::string attribute_name,unsigned char value);
   void add_variable_attribute(std::string variable_name,std::string attribute_name,std::string value);
   void add_variable_attribute(std::string variable_name,std::string attribute_name,short value);
   void add_variable_attribute(std::string variable_name,std::string attribute_name,int value);
