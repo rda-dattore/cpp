@@ -4,31 +4,6 @@
 
 namespace dateutils {
 
-DateTime current_date_time()
-{
-  DateTime dt;
-  dt.set_to_current();
-  return dt;
-}
-
-size_t days_in_month(size_t year,size_t month,std::string calendar)
-{
-  if (month < 1 || month > 12) {
-    return 0;
-  }
-  if (calendar == "360_day") {
-    return 30;
-  }
-  else {
-    if (month != 2 || is_leap_year(year,calendar)) {
-	return DateTime::days_in_month_leap[month];
-    }
-    else {
-	return DateTime::days_in_month_noleap[month];
-    }
-  }
-}
-
 void decode_julian_day(int jul_day,size_t& year,size_t& month,size_t& day,size_t base_year)
 {
   size_t days_per_month[12]={31,28,31,30,31,30,31,31,30,31,30,31};
@@ -61,21 +36,21 @@ void decode_julian_day(int jul_day,size_t& year,size_t& month,size_t& day,size_t
   day=jul_day;
 }
 
-bool is_leap_year(size_t year,std::string calendar)
+size_t days_in_month(size_t year,size_t month,std::string calendar)
 {
-  if (calendar.empty() || calendar == "standard" || calendar == "gregorian" || calendar == "proleptic_gregorian") {
-    if ( (year % 4) == 0 && ( (year % 100 != 0) || (year % 400) == 0)) {
-	return true;
-    }
-    else {
-	return false;
-    }
+  if (month < 1 || month > 12) {
+    return 0;
   }
-  else if (calendar == "366_day" || calendar == "all_leap") {
-    return true;
+  if (calendar == "360_day") {
+    return 30;
   }
   else {
-    return false;
+    if (month != 2 || is_leap_year(year,calendar)) {
+	return DateTime::days_in_month_leap[month];
+    }
+    else {
+	return DateTime::days_in_month_noleap[month];
+    }
   }
 }
 
@@ -127,6 +102,36 @@ std::string string_ll_to_date_string(std::string ll_date)
     }
   }
   return ll_date;
+}
+
+DateTime current_date_time()
+{
+  DateTime dt;
+  dt.set_to_current();
+  return dt;
+}
+
+DateTime from_unixtime(long long timestamp)
+{
+  return DateTime(1970,1,1,0,0).seconds_added(timestamp);
+}
+
+bool is_leap_year(size_t year,std::string calendar)
+{
+  if (calendar.empty() || calendar == "standard" || calendar == "gregorian" || calendar == "proleptic_gregorian") {
+    if ( (year % 4) == 0 && ( (year % 100 != 0) || (year % 400) == 0)) {
+	return true;
+    }
+    else {
+	return false;
+    }
+  }
+  else if (calendar == "366_day" || calendar == "all_leap") {
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 } // end namespace dateutils

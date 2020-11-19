@@ -66,6 +66,7 @@ public:
   std::string to_string() const;
   std::string to_string(const char *format) const;
   DateTime time_added(size_t hhmmss,std::string calendar = "") const;
+  long long unixtime() const { return seconds_since(DateTime(1970,1,1,0,0)); }
   short utc_offset() const { return utc_offset_; }
   short weekday() const { return weekday_; }
   int years_since(const DateTime& reference) const;
@@ -88,13 +89,19 @@ private:
 
 namespace dateutils {
 
-extern DateTime current_date_time();
-extern size_t days_in_month(size_t year,size_t month,std::string calendar = "");
 extern void decode_julian_day(int jul_day,size_t& year,size_t& month,size_t& day,size_t base_year = 1900);
-extern bool is_leap_year(size_t year,std::string calendar = "");
+
+extern size_t days_in_month(size_t year,size_t month,std::string calendar = "");
+
 extern int julian_day(size_t year,size_t month,size_t day,size_t base_year = 1900);
+
 extern std::string string_date_to_ll_string(std::string date);
 extern std::string string_ll_to_date_string(std::string ll_date);
+
+extern DateTime current_date_time();
+extern DateTime from_unixtime(long long unixtime);
+
+extern bool is_leap_year(size_t year,std::string calendar = "");
 
 } // end namespace dateutils
 
