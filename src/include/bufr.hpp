@@ -317,7 +317,7 @@ private:
   void print_descriptor_group(std::string indent,size_t index,int num_to_print,InputBUFRStream& istream,bool verbose);
 
   struct Report {
-    Report() : length(0),is_length(0),ids_length(0),os_length(0),dds_length(0),ds_length(0),edition(0),table(0),src(0),sub_center(0),update(0),data_type(0),data_subtype(0),master_version(0),local_version(0),nsubs(0),datetime(),dds_flag(),os_included(false),def(),local_desc_width(0),change_width(0),change_scale(0),change_ref_val(1),dump_descriptors(false) {}
+    Report() : length(0),is_length(0),ids_length(0),os_length(0),dds_length(0),ds_length(0),edition(0),table(0),src(0),sub_center(0),update(0),data_type(0),data_subtype(0),master_version(0),local_version(0),nsubs(0),datetime(),dds_flag(),os_included(false),def(),local_desc_width(0),change_width(0),change_scale(0),change_ref_val(1),change_ccitt_width(0),dump_descriptors(false) {}
 
     size_t length,is_length,ids_length,os_length,dds_length,ds_length;
     short edition,table,src,sub_center,update,data_type,data_subtype,master_version,local_version,nsubs;
@@ -328,6 +328,7 @@ private:
     size_t local_desc_width;
     short change_width,change_scale;
     int change_ref_val;
+    short change_ccitt_width;
     bool dump_descriptors;
   } report;
   unsigned char *os;
