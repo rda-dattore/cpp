@@ -33,8 +33,27 @@ void DateTime::add(std::string units,size_t num_to_add,std::string calendar)
     add_seconds(num_to_add,calendar);
   }
   else {
-    std::cerr << "Error: units " << units << " not recognized" << std::endl;
-    exit(1);
+    throw std::runtime_error("datetime::add(): units "+units+" not recognized.");
+  }
+}
+
+void DateTime::fadd(std::string units,double num_to_add,std::string calendar)
+{
+  units=strutils::to_lower(units);
+  if (units == "hours") {
+    fadd_hours(num_to_add,calendar);
+  }
+  else if (units == "days") {
+    fadd_days(num_to_add,calendar);
+  }
+  else if (units == "minutes") {
+    fadd_minutes(num_to_add,calendar);
+  }
+  else if (units == "seconds") {
+    add_seconds(num_to_add,calendar);
+  }
+  else {
+    throw std::runtime_error("datetime::fadd(): units "+units+" not recognized.");
   }
 }
 
@@ -79,18 +98,26 @@ void DateTime::add_days(size_t days_to_add,std::string calendar)
   }
 }
 
+void DateTime::fadd_days(double days_to_add,std::string calendar)
+{
+  add_seconds(days_to_add*86400.,calendar);
+}
+
 void DateTime::add_hours(size_t hours_to_add,std::string calendar)
 {
-  size_t hh,dd;
-
-  dd=hours_to_add/24;
-  hh=hours_to_add % 24;
+  auto dd=hours_to_add/24;
+  auto hh=hours_to_add % 24;
   hour_+=hh;
   if (hour_ > 23) {
     hour_-=24;
-    dd++;
+    ++dd;
   }
   add_days(dd,calendar);
+}
+
+void DateTime::fadd_hours(double hours_to_add,std::string calendar)
+{
+  add_seconds(hours_to_add*3600.,calendar);
 }
 
 void DateTime::add_minutes(size_t minutes_to_add,std::string calendar)
@@ -103,6 +130,11 @@ void DateTime::add_minutes(size_t minutes_to_add,std::string calendar)
     ++hh;
   }
   add_hours(hh,calendar);
+}
+
+void DateTime::fadd_minutes(double minutes_to_add,std::string calendar)
+{
+  add_seconds(minutes_to_add*60.,calendar);
 }
 
 void DateTime::add_months(size_t months_to_add,std::string calendar)
@@ -170,8 +202,14 @@ void DateTime::add_years(size_t years_to_add)
 DateTime DateTime::added(std::string units,size_t num_to_add,std::string calendar) const
 {
   DateTime new_dt=*this;
-
   new_dt.add(units,num_to_add,calendar);
+  return new_dt;
+}
+
+DateTime DateTime::fadded(std::string units,double num_to_add,std::string calendar) const
+{
+  DateTime new_dt=*this;
+  new_dt.fadd(units,num_to_add,calendar);
   return new_dt;
 }
 

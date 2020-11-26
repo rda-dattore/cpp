@@ -18,14 +18,19 @@ public:
     set(YYYYMMDDHHMMSS);
   }
   void add(std::string units,size_t num_to_add,std::string calendar = "");
+  void fadd(std::string units,double num_to_add,std::string calendar = "");
   void add_days(size_t days_to_add,std::string calendar = "");
+  void fadd_days(double days_to_add,std::string calendar = "");
   void add_hours(size_t hours_to_add,std::string calendar = "");
+  void fadd_hours(double hours_to_add,std::string calendar = "");
   void add_minutes(size_t minutes_to_add,std::string calendar = "");
+  void fadd_minutes(double minutes_to_add,std::string calendar = "");
   void add_months(size_t months_to_add,std::string calendar = "");
   void add_seconds(size_t seconds_to_add,std::string calendar = "");
   void add_time(size_t hhmmss,std::string calendar = "");
   void add_years(size_t years_to_add);
   DateTime added(std::string units,size_t num_to_add,std::string calendar = "") const;
+  DateTime fadded(std::string units,double num_to_add,std::string calendar = "") const;
   DateTime days_added(size_t days_to_add,std::string calendar = "") const;
   int days_since(const DateTime& reference,std::string calendar = "") const;
   DateTime days_subtracted(size_t days_to_subtract,std::string calendar = "") const;
@@ -82,8 +87,6 @@ public:
   friend bool operator>=(const DateTime& source1,const DateTime& source2);
 
 private:
-  size_t *month_lengths(std::string calendar = "");
-
   short year_,month_,day_,hour_,minute_,second_,utc_offset_,weekday_;
 };
 
