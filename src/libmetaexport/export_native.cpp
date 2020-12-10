@@ -162,7 +162,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   auto cmd_databases=metautils::cmd_databases("unknown","unknown");
   auto found_content_metadata=false;
   for (const auto& database : cmd_databases) {
-    if (MySQL::table_exists(server,database+".ds"+dsnum2+"_primaries")) {
+    if (MySQL::table_exists(server,std::get<0>(database)+".ds"+dsnum2+"_primaries2")) {
 	found_content_metadata=true;
     }
   }
@@ -175,13 +175,13 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     gfts.query.set("nsteps_per,unit","GrML.frequencies","dsid = '"+dsnum+"'");
     pthread_create(&gfts.tid,NULL,run_query,reinterpret_cast<void *>(&gfts));
     PThreadStruct gfmts;
-    gfmts.query.set("select distinct f.format from GrML.ds"+dsnum2+"_primaries as p left join GrML.formats as f on f.code = p.format_code");
+    gfmts.query.set("select distinct f.format from GrML.ds"+dsnum2+"_primaries2 as p left join GrML.formats as f on f.code = p.format_code");
     pthread_create(&gfmts.tid,NULL,run_query,reinterpret_cast<void *>(&gfmts));
     PThreadStruct ofts;
     ofts.query.set("select min(min_obs_per),max(max_obs_per),unit from ObML.ds"+dsnum2+"_frequencies group by unit");
     pthread_create(&ofts.tid,NULL,run_query,reinterpret_cast<void *>(&ofts));
     PThreadStruct ofmts;
-    ofmts.query.set("select distinct f.format from ObML.ds"+dsnum2+"_primaries as p left join ObML.formats as f on f.code = p.format_code");
+    ofmts.query.set("select distinct f.format from ObML.ds"+dsnum2+"_primaries2 as p left join ObML.formats as f on f.code = p.format_code");
     pthread_create(&ofmts.tid,NULL,run_query,reinterpret_cast<void *>(&ofmts));
     PThreadStruct dts;
     dts.query.set("select distinct d.definition,d.defParams from GrML.summary as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code where s.dsid = '"+dsnum+"'");
@@ -200,7 +200,8 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     my::map<Entry> frequency_table;
     std::list<std::string> type_list,format_list;
     for (const auto& database : cmd_databases) {
-	if (database == "GrML") {
+	auto database_name=std::get<0>(database);
+	if (database_name == "GrML") {
 	  type_list.emplace_back("grid");
 	  if (gfts.query.num_rows() > 0) {
 	    while (gfts.query.fetch_row(row)) {
@@ -213,7 +214,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
 	    }
 	  }
 	}
-	else if (database == "ObML") {
+	else if (database_name == "ObML") {
 	  type_list.emplace_back("platform_observation");
 	  if (ofts.query.num_rows() > 0) {
 	    while (ofts.query.fetch_row(row)) {
