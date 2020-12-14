@@ -26,7 +26,15 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
     for (const auto& author : elist) {
-	ofs << "<meta name=\"DC.creator\" content=\"" << author.attribute_value("lname") << ", " << author.attribute_value("fname") << "\" />" << std::endl;
+	ofs << "<meta name=\"DC.creator\" content=\"";
+	auto author_type=author.attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
+	}
+	else {
+	  ofs << author.attribute_value("name");
+	}
+	ofs << "\" />" << std::endl;
     }
   }
   else {

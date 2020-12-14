@@ -45,14 +45,23 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
+// dataset has people and/or corporate authors, which overrides contributors
     token_doc->add_if("__HAS_AUTHOR_PERSONS__");
     for (const auto& e : elist) {
-	auto author=e.attribute_value("lname")+", "+e.attribute_value("fname")+" "+e.attribute_value("mname");
+	std::string author;
+	auto author_type=e.attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  author=e.attribute_value("lname")+", "+e.attribute_value("fname")+" "+e.attribute_value("mname");
+	}
+	else {
+	  author=e.attribute_value("name");
+	}
 	strutils::trim(author);
 	token_doc->add_repeat("__AUTHOR_PERSON__",author);
     }
   }
   else {
+// dataset does not have specific authors, so use contributors
     query.set("select g.last_in_path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	token_doc->add_if("__HAS_AUTHOR_ORGS__");

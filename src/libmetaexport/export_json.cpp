@@ -43,9 +43,16 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
 	if (elist.size() > 1) {
 	  ofs << "        " << "{" << std::endl;
 	}
-	ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
-	ofs << "      " << local_indent << "\"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
-	ofs << "      " << local_indent << "\"familyName\": \"" << author.attribute_value("lname") << "\"" << std::endl;
+	auto author_type=author.attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  ofs << "      " << local_indent << "\"@type\": \"Person\"," << std::endl;
+	  ofs << "      " << local_indent << "\"givenName\": \"" << author.attribute_value("fname") << "\"," << std::endl;
+	  ofs << "      " << local_indent << "\"familyName\": \"" << author.attribute_value("lname") << "\"" << std::endl;
+	}
+	else {
+	  ofs << "      " << local_indent << "\"@type\": \"Organization\"," << std::endl;
+	  ofs << "      " << local_indent << "\"name\": \"" << author.attribute_value("name") << "\"" << std::endl;
+	}
 	ofs << "    " << local_indent << "}";
 	if (elist.size() > 1) {
 	  if (&author != &elist.back()) {

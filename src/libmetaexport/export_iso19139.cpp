@@ -59,7 +59,14 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
   if (elist.size() > 0) {
     token_doc->add_if("__HAS_AUTHOR_PERSONS__");
     for (const auto& e : elist) {
-	std::string author=e.attribute_value("lname")+", "+e.attribute_value("fname")+" "+e.attribute_value("mname");
+	std::string author;
+	auto author_type=e.attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  author=e.attribute_value("lname")+", "+e.attribute_value("fname")+" "+e.attribute_value("mname");
+	}
+	else {
+	  author=e.attribute_value("name");
+	}
 	strutils::trim(author);
 	token_doc->add_repeat("__AUTHOR_PERSON__",author);
     }

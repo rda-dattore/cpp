@@ -94,12 +94,20 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   }
   elist=xdoc.element_list("dsOverview/author");
   for (const auto& element : elist) {
-    ofs << indent << "  <author>" << element.attribute_value("fname");
-    auto author=element.attribute_value("mname");
-    if (!author.empty()) {
-	ofs << " " << author;
+    ofs << indent << "  <author>";
+    auto author_type=element.attribute_value("xsi:type");
+    if (author_type == "authorPerson" || author_type.empty()) {
+	ofs << element.attribute_value("fname");
+	auto mname=element.attribute_value("mname");
+	if (!mname.empty()) {
+	  ofs << " " << mname;
+	}
+	ofs << " " << element.attribute_value("lname");
     }
-    ofs << " " << element.attribute_value("lname") << "</author>" << std::endl;
+    else {
+	ofs << element.attribute_value("name");
+    }
+    ofs << "</author>" << std::endl;
   }
   e=xdoc.element("dsOverview/restrictions");
   if (e.name() == "restrictions") {
