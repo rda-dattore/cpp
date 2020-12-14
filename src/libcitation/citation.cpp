@@ -40,41 +40,67 @@ std::string list_authors(XMLSnippet& xsnip,MySQL::Server& server,size_t max_num_
   auto elist=xsnip.element_list("dsOverview/author");
   if (elist.size() > 0) {
     if (elist.size() > max_num_authors) {
-	auto f=elist.front().attribute_value("fname");
-	auto m=elist.front().attribute_value("mname");
-	auto l=elist.front().attribute_value("lname");
-	authlist=l+", "+f.substr(0,1)+".";
-	if (!m.empty()) {
-	  if (strutils::occurs(m,".") > 0) {
-	    authlist+=" "+m;
+	auto author_type=elist.front().attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  auto f=elist.front().attribute_value("fname");
+	  auto m=elist.front().attribute_value("mname");
+	  auto l=elist.front().attribute_value("lname");
+	  authlist=l+", "+f.substr(0,1)+".";
+	  if (!m.empty()) {
+	    if (strutils::occurs(m,".") > 0) {
+		authlist+=" "+m;
+	    }
+	    else {
+		authlist+=" "+m.substr(0,1)+".";
+	    }
 	  }
-	  else {
-	    authlist+=" "+m.substr(0,1)+".";
-	  }
+	}
+	else {
+	  authlist=elist.front().attribute_value("name");
 	}
 	authlist+=", "+et_al_string;
     }
     else {
 	size_t n=0;
 	for (const auto& e : elist) {
-	  auto f=e.attribute_value("fname");
-	  auto m=e.attribute_value("mname");
-	  auto l=e.attribute_value("lname");
-	  if (last_first_middle_on_first_author_only && n > 0) {
-	    authlist+=", ";
-	    if (n > 0 && (n+1) == elist.size()) {
-		authlist+="and ";
-	    }
-	    authlist+=f.substr(0,1)+".";
-	    if (!m.empty()) {
-		if (strutils::occurs(m,".") > 0) {
-		  authlist+=" "+m;
+	  auto author_type=e.attribute_value("xsi:type");
+	  if (author_type == "authorPerson" || author_type.empty()) {
+	    auto f=e.attribute_value("fname");
+	    auto m=e.attribute_value("mname");
+	    auto l=e.attribute_value("lname");
+	    if (last_first_middle_on_first_author_only && n > 0) {
+		authlist+=", ";
+		if (n > 0 && (n+1) == elist.size()) {
+		  authlist+="and ";
 		}
-		else {
-		  authlist+=" "+m.substr(0,1)+".";
+		authlist+=f.substr(0,1)+".";
+		if (!m.empty()) {
+		  if (strutils::occurs(m,".") > 0) {
+		    authlist+=" "+m;
+		  }
+		  else {
+		    authlist+=" "+m.substr(0,1)+".";
+		  }
+		}
+		authlist+=" "+l;
+	    }
+	    else {
+		if (!authlist.empty()) {
+		  authlist+=", ";
+		  if (n > 0 && (n+1) == elist.size()) {
+		    authlist+="and ";
+		  }
+		}
+		authlist+=l+", "+f.substr(0,1)+".";
+		if (!m.empty()) {
+		  if (strutils::occurs(m,".") > 0) {
+		    authlist+=" "+m;
+		  }
+		  else {
+		    authlist+=" "+m.substr(0,1)+".";
+		  }
 		}
 	    }
-	    authlist+=" "+l;
 	  }
 	  else {
 	    if (!authlist.empty()) {
@@ -83,15 +109,7 @@ std::string list_authors(XMLSnippet& xsnip,MySQL::Server& server,size_t max_num_
 		  authlist+="and ";
 		}
 	    }
-	    authlist+=l+", "+f.substr(0,1)+".";
-	    if (!m.empty()) {
-		if (strutils::occurs(m,".") > 0) {
-		  authlist+=" "+m;
-		}
-		else {
-		  authlist+=" "+m.substr(0,1)+".";
-		}
-	    }
+	    authlist+=e.attribute_value("name");
 	  }
 	  ++n;
 	}
@@ -413,10 +431,17 @@ void export_to_ris(std::ostream& ofs,std::string dsnum,std::string access_date,M
     auto elist=xdoc.element_list("dsOverview/author");
     if (elist.size() > 0) {
 	for (const auto& e : elist) {
-	  ofs << "AU  - " << e.attribute_value("lname") << ", " << e.attribute_value("fname");
-	  auto mname=e.attribute_value("mname");
-	  if (!mname.empty()) {
-	    ofs << " " << mname;
+	  ofs << "AU  - ";
+	  auto author_type=e.attribute_value("xsi:type");
+	  if (author_type == "authorPerson" || author_type.empty()) {
+	    ofs << e.attribute_value("lname") << ", " << e.attribute_value("fname");
+	    auto mname=e.attribute_value("mname");
+	    if (!mname.empty()) {
+		ofs << " " << mname;
+	    }
+	  }
+	  else {
+	    ofs << e.attribute_value("name");
 	  }
 	  ofs << "\r" << std::endl;
 	}
@@ -476,12 +501,18 @@ void export_to_bibtex(std::ostream& ofs,std::string dsnum,std::string access_dat
 	  if (n > 0) {
 	    ofs << " and ";
 	  }
-	  ofs << e.attribute_value("fname");
-	  auto mname=e.attribute_value("mname");
-	  if (!mname.empty()) {
-	    ofs << " " << mname;
+	  auto author_type=e.attribute_value("xsi:type");
+	  if (author_type == "authorPerson" || author_type.empty()) {
+	    ofs << e.attribute_value("fname");
+	    auto mname=e.attribute_value("mname");
+	    if (!mname.empty()) {
+		ofs << " " << mname;
+	    }
+	    ofs << " {" << e.attribute_value("lname") << "}";
 	  }
-	  ofs << " {" << e.attribute_value("lname") << "}";
+	  else {
+	    ofs << "{" << e.attribute_value("name") << "}";
+	  }
 	  ++n;
 	}
     }
