@@ -27,10 +27,17 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   if (elist.size() > 0) {
     for (const auto& author : elist) {
 	ofs << indent << "    <creator>" << std::endl;
-	ofs << indent << "      <creatorName>" << author.attribute_value("lname") << ", " << author.attribute_value("fname");
-	auto mname=author.attribute_value("mname");
-	if (!mname.empty()) {
-	  ofs << " " << mname;
+	ofs << indent << "      <creatorName>";
+	auto author_type=author.attribute_value("xsi:type");
+	if (author_type == "authorPerson" || author_type.empty()) {
+	  ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
+	  auto mname=author.attribute_value("mname");
+	  if (!mname.empty()) {
+	    ofs << " " << mname;
+	  }
+	}
+	else {
+	  ofs << author.attribute_value("name");
 	}
 	ofs << "</creatorName>" << std::endl;
 	ofs << indent << "    </creator>" << std::endl;
@@ -77,7 +84,14 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   ofs << indent << "  </titles>" << std::endl;
   ofs << indent << "  <publisher>" << PUBLISHER << "</publisher>" << std::endl;
   e=xdoc.element("dsOverview/publicationDate");
-  ofs << indent << "  <publicationYear>" << e.content().substr(0,4) << "</publicationYear>" << std::endl;
+  auto pub_date=e.content();
+  if (pub_date.empty()) {
+    query.set("pub_date","search.datasets","dsid = '"+dsnum+"'");
+    if (query.submit(server) == 0 && query.fetch_row(row)) {
+	pub_date=row[0];
+    }
+  }
+  ofs << indent << "  <publicationYear>" << pub_date.substr(0,4) << "</publicationYear>" << std::endl;
   ofs << indent << "  <subjects>" << std::endl;
   query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
@@ -125,9 +139,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     ofs << indent << "  </formats>" << std::endl;
   }
   ofs << indent << "  <descriptions>" << std::endl;
-  ofs << indent << "    <description descriptionType=\"Abstract\">" << std::endl;
-  ofs << htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),120,indent_length+6) << std::endl;
-  ofs << indent << "    </description>" << std::endl;
+  ofs << indent << "    <description descriptionType=\"Abstract\">" << htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),32768,0) << "</description>" << std::endl;
   ofs << indent << "  </descriptions>" << std::endl;
   ofs << indent << "</resource>" << std::endl;
   server.disconnect();
