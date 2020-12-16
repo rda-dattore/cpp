@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <deque>
+#include <unordered_map>
 #include <iodstream.hpp>
 #include <mymap.hpp>
 
@@ -62,12 +63,6 @@ protected:
 class InputHDF5Stream : public idstream
 {
 public:
-  struct ReferenceEntry {
-    ReferenceEntry() : key(0),name() {}
-
-    size_t key;
-    std::string name;
-  };
   struct SymbolTableEntry {
     SymbolTableEntry() : linkname_off(0),objhdr_addr(0),cache_type(0),scratchpad(),linkname() {}
 
@@ -157,7 +152,7 @@ public:
     void clear();
     void *get() const { return array; }
     short precision() const { return precision_; }
-    void print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const;
+    void print(std::ostream& ofs,std::shared_ptr<std::unordered_map<size_t,std::string>> ref_table) const;
     bool set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace);
 
     short _class_,precision_;
@@ -186,12 +181,7 @@ public:
 	std::unique_ptr<unsigned char[]> buffer;
     } vlen;
   };
-  struct Attribute {
-    Attribute() : key(),value() {}
-
-    std::string key;
-    DataValue value;
-  };
+  typedef std::pair<std::string,DataValue> Attribute;
   class Dataset {
   public:
     Dataset() : datatype(),dataspace(),fillvalue(),attributes(),filters(0),data() {}
@@ -200,25 +190,11 @@ public:
     Datatype datatype;
     Dataspace dataspace;
     FillValue fillvalue;
-    my::map<Attribute> attributes;
+    std::unordered_map<std::string,DataValue> attributes;
     std::deque<short> filters;
     Data data;
   };
-  class DatasetEntry {
-  public:
-    DatasetEntry() : key(),dataset(nullptr) {}
-
-    std::string key;
-    std::shared_ptr<Dataset> dataset;
-  };
-  class Group;
-  class GroupEntry {
-  public:
-    GroupEntry() : key(),group(nullptr) {}
-
-    std::string key;
-    std::shared_ptr<Group> group;
-  };
+  typedef std::pair<std::string,std::shared_ptr<Dataset>> DatasetEntry;
   class Group {
   public:
     Group() : version(0),local_heap(),btree_addr(0),tree(),groups(),datasets() {}
@@ -231,9 +207,10 @@ public:
     } local_heap;
     unsigned long long btree_addr;
     Tree tree;
-    my::map<GroupEntry> groups;
-    my::map<DatasetEntry> datasets;
+    std::unordered_map<std::string,std::shared_ptr<Group>> groups;
+    std::unordered_map<std::string,std::shared_ptr<Dataset>> datasets;
   };
+  typedef std::pair<std::string,std::shared_ptr<Group>> GroupEntry;
   struct FractalHeapData {
     FractalHeapData() : dse(nullptr),start_block_size(0),objects(),id_len(0),io_filter_size(0),max_size(0),table_width(0),max_dblock_rows(0),nrows(0),K(0),N(0),max_dblock_size(0),max_managed_obj_size(0),curr_row(0),curr_col(0),flags() {}
 
@@ -257,7 +234,7 @@ public:
   std::shared_ptr<Dataset> dataset(std::string xpath);
   std::list<InputHDF5Stream::DatasetEntry> datasets_with_attribute(std::string attribute_path,Group *g = nullptr);
   std::fstream *file_stream() { return &fs; }
-  std::shared_ptr<my::map<ReferenceEntry>> reference_table_pointer() const { return ref_table; }
+  std::shared_ptr<std::unordered_map<size_t,std::string>> reference_table_pointer() const { return ref_table; }
   short size_of_offsets() const { return sizes.offsets; }
   short size_of_lengths() const { return sizes.lengths; }
   unsigned long long undefined_address() const { return undef_addr; }
@@ -300,7 +277,7 @@ protected:
   } group_K;
   unsigned long long base_addr,eof_addr,undef_addr;
   Group root_group;
-  std::shared_ptr<my::map<ReferenceEntry>> ref_table;
+  std::shared_ptr<std::unordered_map<size_t,std::string>> ref_table;
 };
 
 namespace HDF5 {
@@ -333,7 +310,7 @@ private:
   void clear();
 };
 
-void print_attribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table);
+void print_attribute(const InputHDF5Stream::Attribute& attribute,std::shared_ptr<std::unordered_map<size_t,std::string>> ref_table);
 void print_data_value(InputHDF5Stream::Datatype& datatype,void *value);
 
 std::string datatype_class_to_string(const InputHDF5Stream::Datatype& datatype);
