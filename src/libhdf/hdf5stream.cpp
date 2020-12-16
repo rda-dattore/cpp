@@ -17,7 +17,7 @@ void InputHDF5Stream::close()
   }
   clear_groups(root_group);
   if (ref_table != nullptr) {
-    ref_table=nullptr;
+    ref_table.reset();
   }
 }
 
@@ -385,7 +385,7 @@ void InputHDF5Stream::DataValue::clear()
   }
 }
 
-void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map<ReferenceEntry>> ref_table) const
+void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<std::unordered_map<size_t,std::string>> ref_table) const
 {
   if (array == nullptr) {
     ofs << "?????0 (" << _class_ << ")";
@@ -515,10 +515,14 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 // reference
     case 7: {
 	if (ref_table != nullptr) {
+/*
 	  ReferenceEntry re;
 	  re.key=HDF5::value(reinterpret_cast<unsigned char *>(array),size);
 	  ref_table->found(re.key,re);
 	  ofs << re.name;
+*/
+auto key=HDF5::value(reinterpret_cast<unsigned char *>(array),size);
+ofs << (*ref_table)[key];
 	}
 	else {
 	  ofs << HDF5::value(reinterpret_cast<unsigned char *>(array),size) << "R";
@@ -554,10 +558,14 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs,std::shared_ptr<my::map
 		  ofs << ", ";
 		}
 		if (ref_table != nullptr) {
+/*
 		  ReferenceEntry re;
 		  re.key=HDF5::value(&vlen.buffer[off+4],precision_);
 		  ref_table->found(re.key,re);
 		  ofs << re.name;
+*/
+auto key=HDF5::value(&vlen.buffer[off+4],precision_);
+ofs << (*ref_table)[key];
 		}
 		else {
 		  ofs << "(" << HDF5::value(&vlen.buffer[off+4],precision_) << "R";
@@ -1075,30 +1083,27 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 
 InputHDF5Stream::Attribute InputHDF5Stream::attribute(std::string xpath)
 {
-  Attribute attr;
-
   auto xparts=strutils::split(xpath,"@");
   if (xparts.size() != 2) {
-    return attr;
+    return Attribute();
   }
   auto attr_name=xparts[1];
   xparts=strutils::split(xpath,"/");
   Group *g=&root_group;
   for (size_t n=1; n < xparts.size()-1; ++n) {
-    GroupEntry ge;
-    if (!g->groups.found(xparts[n],ge)) {
-	return attr;
+    auto group_it=g->groups.find(xparts[n]);
+    if (group_it == g->groups.end()) {
+	return Attribute();
     }
-    g=ge.group.get();
+    g=group_it->second.get();
   }
-  DatasetEntry dse;
-  dse.key=xparts.back();
-  strutils::replace_all(dse.key,"@"+attr_name,"");
-  if (!g->datasets.found(dse.key,dse)) {
-    return attr;
+  auto key=xparts.back();
+  strutils::replace_all(key,"@"+attr_name,"");
+  auto ds_it=g->datasets.find(key);
+  if (ds_it == g->datasets.end()) {
+    return Attribute();
   }
-  dse.dataset->attributes.found(attr_name,attr);
-  return attr;
+  return *(ds_it->second->attributes.find(attr_name));
 }
 
 void InputHDF5Stream::Dataset::free()
@@ -1115,73 +1120,68 @@ std::shared_ptr<InputHDF5Stream::Dataset> InputHDF5Stream::dataset(std::string x
   Group *g=&root_group;
   auto xparts=strutils::split(xpath,"/");
   for (size_t n=1; n < xparts.size()-1; ++n) {
-    GroupEntry ge;
-    if (!g->groups.found(xparts[n],ge)) {
+    auto it=g->groups.find(xparts[n]);
+    if (it == g->groups.end()) {
 	return nullptr;
     }
-    g=ge.group.get();
+    g=it->second.get();
   }
-  DatasetEntry dse;
-  dse.key=xparts.back();
-  if (!g->datasets.found(dse.key,dse)) {
+  auto ds_it=g->datasets.find(xparts.back());
+  if (ds_it == g->datasets.end()) {
     return nullptr;
   }
-  for (size_t n=0; n < dse.dataset->data.chunks.size(); ++n) {
-    if (dse.dataset->data.chunks[n].buffer == nullptr) {
-	if (!dse.dataset->data.chunks[n].fill(fs,*dse.dataset)) {
+  for (size_t n=0; n < ds_it->second->data.chunks.size(); ++n) {
+    if (ds_it->second->data.chunks[n].buffer == nullptr) {
+	if (!ds_it->second->data.chunks[n].fill(fs,*ds_it->second)) {
 	  exit(1);
 	}
     }
   }
-  return dse.dataset;
+  return ds_it->second;
 }
 
 std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(std::string attribute_path,Group *g)
 {
-  std::list<DatasetEntry> return_list,dse_list;
-  std::string attribute,value;
-  GroupEntry ge;
-  DatasetEntry dse;
-  Attribute attr;
-
+  std::list<DatasetEntry> return_list;
   auto aparts=strutils::split(attribute_path,"=");
-  attribute=aparts[0];
+  auto attribute=aparts[0];
+  std::string value;
   if (aparts.size() > 1) {
     value=aparts[1];
   }
   if (g == nullptr) {
     g=&root_group;
   }
-  for (auto& key : g->groups.keys()) {
-    g->groups.found(key,ge);
-    dse_list=datasets_with_attribute(attribute_path,ge.group.get());
+  for (const auto& entry : g->groups) {
+    auto dse_list=datasets_with_attribute(attribute_path,entry.second.get());
     return_list.insert(return_list.end(),dse_list.begin(),dse_list.end());
   }
-  for (auto& key : g->datasets.keys()) {
-    g->datasets.found(key,dse);
-    for (auto key2 : dse.dataset->attributes.keys()) {
-	if (key2 == attribute) {
+  for (const auto& ds_entry : g->datasets) {
+    for (auto attr_entry : ds_entry.second->attributes) {
+	if (attr_entry.first == attribute) {
 	  if (value.empty()) {
-	    return_list.emplace_back(dse);
+	    return_list.emplace_back(ds_entry);
 	  }
-	  else if  (dse.dataset->attributes.found(key2,attr)) {
-	    switch (attr.value._class_) {
+	  auto attr_it=ds_entry.second->attributes.find(attr_entry.first);
+	  if (attr_it != ds_entry.second->attributes.end()) {
+	    auto& attribute_value=attr_it->second;
+	    switch (attribute_value._class_) {
 		case 3:
 		{
-		  if (std::string(reinterpret_cast<char *>(attr.value.array)) == value) {
-		    return_list.emplace_back(dse);
+		  if (std::string(reinterpret_cast<char *>(attribute_value.array)) == value) {
+		    return_list.emplace_back(ds_entry);
 		  }
 		  break;
 		}
 		case 9:
 		{
-		  switch (attr.value.vlen.class_) {
+		  switch (attribute_value.vlen.class_) {
 		    case 3:
 		    {
 			int len;
-			bits::get(attr.value.vlen.buffer.get(),len,0,32);
-			if (std::string(reinterpret_cast<char *>(&attr.value.vlen.buffer[4]),len) == value) {
-			  return_list.emplace_back(dse);
+			bits::get(attribute_value.vlen.buffer.get(),len,0,32);
+			if (std::string(reinterpret_cast<char *>(&attribute_value.vlen.buffer[4]),len) == value) {
+			  return_list.emplace_back(ds_entry);
 			}
 			break;
 		    }
@@ -1190,7 +1190,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribut
 			if (!myerror.empty()) {
 			  myerror+=", ";
 			}
-			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attr.value.vlen.class_);
+			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attribute_value.vlen.class_);
 		    }
 		  }
 		  break;
@@ -1200,7 +1200,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribut
 		  if (!myerror.empty()) {
 		    myerror+=", ";
 		  }
-		  myerror+="can't match an attribute value of class "+strutils::itos(attr.value._class_);
+		  myerror+="can't match an attribute value of class "+strutils::itos(attribute_value._class_);
 		}
 	    }
 	  }
@@ -1257,21 +1257,20 @@ void InputHDF5Stream::print_fill_value(std::string xpath)
   auto xparts=strutils::split(xpath,"/");
   Group *g=&root_group;
   for (size_t n=1; n < xparts.size()-1; ++n) {
-    GroupEntry ge;
-    if (!g->groups.found(xparts[n],ge)) {
+    auto it=g->groups.find(xparts[n]);
+    if (it == g->groups.end()) {
 	std::cout << "?????";
 	return;
     }
-    g=ge.group.get();
+    g=it->second.get();
   }
-  DatasetEntry dse;
-  dse.key=xparts.back();
-  if (!g->datasets.found(dse.key,dse)) {
+  auto ds_it=g->datasets.find(xparts.back());
+  if (ds_it == g->datasets.end()) {
     std::cout << "?????";
     return;
   }
-  if (dse.dataset->fillvalue.bytes != nullptr) {
-    HDF5::print_data_value(dse.dataset->datatype,dse.dataset->fillvalue.bytes);
+  if (ds_it->second->fillvalue.bytes != nullptr) {
+    HDF5::print_data_value(ds_it->second->datatype,ds_it->second->fillvalue.bytes);
   }
   else {
     std::cout << "Fillvalue(s) not defined";
@@ -1290,21 +1289,18 @@ void InputHDF5Stream::show_file_structure()
 
 void InputHDF5Stream::clear_groups(Group& group)
 {
-  for (auto& key : group.groups.keys()) {
-    GroupEntry ge;
-    group.groups.found(key,ge);
-    clear_groups(*ge.group);
-    ge.group=nullptr;
+  for (auto& entry : group.groups) {
+    clear_groups(*entry.second);
+    entry.second.reset();
   }
   group.groups.clear();
-  for (auto& key : group.datasets.keys()) {
-    DatasetEntry dse;
-    group.datasets.found(key,dse);
-    if (dse.dataset != nullptr) {
-	if (dse.dataset->fillvalue.bytes != nullptr) {
-	  delete[] dse.dataset->fillvalue.bytes;
+  for (auto& ds_entry : group.datasets) {
+    auto& dset_ptr=ds_entry.second;
+    if (dset_ptr != nullptr) {
+	if (dset_ptr->fillvalue.bytes != nullptr) {
+	  delete[] dset_ptr->fillvalue.bytes;
 	}
-	dse.dataset=nullptr;
+	dset_ptr.reset();
     }
   }
   group.datasets.clear();
@@ -1315,10 +1311,6 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
   struct {
     int name,datatype,dataspace;
   } l_sizes;
-  int name_off;
-  Datatype datatype;
-  Dataspace dataspace;
-
   if ( (l_sizes.name=HDF5::value(&buffer[2],2)) == 0) {
     return false;
   }
@@ -1332,6 +1324,8 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 #ifdef __DEBUG
   std::cerr << "decode attribute version " << static_cast<int>(buffer[0]) << " name size: " << l_sizes.name << " datatype size: " << l_sizes.datatype << " dataspace size: " << l_sizes.dataspace << " ohdr_version: " << ohdr_version << std::endl;
 #endif
+  int name_off;
+  auto& attribute_value=attribute.second;
   switch (static_cast<int>(buffer[0])) {
     case 1: {
 	name_off=length;
@@ -1340,6 +1334,7 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 	if ( (mod=(l_sizes.name % 8)) > 0) {
 	  length+=8-mod;
 	}
+	Datatype datatype;
 	if (!HDF5::decode_datatype(&buffer[length],datatype)) {
 	  return false;
 	}
@@ -1347,6 +1342,7 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 	if ( (mod=(l_sizes.datatype % 8)) > 0) {
 	  length+=8-mod;
 	}
+	Dataspace dataspace;
 	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
 	  return false;
 	}
@@ -1354,16 +1350,16 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 	if ( (mod=(l_sizes.dataspace % 8)) > 0) {
 	  length+=8-mod;
 	}
-	if (!attribute.value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+	if (!attribute_value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
 	  return false;
 	}
-	length+=attribute.value.size;
+	length+=attribute_value.size;
 	if (ohdr_version == 1 && datatype.class_ == 3) {
 	  mod=(length % 8);
 	  if (mod != 0) {
 	    length+=8-mod;
 #ifdef __DEBUG
-	    std::cerr << "string length adjusted from " << attribute.value.size << " to " << (attribute.value.size+8-mod) << std::endl;
+	    std::cerr << "string length adjusted from " << attribute_value.size << " to " << (attribute_value.size+8-mod) << std::endl;
 #endif
 	  }
 	}
@@ -1372,24 +1368,27 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
     case 2: {
 	name_off=length;
 	length+=l_sizes.name;
+	Datatype datatype;
 	if (!HDF5::decode_datatype(&buffer[length],datatype)) {
 	  return false;
 	}
 	length+=l_sizes.datatype;
+	Dataspace dataspace;
 	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
 	  return false;
 	}
 	length+=l_sizes.dataspace;
-	if (!attribute.value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+	if (!attribute_value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
 	  return false;
 	}
-	length+=attribute.value.size;
+	length+=attribute_value.size;
 	break;
     }
     case 3: {
 	length++;
 	name_off=length;
 	length+=l_sizes.name;
+	Datatype datatype;
 	if (!HDF5::decode_datatype(&buffer[length],datatype)) {
 	  return false;
 	}
@@ -1397,6 +1396,7 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 #ifdef __DEBUG
 	std::cerr << "C offset: " << length << std::endl;
 #endif
+	Dataspace dataspace;
 	if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
 	  return false;
 	}
@@ -1411,10 +1411,10 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
 #ifdef __DEBUG
 	std::cerr << "setting value at offset: " << length << std::endl;
 #endif
-	if (!attribute.value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+	if (!attribute_value.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
 	  return false;
 	}
-	length+=attribute.value.size;
+	length+=attribute_value.size;
 	break;
     }
     default: {
@@ -1423,12 +1423,12 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
   }
 #ifdef __DEBUG
   std::cerr << "value set: ";
-  attribute.value.print(std::cerr,ref_table);
+  attribute_value.print(std::cerr,ref_table);
   std::cerr << std::endl;
 #endif
-  attribute.key.assign(reinterpret_cast<char *>(&buffer[name_off]),l_sizes.name);
-  if (attribute.key.back() == '\0') {
-    attribute.key.pop_back();
+  attribute.first.assign(reinterpret_cast<char *>(&buffer[name_off]),l_sizes.name);
+  if (attribute.first.back() == '\0') {
+    attribute.first.pop_back();
   }
   return true;
 }
@@ -1723,18 +1723,17 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address,int h
 	    int n;
 	    if (decode_attribute(&buf2[local_off],attr,n,2)) {
 #ifdef __DEBUG
-		std::cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->key << "' " << &root_group << " " << frhp_data.dse->dataset << std::endl;
-		std::cerr << "  name: " << attr.key << "  dataset: " << frhp_data.dse->dataset << std::endl;
+		std::cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->first << "' " << &root_group << " " << frhp_data.dse->second << std::endl;
+		std::cerr << "  name: " << attr.first << "  dataset: " << frhp_data.dse->second << std::endl;
 #endif
-		Attribute test;
-		if (!frhp_data.dse->dataset->attributes.found(attr.key,test)) {
-		  frhp_data.dse->dataset->attributes.insert(attr);
+		if (frhp_data.dse->second->attributes.find(attr.first) == frhp_data.dse->second->attributes.end()) {
+		  frhp_data.dse->second->attributes.emplace(attr);
 #ifdef __DEBUG
 		  std::cerr << "added" << std::endl;
 #endif
 		}
 		else {
-		  frhp_data.dse->dataset->attributes.replace(attr);
+		  frhp_data.dse->second->attributes[attr.first]=attr.second;
 #ifdef __DEBUG
 		  std::cerr << "replaced" << std::endl;
 #endif
@@ -1837,24 +1836,20 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address,int h
 
 bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size,std::string ident,Group *group,DatasetEntry *dse_in,unsigned char flags)
 {
-  std::unique_ptr<unsigned char[]> buf;
   size_t hdr_off=0;
-  int type,len;
+  std::unique_ptr<unsigned char[]> buf(new unsigned char[header_size]);
   DatasetEntry dse;
-  bool is_subgroup=false;
-
-  buf.reset(new unsigned char[header_size]);
   if (dse_in == nullptr) {
     if (group == nullptr) {
-	if (!root_group.datasets.found(ident,dse)) {
-	  dse.key=ident;
-	  dse.dataset.reset(new Dataset);
+	if (root_group.datasets.find(ident) == root_group.datasets.end()) {
+	  dse.first=ident;
+	  dse.second.reset(new Dataset);
 	}
     }
     else {
-	if (group != nullptr && !group->datasets.found(ident,dse)) {
-	  dse.key=ident;
-	  dse.dataset.reset(new Dataset);
+	if (group != nullptr && group->datasets.find(ident) == group->datasets.end()) {
+	  dse.first=ident;
+	  dse.second.reset(new Dataset);
 	}
     }
   }
@@ -1879,14 +1874,16 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
 #ifdef __DEBUG
   std::cerr << "object header version: " << ohdr_version << std::endl;
 #endif
+  bool is_subgroup=false;
   while ( (hdr_off+4) < header_size) {
 #ifdef __DEBUG
     std::cerr << "hdr_off: " << hdr_off << " header size: " << header_size << std::endl;
 #endif
+    int hdr_msg_type,hdr_msg_len;
     switch (ohdr_version) {
 	case 1: {
-	  type=HDF5::value(&buf[hdr_off],2);
-	  len=HDF5::value(&buf[hdr_off+2],2);
+	  hdr_msg_type=HDF5::value(&buf[hdr_off],2);
+	  hdr_msg_len=HDF5::value(&buf[hdr_off+2],2);
 #ifdef __DEBUG
 	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+4]) << std::endl;
 #endif
@@ -1894,8 +1891,8 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
 	  break;
 	}
 	case 2: {
-	  type=static_cast<int>(buf[hdr_off]);
-	  len=HDF5::value(&buf[hdr_off+1],2);
+	  hdr_msg_type=static_cast<int>(buf[hdr_off]);
+	  hdr_msg_len=HDF5::value(&buf[hdr_off+1],2);
 #ifdef __DEBUG
 	  std::cerr << "flags: " << static_cast<int>(buf[hdr_off+3]) << std::endl;
 #endif
@@ -1915,10 +1912,10 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
     }
 #ifdef __DEBUG
     long long off=fs.tellg();
-    std::cerr << "HEADER MESSAGE TYPE: " << type << " " << " " << len << " " << hdr_off << " header size: " << header_size << " file offset: " << off-header_size << " " << time(NULL) << std::endl;
-    unixutils::dump(buf.get(),hdr_off+len);
+    std::cerr << "HEADER MESSAGE TYPE: " << hdr_msg_type << " " << " " << hdr_msg_len << " " << hdr_off << " header size: " << header_size << " file offset: " << off-header_size << " " << time(NULL) << std::endl;
+    unixutils::dump(buf.get(),hdr_off+hdr_msg_len);
 #endif
-    hdr_off+=decode_header_message(ident,ohdr_version,type,len,flags,&buf[hdr_off],group,dse,is_subgroup);
+    hdr_off+=decode_header_message(ident,ohdr_version,hdr_msg_type,hdr_msg_len,flags,&buf[hdr_off],group,dse,is_subgroup);
   }
   buf=nullptr;
   if (!is_subgroup) {
@@ -1928,20 +1925,20 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
 #ifdef __DEBUG
     std::cerr << "-- NOT SUBGROUP '" << ident << "' " << group << std::endl;
 #endif
-    if (!group->datasets.found(ident,dse)) {
-	dse.key=ident;
+    if (group->datasets.find(ident) == group->datasets.end()) {
+	dse.first=ident;
 #ifdef __DEBUG
 	std::cerr << "  ADDING DATASET '" << ident << "' TO " << group << std::endl;
 #endif
-	group->datasets.insert(dse);
+	group->datasets.emplace(dse);
     }
 #ifdef __DEBUG
-    std::cerr << "  HERE " << dse.dataset << " '" << dse.key << "' '" << ident << "'" << std::endl;
+    std::cerr << "  HERE " << dse.second << " '" << dse.first << "' '" << ident << "'" << std::endl;
 #endif
   }
   else {
     if (dse_in == nullptr) {
-	dse.dataset=nullptr;
+	dse.second.reset();
     }
   }
   return true;
@@ -1949,15 +1946,8 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version,size_t header_size
 
 int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,int type,int length,unsigned char flags,unsigned char *buffer,Group *group,DatasetEntry& dse,bool& is_subgroup)
 {
-  unsigned char *buf2=NULL;
-  unsigned long long curr_off,ldum;
-  int n,idum,nvals;
-  Attribute attr;
-  FractalHeapData *frhp_data;
-  SymbolTableEntry *ste;
-  ReferenceEntry re;
-  short dimensionality;
-
+  unsigned long long curr_off;
+  auto& dset_ptr=dse.second;
   switch (type) {
     case 0x0000: {
 	return length;
@@ -1967,7 +1957,7 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 #ifdef __DEBUG
 	std::cerr << "DATASPACE" << std::endl;
 #endif
-	HDF5::decode_dataspace(buffer,sizes.lengths,dse.dataset->dataspace);
+	HDF5::decode_dataspace(buffer,sizes.lengths,dset_ptr->dataspace);
 	return length;
     }
     case 0x0002: {
@@ -1996,7 +1986,7 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 #ifdef __DEBUG
 	std::cerr << "fractal heap addr: " << HDF5::value(&buffer[curr_off],sizes.offsets) << std::endl;
 #endif
-	frhp_data=new FractalHeapData;
+	auto frhp_data=new FractalHeapData;
 	frhp_data->dse=&dse;
 	if (decode_fractal_heap(HDF5::value(&buffer[curr_off],sizes.offsets),0x0006,*frhp_data)) {
 	  root_group.btree_addr=HDF5::value(&buffer[curr_off+sizes.offsets],sizes.offsets);
@@ -2020,18 +2010,18 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 #ifdef __DEBUG
 	std::cerr << "DATATYPE" << std::endl;
 #endif
-	HDF5::decode_datatype(buffer,dse.dataset->datatype);
+	HDF5::decode_datatype(buffer,dset_ptr->datatype);
 	return length;
     }
     case 0x0004: {
 // Fill value (deprecated)
 #ifdef __DEBUG
-	std::cerr << "FILLVALUE (deprecated) '" << dse.key << "'" << std::endl;
+	std::cerr << "FILLVALUE (deprecated) '" << dse.first << "'" << std::endl;
 #endif
-	if (dse.dataset->fillvalue.length == 0) {
-	  if ( (dse.dataset->fillvalue.length=HDF5::value(&buffer[0],4)) > 0) {
-	    dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
-	    std::copy(buffer+4,buffer+4+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
+	if (dset_ptr->fillvalue.length == 0) {
+	  if ( (dset_ptr->fillvalue.length=HDF5::value(&buffer[0],4)) > 0) {
+	    dset_ptr->fillvalue.bytes=new unsigned char[dset_ptr->fillvalue.length];
+	    std::copy(buffer+4,buffer+4+dset_ptr->fillvalue.length,dset_ptr->fillvalue.bytes);
 	  }
 	}
 	return length;
@@ -2039,18 +2029,18 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
     case 0x0005: {
 // Fill value
 #ifdef __DEBUG
-	std::cerr << "FILLVALUE '" << dse.key << "'" << std::endl;
+	std::cerr << "FILLVALUE '" << dse.first << "'" << std::endl;
 #endif
 	switch (static_cast<int>(buffer[0])) {
 	  case 2: {
 	    if (static_cast<int>(buffer[3]) == 1) {
-		dse.dataset->fillvalue.length=HDF5::value(&buffer[4],4);
-		if (dse.dataset->fillvalue.length > 0) {
-		  dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
-		  std::copy(buffer+8,buffer+8+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
+		dset_ptr->fillvalue.length=HDF5::value(&buffer[4],4);
+		if (dset_ptr->fillvalue.length > 0) {
+		  dset_ptr->fillvalue.bytes=new unsigned char[dset_ptr->fillvalue.length];
+		  std::copy(buffer+8,buffer+8+dset_ptr->fillvalue.length,dset_ptr->fillvalue.bytes);
 		}
 		else {
-		  dse.dataset->fillvalue.bytes=NULL;
+		  dset_ptr->fillvalue.bytes=NULL;
 		}
 	    }
 	    else {
@@ -2064,18 +2054,18 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  }
 	  case 3: {
 	    if ( (buffer[1] & 0x20) == 0x20) {
-		dse.dataset->fillvalue.length=HDF5::value(&buffer[2],4);
-		if (dse.dataset->fillvalue.length > 0) {
-		  dse.dataset->fillvalue.bytes=new unsigned char[dse.dataset->fillvalue.length];
-		  std::copy(buffer+6,buffer+6+dse.dataset->fillvalue.length,dse.dataset->fillvalue.bytes);
+		dset_ptr->fillvalue.length=HDF5::value(&buffer[2],4);
+		if (dset_ptr->fillvalue.length > 0) {
+		  dset_ptr->fillvalue.bytes=new unsigned char[dset_ptr->fillvalue.length];
+		  std::copy(buffer+6,buffer+6+dset_ptr->fillvalue.length,dset_ptr->fillvalue.bytes);
 		}
 		else {
-		  dse.dataset->fillvalue.bytes=NULL;
+		  dset_ptr->fillvalue.bytes=NULL;
 		}
 	    }
 	    else {
-		dse.dataset->fillvalue.length=0;
-		dse.dataset->fillvalue.bytes=NULL;
+		dset_ptr->fillvalue.length=0;
+		dset_ptr->fillvalue.bytes=NULL;
 	    }
 	    break;
 	  }
@@ -2114,28 +2104,29 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  curr_off++;
 	}
 // Length of link name
+	long long length_of_link_name;
 	if ( (buffer[1] & 0x3) == 0) {
-	  ldum=buffer[curr_off];
+	  length_of_link_name=buffer[curr_off];
 	  curr_off++;
 	}
 	else if ( (buffer[1] & 0x3) == 1) {
-	  ldum=HDF5::value(&buffer[curr_off],2);
+	  length_of_link_name=HDF5::value(&buffer[curr_off],2);
 	  curr_off+=2;
 	}
 	else if ( (buffer[1] & 0x3) == 2) {
-	  ldum=HDF5::value(&buffer[curr_off],4);
+	  length_of_link_name=HDF5::value(&buffer[curr_off],4);
 	  curr_off+=4;
 	}
 	else if ( (buffer[1] & 0x3) == 3) {
-	  ldum=HDF5::value(&buffer[curr_off],8);
+	  length_of_link_name=HDF5::value(&buffer[curr_off],8);
 	  curr_off+=8;
 	}
-	ste=new SymbolTableEntry;
-	ste->linkname.assign(reinterpret_cast<char *>(&buffer[curr_off]),ldum);
+	auto ste=new SymbolTableEntry;
+	ste->linkname.assign(reinterpret_cast<char *>(&buffer[curr_off]),length_of_link_name);
 #ifdef __DEBUG
-	std::cerr << "Link name: '" << ste->linkname << "'" << std::endl;
+	std::cerr << "Link name: '" << ste->linkname << "', type: " << link_type << std::endl;
 #endif
-	curr_off+=ldum;
+	curr_off+=length_of_link_name;
 	if (link_type == 0) {
 	  ste->objhdr_addr=HDF5::value(&buffer[curr_off],sizes.offsets);
 #ifdef __DEBUG
@@ -2146,12 +2137,10 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  }
 	  curr_off+=sizes.offsets;
 	  if (ref_table == nullptr) {
-	    ref_table.reset(new my::map<ReferenceEntry>);
+	    ref_table.reset(new std::unordered_map<size_t,std::string>);
 	  }
-	  re.key=ste->objhdr_addr;
-	  if (!ref_table->found(re.key,re)) {
-	    re.name=ste->linkname;
-	    ref_table->insert(re);
+	  if (ref_table->find(ste->objhdr_addr) == ref_table->end()) {
+	    ref_table->emplace(ste->objhdr_addr,ste->linkname);
 	  }
 	}
 	delete ste;
@@ -2167,31 +2156,31 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	  case 3: {
 	    switch (static_cast<int>(buffer[1])) {
 		case 1: {
-		  dse.dataset->data.address=HDF5::value(&buffer[2],sizes.offsets);
-		  dse.dataset->data.sizes.emplace_back(HDF5::value(&buffer[2+sizes.offsets],sizes.lengths));
+		  dset_ptr->data.address=HDF5::value(&buffer[2],sizes.offsets);
+		  dset_ptr->data.sizes.emplace_back(HDF5::value(&buffer[2+sizes.offsets],sizes.lengths));
 #ifdef __DEBUG
-		  std::cerr << "CONTIGUOUS DATA at " << dse.dataset->data.address << " of length " << dse.dataset->data.sizes.back() << std::endl;
+		  std::cerr << "CONTIGUOUS DATA at " << dset_ptr->data.address << " of length " << dset_ptr->data.sizes.back() << std::endl;
 #endif
 		  break;
 		}
 		case 2: {
-		  dse.dataset->data.address=HDF5::value(&buffer[3],sizes.offsets);
-		  dimensionality=buffer[2]-1;
+		  dset_ptr->data.address=HDF5::value(&buffer[3],sizes.offsets);
+		  short dimensionality=buffer[2]-1;
 #ifdef __DEBUG
-		  std::cerr << "CHUNKED DATA of dimensionality " << dimensionality << " at address " << dse.dataset->data.address << std::endl;
+		  std::cerr << "CHUNKED DATA of dimensionality " << dimensionality << " at address " << dset_ptr->data.address << std::endl;
 #endif
-		  for (n=0; n < dimensionality; ++n) {
-		    dse.dataset->data.sizes.emplace_back(HDF5::value(&buffer[3+sizes.offsets+n*4],4));
+		  for (short n=0; n < dimensionality; ++n) {
+		    dset_ptr->data.sizes.emplace_back(HDF5::value(&buffer[3+sizes.offsets+n*4],4));
 #ifdef __DEBUG
-		    std::cerr << "  dim: " << n << " size: " << dse.dataset->data.sizes.back() << std::endl;
+		    std::cerr << "  dim: " << n << " size: " << dset_ptr->data.sizes.back() << std::endl;
 #endif
 		  }
-		  dse.dataset->data.size_of_element=HDF5::value(&buffer[3+sizes.offsets+dimensionality*4],4);
+		  dset_ptr->data.size_of_element=HDF5::value(&buffer[3+sizes.offsets+dimensionality*4],4);
 #ifdef __DEBUG
-		  std::cerr << "  dataset element size: " << dse.dataset->data.size_of_element << " at offset " << 3+sizes.offsets+dimensionality*4 << std::endl;
+		  std::cerr << "  dataset element size: " << dset_ptr->data.size_of_element << " at offset " << 3+sizes.offsets+dimensionality*4 << std::endl;
 #endif
-		  if (dse.dataset->data.address != undef_addr) {
-		    decode_v1_Btree(dse.dataset->data.address,*dse.dataset);
+		  if (dset_ptr->data.address != undef_addr) {
+		    decode_v1_Btree(dset_ptr->data.address,*dset_ptr);
 		  }
 		  break;
 		}
@@ -2263,23 +2252,24 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
 	    exit(1);
 	  }
 	}
-	for (n=0; n < static_cast<int>(buffer[1]); ++n) {
-	  dse.dataset->filters.push_front(HDF5::value(&buffer[curr_off],2));
-	  if (buffer[0] == 1 || dse.dataset->filters.front() >= 256) {
+	for (size_t n=0; n < static_cast<size_t>(buffer[1]); ++n) {
+	  dset_ptr->filters.push_front(HDF5::value(&buffer[curr_off],2));
+	  size_t name_length;
+	  if (buffer[0] == 1 || dset_ptr->filters.front() >= 256) {
 // name length
-	    idum=HDF5::value(&buffer[curr_off+2],2);
+	    name_length=HDF5::value(&buffer[curr_off+2],2);
 	    curr_off+=2;
 	  }
 	  else {
-	    idum=0;
+	    name_length=0;
 	  }
-	  nvals=HDF5::value(&buffer[curr_off+4],2);
-	  curr_off+=6+idum+4*nvals;
+	  auto nvals=HDF5::value(&buffer[curr_off+4],2);
+	  curr_off+=6+name_length+4*nvals;
 	  if (buffer[0] == 1 && (nvals % 2) != 0) {
 	    curr_off+=4;
 	  }
 #ifdef __DEBUG
-	  std::cerr << "filter " << n << " of " << static_cast<int>(buffer[1]) << " id: " << dse.dataset->filters.front() << std::endl;
+	  std::cerr << "filter " << n << " of " << static_cast<int>(buffer[1]) << " id: " << dset_ptr->filters.front() << std::endl;
 #endif
 	}
 #ifdef __DEBUG
@@ -2291,43 +2281,45 @@ int InputHDF5Stream::decode_header_message(std::string ident,int ohdr_version,in
     case 0x000c: {
 // Attribute
 #ifdef __DEBUG
-	std::cerr << "ATTRIBUTE (2) of '" << dse.key << "' " << group << " " << dse.dataset << std::endl;
+	std::cerr << "ATTRIBUTE (2) of '" << dse.first << "' " << group << " " << dset_ptr << std::endl;
 #endif
-	if (!decode_attribute(buffer,attr,n,ohdr_version)) {
+	Attribute attr;
+	int attr_len;
+	if (!decode_attribute(buffer,attr,attr_len,ohdr_version)) {
 	  exit(1);
 	}
 #ifdef __DEBUG
-	std::cerr << "  name: " << attr.key << "  dataset: " << dse.dataset << std::endl;
-	std::cerr << &(dse.dataset->attributes) << std::endl;
-	std::cerr << dse.dataset->attributes.size() << std::endl;
+	std::cerr << "  name: " << attr.first << "  dataset: " << dset_ptr << std::endl;
+	std::cerr << &(dset_ptr->attributes) << std::endl;
+	std::cerr << dset_ptr->attributes.size() << std::endl;
 #endif
-	dse.dataset->attributes.insert(attr);
+	dset_ptr->attributes.insert(attr);
 #ifdef __DEBUG
 	std::cerr << "added" << std::endl;
 #endif
-	if (n != length) {
+	if (attr_len != length) {
 #ifdef __DEBUG
-	  std::cerr << "calculated and returning " << n << " but length from header message was " << length << std::endl;
+	  std::cerr << "calculated and returning " << attr_len << " but length from header message was " << length << std::endl;
 #endif
-	  while (n < length && buffer[n] == 0x0) {
-	    ++n;
+	  while (attr_len < length && buffer[attr_len] == 0x0) {
+	    ++attr_len;
 	  }
 	}
 //	return length;
-return n;
+return attr_len;
     }
     case 0x0010: {
 // Object Header Continuation
 	curr_off=fs.tellg();
-	ldum=HDF5::value(buffer,sizes.offsets);
+	auto ochk_off=HDF5::value(buffer,sizes.offsets);
 	length=sizes.offsets;
-	fs.seekg(ldum,std::ios_base::beg);
+	fs.seekg(ochk_off,std::ios_base::beg);
 #ifdef __DEBUG
-	std::cerr << "branching to continuation block at " << ldum << " from " << curr_off << std::endl;
+	std::cerr << "branching to continuation block at " << ochk_off << " from " << curr_off << std::endl;
 #endif
-	ldum=HDF5::value(&buffer[length],sizes.offsets);
+	auto ochk_len=HDF5::value(&buffer[length],sizes.offsets);
 	length+=sizes.offsets;
-	if (!decode_header_messages(ohdr_version,ldum,ident,group,&dse,flags)) {
+	if (!decode_header_messages(ohdr_version,ochk_len,ident,group,&dse,flags)) {
 	  exit(1);
 	}
 	fs.seekg(curr_off,std::ios_base::beg);
@@ -2338,37 +2330,34 @@ return n;
     }
     case 0x0011: {
 	Group *g;
-	GroupEntry ge;
 	if (group == nullptr) {
 	  g=&root_group;
 	}
 	else {
-	  ge.key=ident;
-	  ge.group.reset(new Group);
 #ifdef __DEBUG
-	  std::cerr << "SUBGROUP '" << ident << "' " << ge.group << std::endl;
+	  group->groups.emplace(ident,new Group);
+	  std::cerr << "SUBGROUP '" << ident << "' " << group->groups[ident] << std::endl;
 #endif
-	  group->groups.insert(ge);
-	  g=ge.group.get();
+	  g=group->groups[ident].get();
 	}
-	ldum=HDF5::value(buffer,sizes.offsets);
+	auto v1_btree_addr=HDF5::value(buffer,sizes.offsets);
 #ifdef __DEBUG
-	std::cerr << "v1 Btree address: " << ldum << std::endl;
+	std::cerr << "v1 Btree address: " << v1_btree_addr << std::endl;
 #endif
-	g->btree_addr=ldum;
+	g->btree_addr=v1_btree_addr;
 	length=sizes.offsets;
-	ldum=HDF5::value(&buffer[length],sizes.offsets);
+	auto local_heap_addr=HDF5::value(&buffer[length],sizes.offsets);
 #ifdef __DEBUG
-	std::cerr << "local heap address: " << ldum << std::endl;
+	std::cerr << "local heap address: " << local_heap_addr << std::endl;
 #endif
-	g->local_heap.addr=ldum;
+	g->local_heap.addr=local_heap_addr;
 	length+=sizes.offsets;
 	curr_off=fs.tellg();
 	fs.seekg(g->local_heap.addr,std::ios_base::beg);
-	ldum=8+2*sizes.lengths+sizes.offsets;
-	buf2=new unsigned char[ldum];
-	fs.read(reinterpret_cast<char *>(buf2),ldum);
-	if (fs.gcount() != static_cast<int>(ldum)) {
+	auto buf_len=8+2*sizes.lengths+sizes.offsets;
+	auto buf2=new unsigned char[buf_len];
+	fs.read(reinterpret_cast<char *>(buf2),buf_len);
+	if (fs.gcount() != static_cast<int>(buf_len)) {
 	  if (!myerror.empty()) {
 	    myerror+=", ";
 	  }
@@ -2396,22 +2385,22 @@ return n;
     }
     case 0x0015: {
 // Attribute info
-	n=2;
+	auto off=2;
 	if ( (buffer[1] & 0x1) == 0x1) {
-	  n+=2;
+	  off+=2;
 	}
-	ldum=HDF5::value(&buffer[n],sizes.offsets);
-	if (ldum == undef_addr) {
+	auto frhp_addr=HDF5::value(&buffer[off],sizes.offsets);
+	if (frhp_addr == undef_addr) {
 	  return length;
 	}
 #ifdef __DEBUG
-	unixutils::dump(buffer,n+sizes.offsets*2);
-	std::cerr << ldum << " " << HDF5::value(&buffer[n+sizes.offsets],sizes.offsets) << std::endl;
+	unixutils::dump(buffer,off+sizes.offsets*2);
+	std::cerr << frhp_addr << " " << HDF5::value(&buffer[off+sizes.offsets],sizes.offsets) << std::endl;
 	std::cerr << "****************" << std::endl;
 #endif
-	frhp_data=new FractalHeapData;
+	auto frhp_data=new FractalHeapData;
 	frhp_data->dse=&dse;
-	if (!decode_fractal_heap(ldum,0x000c,*frhp_data)) {
+	if (!decode_fractal_heap(frhp_addr,0x000c,*frhp_data)) {
 #ifdef __DEBUG
 	  std::cerr << "compact link" << std::endl;
 #endif
@@ -2441,42 +2430,42 @@ return n;
 
 bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 {
-  unsigned long long start_off,curr_off;
-  int version;
-  size_t hdr_size;
-  unsigned char flags;
-
-  start_off=fs.tellg();
+  static const std::string THIS_FUNC=__func__;
+  auto start_off=fs.tellg();
   fs.seekg(ste.objhdr_addr,std::ios_base::beg);
   unsigned char buf[12];
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,4);
   if (fs.gcount() != 4) {
     if (!myerror.empty()) {
-	myerror+=", ";
+	myerror+="\n";
     }
-    myerror+="unable to decode first 4 bytes of object header";
+    myerror+=THIS_FUNC+"(): unable to decode first 4 bytes of object header";
     return false;
   }
-  if (std::string(reinterpret_cast<char *>(buf),4) == "OHDR") {
+  auto signature=std::string(reinterpret_cast<char *>(cbuf),4);
+#ifdef __DEBUG
+  std::cerr << "object header signature: \"" << signature << "\" for '" << ste.linkname << "' " << ste.objhdr_addr << std::endl;
+#endif
+  if (signature == "OHDR") {
     fs.read(cbuf,2);
     if (fs.gcount() != 2) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
-	myerror+="unable to get version for OHDR";
+	myerror+=THIS_FUNC+"(): unable to get version for OHDR";
 	return false;
     }
-    version=static_cast<int>(buf[0]);
+    auto version=static_cast<short>(buf[0]);
     if (version == 2) {
-	flags=buf[1];
+	auto flags=buf[1];
 	if ( (flags & 0x20) == 0x20) {
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
 	    if (!myerror.empty()) {
-		myerror+=", ";
+		myerror+="\n";
 	    }
-	    myerror+="unable to read OHDR access time";
+	    myerror+=THIS_FUNC+"(): unable to read OHDR access time";
 	    return false;
 	  }
 #ifdef __DEBUG
@@ -2485,9 +2474,9 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
 	    if (!myerror.empty()) {
-		myerror+=", ";
+		myerror+="\n";
 	    }
-	    myerror+="unable to read OHDR modification time";
+	    myerror+=THIS_FUNC+"(): unable to read OHDR modification time";
 	    return false;
 	  }
 #ifdef __DEBUG
@@ -2496,9 +2485,9 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
 	    if (!myerror.empty()) {
-		myerror+=", ";
+		myerror+="\n";
 	    }
-	    myerror+="unable to read OHDR change time";
+	    myerror+=THIS_FUNC+"(): unable to read OHDR change time";
 	    return false;
 	  }
 #ifdef __DEBUG
@@ -2507,9 +2496,9 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
 	    if (!myerror.empty()) {
-		myerror+=", ";
+		myerror+="\n";
 	    }
-	    myerror+="unable to read OHDR birth time";
+	    myerror+=THIS_FUNC+"(): unable to read OHDR birth time";
 	    return false;
 	  }
 #ifdef __DEBUG
@@ -2520,9 +2509,9 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	  fs.read(cbuf,4);
 	  if (fs.gcount() != 4) {
 	    if (!myerror.empty()) {
-		myerror+=", ";
+		myerror+="\n";
 	    }
-	    myerror+="unable to read OHDR attribute data";
+	    myerror+=THIS_FUNC+"(): unable to read OHDR attribute data";
 	    return false;
 	  }
 #ifdef __DEBUG
@@ -2530,20 +2519,20 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	  std::cerr << "min # dense attributes: " << HDF5::value(&buf[2],2) << std::endl;
 #endif
 	}
-	hdr_size=pow(2.,static_cast<int>(flags & 0x3));
+	size_t hdr_size=pow(2.,static_cast<int>(flags & 0x3));
 	fs.read(cbuf,hdr_size);
 	if (fs.gcount() != static_cast<int>(hdr_size)) {
 	  if (!myerror.empty()) {
-	    myerror+=", ";
+	    myerror+="\n";
 	  }
-	  myerror+="unable to read OHDR size of chunk #0";
+	  myerror+=THIS_FUNC+"(): unable to read OHDR size of chunk #0";
 	  return false;
 	}
 	hdr_size=HDF5::value(buf,hdr_size);
 #ifdef __DEBUG
 	std::cerr << "flags=" << static_cast<int>(flags) << " " << static_cast<int>(flags & 0x3) << " " << pow(2.,static_cast<int>(flags & 0x3)) << " " << hdr_size << std::endl;
 #endif
-	curr_off=fs.tellg();
+	long long curr_off=fs.tellg();
 	if (!decode_header_messages(2,hdr_size,ste.linkname,group,NULL,flags)) {
 	  return false;
 	}
@@ -2551,14 +2540,14 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
     }
     else {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
-	myerror+="unable to decode OHDR at addr="+strutils::lltos(ste.objhdr_addr);
+	myerror+=THIS_FUNC+"(): unable to decode OHDR at addr="+strutils::lltos(ste.objhdr_addr);
 	return false;
     }
   }
   else {
-    version=static_cast<int>(buf[0]);
+    auto version=static_cast<int>(buf[0]);
     if (version == 1) {
 #ifdef __DEBUG
 	auto num_msgs=HDF5::value(&buf[2],2);
@@ -2566,30 +2555,30 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
 	fs.read(cbuf,8);
 	if (fs.gcount() != 8) {
 	  if (!myerror.empty()) {
-	    myerror+=", ";
+	    myerror+="\n";
 	  }
-	  myerror+="unable to decode next 8 bytes of object header";
+	  myerror+=THIS_FUNC+"(): unable to decode next 8 bytes of object header";
 	  return false;
 	}
 #ifdef __DEBUG
 	auto ref_cnt=HDF5::value(buf,4);
 #endif
-	hdr_size=HDF5::value(&buf[4],4);
+	auto hdr_size=HDF5::value(&buf[4],4);
 #ifdef __DEBUG
 	std::cerr << "object header version=" << version << " num_msgs=" << num_msgs << " ref_cnt=" << ref_cnt << " hdr_size=" << hdr_size << std::endl;
 #endif
 	fs.seekg(4,std::ios_base::cur);
-	curr_off=fs.tellg();
-	if (!decode_header_messages(1,hdr_size,ste.linkname,group,NULL,0)) {
+	long long curr_off=fs.tellg();
+	if (!decode_header_messages(1,hdr_size,ste.linkname,group,nullptr,0x0)) {
 	  return false;
 	}
 	fs.seekg(curr_off+hdr_size,std::ios_base::beg);
     }
     else {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
-	myerror+="expected version 1 but got version "+strutils::itos(version);
+	myerror+=THIS_FUNC+"(): expected version 1 but got version "+strutils::itos(version)+" at offset "+strutils::itos(fs.tellg());
 	return false;
     }
   }
@@ -2605,7 +2594,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
   fs.read(cbuf,12);
   if (fs.gcount() != 12) {
     if (!myerror.empty()) {
-	myerror+=", ";
+	myerror+="\n";
     }
     myerror+="read error in first 12 bytes";
     return false;
@@ -2614,7 +2603,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
   bits::get(buf,magic,0,64);
   if (magic != 0x894844460d0a1a0a) {
     if (!myerror.empty()) {
-	myerror+=", ";
+	myerror+="\n";
     }
     myerror+="not an HDF5 file";
     return false;
@@ -2627,7 +2616,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,12);
     if (fs.gcount() != 12) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error in second 12 bytes of V0/1 superblock";
 	return false;
@@ -2644,7 +2633,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 	fs.read(cbuf,4);
 	if (fs.gcount() != 4) {
 	  if (!myerror.empty()) {
-	    myerror+=", ";
+	    myerror+="\n";
 	  }
 	  myerror+="read error for superblock v1 additions";
 	  return false;
@@ -2653,7 +2642,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for V0/1 superblock base address";
 	return false;
@@ -2665,7 +2654,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for V0/1 superblock file free-space address";
 	return false;
@@ -2673,7 +2662,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for V0/1 superblock end-of-file address";
 	return false;
@@ -2685,7 +2674,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for V0/1 superblock driver information block address";
 	return false;
@@ -2704,7 +2693,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for v2 superblock base address";
 	return false;
@@ -2716,7 +2705,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for v2 superblock extension address";
 	return false;
@@ -2727,7 +2716,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 #endif
     if (ext_addr != undef_addr) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="unable to handle superblock extension";
 	return false;
@@ -2735,7 +2724,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for v2 superblock end-of-file address";
 	return false;
@@ -2747,7 +2736,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for v2 superblock root group object header address";
 	return false;
@@ -2759,7 +2748,7 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     fs.read(cbuf,4);
     if (fs.gcount() != 4) {
 	if (!myerror.empty()) {
-	  myerror+=", ";
+	  myerror+="\n";
 	}
 	myerror+="read error for v2 superblock checksum";
 	return false;
@@ -2767,14 +2756,14 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
   }
   else {
     if (!myerror.empty()) {
-	myerror+=", ";
+	myerror+="\n";
     }
     myerror+="unable to decode superblock version "+strutils::itos(sb_version);
     return false;
   }
   if (sizes.lengths > 16 || sizes.offsets > 16) {
     if (!myerror.empty()) {
-	myerror+=", ";
+	myerror+="\n";
     }
     myerror+="the size of lengths and/or offsets is out of range";
     return false;
@@ -3315,61 +3304,56 @@ void InputHDF5Stream::print_a_group_tree(Group& group)
 {
   static Group *root=&group;
   static std::string indent="";
-  GroupEntry ge;
-  DatasetEntry dse;
-  Attribute attr;
-
   if (indent.empty()) {
     std::cout << "HDF5 File Group Tree:" << std::endl;
     std::cout << "/" << std::endl;
   }
   indent+="  ";
-  for (auto& key : group.groups.keys()) {
-    std::cout << indent << key << "/" << std::endl;
-    group.groups.found(key,ge);
-    print_a_group_tree(*ge.group);
-    for (auto& key2 : ge.group->datasets.keys()) {
-	ge.group->datasets.found(key2,dse);
+  DatasetEntry dse;
+  for (const auto& group_entry : group.groups) {
+    std::cout << indent << group_entry.first << "/" << std::endl;
+    print_a_group_tree(*group_entry.second);
+    for (auto& ds_entry : group_entry.second->datasets) {
+	auto& dset_name=ds_entry.first;
 	std::cout << indent;
-	if (dse.dataset->datatype.class_ < 0) {
-	  std::cout << "  Group: " << key2 << std::endl;
+	if (ds_entry.second->datatype.class_ < 0) {
+	  std::cout << "  Group: " << dset_name << std::endl;
 	}
 	else {
-	  std::cout << "  Dataset: " << key2 << std::endl;
-	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(dse.dataset->datatype)<< std::endl;
+	  std::cout << "  Dataset: " << dset_name << std::endl;
+	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(ds_entry.second->datatype)<< std::endl;
 	}
-	for (auto& key3 : dse.dataset->attributes.keys()) {
-	  dse.dataset->attributes.found(key3,attr);
+	for (const auto& attr_entry : ds_entry.second->attributes) {
 	  std::cout << indent << "    ";
-	  HDF5::print_attribute(attr,ref_table);
+	  HDF5::print_attribute(attr_entry,ref_table);
 	  std::cout << std::endl;
 	}
     }
   }
   strutils::chop(indent,2);
   if (&group == root) {
-    if (group.datasets.found("",dse)) {
-	for (auto& key : dse.dataset->attributes.keys()) {
-	  dse.dataset->attributes.found(key,attr);
+    auto ds_it=group.datasets.find("");
+    if (ds_it != group.datasets.end()) {
+	for (const auto& attr_entry : ds_it->second->attributes) {
 	  std::cout << indent << "  ";
-	  HDF5::print_attribute(attr,ref_table);
+	  HDF5::print_attribute(attr_entry,ref_table);
 	  std::cout << std::endl;
 	}
     }
-    for (auto& key : group.datasets.keys()) {
-	group.datasets.found(key,dse);
+    for (const auto& ds_entry : group.datasets) {
+	auto& dset_name=ds_entry.first;
+	auto& dset_ptr=ds_entry.second;
 	std::cout << indent;
-	if (dse.dataset->datatype.class_ < 0) {
-	  std::cout << "  Group: " << key << std::endl;
+	if (dset_ptr->datatype.class_ < 0) {
+	  std::cout << "  Group: " << dset_name << std::endl;
 	}
 	else {
-	  std::cout << "  Dataset: " << key << std::endl;
-	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(dse.dataset->datatype) << std::endl;
+	  std::cout << "  Dataset: " << dset_name << std::endl;
+	  std::cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(dset_ptr->datatype) << std::endl;
 	}
-	for (auto& key2 : dse.dataset->attributes.keys()) {
-	  dse.dataset->attributes.found(key2,attr);
+	for (const auto& attr_entry : dset_ptr->attributes) {
 	  std::cout << indent << "    ";
-	  HDF5::print_attribute(attr,ref_table);
+	  HDF5::print_attribute(attr_entry,ref_table);
 	  std::cout << std::endl;
 	}
     }
