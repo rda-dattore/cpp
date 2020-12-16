@@ -583,6 +583,10 @@ bool DataArray::fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,
 {
   clear();
   if (dataset.data.address == istream.undefined_address()) {
+    if (!myerror.empty()) {
+	myerror+=", ";
+    }
+    myerror+="dataset address is undefined";
     return false;
   }
   auto fs=istream.file_stream();
@@ -971,10 +975,10 @@ size_t decode_compound_datatype_name_and_byte_offset(const unsigned char *buffer
   return bytes_decoded;
 }
 
-void print_attribute(InputHDF5Stream::Attribute& attribute,std::shared_ptr<my::map<InputHDF5Stream::ReferenceEntry>> ref_table)
+void print_attribute(const InputHDF5Stream::Attribute& attribute,std::shared_ptr<std::unordered_map<size_t,std::string>> ref_table)
 {
-  std::cout << "Attribute: " << attribute.key << "  Value: ";
-  attribute.value.print(std::cout,ref_table);
+  std::cout << "Attribute: " << attribute.first << "  Value: ";
+  attribute.second.print(std::cout,ref_table);
 }
 
 void print_data_value(InputHDF5Stream::Datatype& datatype,void *value)
