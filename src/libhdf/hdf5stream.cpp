@@ -1190,7 +1190,7 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribut
 			if (!myerror.empty()) {
 			  myerror+=", ";
 			}
-			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attribute_value.vlen.class_);
+			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attribute_value.vlen.class_)+" (dataset: "+ds_entry.first+", attribute: "+attr_it->first+")";
 		    }
 		  }
 		  break;
