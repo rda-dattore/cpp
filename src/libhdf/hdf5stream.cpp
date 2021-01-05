@@ -1162,45 +1162,42 @@ std::list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribut
 	  if (value.empty()) {
 	    return_list.emplace_back(ds_entry);
 	  }
-	  auto attr_it=ds_entry.second->attributes.find(attr_entry.first);
-	  if (attr_it != ds_entry.second->attributes.end()) {
-	    auto& attribute_value=attr_it->second;
-	    switch (attribute_value._class_) {
-		case 3:
-		{
-		  if (std::string(reinterpret_cast<char *>(attribute_value.array)) == value) {
-		    return_list.emplace_back(ds_entry);
-		  }
-		  break;
-		}
-		case 9:
-		{
-		  switch (attribute_value.vlen.class_) {
-		    case 3:
-		    {
-			int len;
-			bits::get(attribute_value.vlen.buffer.get(),len,0,32);
-			if (std::string(reinterpret_cast<char *>(&attribute_value.vlen.buffer[4]),len) == value) {
-			  return_list.emplace_back(ds_entry);
-			}
-			break;
+	  else {
+	    auto attr_it=ds_entry.second->attributes.find(attr_entry.first);
+	    if (attr_it != ds_entry.second->attributes.end()) {
+		auto& attribute_value=attr_it->second;
+		switch (attribute_value._class_) {
+		  case 3: {
+		    if (std::string(reinterpret_cast<char *>(attribute_value.array)) == value) {
+			return_list.emplace_back(ds_entry);
 		    }
-		    default:
-		    {
-			if (!myerror.empty()) {
-			  myerror+=", ";
+		    break;
+		  }
+		  case 9: {
+		    switch (attribute_value.vlen.class_) {
+			case 3: {
+			  int len;
+			  bits::get(attribute_value.vlen.buffer.get(),len,0,32);
+			  if (std::string(reinterpret_cast<char *>(&attribute_value.vlen.buffer[4]),len) == value) {
+			    return_list.emplace_back(ds_entry);
+			  }
+			  break;
 			}
-			myerror+="can't match a variable-length attribute value of class "+strutils::itos(attribute_value.vlen.class_)+" (dataset: "+ds_entry.first+", attribute: "+attr_it->first+")";
+			default: {
+			  if (!myerror.empty()) {
+			    myerror+=", ";
+			  }
+			  myerror+="can't match a variable-length attribute value of class "+strutils::itos(attribute_value.vlen.class_)+" (dataset: "+ds_entry.first+", attribute: "+attr_it->first+", value: '"+value+"')";
+			}
 		    }
+		    break;
 		  }
-		  break;
-		}
-		default:
-		{
-		  if (!myerror.empty()) {
-		    myerror+=", ";
+		  default: {
+		    if (!myerror.empty()) {
+			myerror+=", ";
+		    }
+		    myerror+="can't match an attribute value of class "+strutils::itos(attribute_value._class_);
 		  }
-		  myerror+="can't match an attribute value of class "+strutils::itos(attribute_value._class_);
 		}
 	    }
 	  }
