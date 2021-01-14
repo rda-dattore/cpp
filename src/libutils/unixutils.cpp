@@ -116,6 +116,7 @@ void sendmail(std::string to_list,std::string from,std::string bcc_list,std::str
     mail_command+="Bcc: "+bcc_list+"\n";
   }
   strutils::replace_all(body,"\"","\\\"");
+  strutils::replace_all(body,"`","\\`");
   mail_command+="Subject: "+subject+"\n\n"+body+"\" |/usr/sbin/sendmail -t";
   system(mail_command.c_str());
 }
