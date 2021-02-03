@@ -16,13 +16,17 @@ void find_csv_ends(const std::string& json,std::vector<size_t>& csv_ends)
 	case '{':
 	case '[':
 	{
-	  ++in_enclosure;
+	  if (in_quotes == 0) {
+	    ++in_enclosure;
+	  }
 	  break;
 	}
 	case '}':
 	case ']':
 	{
-	  --in_enclosure;
+	  if (in_quotes == 0) {
+	    --in_enclosure;
+	  }
 	  break;
 	}
 	case '"':
