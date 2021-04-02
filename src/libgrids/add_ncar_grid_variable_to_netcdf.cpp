@@ -12,7 +12,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 1:
     {
 	var_name="z_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("geopotential_height"));
 	attr_string="geopotential height at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -22,7 +22,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 5:
     {
 	var_name="w_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("lagrangian_tendency_of_air_pressure"));
 	attr_string+="omega at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -32,7 +32,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 6:
     case 28:
     {
-	ostream->add_variable("slp",netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable("slp",NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute("slp","standard_name",std::string("air_pressure_at_sea_level"));
 	ostream->add_variable_attribute("slp","long_name",std::string("sea level pressure"));
 	ostream->add_variable_attribute("slp","units",std::string("hPa"));
@@ -42,7 +42,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 10:
     {
 	var_name="t_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("air_temperature"));
 	attr_string+="temperature at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -52,7 +52,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 11:
     {
 	var_name="tv_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"name",var_name);
 	attr_string+="virtual temperature at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -62,7 +62,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     case 30:
     {
 	var_name="u_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("eastward_wind"));
 	attr_string+="u wind component at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -73,7 +73,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     {
 	var_name="v_";
 	var_name="v_"+strutils::itos(source_grid->first_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("northward_wind"));
 	attr_string+="v wind component at "+strutils::itos(source_grid->first_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
@@ -84,7 +84,7 @@ void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *so
     {
 	var_name="rh_";
 	var_name="rh_"+strutils::itos(source_grid->first_level_value())+"_"+strutils::itos(source_grid->second_level_value());
-	ostream->add_variable(var_name,netCDFStream::NcType::FLOAT,num_dims,dim_ids);
+	ostream->add_variable(var_name,NetCDF::DataType::FLOAT,num_dims,dim_ids);
 	ostream->add_variable_attribute(var_name,"standard_name",std::string("relative_humidity"));
 	attr_string+="relative humidity in the layer between "+strutils::itos(source_grid->first_level_value())+"mb and "+strutils::itos(source_grid->second_level_value())+"mb";
 	ostream->add_variable_attribute(var_name,"long_name",attr_string);
