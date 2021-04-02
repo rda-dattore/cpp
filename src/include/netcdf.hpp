@@ -8,13 +8,12 @@
 #include <datetime.hpp>
 #include <mymap.hpp>
 
-class netCDFStream
-{
+class NetCDF {
 public:
-  static const char *nc_type[7];
-  static const short nc_size[7];
-  enum class NcType {_NULL=0,BYTE,CHAR,SHORT,INT,FLOAT,DOUBLE};
-  enum class Type {DIMENSION=10,VARIABLE,ATTRIBUTE};
+  enum class DataType {_NULL = 0, BYTE, CHAR, SHORT, INT, FLOAT, DOUBLE};
+  static const char *data_type_str[7];
+  static const short data_type_bytes[7];
+  enum class Category {DIMENSION = 10, VARIABLE, ATTRIBUTE};
   static const unsigned char BYTE_NOT_SET;
   static const char CHAR_NOT_SET;
   static const short SHORT_NOT_SET;
@@ -23,7 +22,7 @@ public:
   static const double DOUBLE_NOT_SET;
 
   struct Dimension {
-    Dimension() : length(0),name(),is_rec(false) {}
+    Dimension() : length(0), name(), is_rec(false) { }
 
     size_t length;
     std::string name;
@@ -31,86 +30,96 @@ public:
   };
   class Attribute {
   public:
-    Attribute() : name(),nc_type(),num_values(0),values(nullptr) {}
-    Attribute(const Attribute& source) : name(),nc_type(),num_values(0),values(nullptr) { *this=source; }
+    Attribute() : name(), data_type(), num_values(0), values(nullptr) { }
+    Attribute(const Attribute& source) : name(), data_type(), num_values(0),
+        values(nullptr) { *this = source; }
     ~Attribute() { clear_values(); }
     Attribute& operator=(const Attribute& source);
     void clear_values();
 
     std::string name;
-    NcType nc_type;
+    DataType data_type;
     size_t num_values;
     void *values;
   };
   class DataValue {
   public:
-    DataValue() : value(nullptr),nc_type(NcType::_NULL) {}
-    DataValue(const DataValue& source) : DataValue() { *this=source; }
+    DataValue() : value(nullptr), data_type(DataType::_NULL) { }
+    DataValue(const DataValue& source) : DataValue() { *this = source; }
     ~DataValue() { clear(); };
     DataValue& operator=(const DataValue& source);
     void clear();
     double get() const;
-    void resize(NcType type);
+    void resize(DataType type);
     void set(double source_value);
-    NcType type() const { return nc_type; }
+    DataType type() const { return data_type; }
 
   private:
     void *value;
-    NcType nc_type;
+    DataType data_type;
   };
   struct Variable {
-    Variable() : name(),dimids(),attrs(),nc_type(),size(0),offset(0),long_name(),standard_name(),units(),_FillValue(),is_rec(false),is_coord(false) {}
+    Variable() : name(), dimids(), attrs(), data_type(), size(0), offset(0),
+        long_name(), standard_name(), units(), _FillValue(), is_rec(false),
+        is_coord(false) { }
 
     std::string name;
     std::vector<size_t> dimids;
     std::vector<Attribute> attrs;
-    NcType nc_type;
+    DataType data_type;
     size_t size;
     off_t offset;
-    std::string long_name,standard_name,units;
+    std::string long_name, standard_name, units;
     DataValue _FillValue;
-    bool is_rec,is_coord;
+    bool is_rec, is_coord;
   };
   struct UniqueVariableStringEntry {
-    UniqueVariableStringEntry() : key() {}
+    UniqueVariableStringEntry() : key() { }
 
     std::string key;
   };
   struct UniqueVariableTimeEntry {
-    UniqueVariableTimeEntry() : first_valid_datetime(nullptr),last_valid_datetime(nullptr),reference_datetime(nullptr) {}
+    UniqueVariableTimeEntry() : first_valid_datetime(nullptr),
+        last_valid_datetime(nullptr), reference_datetime(nullptr) { }
     void free_memory();
 
-    std::shared_ptr<DateTime> first_valid_datetime,last_valid_datetime,reference_datetime;
+    std::shared_ptr<DateTime> first_valid_datetime, last_valid_datetime,
+        reference_datetime;
   };
   struct UniqueVariableLevelEntry {
-    UniqueVariableLevelEntry() : key(),value(nullptr),value2(nullptr) {}
+    UniqueVariableLevelEntry() : key(), value(nullptr), value2(nullptr) { }
     void free_memory();
 
     std::string key;
-    std::shared_ptr<float> value,value2;
+    std::shared_ptr<float> value, value2;
   };
   struct UniqueVariableDataEntry {
-    UniqueVariableDataEntry() : time_entry(nullptr),record_offset(nullptr),record_length(nullptr),level(nullptr) {}
+    UniqueVariableDataEntry() : time_entry(nullptr), record_offset(nullptr),
+        record_length(nullptr), level(nullptr) { }
     void free_memory();
 
     std::shared_ptr<UniqueVariableTimeEntry> time_entry;
-    std::shared_ptr<off_t> record_offset,record_length;
+    std::shared_ptr<off_t> record_offset, record_length;
     std::shared_ptr<UniqueVariableLevelEntry> level;
   };
   struct UniqueVariableEntry {
     struct Data {
-	Data() : description(),units(),lev_description(),product_description(),cell_methods(),times(),data(),unique_times(),unique_levels(),num_levels(0),dim_ids(),num_gridpoints(0),is_layer(false) {}
+	Data() : description(), units(), lev_description(),
+            product_description(), cell_methods(), times(), data(),
+            unique_times(), unique_levels(), num_levels(0), dim_ids(),
+            num_gridpoints(0), is_layer(false) { }
 
-	std::string description,units,lev_description,product_description,cell_methods;
+	std::string description, units, lev_description, product_description,
+            cell_methods;
 	std::list<UniqueVariableTimeEntry> times;
 	std::list<UniqueVariableDataEntry> data;
-	my::map<UniqueVariableStringEntry> unique_times,unique_levels;
+	my::map<UniqueVariableStringEntry> unique_times, unique_levels;
 	int num_levels;
 	std::vector<size_t> dim_ids;
 	int num_gridpoints;
 	bool is_layer;
     };
-    UniqueVariableEntry() : key(),data(nullptr) {}
+    UniqueVariableEntry() : key(), data(nullptr) { }
     void free_memory();
 
     std::string key;
@@ -118,8 +127,10 @@ public:
   };
   class VariableData {
   public:
-    VariableData() : num_values(0),values(nullptr),nc_type(NcType::_NULL),capacity(0) {}
-    VariableData(const VariableData& source) : VariableData() { *this=source; }
+    VariableData() : num_values(0), values(nullptr), data_type(DataType::_NULL),
+        capacity(0) { }
+    VariableData(const VariableData& source) : VariableData() { *this =
+        source; }
     ~VariableData() { clear(); }
     VariableData& operator=(const VariableData& source);
     double operator[](size_t index) const;
@@ -127,33 +138,34 @@ public:
     void clear();
     double front() const { return (*this)[0]; }
     void *get() const { return values; }
-    void resize(int new_size,NcType type);
-    void set(size_t index,double value);
+    void resize(int new_size, DataType type);
+    void set(size_t index, double value);
     size_t size() const { return num_values; }
-    NcType type() const { return nc_type; }
+    DataType type() const { return data_type; }
 
   private:
     size_t num_values;
     void *values;
-    NcType nc_type;
+    DataType data_type;
     int capacity;
   };
   struct Time {
-    Time() : base(),nc_type(),units() {}
+    Time() : base(), data_type(), units() { }
 
     DateTime base;
-    NcType nc_type;
+    DataType data_type;
     std::string units;
   };
 
-  netCDFStream() : file_name(),fs(),_version(0),num_recs(0),rec_size(0),dims(),gattrs(),vars() {}
-  virtual ~netCDFStream() {}
-  virtual bool close()=0;
+  NetCDF() : file_name(), fs(), _version(0), num_recs(0), rec_size(0),
+      dims(), gattrs(), vars() { }
+  virtual ~NetCDF() { }
+  virtual bool close() = 0;
   std::vector<Dimension>& dimensions() { return dims; }
   std::vector<Attribute>& global_attributes() { return gattrs; }
   bool is_open() const { return (fs.is_open()); }
   size_t num_records() const { return num_recs; }
-  virtual bool open(std::string filename)=0;
+  virtual bool open(std::string filename) = 0;
   size_t record_size() const { return rec_size; }
   std::vector<Variable>& variables() { return vars; }
   short version() const { return _version; }
@@ -164,40 +176,45 @@ protected:
   std::string file_name;
   std::fstream fs;
   short _version;
-  size_t num_recs,rec_size;
+  size_t num_recs, rec_size;
   std::vector<Dimension> dims;
   std::vector<Attribute> gattrs;
   std::vector<Variable> vars;
 };
 
-class InputNetCDFStream : public netCDFStream
-{
+class InputNetCDFStream : public NetCDF {
 public:
-  InputNetCDFStream() : var_buf(),size_(0),var_indexes() {}
+  InputNetCDFStream() : var_buf(), size_(0), var_indexes() { }
   bool close();
   bool open(std::string filename);
   void print_dimensions() const;
   void print_global_attributes() const;
   void print_header() const;
-  void print_variable_data(std::string variable_name,std::string string_of_indexes);
+  void print_variable_data(std::string variable_name,
+      std::string string_of_indexes);
   void print_variables() const;
   off_t size() const { return size_; }
-  std::vector<double> value_at(std::string variable_name,size_t index);
+  std::vector<double> value_at(std::string variable_name, size_t index);
   const Variable& variable(std::string variable_name) const;
-  NcType variable_data(std::string variable_name,VariableData& variable_data);
-  size_t variable_dimensions(std::string variable_name,size_t **address_of_dimension_array) const;
-  void variable_value(std::string variable_name,std::string indexes,void **value);
+  DataType variable_data(std::string variable_name, VariableData&
+      variable_data);
+  size_t variable_dimensions(std::string variable_name,
+      size_t **address_of_dimension_array) const;
+  void variable_value(std::string variable_name, std::string indexes,
+      void **value);
 
 private:
   void fill_dimensions();
   void fill_attributes(std::vector<Attribute>& attributes);
   void fill_variables();
   void fill_string(std::string& string_to_fill);
-  void print_attribute(const Attribute& attribute,size_t left_margin_spacing) const;
-  bool print_indexes(const Variable& variable,size_t elem_num) const;
+  void print_attribute(const Attribute& attribute, size_t left_margin_spacing)
+      const;
+  bool print_indexes(const Variable& variable, size_t elem_num) const;
 
   struct VariableBuffer {
-    VariableBuffer() : MAX_BUF_SIZE(4000000),buffer(new char[MAX_BUF_SIZE]),buf_size(MAX_BUF_SIZE),first_offset(0) {}
+    VariableBuffer() : MAX_BUF_SIZE(4000000), buffer(new char[MAX_BUF_SIZE]),
+        buf_size(MAX_BUF_SIZE), first_offset(0) { }
 
     size_t MAX_BUF_SIZE;
     char *buffer;
@@ -205,58 +222,79 @@ private:
     long long first_offset;
   } var_buf;
   off_t size_;
-  std::unordered_map<std::string,size_t> var_indexes;
+  std::unordered_map<std::string, size_t> var_indexes;
 };
 
-class OutputNetCDFStream : public netCDFStream
-{
+class OutputNetCDFStream : public NetCDF {
 public:
-  OutputNetCDFStream() : curr_offset(0),started_record_vars(false),non_rec_housekeeping() {}
+  OutputNetCDFStream() : curr_offset(0), started_record_vars(false),
+      non_rec_housekeeping() { }
   ~OutputNetCDFStream();
-  void add_dimension(std::string name,size_t length);
-  void add_global_attribute(std::string name,std::string value) { add_attribute(gattrs,name,NcType::CHAR,1,&value); }
-  void add_global_attribute(std::string name,short value) { add_attribute(gattrs,name,NcType::SHORT,1,&value); }
-  void add_global_attribute(std::string name,int value) { add_attribute(gattrs,name,NcType::INT,1,&value); }
-  void add_global_attribute(std::string name,float value) { add_attribute(gattrs,name,NcType::FLOAT,1,&value); }
-  void add_global_attribute(std::string name,double value) { add_attribute(gattrs,name,NcType::DOUBLE,1,&value); }
-  void add_global_attribute(std::string name,NcType nc_type,size_t num_values,void *values) { add_attribute(gattrs,name,nc_type,num_values,values); }
+  void add_dimension(std::string name, size_t length);
+  void add_global_attribute(std::string name, std::string value) {
+      add_attribute(gattrs, name, DataType::CHAR, 1, &value); }
+  void add_global_attribute(std::string name, short value) {
+      add_attribute(gattrs, name, DataType::SHORT, 1, &value); }
+  void add_global_attribute(std::string name, int value) {
+      add_attribute(gattrs, name, DataType::INT, 1, &value); }
+  void add_global_attribute(std::string name, float value) {
+      add_attribute(gattrs, name, DataType::FLOAT, 1, &value); }
+  void add_global_attribute(std::string name, double value) {
+      add_attribute(gattrs, name, DataType::DOUBLE, 1, &value); }
+  void add_global_attribute(std::string name, DataType data_type, size_t
+      num_values, void *values) { add_attribute(gattrs, name, data_type,
+      num_values, values); }
   void add_record_data(VariableData& variable_data);
-  void add_record_data(VariableData& variable_data,size_t num_values);
-  void add_variable(std::string name,NcType nc_type) { add_variable(name,nc_type,0,nullptr); }
-  void add_variable(std::string name,NcType nc_type,size_t dimension_id) { add_variable(name,nc_type,1,&dimension_id); }
-  void add_variable(std::string name,NcType nc_type,size_t num_ids,size_t *dimension_ids);
-  void add_variable(std::string name,NcType nc_type,const std::vector<size_t>& dimension_ids);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,unsigned char value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,std::string value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,short value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,int value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,float value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,double value);
-  void add_variable_attribute(std::string variable_name,std::string attribute_name,NcType nc_type,size_t num_values,void *values);
+  void add_record_data(VariableData& variable_data, size_t num_values);
+  void add_variable(std::string name, DataType data_type) {
+      add_variable(name, data_type, 0, nullptr); }
+  void add_variable(std::string name, DataType data_type, size_t dimension_id) {
+      add_variable(name, data_type, 1, &dimension_id); }
+  void add_variable(std::string name, DataType data_type, size_t num_ids,
+      size_t *dimension_ids);
+  void add_variable(std::string name, DataType data_type, const std::vector<
+      size_t>& dimension_ids);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, unsigned char value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, std::string value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, short value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, int value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, float value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, double value);
+  void add_variable_attribute(std::string variable_name,
+      std::string attribute_name, DataType data_type, size_t num_values,
+      void *values);
   bool close();
   void initialize_non_record_data(std::string variable_name);
   bool open(std::string filename);
-  void set_number_of_records(size_t num_records) { num_recs=num_records; }
+  void set_number_of_records(size_t num_records) { num_recs = num_records; }
   void write_header();
-  void write_non_record_data(std::string variable_name,void *data_array);
-  void write_partial_non_record_data(void *data_array,int num_values);
+  void write_non_record_data(std::string variable_name, void *data_array);
+  void write_partial_non_record_data(void *data_array, int num_values);
 
 private:
-  void add_attribute(std::vector<Attribute>& attributes_to_grow,std::string name,NcType nc_type,size_t num_values,void *values);
+  void add_attribute(std::vector<Attribute>& attributes_to_grow,
+      std::string name, DataType data_type, size_t num_values, void *values);
   void put_string(const std::string& string_to_put);
   void put_attributes(const std::vector<Attribute>& attributes_to_put);
 
   off_t curr_offset;
   bool started_record_vars;
   struct NonRecordHouseKeeping {
-    NonRecordHouseKeeping() : index(0),num_values(0),num_values_written(0) {}
+    NonRecordHouseKeeping() : index(0), num_values(0), num_values_written(0) { }
 
-    int index,num_values,num_values_written;
+    int index, num_values, num_values_written;
   } non_rec_housekeeping;
 };
 
-extern bool found_netcdf_time_from_patch(const netCDFStream::Variable& var,std::string& dtunits,DateTime& base);
-extern bool operator==(const netCDFStream::UniqueVariableTimeEntry& te1,const netCDFStream::UniqueVariableTimeEntry& te2);
-extern bool operator!=(const netCDFStream::UniqueVariableTimeEntry& te1,const netCDFStream::UniqueVariableTimeEntry& te2);
+extern bool operator==(const NetCDF::NetCDF::UniqueVariableTimeEntry& te1, const
+    NetCDF::NetCDF::UniqueVariableTimeEntry& te2);
+extern bool operator!=(const NetCDF::NetCDF::UniqueVariableTimeEntry& te1, const
+    NetCDF::NetCDF::UniqueVariableTimeEntry& te2);
 
 #endif
