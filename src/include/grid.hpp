@@ -8,6 +8,9 @@
 #include <list>
 #include <deque>
 #include <unordered_set>
+#ifdef __JASPER
+#include <jasper/jasper.h>
+#endif
 #include <iodstream.hpp>
 #include <datetime.hpp>
 #include <netcdf.hpp>
@@ -264,7 +267,28 @@ class GRIB2Grid;
 class GRIB2Message : public GRIBMessage
 {
 public:
+#ifdef __JASPER
+  struct JasMatrix {
+    JasMatrix() : height(0),width(0),data(nullptr) {}
+    JasMatrix(const JasMatrix& source) = delete;
+    ~JasMatrix()
+    {
+	if (data != nullptr) {
+	  jas_matrix_destroy(data);
+	}
+    }
+    JasMatrix& operator=(const JasMatrix& source) = delete;
+
+    int height,width;
+    jas_matrix_t *data;
+  };
+#endif
+
+#ifdef __JASPER
+  GRIB2Message() : lus_len(0),jas_matrix() {}
+#else
   GRIB2Message() : lus_len(0) {}
+#endif
   off_t copy_to_buffer(unsigned char *output_buffer,const size_t buffer_length);
   void fill(const unsigned char *stream_buffer,bool fill_header_only);
   void print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map = "") const;
@@ -285,6 +309,9 @@ protected:
   void pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid) const;
 
   int lus_len;
+#ifdef __JASPER
+    JasMatrix jas_matrix;
+#endif
 };
 
 class TDLGRIBGrid;
@@ -462,6 +489,10 @@ public:
   void set_table_versions(short master_table_version,short local_table_version) { grib.table=master_table_version; grib2.local_table=local_table_version; }
   void operator+=(const GRIB2Grid& source);
 
+#ifdef __JASPER
+  friend void decode_jpeg2000(const unsigned char *jpc_bitstream,size_t jpc_bitstream_length,GRIB2Message::JasMatrix& jas_matrix,GRIB2Grid *g2,double D,double E);
+#endif
+
 private:
   void v_print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const;
   void quick_copy(const GRIB2Grid& source);
@@ -590,6 +621,7 @@ public:
   LatLonGrid& operator=(const OctagonalGrid& source);
   LatLonGrid& operator=(const ON84Grid& source);
   void operator+=(const LatLonGrid& source);
+
   friend void convert_ij_wind_to_xy(LatLonGrid& ucomp,LatLonGrid& vcomp);
   friend void convert_xy_wind_to_ij(LatLonGrid& ucomp,LatLonGrid& vcomp);
 
@@ -1111,7 +1143,9 @@ extern std::string grib2_product_description(GRIB2Grid *grid,DateTime& forecast_
 
 extern short p2_from_statistical_end_time(const GRIB2Grid& grid);
 
-extern "C" int dec_jpeg2000(char *injpc,int bufsize,int *outfld);
+#ifdef __JASPER
+int dec_jpeg2000(char *injpc,int bufsize,GRIB2Message::JasMatrix& jas_matrix,int *outfld);
+#endif
 
 } // end namespace gributils
 
@@ -1133,14 +1167,14 @@ public:
 struct HouseKeeping {
   HouseKeeping() : unique_variable_table(),include_parameter_set(nullptr) {}
 
-  my::map<netCDFStream::UniqueVariableEntry> unique_variable_table;
+  my::map<NetCDF::UniqueVariableEntry> unique_variable_table;
   std::shared_ptr<std::unordered_set<std::string>> include_parameter_set;
 };
 
 extern int convert_grid_to_netcdf(Grid *source_grid,size_t format,OutputNetCDFStream *ostream,GridData& grid_data,std::string path_to_level_map);
 
 extern void add_ncar_grid_variable_to_netcdf(OutputNetCDFStream *ostream,const Grid *source_grid,size_t num_dims,size_t *dim_ids);
-extern void convert_grib_file_to_netcdf(std::string filename,OutputNetCDFStream& ostream,DateTime& ref_date_time,std::string& cell_methods,Grid::LLSubsetDefinition& subset_definition,xmlutils::ParameterMapper& parameter_mapper,std::string path_to_level_map,my::map<netCDFStream::UniqueVariableEntry>& unique_variable_table,int record_flag);
+extern void convert_grib_file_to_netcdf(std::string filename,OutputNetCDFStream& ostream,DateTime& ref_date_time,std::string& cell_methods,Grid::LLSubsetDefinition& subset_definition,xmlutils::ParameterMapper& parameter_mapper,std::string path_to_level_map,my::map<NetCDF::UniqueVariableEntry>& unique_variable_table,int record_flag);
 extern void write_netcdf_header_from_grib_file(InputGRIBStream& istream,OutputNetCDFStream& ostream,GridData& grid_data,HouseKeeping& hk,std::string path_to_level_map);
 
 } // end namespace gridToNetCDF
