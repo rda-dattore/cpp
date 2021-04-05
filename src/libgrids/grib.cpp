@@ -14,108 +14,108 @@
 #include <myerror.hpp>
 #include <tempfile.hpp>
 
-int InputGRIBStream::peek()
-{
+int InputGRIBStream::peek() {
   unsigned char buffer[16];
-  int len=-9;
+  int len = -9;
   while (len == -9) {
-    len=find_grib(buffer);
+    len = find_grib(buffer);
     if (len < 0) {
-	return len;
+      return len;
     }
-    fs.read(reinterpret_cast<char *>(&buffer[4]),12);
-    len+=fs.gcount();
+    fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
+    len += fs.gcount();
     if (len != 16) {
-	return bfstream::error;
+      return bfstream::error;
     }
     switch (static_cast<int>(buffer[7])) {
-	case 0: {
-	  len=4;
-	  fs.seekg(curr_offset+4,std::ios_base::beg);
-	  fs.read(reinterpret_cast<char *>(buffer),3);
-	  if (fs.eof()) {
-	    return bfstream::eof;
-	  }
-	  else if (!fs.good()) {
-	    return bfstream::error;
-	  }
-	  while (buffer[0] != '7' && buffer[1] != '7' && buffer[2] != '7') {
-	    int llen;
-	    bits::get(buffer,llen,0,24);
-	    if (llen <= 0) {
-		return bfstream::error;
-	    }
-	    len+=llen;
-	    fs.seekg(llen-3,std::ios_base::cur);
-	    fs.read(reinterpret_cast<char *>(buffer),3);
-	    if (fs.eof()) {
-		return bfstream::eof;
-	    }
-	    else if (!fs.good()) {
-		return bfstream::error;
-	    }
-	  }
-	  len+=4;
-	  break;
-	}
-	case 1: {
-	  bits::get(buffer,len,32,24);
-	  if (len >= 0x800000) {
+      case 0: {
+        len = 4;
+        fs.seekg(curr_offset + 4, std::ios_base::beg);
+        fs.read(reinterpret_cast<char *>(buffer), 3);
+        if (fs.eof()) {
+          return bfstream::eof;
+        }
+        else if (!fs.good()) {
+          return bfstream::error;
+        }
+        while (buffer[0] != '7' && buffer[1] != '7' && buffer[2] != '7') {
+          int llen;
+          bits::get(buffer, llen, 0, 24);
+          if (llen <= 0) {
+            return bfstream::error;
+          }
+          len += llen;
+          fs.seekg(llen - 3, std::ios_base::cur);
+          fs.read(reinterpret_cast<char *>(buffer), 3);
+          if (fs.eof()) {
+            return bfstream::eof;
+          }
+          else if (!fs.good()) {
+            return bfstream::error;
+          }
+        }
+        len += 4;
+        break;
+      }
+      case 1: {
+        bits::get(buffer, len, 32, 24);
+        if (len >= 0x800000) {
 // check for ECMWF large-file
-	    int computed_len=0,sec_len,flag;
+          int computed_len = 0;
+          int sec_len, flag;
 // PDS length
-	    bits::get(buffer,sec_len,64,24);
-	    bits::get(buffer,flag,120,8);
-	    computed_len=8+sec_len;
-	    fs.seekg(curr_offset+computed_len,std::ios_base::beg);
-	    if ( (flag & 0x80) == 0x80) {
+          bits::get(buffer, sec_len, 64, 24);
+          bits::get(buffer, flag, 120, 8);
+          computed_len = 8 + sec_len;
+          fs.seekg(curr_offset + computed_len, std::ios_base::beg);
+          if ( (flag & 0x80) == 0x80) {
 // GDS included
-		fs.read(reinterpret_cast<char *>(buffer),3);
-		bits::get(buffer,sec_len,0,24);
-		fs.seekg(sec_len-3,std::ios_base::cur);
-		computed_len+=sec_len;
-	    }
-	    if ( (flag & 0x40) == 0x40) {
+            fs.read(reinterpret_cast<char *>(buffer), 3);
+            bits::get(buffer, sec_len, 0, 24);
+            fs.seekg(sec_len - 3, std::ios_base::cur);
+            computed_len += sec_len;
+          }
+          if ( (flag & 0x40) == 0x40) {
 // BMS included
-		fs.read(reinterpret_cast<char *>(buffer),3);
-		bits::get(buffer,sec_len,0,24);
-		fs.seekg(sec_len-3,std::ios_base::cur);
-		computed_len+=sec_len;
-	    }
-	    fs.read(reinterpret_cast<char *>(buffer),3);
+            fs.read(reinterpret_cast<char *>(buffer), 3);
+            bits::get(buffer, sec_len, 0, 24);
+            fs.seekg(sec_len - 3, std::ios_base::cur);
+            computed_len += sec_len;
+          }
+          fs.read(reinterpret_cast<char *>(buffer), 3);
 // BDS length
-	    bits::get(buffer,sec_len,0,24);
-	    if (sec_len < 120) {
-		len&=0x7fffff;
-		len*=120;
-		len-=sec_len;
-		fs.seekg(curr_offset+len,std::ios_base::beg);
-		len+=4;
-	    }
-	    else {
-		fs.seekg(sec_len-3,std::ios_base::cur);
-	    }
-	  }
-	  else {
-	    fs.seekg(len-20,std::ios_base::cur);
-	  }
-	  fs.read(reinterpret_cast<char *>(buffer),4);
-	  if (std::string(reinterpret_cast<char *>(buffer),4) != "7777") {
-	    len=-9;
-	    fs.seekg(curr_offset+4,std::ios_base::beg);
-	  }
-	  break;
-	}
-	case 2: {
-	  bits::get(buffer,len,96,32);
-	  break;
-	}
-	default: {
-	  return peek();
-	}
+          bits::get(buffer, sec_len, 0, 24);
+          if (sec_len < 120) {
+            len &= 0x7fffff;
+            len *= 120;
+            len -= sec_len;
+            fs.seekg(curr_offset + len, std::ios_base::beg);
+            len += 4;
+          }
+          else {
+            fs.seekg(sec_len - 3, std::ios_base::cur);
+          }
+        }
+        else {
+          fs.seekg(len - 20, std::ios_base::cur);
+        }
+        fs.read(reinterpret_cast<char *>(buffer), 4);
+        if (std::string(reinterpret_cast<char *>(buffer), 4) != "7777") {
+          len =- 9;
+          fs.seekg(curr_offset + 4, std::ios_base::beg);
+        }
+        break;
+      }
+      case 2: {
+        bits::get(buffer, len, 96, 32);
+        break;
+      }
+      default: {
+        return peek();
+      }
     }
   }
-  fs.seekg(curr_offset,std::ios_base::beg);
+  fs.seekg(curr_offset, std::ios_base::beg);
   return len;
 }
 
