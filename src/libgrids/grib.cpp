@@ -14,6 +14,9 @@
 #include <myerror.hpp>
 #include <tempfile.hpp>
 
+using std::runtime_error;
+using std::string;
+
 int InputGRIBStream::peek() {
   unsigned char buffer[16];
   int len = -9;
@@ -59,31 +62,36 @@ int InputGRIBStream::peek() {
       }
       case 1: {
         bits::get(buffer, len, 32, 24);
+
+        // check for ECMWF large-file
         if (len >= 0x800000) {
-// check for ECMWF large-file
           int computed_len = 0;
           int sec_len, flag;
-// PDS length
+
+          // PDS length
           bits::get(buffer, sec_len, 64, 24);
           bits::get(buffer, flag, 120, 8);
           computed_len = 8 + sec_len;
           fs.seekg(curr_offset + computed_len, std::ios_base::beg);
+
+          // GDS included?
           if ( (flag & 0x80) == 0x80) {
-// GDS included
             fs.read(reinterpret_cast<char *>(buffer), 3);
             bits::get(buffer, sec_len, 0, 24);
             fs.seekg(sec_len - 3, std::ios_base::cur);
             computed_len += sec_len;
           }
+
+          // BMS included?
           if ( (flag & 0x40) == 0x40) {
-// BMS included
             fs.read(reinterpret_cast<char *>(buffer), 3);
             bits::get(buffer, sec_len, 0, 24);
             fs.seekg(sec_len - 3, std::ios_base::cur);
             computed_len += sec_len;
           }
           fs.read(reinterpret_cast<char *>(buffer), 3);
-// BDS length
+
+          // BDS length
           bits::get(buffer, sec_len, 0, 24);
           if (sec_len < 120) {
             len &= 0x7fffff;
@@ -91,16 +99,14 @@ int InputGRIBStream::peek() {
             len -= sec_len;
             fs.seekg(curr_offset + len, std::ios_base::beg);
             len += 4;
-          }
-          else {
+          } else {
             fs.seekg(sec_len - 3, std::ios_base::cur);
           }
-        }
-        else {
+        } else {
           fs.seekg(len - 20, std::ios_base::cur);
         }
         fs.read(reinterpret_cast<char *>(buffer), 4);
-        if (std::string(reinterpret_cast<char *>(buffer), 4) != "7777") {
+        if (string(reinterpret_cast<char *>(buffer), 4) != "7777") {
           len =- 9;
           fs.seekg(curr_offset + 4, std::ios_base::beg);
         }
@@ -298,56 +304,53 @@ exit(1);
   return bytes_read;
 }
 
-bool InputGRIBStream::open(std::string filename)
+bool InputGRIBStream::open(string filename) noexcept(false)
 {
-  icstream chkstream;
-
   if (is_open()) {
-    myerror="currently connected to another file stream";
-    exit(1);
+    throw runtime_error("currently connected to another file stream");
   } 
-  num_read=0;
-// test for COS-blocking
-  if (!chkstream.open(filename))
+  num_read = 0;
+
+  // test for COS-blocking
+  icstream chkstream;
+  if (!chkstream.open(filename)) {
     return false;
-  if (chkstream.ignore() > 0) {
-    myerror="COS-blocking must be removed from GRIB files before reading";
-    exit(1);
   }
-  fs.open(filename.c_str(),std::ios::in);
+  if (chkstream.ignore() > 0) {
+    throw runtime_error(
+        "COS-blocking must be removed from GRIB files before reading");
+  }
+  fs.open(filename.c_str(), std::ios::in);
   if (!fs.is_open()) {
     return false;
   }
-  file_name=filename;
+  file_name = filename;
   return true;
 }
 
-int InputGRIBStream::find_grib(unsigned char *buffer)
+int InputGRIBStream::find_grib(unsigned char *buffer) noexcept(false)
 {
-  buffer[0]='X';
-  fs.read(reinterpret_cast<char *>(buffer),4);
-  while (buffer[0] != 'G' || buffer[1] != 'R' || buffer[2] != 'I' || buffer[3] != 'B') {
+  auto b = reinterpret_cast<char *>(buffer);
+  b[0] = 'X';
+  fs.read(b, 4);
+  while (b[0] != 'G' || b[1] != 'R' || b[2] != 'I' || b[3] != 'B') {
     if (fs.eof() || !fs.good()) {
-	if (num_read == 0) {
-	  myerror="not a GRIB file";
-	  exit(1);
-	}
-	else {
-	  return (fs.eof()) ? bfstream::eof : bfstream::error;
-	}
+      if (num_read == 0) {
+        throw runtime_error("not a GRIB file");
+      }
+      return (fs.eof()) ? bfstream::eof : bfstream::error;
     }
-    buffer[0]=buffer[1];
-    buffer[1]=buffer[2];
-    buffer[2]=buffer[3];
-    fs.read(reinterpret_cast<char *>(&buffer[3]),1);
+    b[0] = b[1];
+    b[1] = b[2];
+    b[2] = b[3];
+    fs.read(&b[3], 1);
     if (fs.eof()) {
-	return bfstream::eof;
-    }
-    else if (!fs.good()) {
-	return bfstream::error;
+      return bfstream::eof;
+    } else if (!fs.good()) {
+      return bfstream::error;
     }
   }
-  curr_offset=static_cast<off_t>(fs.tellg())-4;
+  curr_offset = static_cast<off_t>(fs.tellg()) - 4;
   return 4;
 }
 
