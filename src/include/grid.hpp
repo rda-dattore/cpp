@@ -15,7 +15,6 @@
 #include <datetime.hpp>
 #include <netcdf.hpp>
 #include <mymap.hpp>
-#include <xmlutils.hpp>
 
 class Grid
 {
@@ -183,26 +182,41 @@ protected:
   std::string _path_to_gauslat_lists;
 };
 
-class InputGRIBStream : public idstream
-{
-public:
-  InputGRIBStream() : curr_offset(0) {}
+// class Grid needs to be defined for xmlutils.hpp
+#include <xmlutils.hpp>
 
-// pure virtual functions from idstream
+class InputGRIBStream : public idstream {
+public:
+  InputGRIBStream() : curr_offset(0) { }
+
+  // pure virtual functions from idstream
   int ignore() { return bfstream::error; }
   int peek();
-  int read(unsigned char *buffer,size_t buffer_length);
+  int read(unsigned char *buffer, size_t buffer_length);
 
-// other idstream overrides
+  // other idstream overrides
   bool open(std::string filename);
 
-// local methods
+  // local methods
   off_t current_record_offset() const { return curr_offset; }
 
-private:
-  off_t curr_offset;
+  // exceptions for this input stream
+  class Exception : public std::exception {
+  public:
+    enum class Type { COS_blocked, already_connected, not_GRIB };
 
+    Exception() = delete;
+    Exception(const Type& type) : type_(type) { }
+    const char *what() const throw();
+
+  private:
+    Type type_;
+  };
+
+private:
   int find_grib(unsigned char *buffer);
+
+  off_t curr_offset;
 };
 
 class GRIBMessage
