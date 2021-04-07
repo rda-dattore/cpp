@@ -15,6 +15,7 @@
 #include <datetime.hpp>
 #include <netcdf.hpp>
 #include <mymap.hpp>
+#include <xmlutils.hpp>
 
 class Grid
 {
@@ -181,8 +182,6 @@ protected:
   size_t **num_in_sum;
   std::string _path_to_gauslat_lists;
 };
-
-#include <xmlutils.hpp>
 
 class InputGRIBStream : public idstream
 {
