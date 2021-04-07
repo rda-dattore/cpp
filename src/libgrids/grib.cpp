@@ -304,10 +304,10 @@ exit(1);
   return bytes_read;
 }
 
-bool InputGRIBStream::open(string filename) noexcept(false)
+bool InputGRIBStream::open(string filename)
 {
   if (is_open()) {
-    throw runtime_error("currently connected to another file stream");
+    throw Exception(Exception::Type::already_connected);
   } 
   num_read = 0;
 
@@ -317,8 +317,7 @@ bool InputGRIBStream::open(string filename) noexcept(false)
     return false;
   }
   if (chkstream.ignore() > 0) {
-    throw runtime_error(
-        "COS-blocking must be removed from GRIB files before reading");
+    throw Exception(Exception::Type::COS_blocked);
   }
   fs.open(filename.c_str(), std::ios::in);
   if (!fs.is_open()) {
@@ -328,7 +327,7 @@ bool InputGRIBStream::open(string filename) noexcept(false)
   return true;
 }
 
-int InputGRIBStream::find_grib(unsigned char *buffer) noexcept(false)
+int InputGRIBStream::find_grib(unsigned char *buffer)
 {
   auto b = reinterpret_cast<char *>(buffer);
   b[0] = 'X';
@@ -336,7 +335,7 @@ int InputGRIBStream::find_grib(unsigned char *buffer) noexcept(false)
   while (b[0] != 'G' || b[1] != 'R' || b[2] != 'I' || b[3] != 'B') {
     if (fs.eof() || !fs.good()) {
       if (num_read == 0) {
-        throw runtime_error("not a GRIB file");
+        throw Exception(Exception::Type::not_GRIB);
       }
       return (fs.eof()) ? bfstream::eof : bfstream::error;
     }
@@ -344,14 +343,24 @@ int InputGRIBStream::find_grib(unsigned char *buffer) noexcept(false)
     b[1] = b[2];
     b[2] = b[3];
     fs.read(&b[3], 1);
-    if (fs.eof()) {
-      return bfstream::eof;
-    } else if (!fs.good()) {
-      return bfstream::error;
-    }
   }
   curr_offset = static_cast<off_t>(fs.tellg()) - 4;
   return 4;
+}
+
+const char *InputGRIBStream::Exception::what() const throw() {
+  switch (type_) {
+    case Type::COS_blocked: {
+      return "COS-blocking must be removed from GRIB files before reading";
+    }
+    case Type::already_connected: {
+      return "already connected to another file stream";
+    }
+    case Type::not_GRIB: {
+      return "not a GRIB file";
+    }
+  }
+  return "undefined"; // should not happen; supresses compiler warning
 }
 
 #ifndef __cosutils
