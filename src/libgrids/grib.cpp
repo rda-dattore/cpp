@@ -3880,8 +3880,10 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid
 	pval=new int[g2->dim.size];
 	for (n=0; n < g2->dim.y; ++n) {
 	  for (m=0; m < g2->dim.x; ++m) {
-	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1)
+	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
 		pval[cnt++]=static_cast<int>(lround((g2->m_gridpoints[n][m]-g2->stats.min_val)*pow(10.,g2->grib.D))/pow(2.,g2->grib.E));
+	    }
+	    ++x;
 	  }
 	}
 	bits::set(&output_buffer[off/8+5],pval,0,g2->grib.pack_width,0,cnt);
