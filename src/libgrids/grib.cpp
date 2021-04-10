@@ -3863,84 +3863,91 @@ int enc_jpeg2000(unsigned char *cin,int *pwidth,int *pheight,int *pnbits,
 }
 #endif
 
-void GRIB2Message::pack_ds(unsigned char *output_buffer,off_t& offset,Grid *grid) const
-{
-  off_t off=offset*8;
-  int noff,jval,len;
-  int n,m,x=0,y=0,cps,bps;
-  unsigned char *cin;
-  int pwidth,pheight,pnbits,ltype=0,ratio=0,retry=1,jpclen;
-  GRIB2Grid *g2=reinterpret_cast<GRIB2Grid *>(grid);
-  double d=pow(10.,g2->grib.D),e=pow(2.,g2->grib.E);
-  int *pval,cnt=0;
-
-  bits::set(output_buffer,7,off+32,8);
+void GRIB2Message::pack_ds(unsigned char *output_buffer, off_t& offset, Grid
+     *grid) const {
+  off_t off = offset * 8;
+  bits::set(output_buffer, 7, off + 32, 8);
+  GRIB2Grid *g2 = reinterpret_cast<GRIB2Grid *>(grid);
   switch (g2->grib2.data_rep) {
     case 0: {
-	pval=new int[g2->dim.size];
-	for (n=0; n < g2->dim.y; ++n) {
-	  for (m=0; m < g2->dim.x; ++m) {
-	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
-		pval[cnt++]=static_cast<int>(lround((g2->m_gridpoints[n][m]-g2->stats.min_val)*pow(10.,g2->grib.D))/pow(2.,g2->grib.E));
-	    }
-	    ++x;
-	  }
-	}
-	bits::set(&output_buffer[off/8+5],pval,0,g2->grib.pack_width,0,cnt);
-	len=(cnt*g2->grib.pack_width+7)/8;
-	bits::set(output_buffer,len+5,off,32);
-	offset+=(len+5);
-	delete[] pval;
-	break;
+      auto pval=new int[g2->dim.size];
+      auto cnt=0, x = 0;
+      for (int n = 0; n < g2->dim.y; ++n) {
+        for (int m = 0; m < g2->dim.x; ++m) {
+          if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
+            pval[cnt++] = static_cast<int>(lround((g2->m_gridpoints[n][m] - g2->
+                stats.min_val) * pow(10., g2->grib.D)) / pow(2., g2->grib.E));
+          }
+          ++x;
+        }
+      }
+      bits::set(&output_buffer[off / 8 + 5], pval, 0, g2->grib.pack_width, 0,
+          cnt);
+      int len=(cnt * g2->grib.pack_width + 7) / 8;
+      bits::set(output_buffer, len + 5, off, 32);
+      offset += len + 5;
+      delete[] pval;
+      break;
     }
 #ifdef __JASPER
     case 40:
     case 40000: {
-	cps=(g2->grib.pack_width+7)/8;
-	jpclen=g2->dim.size*cps;
-// for some unknown reason, enc_jpeg2000 fails if jpclen is too small
-if (jpclen < 100000)
-jpclen=100000;
-	bps=cps*8;
-	cin=new unsigned char[jpclen];
-	for (n=0; n < g2->dim.y; ++n) {
-	  for (m=0; m < g2->dim.x; ++m) {
-	    if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
-		if (g2->m_gridpoints[n][m] == Grid::MISSING_VALUE)
-		  jval=0;
-		else
-		  jval=lround((lround(g2->m_gridpoints[n][m]*d)-lround(g2->stats.min_val*d))/e);
-		bits::set(cin,jval,y*bps,bps);
-		++y;
-	    }
-	    ++x;
-	  }
-	}
-	if (g2->bitmap.applies) {
-	  pwidth=y;
-	  pheight=1;
-	}
-	else {
-	  pwidth=g2->dim.x;
-	  pheight=g2->dim.y;
-	}
-	if (pwidth > 0) {
-	  pnbits=g2->grib.pack_width;
-	  noff=off/8+5;
-	  len=enc_jpeg2000(cin,&pwidth,&pheight,&pnbits,&ltype,&ratio,&retry,reinterpret_cast<char *>(&output_buffer[noff]),&jpclen);
-	}
-	else {
-	  len=0;
-	}
-	delete[] cin;
-	bits::set(output_buffer,len+5,off,32);
-	offset+=(len+5);
-	break;
+      int cps = (g2->grib.pack_width + 7) / 8;
+      int jpclen = g2->dim.size * cps;
+
+      // for some unknown reason, enc_jpeg2000 fails if jpclen is too small
+      if (jpclen < 100000) {
+        jpclen = 100000;
+      }
+      double d=pow(10.,g2->grib.D),e=pow(2.,g2->grib.E);
+      auto bps = cps * 8;
+      auto cin = new unsigned char[jpclen];
+      auto x = 0, y = 0;
+      for (int n = 0; n < g2->dim.y; ++n) {
+        for (int m = 0; m < g2->dim.x; ++m) {
+          if (!g2->bitmap.applies || g2->bitmap.map[x] == 1) {
+            int jval;
+            if (g2->m_gridpoints[n][m] == Grid::MISSING_VALUE) {
+              jval = 0;
+            } else {
+              jval=lround((lround(g2->m_gridpoints[n][m] * d) - lround(g2->
+                  stats.min_val * d)) / e);
+            }
+            bits::set(cin, jval, y * bps, bps);
+            ++y;
+          }
+          ++x;
+        }
+      }
+      int pwidth, pheight;
+      if (g2->bitmap.applies) {
+        pwidth = y;
+        pheight = 1;
+      }
+      else {
+        pwidth = g2->dim.x;
+        pheight = g2->dim.y;
+      }
+      int len;
+      if (pwidth > 0) {
+        int pnbits = g2->grib.pack_width;
+        auto noff=off / 8 + 5;
+        int ltype = 0, ratio = 0, retry = 1;
+        len=enc_jpeg2000(cin, &pwidth, &pheight, &pnbits, &ltype, &ratio,
+            &retry, reinterpret_cast<char *>(&output_buffer[noff]), &jpclen);
+      }
+      else {
+        len = 0;
+      }
+      delete[] cin;
+      bits::set(output_buffer, len + 5, off, 32);
+      offset += len + 5;
+      break;
     }
 #endif
     default: {
-	myerror="unable to encode data section for data representation "+strutils::itos(g2->grib2.data_rep);
-	exit(1);
+      throw runtime_error("unable to encode data section for data "
+          "representation " + strutils::itos(g2->grib2.data_rep));
     }
   }
 }
@@ -9013,20 +9020,19 @@ GRIBGrid create_subset_grid(const GRIBGrid& source, float bottom_latitude, float
   my::map<Grid::GLatEntry> gaus_lats;
   if (subset_grid.def.type == Grid::Type::gaussianLatitudeLongitude) {
     if (source.path_to_gaussian_latitude_data().empty()) {
-      throw std::runtime_error(
-          "path to gaussian latitude data was not specified");
+      throw runtime_error("path to gaussian latitude data was not specified");
     }
     else if (!gridutils::fill_gaussian_latitudes(
         source.path_to_gaussian_latitude_data(), gaus_lats,
         subset_grid.def.num_circles, (subset_grid.grib.scan_mode & 0x40) !=
         0x40)) {
-      throw std::runtime_error("unable to get gaussian latitudes for " +
+      throw runtime_error("unable to get gaussian latitudes for " +
           strutils::itos(subset_grid.def.num_circles) + " circles from '" +
           source.path_to_gaussian_latitude_data() + "'");
     }
     glat_entry.key = subset_grid.def.num_circles;
     if (!gaus_lats.found(glat_entry.key, glat_entry)) {
-      throw std::runtime_error("unable to subset gaussian grid with " +
+      throw runtime_error("unable to subset gaussian grid with " +
           strutils::itos(subset_grid.def.num_circles) + " latitude circles");
     }
   }
@@ -9343,10 +9349,10 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
 
   // check for filled grid
   if (!grid.filled) {
-    throw std::runtime_error("can't create subset from unfilled grid");
+    throw runtime_error("can't create subset from unfilled grid");
   }
   if (grib.scan_mode != 0x0) {
-    throw std::runtime_error("can't create subset for scanning mode " +
+    throw runtime_error("can't create subset for scanning mode " +
         strutils::itos(grib.scan_mode));
   }
   GRIB2Grid new_grid = *this;
@@ -9415,7 +9421,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
           my::map<Grid::GLatEntry> gaus_lats;
           if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,
               gaus_lats, def.num_circles, (grib.scan_mode & 0x40) != 0x40)) {
-            throw std::runtime_error("unable to get gaussian latitudes for " +
+            throw runtime_error("unable to get gaussian latitudes for " +
                 strutils::itos(def.num_circles) + " circles from '" +
                 _path_to_gauslat_lists + "'");
           }
@@ -9504,7 +9510,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
       break;
     }
     default: {
-      throw std::runtime_error("GRIB2Grid::create_subset(): unable to create a "
+      throw runtime_error("GRIB2Grid::create_subset(): unable to create a "
           "subset for grid type " + strutils::itos(static_cast<int>(def.type)));
     }
   }
