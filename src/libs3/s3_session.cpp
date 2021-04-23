@@ -9,11 +9,17 @@
 #include <myssl.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
+#include <timer.hpp>
 #include <tempfile.hpp>
+
+using myssl::message_digest32_to_string;
+using std::runtime_error;
+using std::string;
+using strutils::trim;
 
 namespace s3 {
 
-Session::Session(std::string host,std::string access_key,std::string secret_key,std::string region,std::string terminal) : host_(),access_key_(),secret_key_(),region_(),terminal_(),canonical_request("","","","",CanonicalRequest::PayloadType::STRING_),signing_key_(),curl_handle_(curl_easy_init(),&curl_easy_cleanup),curl_response_()
+Session::Session(std::string host,std::string access_key,std::string secret_key,std::string region,std::string terminal) : host_(),access_key_(),secret_key_(),region_(),terminal_(),canonical_request("","","","",CanonicalRequest::PayloadType::STRING_),signing_key_(),curl_handle_(curl_easy_init(),&curl_easy_cleanup),curl_response_(),sha_bytes_(0),upload_bytes_(0),sha_time_(0.),upload_time_(0.)
 {
   host_=host;
   access_key_=access_key;
@@ -70,14 +76,16 @@ void Session::get_bucket_xml(std::string bucket_name)
   }
   canonical_request.reset("GET","/"+bucket_name,host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
 }
 
 std::vector<Bucket> Session::buckets()
 {
   canonical_request.reset("GET","/",host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   XMLSnippet xmls;
   parse_s3_response(xmls);
   auto e=xmls.element("ListAllMyBucketsResult/Buckets");
@@ -99,7 +107,8 @@ std::string Session::create_bucket(std::string bucket_name)
 {
   canonical_request.reset("PUT","/"+bucket_name,host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   if (curl_response_.empty()) {
     return bucket_name;
   }
@@ -115,7 +124,8 @@ bool Session::delete_bucket(std::string bucket_name)
   }
   canonical_request.reset("DELETE","/"+bucket_name,host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   if (curl_response_.empty()) {
     return true;
   }
@@ -131,7 +141,8 @@ bool Session::delete_object(std::string bucket_name,std::string key)
   }
   canonical_request.reset("DELETE","/"+bucket_name+"/"+key,host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   if (curl_response_.empty()) {
     return true;
   }
@@ -140,25 +151,47 @@ bool Session::delete_object(std::string bucket_name,std::string key)
   }
 }
 
-bool Session::download_file(std::string bucket_name,std::string key,std::string filename)
-{
+bool Session::download_file(string bucket_name, string key, string filename) {
   if (bucket_name.empty() || key.empty()) {
     return false;
   }
-  canonical_request.reset("GET","/"+bucket_name+"/"+key,host_);
-  FILE *output=fopen(filename.c_str(),"w");
-  if (output == nullptr) {
-    throw std::runtime_error("download_file(): could not open '"+filename+"' for output");
-  }
+  canonical_request.reset("HEAD", "/" + bucket_name + "/" + key, host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32),output);
-  fclose(output);
-  if (curl_response_.empty()) {
-    return true;
-  }
-  else {
+  signature(const_cast<unsigned char *>(signing_key_), canonical_request,
+      region_, terminal_, message_digest);
+  auto head_response = perform_curl_request(curl_handle_.get(),
+      canonical_request, access_key_, region_, terminal_,
+      message_digest32_to_string(message_digest));
+  string etag;
+  auto headers = strutils::split(head_response, "\n");
+  for (const auto& header : headers) {
+    if (header.substr(0, 5) == "ETag:") {
+	etag = header;
+	trim(etag);
+	break;
+    }
+  } 
+  if (etag.empty()) {
     return false;
   }
+  canonical_request.reset("GET", "/" + bucket_name + "/" + key, host_);
+  FILE *output = fopen(filename.c_str(), "w");
+  if (output == nullptr) {
+    throw runtime_error("download_file(): could not open '" + filename +
+        "' for output");
+  }
+//  unsigned char message_digest[32];
+  signature(const_cast<unsigned char *>(signing_key_), canonical_request,
+      region_, terminal_, message_digest);
+  curl_response_ = perform_curl_request(curl_handle_.get(), canonical_request,
+      access_key_, region_, terminal_, message_digest32_to_string(
+      message_digest), output);
+  fclose(output);
+  trim(curl_response_);
+  if (curl_response_ == etag) {
+    return true;
+  }
+  return false;
 }
 
 bool Session::download_range(std::string bucket_name,std::string key,std::string range_bytes,std::string filename)
@@ -173,17 +206,25 @@ bool Session::download_range(std::string bucket_name,std::string key,std::string
     throw std::runtime_error("download_range(): could not open '"+filename+"' for output");
   }
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32),output);
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest),output);
   fclose(output);
-  if (curl_response_.empty()) {
+  strutils::trim(curl_response_);
+  if (std::regex_search(curl_response_,std::regex("^ETag: \"(.){32}\"$"))) {
     return true;
   }
   else {
+    if (curl_response_.empty()) {
+	std::ifstream ifs(filename);
+	std::stringstream ss;
+	ss << ifs.rdbuf();
+	curl_response_=ss.str();
+    }
     return false;
   }
 }
 
-bool Session::download_range(std::string bucket_name,std::string key,std::string range_bytes,std::unique_ptr<unsigned char[]>& buffer,std::string& error)
+bool Session::download_range(std::string bucket_name,std::string key,std::string range_bytes,std::unique_ptr<unsigned char[]>& buffer,size_t& BUF_LEN,std::string& error)
 {
   error="";
   if (bucket_name.empty()) {
@@ -197,7 +238,8 @@ bool Session::download_range(std::string bucket_name,std::string key,std::string
   canonical_request.reset("GET","/"+bucket_name+"/"+key,host_);
   canonical_request.set_range(range_bytes);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32),buffer);
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest),buffer,BUF_LEN);
   long http_code;
   curl_easy_getinfo(curl_handle_.get(),CURLINFO_RESPONSE_CODE,&http_code);
   if (http_code == 206) {
@@ -210,51 +252,6 @@ bool Session::download_range(std::string bucket_name,std::string key,std::string
     }
     return false;
   }
-}
-
-std::string Session::file_metadata(std::string bucket_name,std::string key)
-{
-  if (bucket_name.empty()) {
-    return "No bucket specified";
-  }
-  if (key.empty()) {
-    return "No key specified";
-  }
-  canonical_request.reset("HEAD","/"+bucket_name+"/"+key,host_);
-  unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
-  std::string json_string;
-  if (!curl_response_.empty()) {
-    auto lines=strutils::split(curl_response_,"\r\n");
-    for (const auto& line : lines) {
-	auto key_value_pair=strutils::split(line,": ");
-	if (key_value_pair.size() == 2) {
-	  if (!json_string.empty()) {
-	    json_string+=", ";
-	  }
-	  json_string+="\""+key_value_pair.front()+"\": \""+strutils::substitute(key_value_pair.back(),"\"","\\\"")+"\"";
-	}
-    }
-    json_string="{"+json_string+"}";
-  }
-  return json_string;
-}
-
-std::vector<Object> Session::objects(std::string bucket_name)
-{
-  std::vector<Object> objects;
-  if (!bucket_name.empty()) {
-    canonical_request.reset("GET","/"+bucket_name,host_);
-    unsigned char message_digest[32];
-    curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
-    XMLSnippet xmls;
-    parse_s3_response(xmls);
-    auto elist=xmls.element_list("ListBucketResult/Contents");
-    for (const auto& e : elist) {
-	objects.emplace_back(e.element("Key").content(),e.element("LastModified").content(),e.element("ETag").content(),std::stoll(e.element("Size").content()),e.element("Owner/DisplayName").content(),e.element("StorageClass").content());
-    }
-  }
-  return objects;
 }
 
 bool Session::object_exists(std::string bucket_name,std::string key)
@@ -279,15 +276,70 @@ bool Session::object_exists(std::string bucket_name,std::string key)
   }
 }
 
+std::string Session::object_metadata(std::string bucket_name,std::string key)
+{
+  if (bucket_name.empty()) {
+    return "No bucket specified";
+  }
+  if (key.empty()) {
+    return "No key specified";
+  }
+  canonical_request.reset("HEAD","/"+bucket_name+"/"+key,host_);
+  unsigned char message_digest[32];
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
+  std::string json_string;
+  if (!curl_response_.empty()) {
+    auto lines=strutils::split(curl_response_,"\r\n");
+    for (const auto& line : lines) {
+	auto key_value_pair=strutils::split(line,": ");
+	if (key_value_pair.size() == 2) {
+	  if (!json_string.empty()) {
+	    json_string+=", ";
+	  }
+	  json_string+="\""+key_value_pair.front()+"\": \""+strutils::substitute(key_value_pair.back(),"\"","\\\"")+"\"";
+	}
+    }
+    json_string="{"+json_string+"}";
+  }
+  return json_string;
+}
+
+std::vector<Object> Session::objects(std::string bucket_name)
+{
+  std::vector<Object> objects;
+  if (!bucket_name.empty()) {
+    auto is_truncated=true;
+    std::string next_marker;
+    while (is_truncated) {
+	canonical_request.reset("GET","/"+bucket_name+"?delimiter=!&marker="+next_marker,host_);
+	unsigned char message_digest[32];
+	s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+	curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
+	XMLSnippet xmls;
+	parse_s3_response(xmls);
+	auto elist=xmls.element_list("ListBucketResult/Contents");
+	for (const auto& e : elist) {
+	  objects.emplace_back(e.element("Key").content(),e.element("LastModified").content(),e.element("ETag").content(),std::stoll(e.element("Size").content()),e.element("Owner/DisplayName").content(),e.element("StorageClass").content());
+	}
+	is_truncated= (strutils::to_lower(xmls.element("ListBucketResult/IsTruncated").content()) == "true") ? true : false;
+	if (is_truncated) {
+	  next_marker=xmls.element("ListBucketResult/NextMarker").content();
+	}
+    }
+  }
+  return objects;
+}
+
 void Session::parse_s3_response(XMLSnippet& xmls)
 {
   if (!curl_response_.empty()) {
-    auto idx=curl_response_.find("?>\n");
+    auto idx=curl_response_.find("?>");
     if (idx != std::string::npos) {
-	xmls.fill(curl_response_.substr(idx+3));
+	xmls.fill(curl_response_.substr(idx+2));
     }
     else {
-      xmls.fill(curl_response_);
+	xmls.fill(curl_response_);
     }
     if (!xmls) {
 	throw std::runtime_error("Response: '"+curl_response_+"'\nParse error: '"+xmls.parse_error()+"'");
@@ -304,8 +356,18 @@ bool Session::upload_file(std::string filename,std::string bucket_name,std::stri
     return false;
   }
   canonical_request.reset("PUT","/"+bucket_name+"/"+key,host_,filename,CanonicalRequest::PayloadType::FILE_);
+  auto sha_benchmark=canonical_request.sha_benchmark();
+  sha_bytes_+=sha_benchmark.first;
+  sha_time_+=sha_benchmark.second;
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  struct timespec time_start;
+  clock_gettime(CLOCK_MONOTONIC,&time_start);
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
+  struct timespec time_end;
+  clock_gettime(CLOCK_MONOTONIC,&time_end);
+  upload_bytes_+=buf.st_size;
+  upload_time_+=(time_end.tv_sec-time_start.tv_sec)+(time_end.tv_nsec-time_start.tv_nsec)/1000000000.;
   long http_code;
   curl_easy_getinfo(curl_handle_.get(),CURLINFO_RESPONSE_CODE,&http_code);
   if (http_code == 200) {
@@ -329,7 +391,8 @@ bool Session::upload_file_multi(std::string filename,std::string bucket_name,std
   }
   canonical_request.reset("POST","/"+bucket_name+"/"+key+"?uploads=",host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   XMLSnippet xmls;
   parse_s3_response(xmls);
   auto bucket_element=xmls.element("InitiateMultipartUploadResult/Bucket");
@@ -358,7 +421,8 @@ bool Session::upload_file_multi(std::string filename,std::string bucket_name,std
 	auto part_number=strutils::itos(n+1);
 	canonical_request.reset("PUT","/"+bucket_name+"/"+key+"?partNumber="+part_number+"&uploadId="+upload_id,host_,tfile.name(),CanonicalRequest::PayloadType::FILE_);
 	unsigned char message_digest[32];
-	curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+	s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+	curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
 	auto lines=strutils::split(curl_response_,"\n");
 	for (const auto& line : lines) {
 	  if (std::regex_search(line,etag_re)) {
@@ -373,7 +437,8 @@ bool Session::upload_file_multi(std::string filename,std::string bucket_name,std
     completion_request+="</CompleteMultipartUpload>";
     canonical_request.reset("POST","/"+bucket_name+"/"+key+"?uploadId="+upload_id,host_,completion_request);
     unsigned char message_digest[32];
-    curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+    s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+    curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
     XMLSnippet xmls;
     parse_s3_response(xmls);
     bucket_element=xmls.element("CompleteMultipartUploadResult/Bucket");
@@ -395,23 +460,18 @@ void *thread_upload_file_multi(void *ts)
 {
   const std::string THIS_FUNC=__func__;
   UploadFileThreadStruct *t=reinterpret_cast<UploadFileThreadStruct *>(ts);
-  std::ifstream ifs(t->filename.c_str());
-  if (!ifs.is_open()) {
-    throw std::runtime_error(THIS_FUNC+"(): unable to open '"+t->filename+"' for upload");
-  }
-  TempFile tfile(t->tmp_directory);
-  std::ofstream ofs(tfile.name());
-  if (!ofs.is_open()) {
-    throw std::runtime_error(THIS_FUNC+"(): unable to create temporary file in '"+t->tmp_directory+"'");
-  }
-  std::unique_ptr<char[]> buffer(new char[t->bytes_to_transfer]);
-  ifs.seekg(t->file_pos,std::ios::beg);
-  ifs.read(buffer.get(),t->bytes_to_transfer);
-  ofs.write(buffer.get(),ifs.gcount());
-  ofs.close();
-  t->session->canonical_request.reset("PUT","/"+t->bucket_name+"/"+t->key+"?partNumber="+t->part_number+"&uploadId="+t->upload_id,t->host,tfile.name(),CanonicalRequest::PayloadType::FILE_);
+  struct timespec time_start;
+  clock_gettime(CLOCK_MONOTONIC,&time_start);
+  t->session->canonical_request.reset("PUT"+strutils::lltos(t->file_pos)+"-"+strutils::lltos(t->file_pos+t->bytes_to_transfer-1),"/"+t->bucket_name+"/"+t->key+"?partNumber="+t->part_number+"&uploadId="+t->upload_id,t->host,t->filename,CanonicalRequest::PayloadType::FILE_);
+  struct timespec time_end;
+  clock_gettime(CLOCK_MONOTONIC,&time_end);
+  t->sha_time=(time_end.tv_sec-time_start.tv_sec)+(time_end.tv_nsec-time_start.tv_nsec)/1000000000.;
   unsigned char message_digest[32];
-  t->session->curl_response_=perform_curl_request(t->session->curl_handle_.get(),t->session->canonical_request,t->session->access_key_,t->session->region_,t->session->terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(t->session->signing_key_),t->session->canonical_request,t->session->region_,t->session->terminal_,message_digest),32));
+  clock_gettime(CLOCK_MONOTONIC,&time_start);
+  s3::signature(const_cast<unsigned char *>(t->session->signing_key_),t->session->canonical_request,t->session->region_,t->session->terminal_,message_digest);
+  t->session->curl_response_=perform_curl_request(t->session->curl_handle_.get(),t->session->canonical_request,t->session->access_key_,t->session->region_,t->session->terminal_,myssl::message_digest32_to_string(message_digest));
+  clock_gettime(CLOCK_MONOTONIC,&time_end);
+  t->upload_time=(time_end.tv_sec-time_start.tv_sec)+(time_end.tv_nsec-time_start.tv_nsec)/1000000000.;
   auto lines=strutils::split(t->session->curl_response_,"\n");
   for (const auto& line : lines) {
     if (std::regex_search(line,std::regex("^ETag:"))) {
@@ -425,7 +485,7 @@ void *thread_upload_file_multi(void *ts)
   return nullptr;
 }
 
-bool Session::upload_file_multi_threaded(std::string filename,std::string bucket_name,std::string key,std::string tmp_directory,std::string& error)
+bool Session::upload_file_multi_threaded(std::string filename,std::string bucket_name,std::string key,size_t max_num_threads,std::string& error)
 {
   struct stat buf;
   if (stat(filename.c_str(),&buf) != 0) {
@@ -434,7 +494,8 @@ bool Session::upload_file_multi_threaded(std::string filename,std::string bucket
   }
   canonical_request.reset("POST","/"+bucket_name+"/"+key+"?uploads=",host_);
   unsigned char message_digest[32];
-  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
+  s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+  curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
   XMLSnippet xmls;
   parse_s3_response(xmls);
   auto bucket_element=xmls.element("InitiateMultipartUploadResult/Bucket");
@@ -442,62 +503,70 @@ bool Session::upload_file_multi_threaded(std::string filename,std::string bucket
   auto upload_id_element=xmls.element("InitiateMultipartUploadResult/UploadId");
   if (!bucket_element.name().empty() && bucket_element.content() == bucket_name && !key_element.name().empty() && key_element.content() == key && !upload_id_element.name().empty()) {
     auto upload_id=upload_id_element.content();
-/*
-const size_t PART_SIZE=70000000;
-const size_t NUM_THREADS=(buf.st_size+PART_SIZE-1)/PART_SIZE;
-*/
-    const size_t NUM_THREADS=8;
-    const size_t PART_SIZE=buf.st_size/NUM_THREADS;
-    const size_t NUM_THREADS_1=NUM_THREADS-1;
-    auto last_part_size=buf.st_size-PART_SIZE*NUM_THREADS_1;
-    std::vector<UploadFileThreadStruct> threads(NUM_THREADS);
-    for (size_t n=0; n < NUM_THREADS_1; ++n) {
-	threads[n].session.reset(new Session(host_,access_key_,secret_key_,region_,terminal_));
-	threads[n].tmp_directory=tmp_directory;
-	threads[n].filename=filename;
-	threads[n].file_pos=n*PART_SIZE;
-	threads[n].bytes_to_transfer=PART_SIZE;
-	threads[n].host=host_;
-	threads[n].bucket_name=bucket_name;
-	threads[n].key=key;
-	threads[n].upload_id=upload_id;
-	threads[n].part_number=strutils::itos(n+1);
-	pthread_create(&threads[n].tid,nullptr,thread_upload_file_multi,&threads[n]);
+    size_t PART_SIZE=buf.st_size/max_num_threads;
+    if (PART_SIZE < MINIMUM_PART_SIZE) {
+	max_num_threads=lround(1.+static_cast<double>(buf.st_size)/MINIMUM_PART_SIZE);
+	PART_SIZE=buf.st_size/max_num_threads;
     }
-    threads[NUM_THREADS_1].session.reset(new Session(host_,access_key_,secret_key_,region_,terminal_));
-    threads[NUM_THREADS_1].tmp_directory=tmp_directory;
-    threads[NUM_THREADS_1].filename=filename;
-    threads[NUM_THREADS_1].file_pos=NUM_THREADS_1*PART_SIZE;
-    threads[NUM_THREADS_1].bytes_to_transfer=last_part_size;
-    threads[NUM_THREADS_1].host=host_;
-    threads[NUM_THREADS_1].bucket_name=bucket_name;
-    threads[NUM_THREADS_1].key=key;
-    threads[NUM_THREADS_1].upload_id=upload_id;
-    threads[NUM_THREADS_1].part_number=strutils::itos(NUM_THREADS);
-    pthread_create(&threads[NUM_THREADS_1].tid,nullptr,thread_upload_file_multi,&threads[NUM_THREADS_1]);
-    std::string completion_request="<CompleteMultipartUpload>";
-    for (size_t n=0; n < NUM_THREADS; ++n) {
-	pthread_join(threads[n].tid,nullptr);
-	completion_request+="<Part><PartNumber>"+threads[n].part_number+"</PartNumber><ETag>"+threads[n].upload_etag+"</ETag></Part>";
-    }
-    completion_request+="</CompleteMultipartUpload>";
-    canonical_request.reset("POST","/"+bucket_name+"/"+key+"?uploadId="+upload_id,host_,completion_request);
-    unsigned char message_digest[32];
-    curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,s3::uhash_to_string(s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest),32));
-    XMLSnippet xmls;
-    parse_s3_response(xmls);
-    bucket_element=xmls.element("CompleteMultipartUploadResult/Bucket");
-    key_element=xmls.element("CompleteMultipartUploadResult/Key");
-    if (!bucket_element.name().empty() && bucket_element.content() == bucket_name && !key_element.name().empty() && key_element.content() == key) {
-	return true;
+    if (max_num_threads == 1) {
+// if the file only requires one thread, use the unthreaded upload
+	return upload_file(filename,bucket_name,key,error);
     }
     else {
-	error=curl_response_;
-	return false;
+	const size_t NUM_THREADS_1=max_num_threads-1;
+	auto last_part_size=buf.st_size-PART_SIZE*NUM_THREADS_1;
+	std::vector<UploadFileThreadStruct> threads(max_num_threads);
+	for (size_t n=0; n < NUM_THREADS_1; ++n) {
+	  threads[n].session.reset(new Session(host_,access_key_,secret_key_,region_,terminal_));
+	  threads[n].filename=filename;
+	  threads[n].file_pos=n*PART_SIZE;
+	  threads[n].bytes_to_transfer=PART_SIZE;
+	  threads[n].host=host_;
+	  threads[n].bucket_name=bucket_name;
+	  threads[n].key=key;
+	  threads[n].upload_id=upload_id;
+	  threads[n].part_number=strutils::itos(n+1);
+	  pthread_create(&threads[n].tid,nullptr,thread_upload_file_multi,&threads[n]);
+	}
+	threads[NUM_THREADS_1].session.reset(new Session(host_,access_key_,secret_key_,region_,terminal_));
+	threads[NUM_THREADS_1].filename=filename;
+	threads[NUM_THREADS_1].file_pos=NUM_THREADS_1*PART_SIZE;
+	threads[NUM_THREADS_1].bytes_to_transfer=last_part_size;
+	threads[NUM_THREADS_1].host=host_;
+	threads[NUM_THREADS_1].bucket_name=bucket_name;
+	threads[NUM_THREADS_1].key=key;
+	threads[NUM_THREADS_1].upload_id=upload_id;
+	threads[NUM_THREADS_1].part_number=strutils::itos(max_num_threads);
+	pthread_create(&threads[NUM_THREADS_1].tid,nullptr,thread_upload_file_multi,&threads[NUM_THREADS_1]);
+	std::string completion_request="<CompleteMultipartUpload>";
+	for (size_t n=0; n < max_num_threads; ++n) {
+	  pthread_join(threads[n].tid,nullptr);
+	  completion_request+="<Part><PartNumber>"+threads[n].part_number+"</PartNumber><ETag>"+threads[n].upload_etag+"</ETag></Part>";
+	  sha_bytes_+=threads[n].bytes_to_transfer;
+	  sha_time_+=threads[n].sha_time;
+	  upload_bytes_+=threads[n].bytes_to_transfer;
+	  upload_time_+=threads[n].upload_time;
+	}
+	completion_request+="</CompleteMultipartUpload>";
+	canonical_request.reset("POST","/"+bucket_name+"/"+key+"?uploadId="+upload_id,host_,completion_request);
+	unsigned char message_digest[32];
+	s3::signature(const_cast<unsigned char *>(signing_key_),canonical_request,region_,terminal_,message_digest);
+	curl_response_=perform_curl_request(curl_handle_.get(),canonical_request,access_key_,region_,terminal_,myssl::message_digest32_to_string(message_digest));
+	XMLSnippet xmls;
+	parse_s3_response(xmls);
+	bucket_element=xmls.element("CompleteMultipartUploadResult/Bucket");
+	key_element=xmls.element("CompleteMultipartUploadResult/Key");
+	if (!bucket_element.name().empty() && bucket_element.content() == bucket_name && !key_element.name().empty() && key_element.content() == key) {
+	  return true;
+	}
+	else {
+	  error=curl_response_;
+	  return false;
+	}
     }
   }
   else {
-    throw std::runtime_error("upload_file_multi(): unexpected response: "+curl_response_);
+    throw std::runtime_error("upload_file_multi_threaded(): unexpected response: "+curl_response_);
   }
 }
 
