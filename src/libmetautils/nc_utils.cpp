@@ -57,7 +57,7 @@ error="can't compute dates from fractional hours";
 	  if (fabs(diff-lround(diff)) > 0.01) {
 	    diff*=60.;
 	    if (fabs(diff-lround(diff)) > 0.01) {
-		error="can't compute dates from fractional seconds in fractional days";
+		error="can't compute dates from fractional seconds in fractional days ("+strutils::ftos(time,10)+")";
 	    }
 	    else {
 		date_time.add_seconds(lround(diff),time_data.calendar);
@@ -133,7 +133,7 @@ std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,cons
 	}
 	else if (time_data.units == "hours") {
 	  if (tre.data->bounded.first_valid_datetime.year() > 0) {
-	    auto num_hours=tre.data->instantaneous.first_valid_datetime.hours_since(tre.data->bounded.first_valid_datetime);
+	    auto num_hours=tre.data->instantaneous.first_valid_datetime.hours_since(tre.data->bounded.first_valid_datetime) * 2;
 	    switch (num_hours) {
 		case 1: {
 		  time_range="Hourly ";
