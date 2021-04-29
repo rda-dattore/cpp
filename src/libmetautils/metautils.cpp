@@ -112,25 +112,8 @@ void obs_per(std::string observationTypeValue,size_t numObs,DateTime start,DateT
   }
 }
 
-std::string web_home()
-{
-  MySQL::Server server(directives.database_server,directives.rdadb_username,directives.rdadb_password,"dssdb");
-  MySQL::LocalQuery query;
-  query.set("webhome","dataset","dsid = 'ds"+args.dsnum+"'");
-  std::string webhome;
-  if (query.submit(server) < 0) {
-    webhome="";
-  }
-  MySQL::Row row;
-  if (query.num_rows() > 0) {
-    query.fetch_row(row);
-    webhome=row[0];
-  }
-  else {
-    webhome="";
-  }
-  server.disconnect();
-  return webhome;
+std::string web_home() {
+  return "/glade/collections/rda/data/ds" + args.dsnum;
 }
 
 std::string relative_web_filename(std::string url)
