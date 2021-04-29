@@ -189,6 +189,11 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
   else {
     directives.decs_bindir=directives.decs_root+"/bin";
   }
+  if (directives.decs_bindir.empty()) {
+    myerror = "'rdadataBinSubDirectory' not set for host '" + directives.host +
+        "'";
+    return false;
+  }
   return true;
 }
 
