@@ -846,16 +846,28 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
 	    strutils::trim(time_unit);
 	    attr_value=attr_value.substr(idx+5);
 	    strutils::trim(attr_value);
-	    if (attr_value[4] == '-' && attr_value[7] == '-' && attr_value[13] == ':' && attr_value[16] == ':') {
-		auto yr=std::stoi(attr_value.substr(0,4));
-		auto mo=std::stoi(attr_value.substr(5,2));
-		auto dy=std::stoi(attr_value.substr(8,2));
-		auto hr=std::stoi(attr_value.substr(11,2));
-		auto min=std::stoi(attr_value.substr(14,2));
-		auto sec=std::stoi(attr_value.substr(17,2));
-		base.set(yr,mo,dy,hr*10000+min*100+sec,0);
+	    auto sp = strutils::split(attr_value);
+	    auto yr = 0, mo = 0, dy = 0, hr = 0, min = 0, sec = 0;
+	    if (sp[0][4] == '-' && sp[0][7] == '-') {
+		yr = std::stoi(sp[0].substr(0, 4));
+		mo = std::stoi(sp[0].substr(5, 2));
+		dy = std::stoi(sp[0].substr(8, 2));
 	    }
-	    else {
+	    if (sp.size() > 1) {
+		if (sp[1][0] != '+' && sp[1][0] != '-') {
+		  auto sp2 = strutils::split(sp[1], ":");
+		  hr = std::stoi(sp2[0]);
+		  if (sp2.size() > 1) {
+		    min = std::stoi(sp2[1]);
+		    if (sp2.size() > 2) {
+			sec = std::stoi(sp2[2]);
+		    }
+		  }
+		}
+	    }
+	    if (yr > 0) {
+		base.set(yr, mo, dy, hr * 10000 + min * 100 + sec, 0);
+	    } else {
 		time_unit="";
 	    }
 	  }
@@ -939,13 +951,20 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
 		    break;
 		  }
 		  case DataType::FLOAT: {
-		    auto data=new float;
-		    auto tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::FLOAT)]];
-		    fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::FLOAT)]);
-		    bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8);
-		    std::cout << "  " << *(reinterpret_cast<float *>(data)) << std::endl;
-		    delete[] tmpbuf;
-		    delete data;
+		    auto f = new float;
+		    auto b = new unsigned char[data_type_bytes[static_cast<int>(                         DataType::FLOAT)]];
+		    fs.read(reinterpret_cast<char *>(b), data_type_bytes[
+                        static_cast<int>(DataType::FLOAT)]);
+		    bits::get(b, *(reinterpret_cast<int *>(f)), 0,
+                        data_type_bytes[static_cast<int>(DataType::FLOAT)] * 8);
+		    std::cout << "  " << *f;
+		    if (!time_unit.empty() && *f >= 0.) {
+			std::cout << " : " << base.fadded(time_unit, *f)
+                            .to_string();
+		    }
+                    std::cout << std::endl;
+		    delete[] b;
+		    delete f;
 		    break;
 		  }
 		  case DataType::DOUBLE: {
