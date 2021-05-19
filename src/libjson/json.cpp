@@ -4,7 +4,6 @@
 #include <vector>
 #include <json.hpp>
 #include <strutils.hpp>
-#include <myerror.hpp>
 
 using Array = JSON::Array;
 using Boolean = JSON::Boolean;
