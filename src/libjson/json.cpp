@@ -389,9 +389,9 @@ bool operator!=(const JSON::Value& v1,const JSON::Value& v2)
   return !(v1 == v2);
 }
 
-bool operator!=(const JSON::Value& v,const int& i)
+bool operator!=(const JSON::Value& v,const long long& l)
 {
-  return !(v == i);
+  return !(v == l);
 }
 
 std::ostream& operator<<(std::ostream& o,const JSON::String& str)
