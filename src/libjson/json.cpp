@@ -6,6 +6,14 @@
 #include <strutils.hpp>
 #include <myerror.hpp>
 
+JSON::Value::operator bool() const {
+  if (_type == ValueType::Boolean) {
+    return reinterpret_cast<Boolean *>(_json_value)->b;
+  } else {
+    throw std::runtime_error("json value is not a boolean");
+  }
+}
+
 void JSON::Value::clear()
 {
   switch (_type) {
