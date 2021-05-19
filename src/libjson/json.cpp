@@ -6,206 +6,227 @@
 #include <strutils.hpp>
 #include <myerror.hpp>
 
-JSON::Value::operator bool() const {
-  if (_type == ValueType::Boolean) {
-    return reinterpret_cast<Boolean *>(_json_value)->b;
+using Array = JSON::Array;
+using Boolean = JSON::Boolean;
+using Object = JSON::Object;
+using Null = JSON::Null;
+using Number = JSON::Number;
+using String = JSON::String;
+using Value = JSON::Value;
+using ValueType = JSON::ValueType;
+using std::ostream;
+using std::runtime_error;
+using std::string;
+using std::vector;
+
+namespace JSONUtils {
+
+void emplace_value(void *c, string v, string k = "") {
+  Value *p = nullptr;
+  if (v == "null") {
+    auto n = new Null();
+    p = new Value(ValueType::Null, n);
+  } else if (v == "true") {
+    auto b = new Boolean(true);
+    p = new Value(ValueType::Boolean, b);
+  } else if (v == "false") {
+    auto b = new Boolean(false);
+    p = new Value(ValueType::Boolean, b);
+  } else if (v.front() == '"' && v.back() == '"') {
+    auto s = new String(v.substr(1, v.length() - 2));
+    p = new Value(ValueType::String, s);
+  } else if (v.front() == '{' && v.back() == '}') {
+    auto o = new Object(v);
+    p = new Value(ValueType::Object, o);
+  } else if (v.front() == '[' && v.back() == ']') {
+    auto a = new Array(v);
+    p = new Value(ValueType::Array, a);
   } else {
-    throw std::runtime_error("json value is not a boolean");
+    auto n = new Number(std::stoll(v));
+    p = new Value(ValueType::Number, n);
+  }
+  if (k.empty()) {
+    reinterpret_cast<vector<Value *> *>(c)->emplace_back(p);
+  } else {
+    reinterpret_cast<std::unordered_map<string, Value *> *>(c)->emplace(k, p);
   }
 }
 
-void JSON::Value::clear()
-{
-  switch (_type) {
+} // end namespace JSONUtils
+
+Value::operator bool() const {
+  if (m_type == ValueType::Boolean) {
+    return reinterpret_cast<Boolean *>(json_value)->b;
+  } else {
+    throw runtime_error("json value is not a Boolean");
+  }
+}
+
+void Value::clear() {
+  switch (m_type) {
     case ValueType::String: {
-	delete reinterpret_cast<String *>(_json_value);
-	break;
+      delete reinterpret_cast<String *>(json_value);
+      break;
     }
     case ValueType::Number: {
-	delete reinterpret_cast<Number *>(_json_value);
-	break;
+      delete reinterpret_cast<Number *>(json_value);
+      break;
     }
     case ValueType::Object: {
-	delete reinterpret_cast<Object *>(_json_value);
-	break;
+      delete reinterpret_cast<Object *>(json_value);
+      break;
     }
     case ValueType::Array: {
-	delete reinterpret_cast<Array *>(_json_value);
-	break;
+      delete reinterpret_cast<Array *>(json_value);
+      break;
     }
     case ValueType::Boolean: {
-	delete reinterpret_cast<Boolean *>(_json_value);
-	break;
+      delete reinterpret_cast<Boolean *>(json_value);
+      break;
     }
     case ValueType::Null:
     case ValueType::Nonexistent: {
-	delete reinterpret_cast<Null *>(_json_value);
-	break;
+      delete reinterpret_cast<Null *>(json_value);
+      break;
     }
   }
 }
 
-std::vector<std::string> JSON::Value::keys() const
-{
-  switch (_type) {
+vector<string> Value::keys() const {
+  switch (m_type) {
     case ValueType::Object: {
-	return reinterpret_cast<Object *>(_json_value)->keys();
+      return reinterpret_cast<Object *>(json_value)->keys();
     }
     default: {
-	return std::vector<std::string>{};
+      return vector<string>{};
     }
   }
 }
 
-size_t JSON::Value::size() const
-{
-  switch (_type) {
+size_t Value::size() const {
+  switch (m_type) {
     case ValueType::String:
     case ValueType::Number:
     case ValueType::Boolean: {
-	return 1;
+      return 1;
     }
     case ValueType::Object: {
-	return reinterpret_cast<Object *>(_json_value)->size();
+      return reinterpret_cast<Object *>(json_value)->size();
     }
     case ValueType::Array: {
-	return reinterpret_cast<Array *>(_json_value)->size();
+      return reinterpret_cast<Array *>(json_value)->size();
     }
     default: {
-	return 0;
+      return 0;
     }
   }
 }
 
-std::string JSON::Value::to_string() const
-{
-  switch (_type) {
+string Value::to_string() const {
+  switch (m_type) {
     case ValueType::String: {
-	return reinterpret_cast<String *>(_json_value)->to_string();
+      return reinterpret_cast<String *>(json_value)->to_string();
     }
     case ValueType::Number: {
-	return reinterpret_cast<Number *>(_json_value)->to_string();
+      return reinterpret_cast<Number *>(json_value)->to_string();
     }
     case ValueType::Object: {
-	return reinterpret_cast<Object *>(_json_value)->to_string();
+      return reinterpret_cast<Object *>(json_value)->to_string();
     }
     case ValueType::Array: {
-	return reinterpret_cast<Array *>(_json_value)->to_string();
+      return reinterpret_cast<Array *>(json_value)->to_string();
     }
     case ValueType::Boolean: {
-	return reinterpret_cast<Boolean *>(_json_value)->to_string();
+      return reinterpret_cast<Boolean *>(json_value)->to_string();
     }
     default: {
-	return "";
+      return "";
     }
   }
 }
 
-const JSON::Value& JSON::Value::operator[](const char *key) const
-{
-  return (*this)[std::string(key)];
+const Value& Value::operator[](const char *key) const {
+  return (*this)[string(key)];
 }
 
-const JSON::Value& JSON::Value::operator[](std::string key) const
-{
-  static const void *n=new Null();
-  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
-  switch (_type) {
+const Value& Value::operator[](string key) const {
+  static const void *n = new Null();
+  static const Value nonexistent(ValueType::Nonexistent, const_cast<void *>(n));
+  switch (m_type) {
     case ValueType::Object: {
-	return (*(reinterpret_cast<Object *>(_json_value)))[key];
+      return (*(reinterpret_cast<Object *>(json_value)))[key];
     }
     default: {
-	return nonexistent;
+      return nonexistent;
     }
   }
 }
 
-const JSON::Value& JSON::Value::operator[](int index) const
-{
+const Value& Value::operator[](int index) const {
   return (*this)[static_cast<size_t>(index)];
 }
 
-const JSON::Value& JSON::Value::operator[](size_t index) const
-{
-  static const void *n=new Null();
-  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
-  switch (_type) {
+const Value& Value::operator[](size_t index) const {
+  static const void *n = new Null();
+  static const Value nonexistent(ValueType::Nonexistent, const_cast<void *>(n));
+  switch (m_type) {
     case ValueType::Array: {
-	return (*(reinterpret_cast<Array *>(_json_value)))[index];
+      return (*(reinterpret_cast<Array *>(json_value)))[index];
     }
     default: {
-	return nonexistent;
+      return nonexistent;
     }
   }
 }
 
-bool JSON::Value::operator>(long long l) const
-{
-  if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() > l);
+bool Value::operator>(long long l) const {
+  if (m_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(json_value)->number() > l);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a Number");
 }
 
-bool JSON::Value::operator<(long long l) const
-{
-  if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() < l);
+bool Value::operator<(long long l) const {
+  if (m_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(json_value)->number() < l);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a Number");
 }
 
-bool JSON::Value::operator==(long long l) const
-{
-  if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() == l);
+bool Value::operator==(long long l) const {
+  if (m_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(json_value)->number() == l);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a Number");
 }
 
-bool JSON::Value::operator>=(long long l) const
-{
-  if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() >= l);
+bool Value::operator>=(long long l) const {
+  if (m_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(json_value)->number() >= l);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a Number");
 }
 
-bool JSON::Value::operator<=(long long l) const
-{
-  if (_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(_json_value)->number() <= l);
+bool Value::operator<=(long long l) const {
+  if (m_type == ValueType::Number) {
+    return (reinterpret_cast<Number *>(json_value)->number() <= l);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a Number");
 }
 
-bool JSON::Value::operator==(std::string s) const
+bool Value::operator==(string s) const
 {
-  if (_type == ValueType::String) {
-    return (reinterpret_cast<String *>(_json_value)->to_string() == s);
+  if (m_type == ValueType::String) {
+    return (reinterpret_cast<String *>(json_value)->to_string() == s);
   }
-  else {
-    return false;
-  }
+  throw runtime_error("json value is not a String");
 }
 
-bool JSON::Value::operator==(const char *s) const
-{
-  return (*this == std::string(s));
+bool Value::operator==(const char *s) const {
+  return (*this == string(s));
 }
 
-void JSON::Object::clear()
-{
+void Object::clear() {
   for (auto& e : pairs) {
     e.second->clear();
     delete e.second;
@@ -213,247 +234,219 @@ void JSON::Object::clear()
   pairs.clear();
 }
 
-JSON::Object::~Object()
-{
+Object::~Object() {
   this->clear();
 }
 
-void JSON::Object::fill(std::string json_object)
-{
+void Object::fill(string json_object) {
   this->clear();
   strutils::trim(json_object);
   if (json_object.front() != '{' || json_object.back() != '}') {
-    myerror="not a JSON object";
-    return;
+    throw runtime_error("not a json object");
   }
-  json_object.erase(0,1);
+  json_object.erase(0, 1);
   json_object.pop_back();
   if (!json_object.empty()) {
-    std::vector<size_t> csv_ends;
-    JSONUtils::find_csv_ends(json_object,csv_ends);
-    size_t next_start=0;
-    for (auto end : csv_ends) {
-	auto pair=json_object.substr(next_start,end-next_start);
-	bool in_quotes=false;
-	size_t idx=0;
-	for (size_t n=0; n < pair.length(); ++n) {
-	  switch (pair[n]) {
-	    case '"': {
-		in_quotes=!in_quotes;
-		break;
-	    }
-	    case ':': {
-		if (!in_quotes) {
-		  idx=n;
-		  n=pair.length();
-		}
-		break;
-	    }
-	    default: {}
-	  }
-	}
-	auto key=pair.substr(0,idx);
-	strutils::trim(key);
-	if (key.front() != '"' || key.back() != '"') {
-	  myerror="invalid key '"+key+"'";
-	  pairs.clear();
-	  return;
-	}
-	key.erase(0,1);
-	key.pop_back();
-	auto value=pair.substr(idx+1);
-	strutils::trim(value);
-	if (pairs.find(key) == pairs.end()) {
-	  if (value == "null") {
-	    auto n=new Null();
-	    auto p=new Value(ValueType::Null,n);
-	    pairs.emplace(key,p);
-	  }
-	  else if (value == "true") {
-	    auto b=new Boolean(true);
-	    auto p=new Value(ValueType::Boolean,b);
-	    pairs.emplace(key,p);
-	  }
-	  else if (value == "false") {
-	    auto b=new Boolean(false);
-	    auto p=new Value(ValueType::Boolean,b);
-	    pairs.emplace(key,p);
-	  }
-	  else if (value.front() == '"' && value.back() == '"') {
-	    auto s=new String(value.substr(1,value.length()-2));
-	    auto p=new Value(ValueType::String,s);
-	    pairs.emplace(key,p);
-	  }
-	  else if (value.front() == '{' && value.back() == '}') {
-	    auto o=new Object(value);
-	    auto p=new Value(ValueType::Object,o);
-	    pairs.emplace(key,p);
-	  }
-	  else if (value.front() == '[' && value.back() == ']') {
-	    auto a=new Array(value);
-	    auto p=new Value(ValueType::Array,a);
-	    pairs.emplace(key,p);
-	  }
-	  else {
-	    auto n=new Number(std::stoll(value));
-	    auto p=new Value(ValueType::Number,n);
-	    pairs.emplace(key,p);
-	  }
-	}
-	else {
-	}
-	next_start=++end;
+    vector<size_t> vec;
+    JSONUtils::find_csv_ends(json_object, vec);
+    size_t first = 0;
+    for (auto last : vec) {
+      auto pair = json_object.substr(first, last - first);
+      auto in_quotes = false;
+      size_t i = 0;
+      for (size_t n = 0; n < pair.length(); ++n) {
+        switch (pair[n]) {
+          case '"': {
+            in_quotes = !in_quotes;
+            break;
+          }
+          case ':': {
+            if (!in_quotes) {
+              i = n;
+              n = pair.length();
+            }
+            break;
+          }
+          default: { }
+        }
+      }
+      auto k = pair.substr(0, i);
+      strutils::trim(k);
+      if (k.front() != '"' || k.back() != '"') {
+        pairs.clear();
+        throw runtime_error("invalid key '" + k + "'");
+      }
+      k.erase(0, 1);
+      k.pop_back();
+      auto v = pair.substr(i + 1);
+      strutils::trim(v);
+      if (pairs.find(k) == pairs.end()) {
+        JSONUtils::emplace_value(&pairs, v, k);
+/*
+        if (value == "null") {
+          auto n = new Null();
+          auto p = new Value(ValueType::Null, n);
+          pairs.emplace(k, p);
+        } else if (value == "true") {
+          auto b = new Boolean(true);
+          auto p = new Value(ValueType::Boolean, b);
+          pairs.emplace(k, p);
+        } else if (value == "false") {
+          auto b = new Boolean(false);
+          auto p = new Value(ValueType::Boolean, b);
+          pairs.emplace(k, p);
+        } else if (value.front() == '"' && value.back() == '"') {
+          auto s = new String(value.substr(1, value.length() - 2));
+          auto p = new Value(ValueType::String, s);
+          pairs.emplace(k, p);
+        } else if (value.front() == '{' && value.back() == '}') {
+          auto o = new Object(value);
+          auto p = new Value(ValueType::Object, o);
+          pairs.emplace(k, p);
+        } else if (value.front() == '[' && value.back() == ']') {
+          auto a = new Array(value);
+          auto p = new Value(ValueType::Array, a);
+          pairs.emplace(k, p);
+        } else {
+          auto n = new Number(std::stoll(value));
+          auto p = new Value(ValueType::Number, n);
+          pairs.emplace(k, p);
+        }
+*/
+      } else {
+      }
+      first = ++last;
     }
   }
 }
 
-void JSON::Object::fill(std::ifstream& ifs)
-{
+void Object::fill(std::ifstream& ifs) {
   if (!ifs.is_open()) {
-    myerror="unable to open file";
-    return;
+    throw runtime_error("unable to open file to fill json object");
   }
-  ifs.seekg(0,std::ios::end);
-  auto length=ifs.tellg();
+  ifs.seekg(0, std::ios::end);
+  auto length = ifs.tellg();
   std::unique_ptr<char[]> buffer(new char[length]);
-  ifs.seekg(0,std::ios::beg);
-  ifs.read(buffer.get(),length);
-  std::string json(buffer.get(),length);
+  ifs.seekg(0, std::ios::beg);
+  ifs.read(buffer.get(), length);
+  string json(buffer.get(), length);
   fill(json);
 }
 
-std::vector<std::string> JSON::Object::keys() const
-{
-  std::vector<std::string> keys;
+vector<string> Object::keys() const {
+  vector<string> v;
   for (const auto& e : pairs) {
-    keys.emplace_back(e.first);
+    v.emplace_back(e.first);
   }
-  return keys;
+  return std::move(v);
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Value& v)
-{
-  switch (v._type) {
-    case JSON::ValueType::String: {
-	o << *(reinterpret_cast<JSON::String *>(v._json_value));
-	break;
+ostream& operator<<(ostream& o, const Value& v) {
+  switch (v.m_type) {
+    case ValueType::String: {
+      o << *(reinterpret_cast<String *>(v.json_value));
+      break;
     }
-    case JSON::ValueType::Number: {
-	o << *(reinterpret_cast<JSON::Number *>(v._json_value));
-	break;
+    case ValueType::Number: {
+      o << *(reinterpret_cast<Number *>(v.json_value));
+      break;
     }
-    case JSON::ValueType::Object: {
-	o << *(reinterpret_cast<JSON::Object *>(v._json_value));
-	break;
+    case ValueType::Object: {
+      o << *(reinterpret_cast<Object *>(v.json_value));
+      break;
     }
-    case JSON::ValueType::Array: {
-	o << *(reinterpret_cast<JSON::Array *>(v._json_value));
-	break;
+    case ValueType::Array: {
+      o << *(reinterpret_cast<Array *>(v.json_value));
+      break;
     }
-    case JSON::ValueType::Boolean: {
-	o << *(reinterpret_cast<JSON::Boolean *>(v._json_value));
-	break;
+    case ValueType::Boolean: {
+      o << *(reinterpret_cast<Boolean *>(v.json_value));
+      break;
     }
-    default: {}
+    default: { }
   }
   return o;
 }
 
-bool operator==(const JSON::Value& v1,const JSON::Value& v2)
-{
-  if (v1._type == v2._type) {
-    switch (v1._type) {
-	case JSON::ValueType::String: {
-	}
-	case JSON::ValueType::Number: {
-	  return (reinterpret_cast<JSON::Number *>(v1._json_value)->number() == reinterpret_cast<JSON::Number *>(v2._json_value)->number());
-	}
-	case JSON::ValueType::Object: {
-	}
-	case JSON::ValueType::Array: {
-	}
-	case JSON::ValueType::Boolean: {
-	}
-	default: {
-	  return true;
-	}
+bool operator==(const Value& v1, const Value& v2) {
+  if (v1.m_type == v2.m_type) {
+    switch (v1.m_type) {
+      case ValueType::String: {
+      }
+      case ValueType::Number: {
+        return (reinterpret_cast<Number *>(v1.json_value)->number() ==
+            reinterpret_cast<Number *>(v2.json_value)->number());
+      }
+      case ValueType::Object: {
+      }
+      case ValueType::Array: {
+      }
+      case ValueType::Boolean: {
+      }
+      default: {
+        return true;
+      }
     }
   }
-  else {
-    return false;
-  }
+  return false;
 }
 
-bool operator!=(const JSON::Value& v1,const JSON::Value& v2)
-{
+bool operator!=(const Value& v1, const Value& v2) {
   return !(v1 == v2);
 }
 
-bool operator!=(const JSON::Value& v,const long long& l)
-{
+bool operator!=(const Value& v, const long long& l) {
   return !(v == l);
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::String& str)
-{
+ostream& operator<<(ostream& o, const String& str) {
   o << str.s;
   return o;
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Number& num)
-{
+ostream& operator<<(ostream& o, const Number& num) {
   o << num.l;
   return o;
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Object& obj)
-{
-  o << "[JSON::Object]";
+ostream& operator<<(ostream& o, const Object& obj) {
+  o << "[Object]";
   return o;
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Array& arr)
-{
-  o << "[JSON::Array]";
+ostream& operator<<(ostream& o, const Array& arr) {
+  o << "[Array]";
   return o;
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Boolean& b)
-{
+ostream& operator<<(ostream& o, const Boolean& b) {
   if (b.b) {
     o << "true";
-  }
-  else {
+  } else {
     o << "false";
   }
   return o;
 }
 
-std::ostream& operator<<(std::ostream& o,const JSON::Null& n)
-{
+ostream& operator<<(ostream& o, const Null& n) {
   return o;
 }
 
-const JSON::Value& JSON::Object::operator[](const char* key) const
-{
-  return (*this)[std::string(key)];
+const Value& Object::operator[](const char* key) const {
+  return (*this)[string(key)];
 }
 
-const JSON::Value& JSON::Object::operator[](std::string key) const
-{
-  static const void *n=new Null();
-  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
-  auto iter=pairs.find(key);
-  if (iter != pairs.end()) {
-    return *iter->second;
+const Value& Object::operator[](string key) const {
+  static const void *n = new Null();
+  static const Value nonexistent(ValueType::Nonexistent, const_cast<void *>(n));
+  auto i = pairs.find(key);
+  if (i != pairs.end()) {
+    return *i->second;
   }
-  else {
-    return nonexistent;
-  }
+  return nonexistent;
 }
 
-void JSON::Array::clear()
-{
+void Array::clear() {
   for (auto& e : elements) {
     e->clear();
     delete e;
@@ -461,76 +454,73 @@ void JSON::Array::clear()
   elements.clear();
 }
 
-JSON::Array::~Array()
-{
+Array::~Array() {
   this->clear();
 }
 
-void JSON::Array::fill(std::string json_array)
-{
+void Array::fill(string json_array) {
   this->clear();
   strutils::trim(json_array);
   if (json_array.front() != '[' || json_array.back() != ']') {
-    myerror="not a JSON array";
-    return;
+    throw runtime_error("not a json Array");
   }
-  json_array.erase(0,1);
+  json_array.erase(0, 1);
   json_array.pop_back();
   if (!json_array.empty()) {
-    std::vector<size_t> csv_ends;
-    JSONUtils::find_csv_ends(json_array,csv_ends);
-    size_t next_start=0;
-    for (auto end : csv_ends) {
-	auto array_value=json_array.substr(next_start,end-next_start);
-	strutils::trim(array_value);
-	if (array_value == "null") {
-	  auto n=new Null();
-	  auto p=new Value(ValueType::Null,n);
-	  elements.emplace_back(p);
-	}
-	else if (array_value == "true") {
-	  auto b=new Boolean(true);
-	  auto p=new Value(ValueType::Boolean,b);
-	  elements.emplace_back(p);
-	}
-	else if (array_value == "false") {
-	  auto b=new Boolean(false);
-	  auto p=new Value(ValueType::Boolean,b);
-	  elements.emplace_back(p);
-	}
-	else if (array_value.front() == '"' && array_value.back() == '"') {
-	  auto s=new String(array_value.substr(1,array_value.length()-2));
-	  auto p=new Value(ValueType::String,s);
-	  elements.emplace_back(p);
-	}
-	else if (array_value.front() == '{' && array_value.back() == '}') {
-	  auto o=new Object(array_value);
-	  auto p=new Value(ValueType::Object,o);
-	  elements.emplace_back(p);
-	}
-	else if (array_value.front() == '[' && array_value.back() == ']') {
-	  auto a=new Array(array_value);
-	  auto p=new Value(ValueType::Array,a);
-	  elements.emplace_back(p);
-	}
-	else {
-	  auto n=new Number(std::stoll(array_value));
-	  auto p=new Value(ValueType::Number,n);
-	  elements.emplace_back(p);
-	}
-	next_start=++end;
+    vector<size_t> vec;
+    JSONUtils::find_csv_ends(json_array, vec);
+    size_t first = 0;
+    for (auto last : vec) {
+      auto v = json_array.substr(first, last - first);
+      strutils::trim(v);
+      JSONUtils::emplace_value(&elements, v);
+/*
+      if (array_value == "null") {
+        auto n = new Null();
+        auto p = new Value(ValueType::Null, n);
+        elements.emplace_back(p);
+      }
+      else if (array_value == "true") {
+        auto b = new Boolean(true);
+        auto p = new Value(ValueType::Boolean, b);
+        elements.emplace_back(p);
+      }
+      else if (array_value == "false") {
+        auto b=new Boolean(false);
+        auto p=new Value(ValueType::Boolean,b);
+        elements.emplace_back(p);
+      }
+      else if (array_value.front() == '"' && array_value.back() == '"') {
+        auto s=new String(array_value.substr(1,array_value.length()-2));
+        auto p=new Value(ValueType::String,s);
+        elements.emplace_back(p);
+      }
+      else if (array_value.front() == '{' && array_value.back() == '}') {
+        auto o=new Object(array_value);
+        auto p=new Value(ValueType::Object,o);
+        elements.emplace_back(p);
+      }
+      else if (array_value.front() == '[' && array_value.back() == ']') {
+        auto a=new Array(array_value);
+        auto p=new Value(ValueType::Array,a);
+        elements.emplace_back(p);
+      }
+      else {
+        auto n=new Number(std::stoll(array_value));
+        auto p=new Value(ValueType::Number,n);
+        elements.emplace_back(p);
+      }
+*/
+      first = ++last;
     }
   }
 }
 
-const JSON::Value& JSON::Array::operator[](size_t index) const
-{
-  static const void *n=new Null();
-  static const Value nonexistent(ValueType::Nonexistent,const_cast<void *>(n));
+const Value& Array::operator[](size_t index) const {
+  static const void *n = new Null();
+  static const Value nonexistent(ValueType::Nonexistent, const_cast<void *>(n));
   if (index >= elements.size()) {
     return nonexistent;
   }
-  else {
-    return *elements[index];
-  }
+  return *elements[index];
 }
