@@ -13,6 +13,7 @@ public:
   public:
 
     Value(const ValueType& type,void *content) : _type(type),_json_value(content) {}
+    operator bool() const;
     void clear();
     std::vector<std::string> keys() const;
     size_t size() const;
@@ -108,6 +109,7 @@ public:
   class Boolean
   {
   public:
+    friend class Value;
     Boolean(bool b) : b(b) {}
     std::string to_string() const { return (b) ? "true" : "false"; }
     friend std::ostream& operator<<(std::ostream& o,const Boolean& b);
