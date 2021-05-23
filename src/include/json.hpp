@@ -65,8 +65,9 @@ public:
 
   class Object {
   public:
-    Object(std::string json_object) : pairs() { fill(json_object); }
-    Object(std::ifstream& ifs) : pairs() { fill(ifs); }
+    Object() : pairs() { }
+    Object(std::string json_object) : Object() { fill(json_object); }
+    Object(std::ifstream& ifs) : Object() { fill(ifs); }
     ~Object();
     operator bool() const { return pairs.size() > 0; }
     void fill(std::string json_object);
