@@ -54,13 +54,20 @@ public:
 
   class Number {
   public:
-    Number(long long l) : l(l) { }
-    long long number() const { return l; }
-    std::string to_string() const { return strutils::lltos(l); }
+    Number(double d) : d(d), m_is_float(true) { }
+    Number(long long l) : l(l), m_is_float(false) { }
+    double dvalue() const { return d; }
+    bool is_float() const { return m_is_float; }
+    long long lvalue() const { return l; }
+    std::string to_string() const;
     friend std::ostream& operator<<(std::ostream& o, const Number& num);
 
   private:
-    long long l;
+    union {
+      double d;
+      long long l;
+    };
+    bool m_is_float;
   };
 
   class Object {
