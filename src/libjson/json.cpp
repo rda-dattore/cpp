@@ -17,32 +17,30 @@ using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::vector;
+using strutils::trim;
 
 namespace JSONUtils {
 
 void emplace_value(void *c, string v, string k = "") {
   Value *p = nullptr;
   if (v == "null") {
-    auto n = new Null();
-    p = new Value(ValueType::Null, n);
+    p = new Value(ValueType::Null, new Null());
   } else if (v == "true") {
-    auto b = new Boolean(true);
-    p = new Value(ValueType::Boolean, b);
+    p = new Value(ValueType::Boolean, new Boolean(true));
   } else if (v == "false") {
-    auto b = new Boolean(false);
-    p = new Value(ValueType::Boolean, b);
+    p = new Value(ValueType::Boolean, new Boolean(false));
   } else if (v.front() == '"' && v.back() == '"') {
-    auto s = new String(v.substr(1, v.length() - 2));
-    p = new Value(ValueType::String, s);
+    p = new Value(ValueType::String, new String(v.substr(1, v.length() - 2)));
   } else if (v.front() == '{' && v.back() == '}') {
-    auto o = new Object(v);
-    p = new Value(ValueType::Object, o);
+    p = new Value(ValueType::Object, new Object(v));
   } else if (v.front() == '[' && v.back() == ']') {
-    auto a = new Array(v);
-    p = new Value(ValueType::Array, a);
+    p = new Value(ValueType::Array, new Array(v));
   } else {
-    auto n = new Number(std::stoll(v));
-    p = new Value(ValueType::Number, n);
+    if (v.find(".") != string::npos) {
+      p = new Value(ValueType::Number, new Number(std::stod(v)));
+    } else {
+      p = new Value(ValueType::Number, new Number(std::stoll(v)));
+    }
   }
   if (k.empty()) {
     reinterpret_cast<vector<Value *> *>(c)->emplace_back(p);
@@ -180,35 +178,55 @@ const Value& Value::operator[](size_t index) const {
 
 bool Value::operator>(long long l) const {
   if (m_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(json_value)->number() > l);
+    auto v = reinterpret_cast<Number *>(json_value);
+    if (v->is_float()) {
+      return v->dvalue() > l;
+    }
+    return v->lvalue() > l;
   }
   throw runtime_error("json value is not a Number");
 }
 
 bool Value::operator<(long long l) const {
   if (m_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(json_value)->number() < l);
+    auto v = reinterpret_cast<Number *>(json_value);
+    if (v->is_float()) {
+      return v->dvalue() < l;
+    }
+    return v->lvalue() < l;
   }
   throw runtime_error("json value is not a Number");
 }
 
 bool Value::operator==(long long l) const {
   if (m_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(json_value)->number() == l);
+    auto v = reinterpret_cast<Number *>(json_value);
+    if (v->is_float()) {
+      return v->dvalue() == l;
+    }
+    return v->lvalue() == l;
   }
   throw runtime_error("json value is not a Number");
 }
 
 bool Value::operator>=(long long l) const {
   if (m_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(json_value)->number() >= l);
+    auto v = reinterpret_cast<Number *>(json_value);
+    if (v->is_float()) {
+      return v->dvalue() >= l;
+    }
+    return v->lvalue() >= l;
   }
   throw runtime_error("json value is not a Number");
 }
 
 bool Value::operator<=(long long l) const {
   if (m_type == ValueType::Number) {
-    return (reinterpret_cast<Number *>(json_value)->number() <= l);
+    auto v = reinterpret_cast<Number *>(json_value);
+    if (v->is_float()) {
+      return v->dvalue() <= l;
+    }
+    return v->lvalue() <= l;
   }
   throw runtime_error("json value is not a Number");
 }
@@ -239,7 +257,7 @@ Object::~Object() {
 
 void Object::fill(string json_object) {
   this->clear();
-  strutils::trim(json_object);
+  trim(json_object);
   if (json_object.front() != '{' || json_object.back() != '}') {
     throw runtime_error("not a json object");
   }
@@ -270,7 +288,7 @@ void Object::fill(string json_object) {
         }
       }
       auto k = pair.substr(0, i);
-      strutils::trim(k);
+      trim(k);
       if (k.front() != '"' || k.back() != '"') {
         pairs.clear();
         throw runtime_error("invalid key '" + k + "'");
@@ -278,7 +296,7 @@ void Object::fill(string json_object) {
       k.erase(0, 1);
       k.pop_back();
       auto v = pair.substr(i + 1);
-      strutils::trim(v);
+      trim(v);
       if (pairs.find(k) == pairs.end()) {
         JSONUtils::emplace_value(&pairs, v, k);
 /*
@@ -373,8 +391,12 @@ bool operator==(const Value& v1, const Value& v2) {
       case ValueType::String: {
       }
       case ValueType::Number: {
-        return (reinterpret_cast<Number *>(v1.json_value)->number() ==
-            reinterpret_cast<Number *>(v2.json_value)->number());
+        auto a = reinterpret_cast<Number *>(v1.json_value);
+        auto b = reinterpret_cast<Number *>(v2.json_value);
+        if (a->is_float()) {
+          return a->dvalue() == b->dvalue();
+        }
+        return a->lvalue() == b->lvalue();
       }
       case ValueType::Object: {
       }
@@ -404,7 +426,11 @@ ostream& operator<<(ostream& o, const String& str) {
 }
 
 ostream& operator<<(ostream& o, const Number& num) {
-  o << num.l;
+  if (num.is_float()) {
+    o << num.d;
+  } else {
+    o << num.l;
+  }
   return o;
 }
 
@@ -445,6 +471,13 @@ const Value& Object::operator[](string key) const {
   return nonexistent;
 }
 
+string Number::to_string() const {
+  if (m_is_float) {
+    return std::move(strutils::dtos(d));
+  }
+  return std::move(strutils::lltos(l));
+}
+
 void Array::clear() {
   for (auto& e : elements) {
     e->clear();
@@ -459,7 +492,7 @@ Array::~Array() {
 
 void Array::fill(string json_array) {
   this->clear();
-  strutils::trim(json_array);
+  trim(json_array);
   if (json_array.front() != '[' || json_array.back() != ']') {
     throw runtime_error("not a json Array");
   }
@@ -471,7 +504,7 @@ void Array::fill(string json_array) {
     size_t first = 0;
     for (auto last : vec) {
       auto v = json_array.substr(first, last - first);
-      strutils::trim(v);
+      trim(v);
       JSONUtils::emplace_value(&elements, v);
 /*
       if (array_value == "null") {
