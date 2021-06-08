@@ -13,8 +13,7 @@ const idstream_iterator& idstream_iterator::operator++() {
       if (stream.number_read() == 0) {
         throw runtime_error("error reading data stream (maybe the wrong "
             "type?)");
-      }
-      else {
+      } else {
         is_end = true;
       }
       break;
@@ -229,21 +228,16 @@ int odstream::write(const unsigned char *buffer, size_t num_bytes) {
     fs.write(reinterpret_cast<const char *>(buffer), num_bytes);
     if (!fs.good()) {
       n = bfstream::error;
-    }
-    else {
+    } else {
       n = num_bytes;
     }
-  }
-  else if (ocosstream != nullptr) {
+  } else if (ocosstream != nullptr) {
     n = ocosstream->write(buffer, num_bytes);
-  }
-  else if (orptstream != nullptr) {
+  } else if (orptstream != nullptr) {
     n = orptstream->write(buffer, num_bytes);
-  }
-  else if (ocrptstream != nullptr) {
+  } else if (ocrptstream != nullptr) {
     n = ocrptstream->write(buffer, num_bytes);
-  }
-  else {
+  } else {
     throw runtime_error("no open output filestream");
   }
   ++num_written;
