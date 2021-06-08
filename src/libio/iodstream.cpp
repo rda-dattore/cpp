@@ -72,6 +72,19 @@ bool idstream::open(string filename) {
     throw runtime_error("currently connected to another file stream");
   }
   num_read = 0;
+  if (filename.substr(0, 4) == "http") {
+
+    // file is on an S3 device
+    auto x = filename.find("://");
+    if (x == string::npos) {
+      return false;
+    }
+    auto h = filename.substr(x + 3);
+    string ak, sk;
+    std::tie(ak, sk) = s3::get_credentials(h);
+    s3sess.reset(new s3::Session(h, ak, sk, "us-east-1", "aws4_request"));
+    return true;
+  }
 
   // check for rptout-blocked first, since rptout files can have COS-blocking on
   //  them
