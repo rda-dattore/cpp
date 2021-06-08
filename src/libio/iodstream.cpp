@@ -178,13 +178,13 @@ void odstream::close() {
   }
 }
 
-bool odstream::open(string filename,size_t blocking_flag) {
+bool odstream::open(string filename, Blocking block_flag) {
   if (is_open()) {
     throw runtime_error("currently connected to another file stream");
   }
   num_written = 0;
-  switch (blocking_flag) {
-    case binary: {
+  switch (block_flag) {
+    case Blocking::binary: {
       fs.open(filename.c_str(), std::ios_base::out);
       if (!fs.is_open()) {
         return false;
@@ -192,7 +192,7 @@ bool odstream::open(string filename,size_t blocking_flag) {
       file_name = filename;
       return true;
     }
-    case cos: {
+    case Blocking::cos: {
       ocosstream.reset(new ocstream);
       if (!ocosstream->open(filename)) {
         ocosstream.reset(nullptr);
@@ -200,7 +200,7 @@ bool odstream::open(string filename,size_t blocking_flag) {
       }
       return true;
     }
-    case rptout: {
+    case Blocking::rptout: {
       orptstream.reset(new orstream);
       if (!orptstream->open(filename)) {
         orptstream.reset(nullptr);
@@ -208,7 +208,7 @@ bool odstream::open(string filename,size_t blocking_flag) {
       }
       return true;
     }
-    case cos_rptout: {
+    case Blocking::cos_rptout: {
       ocrptstream.reset(new ocrstream);
       if (!ocrptstream->open(filename)) {
         ocrptstream.reset(nullptr);
