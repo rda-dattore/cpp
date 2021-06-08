@@ -5,10 +5,12 @@
 
 #include <iostream>
 #include <bfstream.hpp>
+#include <s3.hpp>
 
 class iods {
 public:
-  enum { binary, cos, rptout, cos_rptout };
+  enum class Blocking{ binary = 0, cos, rptout, cos_rptout };
+
   iods() : file_name(), fs() { }
   virtual ~iods() { }
   virtual void close() = 0;
@@ -40,13 +42,13 @@ private:
 class idstream : public iods {
 public:
   idstream() : icosstream(nullptr), irptstream(nullptr), if77_stream(nullptr),
-      ivstream(nullptr), num_read(0) { }
+      ivstream(nullptr), s3sess(nullptr), num_read(0) { }
 
 // pure virtual functions from iods
   virtual ~idstream() { close(); }
   virtual bool is_open() const {
-      return (fs.is_open() || icosstream != nullptr || irptstream != nullptr ||
-          if77_stream != nullptr || ivstream != nullptr);
+    return (fs.is_open() || icosstream != nullptr || irptstream != nullptr ||
+        if77_stream != nullptr || ivstream != nullptr || s3sess != nullptr);
   }
 
 // pure virtual functions making idstream an abstract class
@@ -71,6 +73,7 @@ protected:
   std::unique_ptr<irstream> irptstream;
   std::unique_ptr<if77stream> if77_stream;
   std::unique_ptr<ivbsstream> ivstream;
+  std::unique_ptr<s3::Session> s3sess;
   size_t num_read;
 };
 
@@ -81,11 +84,12 @@ public:
   virtual ~odstream() { close(); }
   virtual void close();
   virtual bool is_open() const {
-      return (fs.is_open() || ocosstream != nullptr || orptstream != nullptr ||
-          ocrptstream != nullptr);
+    return (fs.is_open() || ocosstream != nullptr || orptstream != nullptr ||
+        ocrptstream != nullptr);
   }
   size_t number_written() const { return num_written; }
-  virtual bool open(std::string filename, size_t blocking_flag = binary);
+  virtual bool open(std::string filename, Blocking block_flag = Blocking::
+      binary);
   virtual int write(const unsigned char *buffer, size_t num_bytes);
 
 protected:
