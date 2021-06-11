@@ -170,8 +170,32 @@ extern std::string perform_curl_request(CURL *curl_handle, const
     region, std::string terminal, std::string signature, std::unique_ptr<
     unsigned char[]>& buffer, size_t& BUF_LEN);
 
+extern std::pair<std::string, std::string> get_credentials(std::string
+    server_name);
+
 extern void show_hex(std::ostream& outs, const unsigned char *s, size_t len);
 
 } // end namespace s3
+
+class is3stream {
+public:
+  is3stream() : session(nullptr), bucket(), key(), num_read(0), curr_offset(0)
+      { }
+  void close();
+  off_t current_record_offset() const { return curr_offset; }
+  int ignore();
+  bool is_open() const { return session != nullptr; }
+  size_t number_read() const { return num_read; }
+  bool open(std::string url);
+  int peek();
+  int read(unsigned char *buffer, size_t buffer_length);
+  void rewind();
+
+private:
+  std::unique_ptr<s3::Session> session;
+  std::string bucket, key;
+  size_t num_read;
+  off_t curr_offset;
+};
 
 #endif
