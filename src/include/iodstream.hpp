@@ -41,14 +41,14 @@ private:
 
 class idstream : public iods {
 public:
-  idstream() : icosstream(nullptr), irptstream(nullptr), if77_stream(nullptr),
-      ivstream(nullptr), s3sess(nullptr), num_read(0) { }
+  idstream() : ics(nullptr), irs(nullptr), if77s(nullptr), ivs(nullptr), is3s(
+      nullptr), num_read(0) { }
 
 // pure virtual functions from iods
   virtual ~idstream() { close(); }
   virtual bool is_open() const {
-    return (fs.is_open() || icosstream != nullptr || irptstream != nullptr ||
-        if77_stream != nullptr || ivstream != nullptr || s3sess != nullptr);
+    return (fs.is_open() || ics != nullptr || irs != nullptr || if77s != nullptr
+        || ivs != nullptr || is3s != nullptr);
   }
 
 // pure virtual functions making idstream an abstract class
@@ -61,7 +61,7 @@ public:
   virtual off_t current_record_offset() const { return -1; }
   size_t number_read() const { return num_read; }
   virtual bool open(std::string filename);
-  bool is_cos_blocked() const { return icosstream != nullptr; }
+  bool is_cos_blocked() const { return ics != nullptr; }
   virtual void rewind();
 
 // range-base support
@@ -69,23 +69,22 @@ public:
   idstream_iterator end();
 
 protected:
-  std::unique_ptr<icstream> icosstream;
-  std::unique_ptr<irstream> irptstream;
-  std::unique_ptr<if77stream> if77_stream;
-  std::unique_ptr<ivbsstream> ivstream;
-  std::unique_ptr<s3::Session> s3sess;
+  std::unique_ptr<icstream> ics;
+  std::unique_ptr<irstream> irs;
+  std::unique_ptr<if77stream> if77s;
+  std::unique_ptr<ivbsstream> ivs;
+  std::unique_ptr<is3stream> is3s;
   size_t num_read;
 };
 
 class odstream : public iods {
 public:
-  odstream() : ocosstream(nullptr), orptstream(nullptr), ocrptstream(nullptr),
-      num_written(0) { }
+  odstream() : ocs(nullptr), ors(nullptr), ocrs(nullptr), num_written(0) { }
   virtual ~odstream() { close(); }
   virtual void close();
   virtual bool is_open() const {
-    return (fs.is_open() || ocosstream != nullptr || orptstream != nullptr ||
-        ocrptstream != nullptr);
+    return (fs.is_open() || ocs != nullptr || ors != nullptr || ocrs !=
+        nullptr);
   }
   size_t number_written() const { return num_written; }
   virtual bool open(std::string filename, Blocking block_flag = Blocking::
@@ -93,9 +92,9 @@ public:
   virtual int write(const unsigned char *buffer, size_t num_bytes);
 
 protected:
-  std::unique_ptr<ocstream> ocosstream;
-  std::unique_ptr<orstream> orptstream;
-  std::unique_ptr<ocrstream> ocrptstream;
+  std::unique_ptr<ocstream> ocs;
+  std::unique_ptr<orstream> ors;
+  std::unique_ptr<ocrstream> ocrs;
   size_t num_written;
 };
 
