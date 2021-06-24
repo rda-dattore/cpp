@@ -83,6 +83,29 @@ size_t handle_s3_response(char *ptr,size_t size,size_t nmemb,void *userdata)
   return size*nmemb;
 }
 
+struct UserData {
+  UserData() : ifs(),file_offset(-1),upload_size(0),bytes_buffered(0) {}
+
+  std::ifstream ifs;
+  long long file_offset,upload_size,bytes_buffered;
+};
+
+size_t range_read(void *ptr,size_t size,size_t nmemb,void *userdata)
+{
+  auto user_data=reinterpret_cast<UserData *>(userdata);
+  if (user_data->bytes_buffered >= user_data->upload_size) {
+    return 0;
+  }
+  user_data->ifs.read(reinterpret_cast<char *>(ptr),size*nmemb);
+  user_data->bytes_buffered+=user_data->ifs.gcount();
+  if (user_data->bytes_buffered > user_data->upload_size) {
+    return user_data->ifs.gcount()-(user_data->bytes_buffered-user_data->upload_size);
+  }
+  else {
+    return user_data->ifs.gcount();
+  }
+}
+
 std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canonical_request,std::string access_key,std::string region,std::string terminal,std::string signature,FILE *output)
 {
   static char error_buffer[CURL_ERROR_SIZE];
@@ -124,11 +147,29 @@ std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canon
     }
     else if (canonical_request.payload_type() == CanonicalRequest::PayloadType::FILE_) {
 	curl_easy_setopt(curl_handle,CURLOPT_UPLOAD,1);
-	struct stat buf;
-	stat(canonical_request.payload().c_str(),&buf);
-	curl_easy_setopt(curl_handle,CURLOPT_INFILESIZE_LARGE,static_cast<curl_off_t>(buf.st_size));
-	fp=fopen(canonical_request.payload().c_str(),"r");
-	curl_easy_setopt(curl_handle,CURLOPT_READDATA,fp);
+	if (canonical_request.range_bytes().empty()) {
+	  struct stat buf;
+	  stat(canonical_request.payload().c_str(),&buf);
+	  curl_easy_setopt(curl_handle,CURLOPT_INFILESIZE_LARGE,static_cast<curl_off_t>(buf.st_size));
+	  fp=fopen(canonical_request.payload().c_str(),"r");
+	  curl_easy_setopt(curl_handle,CURLOPT_READDATA,fp);
+	}
+	else {
+	  auto user_data=new UserData;
+	  user_data->ifs.open(canonical_request.payload().c_str());
+	  if (!user_data->ifs.is_open()) {
+	    throw std::runtime_error("perform_curl_request(): unable to open '"+canonical_request.payload()+"' for upload");
+	  }
+	  auto range_bytes=strutils::split(canonical_request.range_bytes(),"-");
+	  auto file_offset=std::stoll(range_bytes.front());
+	  user_data->file_offset=file_offset;
+	  user_data->ifs.seekg(file_offset,std::ios::beg);
+	  auto bytes_to_read=std::stoll(range_bytes.back())-file_offset+1;
+	  user_data->upload_size=bytes_to_read;
+	  curl_easy_setopt(curl_handle,CURLOPT_INFILESIZE_LARGE,static_cast<curl_off_t>(bytes_to_read));
+	  curl_easy_setopt(curl_handle,CURLOPT_READFUNCTION,range_read);
+	  curl_easy_setopt(curl_handle,CURLOPT_READDATA,user_data);
+	}
 /*
 curl_easy_setopt(curl_handle,CURLOPT_VERBOSE,1);
 curl_easy_setopt(curl_handle,CURLOPT_DEBUGFUNCTION,debug_callback);
@@ -172,7 +213,7 @@ size_t write_to_buffer(char *ptr,size_t size,size_t nmemb,void *vector_address)
   return num_bytes;
 }
 
-std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canonical_request,std::string access_key,std::string region,std::string terminal,std::string signature,std::unique_ptr<unsigned char[]>& buffer)
+std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canonical_request,std::string access_key,std::string region,std::string terminal,std::string signature,std::unique_ptr<unsigned char[]>& buffer,size_t& buffer_capacity)
 {
   static char error_buffer[CURL_ERROR_SIZE];
   curl_easy_reset(curl_handle);
@@ -209,7 +250,10 @@ std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canon
   if (status != CURLE_OK) {
     throw std::runtime_error("curl error code: "+strutils::itos(status)+", error message: "+error_buffer);
   }
-  buffer.reset(new unsigned char[v.size()]);
+  if (v.size() > buffer_capacity) {
+    buffer_capacity=v.size();
+    buffer.reset(new unsigned char[buffer_capacity]);
+  }
   std::copy(v.begin(),v.end(),buffer.get());
   return server_response;
 }
