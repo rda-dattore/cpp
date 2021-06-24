@@ -17,7 +17,7 @@ craystream::craystream() : cw_type(0)
   file_buf.reset(new unsigned char[file_buf_len]);
 }
 
-inline int icstream::read_from_disk()
+int icstream::read_from_disk()
 {
   if (at_eod) {
     cw_type=cw_eod;
@@ -213,7 +213,7 @@ void icstream::rewind()
   read_from_disk();
 }
 
-inline int ocstream::write_to_disk()
+int ocstream::write_to_disk()
 {
   size_t num_out=fs.tellp();
   fs.write(reinterpret_cast<char *>(file_buf.get()),file_buf_len);
