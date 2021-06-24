@@ -14,6 +14,8 @@
 
 using myssl::message_digest32_to_string;
 using std::move;
+using std::pair;
+using std::regex;
 using std::runtime_error;
 using std::string;
 using std::stringstream;
@@ -211,7 +213,7 @@ bool Session::download_range(string bucket_name, string key, string range_bytes,
       access_key_, region_, terminal_, message_digest32_to_string(md), outs);
   fclose(outs);
   trim(curl_response_);
-  if (std::regex_search(curl_response_, std::regex("^ETag: \"(.){32}\"$"))) {
+  if (regex_search(curl_response_, regex("^ETag: \"(.){32}\"$"))) {
     return true;
   }
   if (curl_response_.empty()) {
@@ -224,7 +226,8 @@ bool Session::download_range(string bucket_name, string key, string range_bytes,
 }
 
 bool Session::download_range(string bucket_name, string key, string range_bytes,
-    std::unique_ptr<unsigned char[]>& buffer, size_t& BUF_LEN, string& error) {
+    std::unique_ptr<unsigned char[]>& buffer, size_t& buffer_capacity, string&
+    error) {
   error = "";
   if (bucket_name.empty()) {
     error = "Bucket not specified";
@@ -241,13 +244,16 @@ bool Session::download_range(string bucket_name, string key, string range_bytes,
       region_, terminal_, md);
   curl_response_ = perform_curl_request(curl_handle_.get(), canonical_request,
       access_key_, region_, terminal_, message_digest32_to_string(md), buffer,
-      BUF_LEN);
+      buffer_capacity);
   long stat;
   curl_easy_getinfo(curl_handle_.get(), CURLINFO_RESPONSE_CODE, &stat);
   if (stat == 206) {
     return true;
+  } else if (stat == 416) {
+    error = itos(stat);
+    return false;
   }
-  error = itos(stat);
+  error = "HTTP Status Code: " + itos(stat);
   if (!curl_response_.empty()) {
     error += " '" + curl_response_ + "'";
   }
@@ -418,7 +424,7 @@ bool Session::upload_file_multi(string filename, string bucket_name, string key,
     }
     std::unique_ptr<char[]> buffer(new char[BUF_LEN]);
     TempFile tfile(tmp_directory);
-    auto etag_re = std::regex("^ETag:");
+    auto etag_re = regex("^ETag:");
     string p = "<CompleteMultipartUpload>";
     for (size_t n = 0; n < np; ++n) {
       std::ofstream ofs(tfile.name());
@@ -441,7 +447,7 @@ bool Session::upload_file_multi(string filename, string bucket_name, string key,
           message_digest32_to_string(md));
       auto sp = split(curl_response_, "\n");
       for (const auto& e : sp) {
-        if (std::regex_search(e, etag_re)) {
+        if (regex_search(e, etag_re)) {
           auto etag = split(e, ":");
           trim(etag.back());
           replace_all(etag.back(), "\"", "");
@@ -500,7 +506,7 @@ void *thread_upload_file_multi(void *ts) {
       1000000000.;
   auto sp=split(t->session->curl_response_, "\n");
   for (const auto& e : sp) {
-    if (std::regex_search(e,std::regex("^ETag:"))) {
+    if (regex_search(e, regex("^ETag:"))) {
       auto sp2=split(e, ":");
       t->upload_etag = sp2.back();
       trim(t->upload_etag);
@@ -604,6 +610,58 @@ bool Session::upload_file_multi_threaded(string filename, string bucket_name,
     throw runtime_error("upload_file_multi_threaded(): unexpected response: " +
         curl_response_);
   }
+}
+
+pair<string, string> get_credentials(string server_name) {
+  pair<string, string> p; // return value
+  auto e = getenv("HOME");
+  if (e == nullptr) {
+    throw runtime_error("HOME: undefined variable.");
+  }
+  std::ifstream ifs(string(e) + "/.s3config");
+  if (!ifs.is_open()) {
+    throw runtime_error("no .s3config in HOME directory.");
+  }
+  auto s_re = regex("\\[((.){1,}\\.){1,}(.){1,}\\]");
+  std::string cs;
+  auto ak_re = regex("access_key\\s*=");
+  auto sk_re = regex("secret_key\\s*=");
+  char l[80];
+  ifs.getline(l, 80);
+  while (!ifs.eof()) {
+    if (regex_search(l, s_re)) {
+      cs = l;
+      replace_all(cs, "[", "");
+      replace_all(cs, "]", "");
+      trim(cs);
+    } else if (regex_search(l, ak_re)) {
+      if (cs == server_name) {
+        p.first = l;
+        replace_all(p.first, "access_key", "");
+        trim(p.first);
+        if (p.first[0] == '=') {
+          p.first.erase(0, 1);
+          trim(p.first);
+        }
+      }
+    } else if (regex_search(l, sk_re)) {
+      if (cs == server_name) {
+        p.second = l;
+        replace_all(p.second, "secret_key", "");
+        trim(p.second);
+        if (p.second[0] == '=') {
+          p.second.erase(0, 1);
+          trim(p.second);
+        }
+      }
+    }
+    if (cs == server_name && !p.first.empty() && !p.second.empty()) {
+      break;
+    }
+    ifs.getline(l, 80);
+  }
+  ifs.close();
+  return move(p);
 }
 
 } // end namespace s3
