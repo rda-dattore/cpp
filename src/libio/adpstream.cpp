@@ -8,11 +8,11 @@
 int InputADPStream::read_from_disk()
 {
   auto num_bytes=0;
-  if (icosstream != nullptr) {
-    num_bytes=icosstream->read(file_buf.get(),file_buf_len);
+  if (ics != nullptr) {
+    num_bytes=ics->read(file_buf.get(),file_buf_len);
     if (num_read == 0) {
 	while (num_bytes > 0 && std::string(reinterpret_cast<char *>(&file_buf[20]),10) != "WASHINGTON") {
-	  num_bytes=icosstream->read(file_buf.get(),file_buf_len);
+	  num_bytes=ics->read(file_buf.get(),file_buf_len);
 	}
     }
     if (num_bytes == bfstream::error || num_bytes == bfstream::eof) {
@@ -112,7 +112,7 @@ int InputADPStream::read(unsigned char *buffer,size_t buffer_length)
     exit(1);
   }
   if (file_buf == nullptr) {
-    if (irptstream != nullptr) {
+    if (irs != nullptr) {
 	is_ascii=false;
     }
     else {
@@ -152,7 +152,7 @@ int InputADPStream::read(unsigned char *buffer,size_t buffer_length)
     return num_copied;
   }
   else {
-    num_bytes=irptstream->read(buffer,buffer_length);
+    num_bytes=irs->read(buffer,buffer_length);
     if (num_bytes > 0) {
 	++num_read;
     }

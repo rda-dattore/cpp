@@ -50,15 +50,18 @@ void idstream::close() {
   if (fs.is_open()) {
     fs.close();
     file_name = "";
-  } else if (icosstream != nullptr) {
-    icosstream->close();
-    icosstream.reset(nullptr);
-  } else if (irptstream != nullptr) {
-    irptstream->close();
-    irptstream.reset(nullptr);
-  } else if (if77_stream != nullptr) {
-    if77_stream->close();
-    if77_stream.reset(nullptr);
+  } else if (ics != nullptr) {
+    ics->close();
+    ics.reset(nullptr);
+  } else if (irs != nullptr) {
+    irs->close();
+    irs.reset(nullptr);
+  } else if (if77s != nullptr) {
+    if77s->close();
+    if77s.reset(nullptr);
+  } else if (is3s != nullptr) {
+    is3s->close();
+    is3s.reset(nullptr);
   }
 }
 
@@ -74,58 +77,51 @@ bool idstream::open(string filename) {
   if (filename.substr(0, 4) == "http") {
 
     // file is on an S3 device
-    auto x = filename.find("://");
-    if (x == string::npos) {
-      return false;
-    }
-    auto h = filename.substr(x + 3);
-    string ak, sk;
-    std::tie(ak, sk) = s3::get_credentials(h);
-    s3sess.reset(new s3::Session(h, ak, sk, "us-east-1", "aws4_request"));
-    return true;
+    is3s.reset(new is3stream);
+    return is3s->open(filename);
   }
 
   // check for rptout-blocked first, since rptout files can have COS-blocking on
   //  them
-  irptstream.reset(new irstream);
-  if (!irptstream->open(filename)) {
-    irptstream.reset(nullptr);
+  irs.reset(new irstream);
+  if (!irs->open(filename)) {
+    irs.reset(nullptr);
     return false;
   }
   unsigned char c;
-  if (irptstream->read(&c, 1) < 0) {
-    irptstream->close();
-    irptstream.reset(nullptr);
+  if (irs->read(&c, 1) < 0) {
+    irs->close();
+    irs.reset(nullptr);
 
     // now check to see if file is COS-blocked
-    icosstream.reset(new icstream);
-    if (!icosstream->open(filename)) {
-      icosstream.reset(nullptr);
+    ics.reset(new icstream);
+    if (!ics->open(filename)) {
+      ics.reset(nullptr);
       return false;
     }
-    if (icosstream->read(&c, 1) < 0) {
-      icosstream->close();
-      icosstream.reset(nullptr);
+    if (ics->read(&c, 1) < 0) {
+      ics->close();
+      ics.reset(nullptr);
 
       // now check to see if file is F77-blocked
-      if77_stream.reset(new if77stream);
-      if (!if77_stream->open(filename)) {
-        if77_stream.reset(nullptr);
+      if77s.reset(new if77stream);
+      if (!if77s->open(filename)) {
+        if77s.reset(nullptr);
         return false;
       }
-      if (if77_stream->read(&c, 1) < 0) {
-        if77_stream->close();
-        if77_stream.reset(nullptr);
+      if (if77s->read(&c, 1) < 0) {
+        if77s->close();
+        if77s.reset(nullptr);
 
         // now check to see if file is VBS-blocked
-        ivstream.reset(new ivbsstream);
-        if (!ivstream->open(filename)) {
-          ivstream.reset(nullptr);
+        ivs.reset(new ivbsstream);
+        if (!ivs->open(filename)) {
+          ivs.reset(nullptr);
           return false;
         }
-        if (ivstream->read(&c, 1) < 0) {
-          ivstream->close();
-          ivstream.reset(nullptr);
+        if (ivs->read(&c, 1) < 0) {
+          ivs->close();
+          ivs.reset(nullptr);
 
           // file must be plain-binary
           fs.open(filename.c_str(), std::ios_base::in);
@@ -134,16 +130,16 @@ bool idstream::open(string filename) {
           }
           file_name = filename;
         } else {
-          ivstream->rewind();
+          ivs->rewind();
         }
       } else {
-        if77_stream->rewind();
+        if77s->rewind();
       }
     } else {
-      icosstream->rewind();
+      ics->rewind();
     }
   } else {
-    irptstream->rewind();
+    irs->rewind();
   }
   return true;
 }
@@ -152,12 +148,12 @@ void idstream::rewind() {
   if (fs.is_open()) {
     fs.clear();
     fs.seekg(std::ios_base::beg);
-  } else if (icosstream != nullptr) {
-    icosstream->rewind();
-  } else if (irptstream != nullptr) {
-    irptstream->rewind();
-  } else if (if77_stream != nullptr) {
-    if77_stream->rewind();
+  } else if (ics != nullptr) {
+    ics->rewind();
+  } else if (irs != nullptr) {
+    irs->rewind();
+  } else if (if77s != nullptr) {
+    if77s->rewind();
   }
   num_read = 0;
 }
@@ -166,15 +162,15 @@ void odstream::close() {
   if (fs.is_open()) {
     fs.close();
     file_name = "";
-  } else if (ocosstream != nullptr) {
-    ocosstream->close();
-    ocosstream.reset(nullptr);
-  } else if (orptstream != nullptr) {
-    orptstream->close();
-    orptstream.reset(nullptr);
-  } else if (ocrptstream != nullptr) {
-    ocrptstream->close();
-    ocrptstream.reset(nullptr);
+  } else if (ocs != nullptr) {
+    ocs->close();
+    ocs.reset(nullptr);
+  } else if (ors != nullptr) {
+    ors->close();
+    ors.reset(nullptr);
+  } else if (ocrs != nullptr) {
+    ocrs->close();
+    ocrs.reset(nullptr);
   }
 }
 
@@ -193,25 +189,25 @@ bool odstream::open(string filename, Blocking block_flag) {
       return true;
     }
     case Blocking::cos: {
-      ocosstream.reset(new ocstream);
-      if (!ocosstream->open(filename)) {
-        ocosstream.reset(nullptr);
+      ocs.reset(new ocstream);
+      if (!ocs->open(filename)) {
+        ocs.reset(nullptr);
         return false;
       }
       return true;
     }
     case Blocking::rptout: {
-      orptstream.reset(new orstream);
-      if (!orptstream->open(filename)) {
-        orptstream.reset(nullptr);
+      ors.reset(new orstream);
+      if (!ors->open(filename)) {
+        ors.reset(nullptr);
         return false;
       }
       return true;
     }
     case Blocking::cos_rptout: {
-      ocrptstream.reset(new ocrstream);
-      if (!ocrptstream->open(filename)) {
-        ocrptstream.reset(nullptr);
+      ocrs.reset(new ocrstream);
+      if (!ocrs->open(filename)) {
+        ocrs.reset(nullptr);
         return false;
       }
       return true;
@@ -231,12 +227,12 @@ int odstream::write(const unsigned char *buffer, size_t num_bytes) {
     } else {
       n = num_bytes;
     }
-  } else if (ocosstream != nullptr) {
-    n = ocosstream->write(buffer, num_bytes);
-  } else if (orptstream != nullptr) {
-    n = orptstream->write(buffer, num_bytes);
-  } else if (ocrptstream != nullptr) {
-    n = ocrptstream->write(buffer, num_bytes);
+  } else if (ocs != nullptr) {
+    n = ocs->write(buffer, num_bytes);
+  } else if (ors != nullptr) {
+    n = ors->write(buffer, num_bytes);
+  } else if (ocrs != nullptr) {
+    n = ocrs->write(buffer, num_bytes);
   } else {
     throw runtime_error("no open output filestream");
   }

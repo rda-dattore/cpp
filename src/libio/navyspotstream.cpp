@@ -19,7 +19,7 @@ InputNavySpotStream& InputNavySpotStream::operator=(const InputNavySpotStream& s
   if (this == &source) {
     return *this;
   }
-  if (icosstream != nullptr && source.icosstream != nullptr) {
+  if (ics != nullptr && source.ics != nullptr) {
     file_buf_len=source.file_buf_len;
     offset=source.offset;
     if (file_buf == nullptr && source.file_buf != nullptr) {
@@ -44,10 +44,10 @@ InputNavySpotStream& InputNavySpotStream::operator=(const InputNavySpotStream& s
     else if (header != nullptr && source.header != nullptr) {
 	std::copy(source.header,source.header+10,header);
     }
-    icosstream=source.icosstream;
+    ics=source.ics;
   }
-  else if (irptstream != nullptr && source.irptstream != nullptr) {
-    irptstream=source.irptstream;
+  else if (irs != nullptr && source.irs != nullptr) {
+    irs=source.irs;
   }
   return *this;
 }
@@ -56,11 +56,11 @@ InputNavySpotStream& InputNavySpotStream::operator=(const InputNavySpotStream& s
 
 int InputNavySpotStream::ignore()
 {
-  if (icosstream != NULL) {
+  if (ics != NULL) {
     return bfstream::error;
   }
-  else if (irptstream != NULL) {
-    int bytes_read=irptstream->ignore();
+  else if (irs != NULL) {
+    int bytes_read=irs->ignore();
     if (bytes_read != bfstream::eof) {
       ++num_read;
     }
@@ -79,7 +79,7 @@ bool InputNavySpotStream::open(const char *filename)
   }
   num_read=0;
   idstream::open(filename);
-  if (icosstream != NULL) {
+  if (ics != NULL) {
     file_buf.reset(new unsigned char[50000]);
     offset=0;
     header.reset(new char[10]);
@@ -94,11 +94,11 @@ int InputNavySpotStream::peek()
     std::cerr << "Error: no InputNavySpotStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
     return bfstream::error;
   }
-  else if (irptstream != nullptr) {
-    return irptstream->peek();
+  else if (irs != nullptr) {
+    return irs->peek();
   }
   else {
     return bfstream::error;
@@ -113,7 +113,7 @@ int InputNavySpotStream::read(unsigned char *buffer,size_t buffer_length)
   }
   int bytes_read;
   bool get_new_block=false;
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
     short nmand=0,ntrop=0,nwind=0,nsig=0,nmax=0;
 // check for a good station id word and dictionary word
     if (header[0] == '\0') {
@@ -147,7 +147,7 @@ int InputNavySpotStream::read(unsigned char *buffer,size_t buffer_length)
     }
 // read another block from the disk file
     if (get_new_block || static_cast<int>(offset+180) > file_buf_len) {
-	if ( (file_buf_len=icosstream->read(file_buf.get(),50000)) == bfstream::eof) {
+	if ( (file_buf_len=ics->read(file_buf.get(),50000)) == bfstream::eof) {
 	  return file_buf_len;
 	}
 // if bytes_read equals the buffer length, exit as a fatal error because the
@@ -166,7 +166,7 @@ int InputNavySpotStream::read(unsigned char *buffer,size_t buffer_length)
 	  }
 	}
 	while (bad_header || header[9] < '1' || header[9] > '6') {
-	  if ( (file_buf_len=icosstream->read(file_buf.get(),50000)) == bfstream::eof) {
+	  if ( (file_buf_len=ics->read(file_buf.get(),50000)) == bfstream::eof) {
 	    return file_buf_len;
 	  }
 	  if (file_buf_len >= 50000) {
@@ -215,8 +215,8 @@ int InputNavySpotStream::read(unsigned char *buffer,size_t buffer_length)
     bits::get(file_buf.get(),&buffer[10],offset,8,0,bytes_read);
     offset+=off;
   }
-  else if (irptstream != NULL) {
-    bytes_read=irptstream->read(buffer,buffer_length);
+  else if (irs != NULL) {
+    bytes_read=irs->read(buffer,buffer_length);
     if (bytes_read != bfstream::eof) {
 	++num_read;
     }
