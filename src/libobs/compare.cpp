@@ -317,18 +317,20 @@ size_t CompareRecord::getDate() const
 
 bool operator==(const CompareRecord& a,const CompareRecord &b)
 {
-  int date_diff;
-
-  if (a.stn != b.stn)
+  if (a.stn != b.stn) {
     return false;
-  date_diff=dateutils::julian_day(1900+a.yr,a.mo,a.dy)-dateutils::julian_day(1900+b.yr,b.mo,b.dy);
-  if (date_diff > 1 || date_diff < -1)
+  }
+  if (a.yr != b.yr || a.mo != b.mo) {
+    return false;
+  }
+  auto day_diff = a.dy - b.dy;
+  if (day_diff > 1 || day_diff < -1)
     return false;
   else {
-    if (date_diff == 0 && abs(a.hr-b.hr) > 1)
+    if (day_diff == 0 && abs(a.hr-b.hr) > 1)
 	return false;
     else {
-	if ((date_diff == 1 && (a.hr+24-b.hr) > 1) || (date_diff == -1 &&
+	if ((day_diff == 1 && (a.hr+24-b.hr) > 1) || (day_diff == -1 &&
           (b.hr+24-a.hr) > 1))
 	  return false;
     }
