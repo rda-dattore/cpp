@@ -146,7 +146,7 @@ int mysystem2(std::string command,std::stringstream& output,std::stringstream& e
 	}
 	++last;
     }
-    argv[last]=NULL;
+    argv[last]=nullptr;
     close(pipe_out[0]);
     close(pipe_err[0]);
     dup2(pipe_out[1],1);
@@ -161,19 +161,19 @@ int mysystem2(std::string command,std::stringstream& output,std::stringstream& e
     mysystem_t::ThreadStruct tstructs[2];
     tstructs[0].pipe=pipe_out[0];
     tstructs[0].ss=&output;
-    pthread_create(&tstructs[0].tid,NULL,mysystem_t::read_output,reinterpret_cast<void *>(&tstructs[0]));
+    pthread_create(&tstructs[0].tid,nullptr,mysystem_t::read_output,reinterpret_cast<void *>(&tstructs[0]));
     tstructs[1].pipe=pipe_err[0];
     tstructs[1].ss=&error;
-    pthread_create(&tstructs[1].tid,NULL,mysystem_t::read_error,reinterpret_cast<void *>(&tstructs[1]));
-    pthread_join(tstructs[0].tid,NULL);
-    pthread_join(tstructs[1].tid,NULL);
+    pthread_create(&tstructs[1].tid,nullptr,mysystem_t::read_error,reinterpret_cast<void *>(&tstructs[1]));
+    pthread_join(tstructs[0].tid,nullptr);
+    pthread_join(tstructs[1].tid,nullptr);
     int status;
     auto pid=waitpid(child_pid,&status,0);
     if (pid < 0 || !error.str().empty()) {
-	return -1;
+	return WEXITSTATUS(status);
     }
     else {
-	return 0;
+	return WEXITSTATUS(status);
     }
   }
 }

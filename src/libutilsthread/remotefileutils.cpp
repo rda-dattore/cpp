@@ -65,7 +65,7 @@ int rdadata_sync(std::string directory,std::string relative_path,std::string rem
   std::list<std::string> hosts;
   error="";
   if (!unixutils::hosts_loaded(hosts,rdadata_home)) {
-    error="unable to get list of host names";
+    error="rdadata_sync() unable to get list of host names";
     return -1;
   }
   setreuid(15968,15968);
@@ -94,7 +94,7 @@ int rdadata_unsync(std::string remote_filename,std::string rdadata_home,std::str
 
   error="";
   if (!unixutils::hosts_loaded(hosts,rdadata_home)) {
-    error="unable to get list of host names";
+    error="rdadata_unsync() unable to get list of host names";
     return -1;
   }
   for (auto& host : hosts) {
@@ -123,7 +123,7 @@ int rdadata_sync_from(std::string remote_filename,std::string local_filename,std
   struct stat buf;
 
   if (!unixutils::hosts_loaded(hosts,rdadata_home)) {
-    ess << "unable to get list of host names" << std::endl;
+    ess << "rdadata_sync_from() unable to get list of host names" << std::endl;
     return -1;
   }
   for (auto& host : hosts) {
