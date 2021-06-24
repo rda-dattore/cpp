@@ -19,10 +19,10 @@ int InputTsraobStream::ignore()
   }
 // read the next raob from the stream
   int bytes_read;
-  if (irptstream != nullptr) {
-    bytes_read=irptstream->ignore();
+  if (irs != nullptr) {
+    bytes_read=irs->ignore();
   }
-  else if (icosstream != nullptr) {
+  else if (ics != nullptr) {
 return bfstream::error;
   }
   else {
@@ -42,9 +42,9 @@ int InputTsraobStream::peek()
   }
 
 // read the next raob from the stream
-  if (irptstream != NULL)
-    bytes_read=irptstream->peek();
-  else if (icosstream != NULL)
+  if (irs != NULL)
+    bytes_read=irs->peek();
+  else if (ics != NULL)
 return bfstream::error;
   else
 return bfstream::error;
@@ -62,8 +62,8 @@ int InputTsraobStream::read(unsigned char *buffer,size_t buffer_length)
   }
 
 // read the next raob from the stream
-  if (irptstream != NULL) {
-    bytes_read=irptstream->read(buffer,buffer_length);
+  if (irs != NULL) {
+    bytes_read=irs->read(buffer,buffer_length);
 
 // if bytes_read equals the buffer length, exit as a fatal error because the
 // entire raob may not have been read
@@ -72,7 +72,7 @@ int InputTsraobStream::read(unsigned char *buffer,size_t buffer_length)
 	exit(1);
     }
   }
-  else if (icosstream != nullptr) {
+  else if (ics != nullptr) {
 bytes_read=bfstream::error;
   }
   else {
@@ -91,13 +91,13 @@ int OutputTsraobStream::write(const unsigned char *buffer,size_t num_bytes)
     std::cerr << "Error: no InputTsraobStream has been opened" << std::endl;
     exit(1);
   }
-  if (orptstream != nullptr) {
-    num_write=orptstream->write(buffer,num_bytes);
+  if (ors != nullptr) {
+    num_write=ors->write(buffer,num_bytes);
   }
-  else if (ocrptstream != nullptr) {
-    num_write=ocrptstream->write(buffer,num_bytes);
+  else if (ocrs != nullptr) {
+    num_write=ocrs->write(buffer,num_bytes);
   }
-  else if (ocosstream != nullptr) {
+  else if (ocs != nullptr) {
     std::cerr << "Error writing to COS-blocked file" << std::endl;
     exit(1);
   }

@@ -18,13 +18,13 @@ int InputTD13SurfaceReportStream::read(unsigned char *buffer,size_t buffer_lengt
 {
   int num_chars,len;
 
-  if (icosstream == NULL) {
+  if (ics == NULL) {
     std::cerr << "Error: no open InputTD13SurfaceReportStream" << std::endl;
     return -1;
   }
   if (file_buf_pos == file_buf_len) {
 std::cerr << "reading next block" << std::endl;
-    if ( (num_chars=icosstream->read(buffer,buffer_length)) < 0) {
+    if ( (num_chars=ics->read(buffer,buffer_length)) < 0) {
 	return num_chars;
     }
 std::cerr << "length is " << num_chars << std::endl;

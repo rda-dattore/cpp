@@ -19,12 +19,12 @@ int InputWMSSCObservationStream::read(unsigned char *buffer,size_t buffer_length
   int num_bytes;
   unsigned char *temp;
 
-  if (irptstream != NULL) {
+  if (irs != NULL) {
 // binary rptout version
-    num_bytes=irptstream->read(buffer,buffer_length);
+    num_bytes=irs->read(buffer,buffer_length);
     if (num_bytes < 0)
 	return num_bytes;
-    if (irptstream->flag() == 0) {
+    if (irs->flag() == 0) {
 	temp=new unsigned char[num_bytes];
 	bits::get(buffer,temp,16,8,0,num_bytes-2);
 	bits::set(buffer,temp,20,8,0,num_bytes-2);

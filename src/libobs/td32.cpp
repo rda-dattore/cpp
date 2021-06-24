@@ -25,9 +25,9 @@ return -1;
 int InputTD32Stream::read(unsigned char *buffer,size_t buffer_length)
 {
   if ((off+34) > block_len) {
-    if (icosstream != nullptr) {
+    if (ics != nullptr) {
 	curr_offset=-1;
-	block_len=icosstream->read(block,20000);
+	block_len=ics->read(block,20000);
 	if (block_len < 0) {
 	  return block_len;
 	}

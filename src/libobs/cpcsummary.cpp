@@ -21,8 +21,8 @@ int InputCPCSummaryObservationStream::read(unsigned char *buffer,size_t buffer_l
 {
   char *b=reinterpret_cast<char *>(const_cast<unsigned char *>(buffer));
   int num_bytes;
-  if (icosstream != nullptr) {
-    num_bytes=icosstream->read(buffer,buffer_length);
+  if (ics != nullptr) {
+    num_bytes=ics->read(buffer,buffer_length);
     if (num_bytes > 0) {
 	++num_read;
     }

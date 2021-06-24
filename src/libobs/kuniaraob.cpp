@@ -17,9 +17,9 @@ bool InputKuniaRaobStream::open(const char *filename)
     exit(1);
   }
   num_read=0;
-  icosstream.reset(new icstream);
-  if (!icosstream->open(filename)) {
-    icosstream.reset(nullptr);
+  ics.reset(new icstream);
+  if (!ics->open(filename)) {
+    ics.reset(nullptr);
     return false;
   }
   offset=0;
@@ -44,14 +44,14 @@ int InputKuniaRaobStream::read(unsigned char *buffer,size_t buffer_length)
     std::cerr << "Error: no InputKuniaRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != NULL) {
+  if (ics != NULL) {
     if (offset == 0) {
 	while (report_type != 2) {
-	  block_len=icosstream->read(buf,3000);
+	  block_len=ics->read(buf,3000);
 	  if (block_len == craystream::eod)
 	    return bfstream::eof;
 	  else if (block_len == bfstream::eof || block_len == 200)
-	    block_len=icosstream->read(buf,3000);
+	    block_len=ics->read(buf,3000);
 	  bits::get(buf,report_type,21,5);
 	}
 	offset=6;

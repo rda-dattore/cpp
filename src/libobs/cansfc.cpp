@@ -19,8 +19,8 @@ int InputDSSCanadianSurfaceHourlyObservationStream::read(unsigned char *buffer,s
 {
   int bytes_read;
 
-  if (irptstream != NULL)
-    bytes_read=irptstream->read(buffer,buffer_length);
+  if (irs != NULL)
+    bytes_read=irs->read(buffer,buffer_length);
   else
     bytes_read=bfstream::error;
   if (bytes_read != bfstream::eof)

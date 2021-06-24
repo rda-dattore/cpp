@@ -21,15 +21,15 @@ int InputMITRaobStream::read(unsigned char *buffer,size_t buffer_length)
 {
   int bytes_read;
 
-  if (icosstream != NULL) {
-    bytes_read=icosstream->read(buffer,buffer_length);
+  if (ics != NULL) {
+    bytes_read=ics->read(buffer,buffer_length);
     if (bytes_read == craystream::eod)
-	bytes_read=icosstream->read(buffer,buffer_length);
+	bytes_read=ics->read(buffer,buffer_length);
     if (bytes_read < 0)
 	bytes_read=bfstream::eof;
   }
-  else if (irptstream != NULL)
-    bytes_read=irptstream->read(buffer,buffer_length);
+  else if (irs != NULL)
+    bytes_read=irs->read(buffer,buffer_length);
   else {
     std::cerr << "Error: no InputMITRaobStream opened" << std::endl;
     exit(1);

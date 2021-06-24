@@ -6,8 +6,8 @@
 
 void InputFrenchRaobStream::read_from_disk()
 {
-  if (icosstream != NULL) {
-    file_buf_len=icosstream->read(file_buf.get(),block_size);
+  if (ics != NULL) {
+    file_buf_len=ics->read(file_buf.get(),block_size);
   }
   else {
     fs.read(reinterpret_cast<char *>(file_buf.get()),block_size);
@@ -47,8 +47,8 @@ bool InputFrenchRaobStream::open(const char *filename)
   }
 // check for the type of observation, as this determines the block size
   unsigned char test;
-  if (icosstream != NULL) {
-    icosstream->read(&test,1);
+  if (ics != NULL) {
+    ics->read(&test,1);
   }
   else {
     fs.read(reinterpret_cast<char *>(&test),1);
@@ -97,8 +97,8 @@ int InputFrenchRaobStream::read(unsigned char *buffer,size_t buffer_length)
 	else {
 	  num_copied=3630;
 	}
-	if (icosstream != NULL) {
-	  bytes_read=icosstream->read(buffer,num_copied);
+	if (ics != NULL) {
+	  bytes_read=ics->read(buffer,num_copied);
 	}
 	else {
 	  fs.read(reinterpret_cast<char *>(buffer),num_copied);

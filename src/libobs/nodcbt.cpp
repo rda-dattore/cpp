@@ -15,8 +15,8 @@ return -1;
 int InputNODCBTObservationStream::read(unsigned char *buffer,size_t buffer_length)
 {
   int num_bytes;
-  if (icosstream != nullptr) {
-    if ( (num_bytes=icosstream->read(buffer,buffer_length)) < 0) {
+  if (ics != nullptr) {
+    if ( (num_bytes=ics->read(buffer,buffer_length)) < 0) {
 	return num_bytes;
     }
   }

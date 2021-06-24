@@ -19,8 +19,8 @@ bool InputCardsRaobStream::open(const char *filename)
   if (!idstream::open(filename))
     return false;
 
-  if (icosstream != NULL) {
-    if (icosstream->read(first_card,80) == bfstream::eof)
+  if (ics != NULL) {
+    if (ics->read(first_card,80) == bfstream::eof)
 	return false;
   }
   else {
@@ -47,7 +47,7 @@ int InputCardsRaobStream::read(unsigned char *buffer,size_t buffer_length)
   else {
     return bfstream::eof;
   }
-  if (icosstream != NULL) {
+  if (ics != NULL) {
     size_t card_num=0,off;
     do {
 	++card_num;
@@ -56,7 +56,7 @@ int InputCardsRaobStream::read(unsigned char *buffer,size_t buffer_length)
 	  std::cerr << "Error: buffer overflow" << std::endl;
 	  exit(1);
 	}
-	if (icosstream->read(&buffer[off],80) == bfstream::eof)
+	if (ics->read(&buffer[off],80) == bfstream::eof)
 	  at_eof=true;
     } while (!at_eof && std::string(reinterpret_cast<char *>(first_card),13) == std::string(reinterpret_cast<char *>(&buffer[off]),13));
     off=card_num*80;

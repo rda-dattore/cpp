@@ -13,8 +13,8 @@ int InputUSSRRaobStream::ignore()
     std::cerr << "Error: no InputUSSRRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != NULL)
-    bytes_read=icosstream->ignore();
+  if (ics != NULL)
+    bytes_read=ics->ignore();
   else
     bytes_read=bfstream::error;
   if (bytes_read != bfstream::eof)
@@ -28,8 +28,8 @@ int InputUSSRRaobStream::peek()
     std::cerr << "Error: no InputUSSRRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != NULL)
-    return icosstream->peek();
+  if (ics != NULL)
+    return ics->peek();
   else
     return bfstream::error;
 }
@@ -42,8 +42,8 @@ int InputUSSRRaobStream::read(unsigned char *buffer,size_t buffer_length)
     std::cerr << "Error: no InputUSSRRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != NULL)
-    bytes_read=icosstream->read(buffer,buffer_length);
+  if (ics != NULL)
+    bytes_read=ics->read(buffer,buffer_length);
   else
     bytes_read=bfstream::error;
   if (bytes_read != bfstream::eof)
@@ -51,9 +51,9 @@ int InputUSSRRaobStream::read(unsigned char *buffer,size_t buffer_length)
   return bytes_read;
 }
 
-bool OutputUSSRRaobStream::open(const char *filename,size_t blocking_flag)
+bool OutputUSSRRaobStream::open(const char *filename,iods::Blocking blocking_flag)
 {
-  if (blocking_flag == iods::cos) {
+  if (blocking_flag == iods::Blocking::cos) {
     return odstream::open(filename,blocking_flag);
   }
   else {
@@ -72,8 +72,8 @@ int OutputUSSRRaobStream::write(const unsigned char *buffer,size_t num_bytes)
     std::cerr << "Error: no OutputUSSRRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (ocosstream != NULL) {
-    status=ocosstream->write(buffer,num_bytes);
+  if (ocs != NULL) {
+    status=ocs->write(buffer,num_bytes);
   }
   else {
     status=bfstream::error;

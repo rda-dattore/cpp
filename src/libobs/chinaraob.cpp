@@ -20,10 +20,10 @@ int InputChinaRaobStream::read(unsigned char *buffer,size_t buffer_length)
 {
   int bytes_read;
 
-  if (icosstream != NULL) {
-    bytes_read=icosstream->read(buffer,buffer_length);
+  if (ics != NULL) {
+    bytes_read=ics->read(buffer,buffer_length);
     if (bytes_read == craystream::eod)
-	bytes_read=icosstream->read(buffer,buffer_length);
+	bytes_read=ics->read(buffer,buffer_length);
     if (bytes_read < 0)
 	bytes_read=bfstream::eof;
   }

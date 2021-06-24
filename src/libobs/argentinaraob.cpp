@@ -21,9 +21,9 @@ int InputArgentinaRaobStream::read(unsigned char *buffer,size_t buffer_length)
   char buf[BUFFER_LENGTH];
   int bytes_read=0,b;
 
-  if (icosstream != NULL) {
+  if (ics != NULL) {
     if (last_ID.empty()) {
-	b=icosstream->read(reinterpret_cast<unsigned char *>(buf),buffer_length);
+	b=ics->read(reinterpret_cast<unsigned char *>(buf),buffer_length);
 	if (b < 0)
 	  return bfstream::eof;
 	last_record=std::string(buf,b);
@@ -37,7 +37,7 @@ int InputArgentinaRaobStream::read(unsigned char *buffer,size_t buffer_length)
 	  std::cerr << "Error: buffer overflow" << std::endl;
 	  exit(1);
 	}
-	b=icosstream->read(reinterpret_cast<unsigned char *>(buf),buffer_length);
+	b=ics->read(reinterpret_cast<unsigned char *>(buf),buffer_length);
 	if (b < 0) {
 	  last_record="";
 	  break;

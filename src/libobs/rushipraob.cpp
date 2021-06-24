@@ -23,14 +23,14 @@ int InputRussianShipRaobStream::read(unsigned char *buffer,size_t buffer_length)
     std::cerr << "Error: no InputRussianShipRaobStream has been opened" << std::endl;
     exit(1);
   }
-  if (icosstream != nullptr) {
-    bytes_read=icosstream->read(buffer,buffer_length);
+  if (ics != nullptr) {
+    bytes_read=ics->read(buffer,buffer_length);
     if (bytes_read == craystream::eod) {
 	bytes_read=bfstream::eof;
     }
   }
-  else if (ivstream != nullptr) {
-    bytes_read=ivstream->read(buffer,buffer_length);
+  else if (ivs != nullptr) {
+    bytes_read=ivs->read(buffer,buffer_length);
   }
   else {
     bytes_read=bfstream::error;
