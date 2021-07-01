@@ -70,102 +70,102 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
   ifs.getline(line,256);
   while (!ifs.eof()) {
     if (line[0] != '#') {
-	auto conf_parts = split(trimmed(line));
-	if (conf_parts[0] == "service") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'service' line";
-	    return false;
-	  }
-	  if (conf_parts[1] != "on") {
-	    myerror = "service is currently unavailable";
-	    return false;
-	  }
-	} else if (conf_parts[0] == "rdadataHome") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'rdadataHome' line";
-	    return false;
-	  }
-	  directives.rdadata_home = conf_parts[1];
-	} else if (conf_parts[0] == "rdadataBinSubDirectory") {
-	  bin_map.emplace(conf_parts[1], conf_parts[2]);
-	} else if (conf_parts[0] == "webServer") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'webServer' line";
-	    return false;
-	  }
-	  directives.web_server=conf_parts[1];
-	} else if (conf_parts[0] == "databaseServer") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'databaseServer' line";
-	    return false;
-	  }
-	  directives.database_server=conf_parts[1];
-	} else if (conf_parts[0] == "rdadbUsername") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'rdadbUsername' line";
-	    return false;
-	  }
-	  directives.rdadb_username=conf_parts[1];
-	} else if (conf_parts[0] == "rdadbPassword") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'rdadbPassword' line";
-	    return false;
-	  }
-	  directives.rdadb_password=conf_parts[1];
-	} else if (conf_parts[0] == "metadbUsername") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'metadbUsername' line";
-	    return false;
-	  }
-	  directives.metadb_username=conf_parts[1];
-	} else if (conf_parts[0] == "metadbPassword") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'metadbPassword' line";
-	    return false;
-	  }
-	  directives.metadb_password = conf_parts[1];
-	} else if (conf_parts[0] == "tempPath") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'tempPath' line";
-	    return false;
-	  }
-	  if (directives.temp_path.empty()) {
-	    if (stat(conf_parts[1].c_str(), &buf) == 0) {
-		directives.temp_path = conf_parts[1];
-	    }
-	  }
-	} else if (conf_parts[0] == "dataRoot") {
-	  if (conf_parts.size() != 3) {
-	    myerror = "configuration error on 'dataRoot' line";
-	    return false;
-	  }
-	  directives.data_root = conf_parts[1];
-	  directives.data_root_alias = conf_parts[2];
-	} else if (conf_parts[0] == "hpssRoot") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'hpssRoot' line";
-	    return false;
-	  }
-	  directives.hpss_root=conf_parts[1];
-	} else if (conf_parts[0] == "metadataManager") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'metadataManager' line";
-	    return false;
-	  }
-	  directives.metadata_manager = conf_parts[1];
-	} else if (conf_parts[0] == "parameterMapPath") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'parameterMapPath' line";
-	    return false;
-	  }
-	  directives.parameter_map_path = conf_parts[1];
-	} else if (conf_parts[0] == "levelMapPath") {
-	  if (conf_parts.size() != 2) {
-	    myerror = "configuration error on 'levelMapPath' line";
-	    return false;
-	  }
-	  directives.level_map_path = conf_parts[1];
-	}
+      auto conf_parts = split(trimmed(line));
+      if (conf_parts[0] == "service") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'service' line";
+          return false;
+        }
+        if (conf_parts[1] != "on") {
+          myerror = "service is currently unavailable";
+          return false;
+        }
+      } else if (conf_parts[0] == "rdadataHome") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'rdadataHome' line";
+          return false;
+        }
+        directives.rdadata_home = conf_parts[1];
+      } else if (conf_parts[0] == "rdadataBinSubDirectory") {
+        bin_map.emplace(conf_parts[1], conf_parts[2]);
+      } else if (conf_parts[0] == "webServer") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'webServer' line";
+          return false;
+        }
+        directives.web_server=conf_parts[1];
+      } else if (conf_parts[0] == "databaseServer") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'databaseServer' line";
+          return false;
+        }
+        directives.database_server=conf_parts[1];
+      } else if (conf_parts[0] == "rdadbUsername") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'rdadbUsername' line";
+          return false;
+        }
+        directives.rdadb_username=conf_parts[1];
+      } else if (conf_parts[0] == "rdadbPassword") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'rdadbPassword' line";
+          return false;
+        }
+        directives.rdadb_password=conf_parts[1];
+      } else if (conf_parts[0] == "metadbUsername") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'metadbUsername' line";
+          return false;
+        }
+        directives.metadb_username=conf_parts[1];
+      } else if (conf_parts[0] == "metadbPassword") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'metadbPassword' line";
+          return false;
+        }
+        directives.metadb_password = conf_parts[1];
+      } else if (conf_parts[0] == "tempPath") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'tempPath' line";
+          return false;
+        }
+        if (directives.temp_path.empty()) {
+          if (stat(conf_parts[1].c_str(), &buf) == 0) {
+            directives.temp_path = conf_parts[1];
+          }
+        }
+      } else if (conf_parts[0] == "dataRoot") {
+        if (conf_parts.size() != 3) {
+          myerror = "configuration error on 'dataRoot' line";
+          return false;
+        }
+        directives.data_root = conf_parts[1];
+        directives.data_root_alias = conf_parts[2];
+      } else if (conf_parts[0] == "hpssRoot") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'hpssRoot' line";
+          return false;
+        }
+        directives.hpss_root=conf_parts[1];
+      } else if (conf_parts[0] == "metadataManager") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'metadataManager' line";
+          return false;
+        }
+        directives.metadata_manager = conf_parts[1];
+      } else if (conf_parts[0] == "parameterMapPath") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'parameterMapPath' line";
+          return false;
+        }
+        directives.parameter_map_path = conf_parts[1];
+      } else if (conf_parts[0] == "levelMapPath") {
+        if (conf_parts.size() != 2) {
+          myerror = "configuration error on 'levelMapPath' line";
+          return false;
+        }
+        directives.level_map_path = conf_parts[1];
+      }
     }
     ifs.getline(line, 256);
   }
@@ -175,10 +175,10 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
   }
   if (directives.decs_root == GLOBAL_DECS_ROOT) {
     for (const auto& e : bin_map) {
-	if (regex_search(directives.host, regex(e.first))) {
-	  directives.decs_root = directives.rdadata_home;
-	  directives.decs_bindir = directives.decs_root + "/bin/" + e.second;
-	}
+      if (regex_search(directives.host, regex(e.first))) {
+        directives.decs_root = directives.rdadata_home;
+        directives.decs_bindir = directives.decs_root + "/bin/" + e.second;
+      }
     }
   } else {
     directives.decs_bindir = directives.decs_root + "/bin";
