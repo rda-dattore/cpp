@@ -27,6 +27,9 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
   else if (stat(GLOBAL_DECS_ROOT.c_str(),&buf) == 0) {
     directives.decs_root=GLOBAL_DECS_ROOT;
   }
+  else if (stat("/.singularity.d", &buf) == 0) {
+    directives.decs_root = "/usr/local";
+  }
   if (directives.decs_root.empty()) {
     myerror="unable to locate decs root directory on "+directives.host;
     return false;
@@ -39,6 +42,9 @@ bool read_config(std::string caller,std::string user,bool restrict_to_user_rdada
   }
   else if (stat("/ncar/rda/setuid/bin/cmd_util",&buf) == 0) {
     directives.local_root="/ncar/rda/setuid";
+  }
+  else if (stat("/.singularity.d", &buf) == 0) {
+    directives.local_root = "/usr/local";
   }
   if (directives.local_root.empty()) {
     myerror="unable to locate DECS local directory on "+directives.host;
