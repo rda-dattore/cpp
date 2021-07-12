@@ -53,7 +53,7 @@ std::string retry_command(std::string command,int num_retries)
   std::string error_list;
   int nr=0;
 
-  if (mysystem2(command,output,error) < 0) {
+  if (mysystem2(command,output,error) != 0) {
 // deal with some specific situations
     if (std::regex_search(error.str(),std::regex("^mv: preserving permissions"))) {
 	auto  sp=strutils::split(command);
