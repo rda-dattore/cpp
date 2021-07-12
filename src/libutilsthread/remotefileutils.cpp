@@ -5,11 +5,13 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <curl/curl.h>
 #include <datetime.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 
 using std::list;
+using std::move;
 using std::string;
 using std::stringstream;
 using strutils::itos;
@@ -31,31 +33,33 @@ string remote_file(string server_name, string local_tmpdir, string
   } else {
     error = "rsync returned status " + itos(stat);
   }
-  return f;
+  return move(f);
 }
 
 string remote_web_file(string URL, string local_tmpdir) {
   string f; // return value
+  auto c = curl_easy_init();
+  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, nullptr);
+  f = local_tmpdir + URL.substr(URL.rfind("/"));
+  auto fp = fopen(f.c_str(), "w");
+  curl_easy_setopt(c, CURLOPT_WRITEDATA, fp);
+  curl_easy_setopt(c, CURLOPT_URL, URL.c_str());
   auto n = 0;
-  while (f.empty() && n < 3) {
-    f = local_tmpdir + URL.substr(URL.rfind("/"));
-    stringstream oss, ess;
-    mysystem2("/bin/sh -c \"curl -q -s -w '%{http_code}\\n' -L -o " + f + " " +
-        substitute(URL, "%", "%25") + "\"", oss, ess);
-    struct stat b;
-    if (oss.str() != "200\n" || stat(f.c_str(), &b) != 0 || b.st_size == 0) {
-      mysystem2("/bin/rm -rf " + f, oss, ess);
-      std::this_thread::sleep_for(std::chrono::seconds(15));
-      f = "";
-      ++n;
-    }
+  while (curl_easy_perform(c) != CURLE_OK && n < 3) {
+    std::this_thread::sleep_for(std::chrono::seconds(15));
+    ++n;
   }
-  return f;
+  fclose(fp);
+  if (n == 3) {
+    remove(f.c_str());
+    f = "";
+  }
+  return move(f);
 }
 
 int rdadata_sync(string directory, string relative_path, string remote_path,
     string rdadata_home, string& error) {
-  int stat = 0; // return value
+  int i = 0; // return value
   if (directory.empty()) {
     error = "missing directory";
     return -1;
@@ -85,10 +89,10 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
         error += ", ";
       }
       error += "rsync error on '" + h + "': *'" + e + "'*";
-      stat = -1;
+      i = -1;
     }
   }
-  return stat;
+  return i;
 }
 
 int rdadata_unsync(string remote_filename, string rdadata_home, string& error) {
@@ -96,7 +100,7 @@ int rdadata_unsync(string remote_filename, string rdadata_home, string& error) {
 //  __HOST__ will be replaced with hosts.getCurrent()
 //
 
-  int stat = 0; // return value
+  int i = 0; // return value
   error = "";
   list<string> hlst;
   if (!hosts_loaded(hlst, rdadata_home)) {
@@ -113,10 +117,10 @@ int rdadata_unsync(string remote_filename, string rdadata_home, string& error) {
         error += ", ";
       }
       error += h + "-sync error: *'" + e + "'*";
-      stat = -1;
+      i = -1;
     }
   }
-  return stat;
+  return i;
 }
 
 int rdadata_sync_from(string remote_filename, string local_filename, string
@@ -125,7 +129,7 @@ int rdadata_sync_from(string remote_filename, string local_filename, string
 //  __HOST__ will be replaced with hosts.getCurrent()
 //
 
-  int stat = 0; //return value
+  int i = 0; //return value
   list<string> hlst;
   if (!hosts_loaded(hlst, rdadata_home)) {
     ess << "rdadata_sync_from() unable to get list of host names" << std::endl;
@@ -137,14 +141,14 @@ int rdadata_sync_from(string remote_filename, string local_filename, string
     struct stat b;
     stringstream oss;
     if (mysystem2("/bin/sh -c \"" + rdadata_home + "/bin/" + h + "-sync -g " + f
-        + " " + local_filename + "\"", oss, ess) == 0 && stat(local_filename.
-        c_str(), &b) == 0) {
+        + " " + local_filename + "\"", oss, ess) == 0 && stat(local_filename
+        .c_str(), &b) == 0) {
       break;
     } else {
-      stat = -1;
+      i = -1;
     }
   }
-  return stat;
+  return i;
 }
 
 bool exists_on_server(string host_name, string remote_filename, string
