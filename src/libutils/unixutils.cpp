@@ -118,7 +118,7 @@ void sendmail(std::string to_list,std::string from,std::string bcc_list,std::str
   strutils::replace_all(body,"\"","\\\"");
   strutils::replace_all(body,"`","\\`");
   mail_command+="Subject: "+subject+"\n\n"+body+"\" |/usr/sbin/sendmail -t";
-  system(mail_command.c_str());
+  if (system(mail_command.c_str())) { } // suppress compiler warning
 }
 
 void untar(std::string dirname,std::string filename)
@@ -178,7 +178,10 @@ void untar(std::string dirname,std::string filename)
   }
   fclose(ifp);
   fclose(ofp);
-  system(("mv "+tfile+" "+filename).c_str());
+  if (system(("mv "+tfile+" "+filename).c_str()) != 0) {
+    std::cerr << "Error creating tar file" << std::endl;
+    exit(1);
+  }
 }
 
 bool tar(std::string tarfile,std::list<std::string>& filenames)
