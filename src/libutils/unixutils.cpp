@@ -11,376 +11,392 @@
 #include <utils.hpp>
 #include <tempfile.hpp>
 
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::ifstream;
+using std::list;
+using std::string;
+using std::unique_ptr;
+using strutils::ftos;
+using strutils::lltos;
+using strutils::replace_all;
+using strutils::strget;
+using xtox::itoo;
+
 namespace unixutils {
 
-const char *cat(std::string filename)
-{
-  static std::unique_ptr<char[]> buffer=nullptr;
-  std::ifstream ifs(filename);
+const char *cat(string filename) {
+  static unique_ptr<char[]> buffer(nullptr);
+  ifstream ifs(filename);
   if (!ifs.is_open()) {
     return nullptr;
   }
-  ifs.seekg(0,std::ios::end);
-  size_t file_size=ifs.tellg();
-  buffer.reset(new char[file_size+1]);
-  ifs.seekg(0,std::ios::beg);
-  ifs.read(buffer.get(),file_size);
+  ifs.seekg(0, std::ios::end);
+  size_t s = ifs.tellg();
+  buffer.reset(new char[s + 1]);
+  ifs.seekg(0, std::ios::beg);
+  ifs.read(buffer.get(), s);
   ifs.close();
-  buffer[file_size]='\0';
+  buffer[s] = '\0';
   return buffer.get();
 }
 
-std::string host_name()
-{
-  char host[256];
-  gethostname(host,256);
-  return host;
+string host_name() {
+  char h[256];
+  gethostname(h, 256);
+  return h;
 }
 
-bool hosts_loaded(std::list<std::string>& hosts,std::string rdadata_home)
-{
-  std::ifstream ifs(rdadata_home+"/bin/conf/webhosts.conf");
+bool hosts_loaded(list<string>& hosts, string rdadata_home) {
+  ifstream ifs(rdadata_home + "/bin/conf/webhosts.conf");
   if (ifs.is_open()) {
-    char line[256];
-    ifs.getline(line,256);
+    char l[256];
+    ifs.getline(l, 256);
     while (!ifs.eof()) {
-	if (line[0] != '#') {
-	  hosts.emplace_back(line);
-	}
-	ifs.getline(line,256);
+      if (l[0] != '#') {
+        hosts.emplace_back(l);
+      }
+      ifs.getline(l, 256);
     }
     ifs.close();
     return true;
   }
-  else {
-    return false;
-  }
+  return false;
 }
 
-long long little_endian(unsigned char *buffer,size_t num_bytes)
-{
-  long long l=0;
-  int nb=num_bytes-1;
+long long little_endian(unsigned char *buffer, size_t num_bytes) {
+  long long l = 0; // return value
+  int nb = num_bytes - 1;
   while (nb >= 0) {
-    l=(l << 8) | static_cast<long long>(buffer[nb]);
+    l = l << 8 | static_cast<long long>(buffer[nb]);
     --nb;
   }
   return l;
 }
 
-std::string unix_args_string(int argc,char **argv,char separator)
-{
-  std::string unix_args;
+string unix_args_string(int argc, char **argv, char separator) {
+  string s; // return value
   if (argc > 1) {
-    unix_args=argv[1];
-    char s[2];
-    s[0]=separator;
-    s[1]='\0';
-    for (int n=2; n < argc; ++n) {
-	unix_args+=(std::string(s)+argv[n]);
+    s = argv[1];
+    for (int n = 2; n < argc; ++n) {
+      s.append(1, separator);
+      s += argv[n];
     }
   }
-  return unix_args;
+  return move(s);
 }
 
-void dump(const unsigned char *buffer,int length,DumpType dump_type)
-{
+void dump(const unsigned char *buffer, int length, DumpType dump_type) {
   if (dump_type == DumpType::bytes) {
-    for (int n=0; n < length; n+=16) {
-	for (int m=0; m < 16; ++m) {
-	  if ( (n+m) >= length) {
-	    break;
-	  }
-	  if (static_cast<int>(buffer[n+m]) >= 32 && static_cast<int>(buffer[n+m]) < 127) {
-	    std::cout << "    " << static_cast<char>(buffer[n+m]);
-	  }
-	  else {
-	    std::cout << std::setw(4) << std::setfill(' ') << static_cast<int>(buffer[n+m]) << "d";
-	  }
-	}
-	std::cout << std::endl;
+    for (int n = 0; n < length; n += 16) {
+      for (int m = 0; m < 16; ++m) {
+        if (n + m >= length) {
+          break;
+        }
+        if (static_cast<int>(buffer[n + m]) >= 32 && static_cast<int>(buffer[n +
+            m]) < 127) {
+          cout << "    " << static_cast<char>(buffer[n + m]);
+        } else {
+          cout << std::setw(4) << std::setfill(' ') << static_cast<int>(buffer[n
+              + m]) << "d";
+        }
+      }
+      cout << endl;
     }
-  }
-  else if (dump_type == DumpType::bits) {
-    for (int n=0; n < length; ++n) {
-	std::cout << ((buffer[n] & 0x80) >> 7) << ((buffer[n] & 0x40) >> 6) << ((buffer[n] & 0x20) >> 5) << ((buffer[n] & 0x10) >> 4) << ((buffer[n] & 0x8) >> 3) << ((buffer[n] & 0x4) >> 2) << ((buffer[n] & 0x2) >> 1) << (buffer[n] & 0x1);
+  } else if (dump_type == DumpType::bits) {
+    for (int n = 0; n < length; ++n) {
+      cout << (buffer[n] & 0x80 >> 7) << (buffer[n] & 0x40 >> 6) << (buffer[n] &
+          0x20 >> 5) << (buffer[n] & 0x10 >> 4) << (buffer[n] & 0x8 >> 3) <<
+          (buffer[n] & 0x4 >> 2) << (buffer[n] & 0x2 >> 1) << (buffer[n] & 0x1);
     }
-    std::cout << std::endl;
+    cout << endl;
   }
 }
 
-void sendmail(std::string to_list,std::string from,std::string bcc_list,std::string subject,std::string body)
-{
-  std::string mail_command="echo \"To: "+to_list+"\nFrom: "+from+"\n";
-  if (bcc_list.length() > 0) {
-    mail_command+="Bcc: "+bcc_list+"\n";
+void sendmail(string to_list, string from, string bcc_list, string subject,
+    string body) {
+  string m = "echo \"To: " + to_list + "\nFrom: " + from + "\n";
+  if (!bcc_list.empty()) {
+    m += "Bcc: " + bcc_list + "\n";
   }
-  strutils::replace_all(body,"\"","\\\"");
-  strutils::replace_all(body,"`","\\`");
-  mail_command+="Subject: "+subject+"\n\n"+body+"\" |/usr/sbin/sendmail -t";
-  if (system(mail_command.c_str())) { } // suppress compiler warning
+  replace_all(body, "\"", "\\\"");
+  replace_all(body, "`", "\\`");
+  m += "Subject: " + subject + "\n\n" + body + "\" |/usr/sbin/sendmail -t";
+  if (system(m.c_str())) { } // suppress compiler warning
 }
 
-void untar(std::string dirname,std::string filename)
-{
-  auto tfile=TempFile(dirname,"").name();
-  auto ifp=fopen64(filename.c_str(),"r");
-  if (ifp == nullptr) {
-    std::cerr << "Error opening " << filename << std::endl;
+void untar(string dirname, string filename) {
+  auto tf = TempFile(dirname, "").name();
+  auto fp_i = fopen64(filename.c_str(), "r");
+  if (fp_i == nullptr) {
+    cerr << "Error opening " << filename << endl;
     exit(1);
   }
-  auto ofp=fopen64(tfile.c_str(),"w");
-  if (ofp == nullptr) {
-    std::cerr << "Error opening tar output file" << std::endl;
+  auto fp_o = fopen64(tf.c_str(), "w");
+  if (fp_o == nullptr) {
+    cerr << "Error opening tar output file" << endl;
     exit(1);
   }
   unsigned char buffer[512];
-  char *cbuf=reinterpret_cast<char *>(buffer);
-  long long size=0,num_out=-1;
-  while (fread(buffer,1,512,ifp) > 0) {
-    if (num_out == -1) {
-	auto m=0;
-	for (size_t n=148; n < 156; ++n) {
-	  if ((buffer[n] >= '0' && buffer[n] <= '9') || buffer[n] == ' ') {
-	    ++m;
-	  }
-	  else {
-	    n=156;
-	  }
-	}
-	int cksum;
-	strutils::strget(&cbuf[148],cksum,m);
-	auto sum=256;
-	for (size_t n=0; n < 148; ++n) {
-	  sum+=static_cast<int>(buffer[n]);
-	}
-	for (size_t n=156; n < 512; ++n) {
-	  sum+=static_cast<int>(buffer[n]);
-	}
-	if (sum != xtox::otoi(cksum)) {
-	  break;
-	}
-	strutils::strget(&cbuf[124],size,11);
-	size=xtox::otoll(size);
-	if (size > 0)
-	  num_out=0;
-    }
-    else {
-	if ( (num_out+512) < size) {
-	  fwrite(buffer,1,512,ofp);
-	  num_out+=512;
-	}
-	else {
-	  fwrite(buffer,1,size-num_out,ofp);
-	  num_out=-1;
-	}
+  char *b = reinterpret_cast<char *>(buffer);
+  long long sz = 0, n = -1;
+  while (fread(buffer, 1, 512, fp_i) > 0) {
+    if (n == -1) {
+      auto m = 0;
+      for (size_t n = 148; n < 156; ++n) {
+        if ((buffer[n] >= '0' && buffer[n] <= '9') || buffer[n] == ' ') {
+          ++m;
+        } else {
+          n = 156;
+        }
+      }
+      int c;
+      strget(&b[148], c, m);
+      auto s = 256;
+      for (size_t n = 0; n < 148; ++n) {
+        s += static_cast<int>(buffer[n]);
+      }
+      for (size_t n = 156; n < 512; ++n) {
+        s += static_cast<int>(buffer[n]);
+      }
+      if (s != xtox::otoi(c)) {
+        break;
+      }
+      strget(&b[124], sz, 11);
+      sz = xtox::otoll(sz);
+      if (sz > 0)
+        n = 0;
+    } else {
+      if (n + 512 < sz) {
+        fwrite(buffer, 1, 512, fp_o);
+        n += 512;
+      } else {
+        fwrite(buffer, 1, sz - n, fp_o);
+        n =- 1;
+      }
     }
   }
-  fclose(ifp);
-  fclose(ofp);
-  if (system(("mv "+tfile+" "+filename).c_str()) != 0) {
-    std::cerr << "Error creating tar file" << std::endl;
+  fclose(fp_i);
+  fclose(fp_o);
+  if (system(("mv " + tf + " " + filename).c_str()) != 0) {
+    cerr << "Error creating tar file" << endl;
     exit(1);
   }
 }
 
-bool tar(std::string tarfile,std::list<std::string>& filenames)
-{
-  char empty[512];
-  char null_char='\0';
-  for (size_t n=0; n < 512; ++n) {
-    empty[n]=null_char;
-  }
-  auto ofp=fopen64(tarfile.c_str(),"w");
-  size_t num_out=0;
-  for (const auto& file : filenames) {
-    auto name=file;
+bool tar(string tarfile, list<string>& filenames) {
+  char nc = '\0';
+  auto fp_o = fopen64(tarfile.c_str(), "w");
+  size_t byts = 0;
+  for (const auto& f : filenames) {
+    auto fn = f;
     struct stat buf;
-    if (stat(name.c_str(),&buf) != 0) {
-	if (!strutils::has_beginning(name,"/") && strutils::contains(name,"/")) {
-	  if (stat(("/"+name).c_str(),&buf) != 0) {
-	    fclose(ofp);
-	    return false;
-	  }
-	}
-	else {
-	  fclose(ofp);
-	  return false;
-	}
+    if (stat(fn.c_str(), &buf) != 0) {
+      if (fn[0] != '/' && strutils::contains(fn, "/")) {
+        if (stat(("/" + fn).c_str(), &buf) != 0) {
+          fclose(fp_o);
+          return false;
+        }
+      } else {
+        fclose(fp_o);
+        return false;
+      }
     }
-    auto link_indicator='0';
+    auto li = '0'; // link indicator
     if (buf.st_mode > 32768) {
-	buf.st_mode-=32768;
+      buf.st_mode -= 32768;
     }
     if (buf.st_mode >= 16384) {
-	if (!strutils::has_ending(name,"/")) {
-	  name+="/";
-	}
-	buf.st_size=0;
-	buf.st_mode-=16384;
-	link_indicator='5';
+      if (fn.back() != '/') {
+        fn += "/";
+      }
+      buf.st_size = 0;
+      buf.st_mode -= 16384;
+      li = '5';
     }
-// write the file header
-// chars 0-99 are filename
-    char header[512];
-    size_t n=0;
-    for (; n < name.length(); ++n) {
-	header[n]=name[n];
+
+    // write the file header
+    // chars 0-99 are filename
+    char hd[512];
+    size_t n = 0;
+    for (; n < fn.length(); ++n) {
+      hd[n] = fn[n];
     }
     while (n < 100) {
-	header[n++]='\0';
+      hd[n++] = '\0';
     }
-// chars 100-107 are file mode
-    auto mode=strutils::ftos(xtox::itoo(buf.st_mode),7,0,'0');
+
+    // chars 100-107 are file mode
+    auto x = ftos(itoo(buf.st_mode), 7, 0, '0');
     for (; n < 107; ++n) {
-	header[n]=mode[n-100];
+      hd[n] = x[n - 100];
     }
-    header[n++]='\0';
-// chars 108-115 are owner user id
-    auto user_id=strutils::ftos(xtox::itoo(buf.st_uid),7,0,'0');
+    hd[n++] = '\0';
+
+    // chars 108-115 are owner user id
+    x = ftos(itoo(buf.st_uid), 7, 0, '0');
     for (; n < 115; ++n) {
-	header[n]=user_id[n-108];
+      hd[n] = x[n - 108];
     }
-    header[n++]='\0';
-// chars 116-123 are owner group id
-    auto group_id=strutils::ftos(xtox::itoo(buf.st_gid),7,0,'0');
+    hd[n++] = '\0';
+
+    // chars 116-123 are owner group id
+    x = ftos(itoo(buf.st_gid), 7, 0, '0');
     for (; n < 123; ++n) {
-	header[n]=group_id[n-116];
+      hd[n] = x[n - 116];
     }
-    header[n++]='\0';
-// chars 124-135 are file size in bytes
-    auto file_size=strutils::lltos(xtox::itoo(buf.st_size),11,'0');
+    hd[n++] = '\0';
+
+    // chars 124-135 are file size in bytes
+    auto l = lltos(itoo(buf.st_size), 11, '0');
     for (; n < 135; ++n) {
-	header[n]=file_size[n-124];
+      hd[n] = l[n - 124];
     }
-    header[n++]='\0';
-// chars 136-147 are last modification time
-    auto mod_time=strutils::lltos(xtox::ltoo(buf.st_mtime),11,'0');
+    hd[n++] = '\0';
+
+    // chars 136-147 are last modification time
+    l = lltos(xtox::ltoo(buf.st_mtime), 11, '0');
     for (; n < 147; ++n) {
-	header[n]=mod_time[n-136];
+      hd[n] = l[n - 136];
     }
-    header[n++]='\0';
-// chars 148-155 are the header checksum - clear them for now
+    hd[n++] = '\0';
+
+    // chars 148-155 are the hd checksum - clear them for now
     for (; n < 155; ++n) {
-	header[n]='\0';
+      hd[n] = '\0';
     }
-    header[n++]='\0';
-// char 156 is the link indicator
-    header[n++]=link_indicator;
-// chars 157-256 are name of linked file
+    hd[n++] = '\0';
+
+    // char 156 is the link indicator
+    hd[n++] = li;
+
+    // chars 157-256 are name of linked file
     for (; n < 256; ++n) {
-	header[n]='\0';
+      hd[n] = '\0';
     }
-    header[n++]='\0';
-// chars 257-262 are 'ustar\0'
-    header[n++]='u';
-    header[n++]='s';
-    header[n++]='t';
-    header[n++]='a';
-    header[n++]='r';
-    header[n++]='\0';
-// chars 263-264 are ustar version
-    header[n++]='0';
-    header[n++]='0';
-// chars 265-296 are owner user name
-    auto pwd=getpwuid(buf.st_uid);
-    std::string pw_name;
-    if (pwd != nullptr) {
-	pw_name=pwd->pw_name;
+    hd[n++] = '\0';
+
+    // chars 257-262 are 'ustar\0'
+    hd[n++] = 'u';
+    hd[n++] = 's';
+    hd[n++] = 't';
+    hd[n++] = 'a';
+    hd[n++] = 'r';
+    hd[n++] = '\0';
+
+    // chars 263-264 are ustar version
+    hd[n++] = '0';
+    hd[n++] = '0';
+
+    // chars 265-296 are owner user name
+    auto p = getpwuid(buf.st_uid);
+    string pw;
+    if (p != nullptr) {
+      pw = p->pw_name;
+    } else {
+      pw = "";
     }
-    else {
-	pw_name="";
-    }
-    for (; n < 265+pw_name.length(); ++n) {
-	header[n]=pw_name[n-265];
+    for (; n < 265 + pw.length(); ++n) {
+      hd[n] = pw[n - 265];
     }
     while (n < 296) {
-	header[n++]='\0';
+      hd[n++] = '\0';
     }
-    header[n++]='\0';
-// chars 297-328 are owner group name
-    auto grp=getgrgid(buf.st_gid);
-    std::string gr_name;
-    if (grp != nullptr) {
-	gr_name=grp->gr_name;
+    hd[n++] = '\0';
+
+    // chars 297-328 are owner group name
+    auto gid = getgrgid(buf.st_gid);
+    string g;
+    if (gid != nullptr) {
+      g = gid->gr_name;
+    } else {
+      g = "";
     }
-    else {
-	gr_name="";
-    }
-    for (; n < 297+gr_name.length(); ++n) {
-	header[n]=gr_name[n-297];
+    for (; n < 297 + g.length(); ++n) {
+      hd[n] = g[n - 297];
     }
     while (n < 328) {
-	header[n++]='\0';
+      hd[n++] = '\0';
     }
-    header[n++]='\0';
-// chars 329-336 are the device major number
-    auto dev_major=strutils::ftos(xtox::itoo(major(buf.st_dev)),7,0,'0');
+    hd[n++] = '\0';
+
+    // chars 329-336 are the device major number
+    x = ftos(itoo(major(buf.st_dev)), 7, 0, '0');
     for (; n < 336; ++n) {
-	header[n]=dev_major[n-329];
+      hd[n] = x[n - 329];
     }
-    header[n++]='\0';
-// chars 337-344 are the device minor number
-    auto dev_minor=strutils::ftos(xtox::itoo(minor(buf.st_dev)),7,0,'0');
+    hd[n++] = '\0';
+
+    // chars 337-344 are the device minor number
+    x = ftos(itoo(minor(buf.st_dev)), 7, 0, '0');
     for (; n < 344; ++n) {
-	header[n]=dev_minor[n-337];
+      hd[n] = x[n - 337];
     }
-    header[n++]='\0';
-// chars 345-499 are the filename prefix
+    hd[n++] = '\0';
+
+    // chars 345-499 are the filename prefix
     for (; n < 500; ++n) {
-	header[n]='\0';
+      hd[n] = '\0';
     }
-// rest of 512-byte header
+
+    // rest of 512-byte header
     for (; n < 512; ++n) {
-	header[n]='\0';
+      hd[n] = '\0';
     }
-// compute checksum
-    auto cksum=256;
-    for (n=0; n < 512; ++n) {
-	cksum+=static_cast<int>(header[n]);
+
+    // compute checksum
+    auto s = 256;
+    for (n = 0; n < 512; ++n) {
+      s += static_cast<int>(hd[n]);
     }
-    auto s_cksum=strutils::ftos(xtox::itoo(cksum),7,0,'0');
-    for (n=148; n < 155; ++n) {
-	header[n]=s_cksum[n-148];
+    x = ftos(itoo(s), 7, 0, '0');
+    for (n = 148; n < 155; ++n) {
+      hd[n] = x[n - 148];
     }
-    header[n++]='\0';
-    fwrite(header,1,512,ofp);
-    num_out+=512;
+    hd[n++] = '\0';
+    fwrite(hd, 1, 512, fp_o);
+    byts += 512;
     if (buf.st_size > 0) {
-	std::ifstream ifs(name.c_str());
-	if (!ifs.is_open()) {
-	  ifs.open(("/"+name).c_str(),std::ifstream::in);
-	  if (!ifs.is_open()) {
-	    std::cerr << "Error opening file " << name << std::endl;
-	    return false;
-	  }
-	}
-	while (!ifs.eof()) {
-	  char buffer[32768];
-	  ifs.read(buffer,32768);
-	  auto num=ifs.gcount();
-	  fwrite(buffer,1,num,ofp);
-	  num_out+=num;
-	}
-	ifs.close();
-	ifs.clear();
-	while ( (num_out % 512) != 0) {
-	  fwrite(&null_char,1,1,ofp);
-	  ++num_out;
-	}
+      ifstream ifs(fn.c_str());
+      if (!ifs.is_open()) {
+        ifs.open(("/" + fn).c_str(), ifstream::in);
+        if (!ifs.is_open()) {
+          cerr << "Error opening file " << fn << endl;
+          return false;
+        }
+      }
+      while (!ifs.eof()) {
+        char b[32768];
+        ifs.read(b, 32768);
+        auto n = ifs.gcount();
+        fwrite(b, 1, n, fp_o);
+        byts += n;
+      }
+      ifs.close();
+      ifs.clear();
+      while (byts % 512 != 0) {
+        fwrite(&nc, 1, 1, fp_o);
+        ++byts;
+      }
     }
-    std::cout << "a " << file << ", " << buf.st_size << " bytes" << std::endl;
+    cout << "a " << f << ", " << buf.st_size << " bytes" << endl;
   }
-// end the tar file with two zero-filled 512-byte blocks
-  fwrite(empty,1,512,ofp);
-  num_out+=512;
-  fwrite(empty,1,512,ofp);
-  num_out+=512;
-  while ( (num_out % 10240) != 0) {
-    fwrite(empty,1,512,ofp);
-    num_out+=512;
+
+  // end the tar file with two zero-filled 512-byte blocks
+  char z[512];
+  for (size_t n = 0; n < 512; ++n) {
+    z[n] = nc;
   }
-  fclose(ofp);
+  fwrite(z, 1, 512, fp_o);
+  byts += 512;
+  fwrite(z, 1, 512, fp_o);
+  byts += 512;
+  while (byts % 10240 != 0) {
+    fwrite(z, 1, 512, fp_o);
+    byts += 512;
+  }
+  fclose(fp_o);
   return true;
 }
 
