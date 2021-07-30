@@ -13,7 +13,9 @@ bool expand_file(std::string dirname,std::string filename,std::string *file_form
 // check to see if the file is a tar file
     auto fp=fopen64(filename.c_str(),"r");
     unsigned char buffer[512];
-    fread(buffer,1,512,fp);
+    if (fread(buffer,1,512,fp) != 512) {
+      return false;
+    }
     fclose(fp);
     auto cksum_len=0;
     for (size_t n=148; n < 156; ++n) {
@@ -47,12 +49,16 @@ bool expand_file(std::string dirname,std::string filename,std::string *file_form
 // check to see if the file is gzipped
   auto fp=fopen64(filename.c_str(),"r");
   unsigned char buffer[4];
-  fread(buffer,1,4,fp);
+  if (fread(buffer,1,4,fp) != 4) {
+    return false;
+  }
   fclose(fp);
   int magic;
   bits::get(buffer,magic,0,32);
   if (magic == 0x1f8b0808) {
-    system(("mv "+filename+" "+filename+".gz; gunzip -f "+filename).c_str());
+    if (system(("mv "+filename+" "+filename+".gz; gunzip -f "+filename).c_str()) != 0) {
+      return false;
+    }
     if (file_format != nullptr) {
 	if (!file_format->empty()) {
 	  (*file_format)+=".";
