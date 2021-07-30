@@ -11,7 +11,7 @@ TempFile::~TempFile()
 {
   close();
   if (rm_file) {
-    system(("rm -f "+tpath).c_str());
+    if (system(("rm -f "+tpath).c_str()) != 0) { } // suppress compiler warning
   }
   tpath="";
   fp=nullptr;
@@ -124,7 +124,7 @@ void TempFile::fill_temp_path(const std::string& directory,const std::string& ex
 TempDir::~TempDir()
 {
   if (rm_file && !tpath.empty()) {
-    system(("rm -rf "+tpath).c_str());
+    if (system(("rm -rf "+tpath).c_str()) != 0) { } // suppress compiler warning
   }
   tpath="";
 }
@@ -149,13 +149,6 @@ bool TempDir::create(const std::string& directory,const std::string& extension)
 
 void TempDir::fill_temp_path(const std::string& directory,const std::string& extension)
 {
-  char tnam[32768];
-  tmpnam(tnam);
-  auto tnam_s=std::string(tnam);
-  auto idx=tnam_s.rfind("/");
-  if (idx != std::string::npos) {
-    tnam_s=tnam_s.substr(idx+1);
-  }
   if (!directory.empty()) {
     tpath=directory;
     if (!strutils::has_ending(tpath,"/")) {
@@ -165,7 +158,15 @@ void TempDir::fill_temp_path(const std::string& directory,const std::string& ext
   else {
     tpath="/tmp/";
   }
-  tpath+=tnam_s;
+  char tnam[32768];
+  if (tmpnam(tnam) != nullptr) {
+    auto tnam_s=std::string(tnam);
+    auto idx=tnam_s.rfind("/");
+    if (idx != std::string::npos) {
+      tnam_s=tnam_s.substr(idx+1);
+    }
+    tpath+=tnam_s;
+  }
   if (!extension.empty()) {
     tpath+=extension;
   }
