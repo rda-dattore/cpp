@@ -1918,7 +1918,7 @@ short extract_record(FILE *fp,NetCDF::UniqueVariableDataEntry data,unsigned char
     buf_len=*(data.record_length);
     *buffer=new unsigned char[buf_len];
   }
-  if (fread(*buffer,1,*(data.record_length),fp) != *(data.record_length)) {
+  if (fread(*buffer,1,*(data.record_length),fp) != static_cast<size_t>(*(data.record_length))) {
     return -1;
   }
   bits::get(*buffer,edition,56,8);
