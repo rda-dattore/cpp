@@ -164,8 +164,8 @@ public:
 // local methods
   int explain(Server& server);
   size_t num_rows() const { return _num_rows; }
-  void rewind() { mysql_data_seek(RESULT.get(),0); }
-  void rewind() const { mysql_data_seek(RESULT.get(),0); }
+  void rewind();
+  void rewind() const;
 
 // range-based support
   QueryIterator begin();
@@ -202,7 +202,7 @@ public:
   std::string error() const { return _error; }
   bool fetch_row(Row& row) const;
   size_t num_rows() const;
-  void rewind() { mysql_stmt_data_seek(STMT.get(),0); }
+  void rewind();
   void set(std::string statement_specification,std::vector<enum_field_types> parameter_types);
   std::string show() const { return statement; }
   int submit(Server& server);
