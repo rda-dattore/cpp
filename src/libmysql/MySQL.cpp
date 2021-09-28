@@ -584,6 +584,18 @@ int LocalQuery::explain(Server& server)
   return 0;
 }
 
+void LocalQuery::rewind() {
+  if (RESULT != nullptr) {
+    mysql_data_seek(RESULT.get(), 0);
+  }
+}
+
+void LocalQuery::rewind() const {
+  if (RESULT != nullptr) {
+    mysql_data_seek(RESULT.get(), 0);
+  }
+}
+
 QueryIterator LocalQuery::begin()
 {
   rewind();
@@ -692,16 +704,6 @@ bool PreparedStatement::bind_parameter(size_t parameter_number,const char *param
   return bind_parameter(parameter_number,std::string(parameter_specification),is_null);
 }
 
-size_t PreparedStatement::num_rows() const
-{
-  if (STMT == nullptr) {
-    return 0;
-  }
-  else {
-    return mysql_stmt_num_rows(STMT.get());
-  }
-}
-
 bool PreparedStatement::fetch_row(Row& row) const
 {
   if (mysql_stmt_fetch(STMT.get()) == 0) {
@@ -717,6 +719,22 @@ bool PreparedStatement::fetch_row(Row& row) const
   }
   else {
     return false;
+  }
+}
+
+size_t PreparedStatement::num_rows() const
+{
+  if (STMT == nullptr) {
+    return 0;
+  }
+  else {
+    return mysql_stmt_num_rows(STMT.get());
+  }
+}
+
+void PreparedStatement::rewind() {
+  if (STMT != nullptr) {
+    mysql_stmt_data_seek(STMT.get(), 0);
   }
 }
 
