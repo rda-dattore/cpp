@@ -36,6 +36,8 @@ public:
     ~Attribute() { clear_values(); }
     Attribute& operator=(const Attribute& source);
     void clear_values();
+    std::string to_string() const { return *(reinterpret_cast<std::string *>(
+        values)); }
 
     std::string name;
     DataType data_type;
@@ -136,6 +138,7 @@ public:
     double operator[](size_t index) const;
     double back() const { return (*this)[num_values-1]; }
     void clear();
+    bool empty() const { return num_values == 0; }
     double front() const { return (*this)[0]; }
     void *get() const { return values; }
     void resize(int new_size, DataType type);
@@ -187,6 +190,7 @@ public:
   InputNetCDFStream() : var_buf(), size_(0), var_indexes() { }
   bool close();
   bool open(std::string filename);
+  void dump();
   void print_dimensions() const;
   void print_global_attributes() const;
   void print_header() const;
