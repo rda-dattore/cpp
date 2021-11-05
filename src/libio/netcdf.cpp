@@ -556,7 +556,7 @@ const NetCDF::Variable& InputNetCDFStream::variable(std::string variable_name) c
 std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t index)
 {
   if (var_indexes.find(variable_name) == var_indexes.end()) {
-    return std::move(std::vector<double>());
+    return std::vector<double>();
   }
   else {
     auto var_index=var_indexes[variable_name];
@@ -570,7 +570,7 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
       vector_size*=dims[vars[var_index].dimids[n]].length;
     }
     if (index >= max_num_vals) {
-      return std::move(std::vector<double>());
+      return std::vector<double>();
     }
     long long f_offset;
     if (vars[var_index].is_rec) {
@@ -596,21 +596,21 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
         bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),b,0,data_type_bytes[static_cast<int>(DataType::BYTE)]*8,0,vector_size);
         std::vector<double> v(&b[0],&b[vector_size]);
         delete b;
-        return std::move(v);
+        return v;
       }
       case DataType::SHORT: {
         auto s=new short[vector_size];
         bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),s,0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8,0,vector_size);
         std::vector<double> v(&s[0],&s[vector_size]);
         delete s;
-        return std::move(v);
+        return v;
       }
       case DataType::INT: {
         auto i=new int[vector_size];
         bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,data_type_bytes[static_cast<int>(DataType::INT)]*8,0,vector_size);
         std::vector<double> v(&i[0],&i[vector_size]);
         delete i;
-        return std::move(v);
+        return v;
       }
       case DataType::FLOAT: {
         union {
@@ -621,7 +621,7 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
         bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8,0,vector_size);
         std::vector<double> v(&f[0],&f[vector_size]);
         delete i;
-        return std::move(v);
+        return v;
       }
       case DataType::DOUBLE: {
         union {
@@ -632,10 +632,10 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
         bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),l[0],0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
         std::vector<double> v(&d[0],&d[1]);
         delete l;
-        return std::move(v);
+        return v;
       }
       default: {
-        return std::move(std::vector<double>());
+        return std::vector<double>();
       }
     }
   }
@@ -770,6 +770,7 @@ NetCDF::DataType InputNetCDFStream::variable_data(std::string variable_name,Vari
     variable_data.resize(num_values,vars[var_index].data_type);
     fs.seekg(vars[var_index].offset,std::ios_base::beg);
     switch (vars[var_index].data_type) {
+      case DataType::BYTE:
       case DataType::CHAR: {
         fs.read(reinterpret_cast<char *>(variable_data.get()),num_values);
         break;
