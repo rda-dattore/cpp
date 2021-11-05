@@ -84,7 +84,7 @@ string unix_args_string(int argc, char **argv, char separator) {
       s += argv[n];
     }
   }
-  return move(s);
+  return s;
 }
 
 void dump(const unsigned char *buffer, int length, DumpType dump_type) {
@@ -322,14 +322,16 @@ bool tar(string tarfile, list<string>& filenames) {
     hd[n++] = '\0';
 
     // chars 329-336 are the device major number
-    x = ftos(itoo(major(buf.st_dev)), 7, 0, '0');
+//    x = ftos(itoo(major(buf.st_dev)), 7, 0, '0');
+x = ftos(0, 7, 0, '0');
     for (; n < 336; ++n) {
       hd[n] = x[n - 329];
     }
     hd[n++] = '\0';
 
     // chars 337-344 are the device minor number
-    x = ftos(itoo(minor(buf.st_dev)), 7, 0, '0');
+//    x = ftos(itoo(minor(buf.st_dev)), 7, 0, '0');
+x = ftos(0, 7, 0, '0');
     for (; n < 344; ++n) {
       hd[n] = x[n - 337];
     }
