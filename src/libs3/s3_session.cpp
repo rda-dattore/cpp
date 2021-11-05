@@ -101,7 +101,7 @@ std::vector<Bucket> Session::buckets() {
       auto e = b.element("Name");
       v.emplace_back(e.content());
     }
-    return move(v);
+    return v;
   } else {
     throw runtime_error("buckets(): unexpected xml response: " +
         curl_response_);
@@ -116,7 +116,7 @@ string Session::create_bucket(string bucket_name) {
   curl_response_ = perform_curl_request(curl_handle_.get(), canonical_request,
       access_key_, region_, terminal_, message_digest32_to_string(md));
   if (curl_response_.empty()) {
-    return move(bucket_name);
+    return bucket_name;
   }
   return "";
 }
@@ -201,7 +201,7 @@ bool Session::download_range(string bucket_name, string key, string range_bytes,
   }
   canonical_request.reset("GET", "/" + bucket_name+"/" + key, host_);
   canonical_request.set_range(range_bytes);
-  FILE *outs=fopen(filename.c_str(), "w");
+  auto *outs = fopen(filename.c_str(), "w");
   if (outs == nullptr) {
     throw runtime_error("download_range(): could not open '" + filename +
         "' for output");
@@ -213,7 +213,7 @@ bool Session::download_range(string bucket_name, string key, string range_bytes,
       access_key_, region_, terminal_, message_digest32_to_string(md), outs);
   fclose(outs);
   trim(curl_response_);
-  if (regex_search(curl_response_, regex("^ETag: \"(.){32}\"$"))) {
+  if (regex_search(curl_response_, regex("^ETag: \".*\"$"))) {
     return true;
   }
   if (curl_response_.empty()) {
@@ -307,7 +307,7 @@ string Session::object_metadata(string bucket_name, string key) {
     }
     s = "{" + s + "}";
   }
-  return move(s);
+  return s;
 }
 
 std::vector<Object> Session::objects(string bucket_name) {
@@ -340,7 +340,7 @@ std::vector<Object> Session::objects(string bucket_name) {
       }
     }
   }
-  return move(v);
+  return v;
 }
 
 void Session::parse_s3_response(XMLSnippet& xmls) {
@@ -661,7 +661,7 @@ pair<string, string> get_credentials(string server_name) {
     ifs.getline(l, 80);
   }
   ifs.close();
-  return move(p);
+  return p;
 }
 
 } // end namespace s3
