@@ -7,7 +7,6 @@
 #include <strutils.hpp>
 #include <utils.hpp>
 
-using std::move;
 using std::regex;
 using std::regex_search;
 using std::string;
@@ -78,7 +77,7 @@ string retry_command(string command, int num_retries) {
   if (n < num_retries) {
     s = "";
   }
-  return move(s);
+  return s;
 }
 
 int mysystem2(string command, stringstream& output, stringstream& error) {
@@ -157,7 +156,7 @@ int mysystem2(string command, stringstream& output, stringstream& error) {
     dup2(pipe_out[1], 1);
     dup2(pipe_err[1], 2);
     execv(sp[0].c_str(), argv);
-    std::cerr << sp[0] << ": command not found" << std::endl;
+    std::cerr << sp[0] << ": command not found";
     exit(1);
   } else {
     close(pipe_out[1]);
