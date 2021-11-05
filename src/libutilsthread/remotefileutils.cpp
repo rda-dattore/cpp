@@ -11,7 +11,6 @@
 #include <utils.hpp>
 
 using std::list;
-using std::move;
 using std::string;
 using std::stringstream;
 using strutils::itos;
@@ -33,7 +32,7 @@ string remote_file(string server_name, string local_tmpdir, string
   } else {
     error = "rsync returned status " + itos(stat);
   }
-  return move(f);
+  return f;
 }
 
 string remote_web_file(string URL, string local_tmpdir) {
@@ -54,7 +53,7 @@ string remote_web_file(string URL, string local_tmpdir) {
     remove(f.c_str());
     f = "";
   }
-  return move(f);
+  return f;
 }
 
 int rdadata_sync(string directory, string relative_path, string remote_path,
@@ -78,7 +77,10 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
     error = "rdadata_sync() unable to get list of host names";
     return -1;
   }
-  setreuid(15968, 15968);
+  if (setreuid(15968, 15968) != 0) {
+    error = "unable to set real and effective uids to 'rdadata'";
+    return -1;
+  }
   for (const auto& h : hlst) {
     auto e = retry_command("/bin/sh -c 'cd " + directory + "; rsync -rptgD "
         "--relative -e __INNER_QUOTE__ssh -i " + rdadata_home + "/.ssh/" + h +
@@ -95,7 +97,8 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
   return i;
 }
 
-int rdadata_unsync(string remote_filename, string rdadata_home, string& error) {
+int rdadata_unsync(string remote_filename, string local_tmpdir, string
+    rdadata_home, string& error) {
 // special tokens in remote_filename
 //  __HOST__ will be replaced with hosts.getCurrent()
 //
@@ -110,13 +113,22 @@ int rdadata_unsync(string remote_filename, string rdadata_home, string& error) {
   for (auto& h : hlst) {
     auto f = remote_filename;
     replace_all(f, "__HOST__", h);
-    auto e = retry_command("/bin/sh -c \"" + rdadata_home + "/bin/" + h +
-        "-sync -d " + f + "\"", 3);
+    auto idx = f.rfind("/");
+    auto p = f.substr(0, idx);
+    f = f.substr(idx + 1);
+//    auto e = retry_command("/bin/sh -c \"" + rdadata_home + "/bin/" + h +
+//        "-sync -d " + f + "\"", 3);
+    auto e = retry_command("/bin/sh -c 'rsync -r -e __INNER_QUOTE__ssh -i " +
+        rdadata_home + "/.ssh/" + h + "-sync_rdadata_rsa -l "
+        "rdadata__INNER_QUOTE__ --delete --include=" + f +
+        " __INNER_QUOTE__--exclude=*__INNER_QUOTE__ " + local_tmpdir + "/ " + h
+        + ".ucar.edu:" + p + "'", 3);
     if (e.length() > 0) {
       if (!error.empty()) {
         error += ", ";
       }
-      error += h + "-sync error: *'" + e + "'*";
+//      error += h + "-sync error: *'" + e + "'*";
+      error += "rsync error on '" + h + "': *'" + e + "'*";
       i = -1;
     }
   }
