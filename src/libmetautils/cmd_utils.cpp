@@ -27,7 +27,7 @@ std::vector<CMD_DATABASE> cmd_databases(std::string caller,std::string user)
     databases.emplace_back(std::make_tuple(databases_row[0],data_type));
   }
   server.disconnect();
-  return std::move(databases);
+  return databases;
 }
 
 void check_for_existing_cmd(std::string cmd_type)
