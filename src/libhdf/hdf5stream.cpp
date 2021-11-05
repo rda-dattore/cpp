@@ -830,7 +830,7 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
 	    if (HDF5::value(&datatype.properties[0],2) == 0) {
 		long long exp;
 		bits::get(reinterpret_cast<unsigned char *>(v),exp,exp_offset,exp_length);
-		long long mant;
+		long long mant = 0;
 		bits::get(reinterpret_cast<unsigned char *>(v),mant,mant_offset,mant_length);
 		short sign;
 		bits::get(reinterpret_cast<unsigned char *>(v),sign,sign_offset,1);
