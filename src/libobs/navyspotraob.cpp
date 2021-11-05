@@ -62,7 +62,7 @@ void NavySpotRaob::fill(const unsigned char *stream_buffer,bool fill_header_only
   size_t off=0,sig_type,m;
   int n,nl=0;
   short yr,mo,dy,hr;
-  short ind,nmand,ntrop,nwind;
+  short ind,nmand=0,ntrop=0,nwind=0;
   short nmax=0,nsig=0,x;
   int dum;
   bool missing;
