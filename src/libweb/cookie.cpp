@@ -1,142 +1,106 @@
+#include <iostream>
 #include <string>
 #include <list>
 #include <strutils.hpp>
+#include <datetime.hpp>
 #include <web/web.hpp>
 
-std::string rda_username()
-{
-  std::string rda_username_;
-  char *env;
-  if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    rda_username_=env;
-    size_t idx;
-    if ( (idx=rda_username_.find("duser=")) != std::string::npos) {
-	rda_username_=rda_username_.substr(idx+6);
-	if ( (idx=rda_username_.find(";")) != std::string::npos) {
-	  rda_username_=rda_username_.substr(0,idx);
-	}
-	if ( (idx=rda_username_.find(":")) != std::string::npos) {
-	  rda_username_=rda_username_.substr(0,idx);
-	}
+using std::cout;
+using std::endl;
+using std::list;
+using std::string;
+using strutils::split;
+
+string cookie_value(string cookie_name) {
+  string s; // return value
+  auto *e = getenv("HTTP_COOKIE");
+  if (e != nullptr) {
+    s = e;
+    auto idx = s.find(cookie_name + "=");
+    while (idx != string::npos && idx > 1 && s.substr(idx - 2, 2) != "; ") {
+      idx = s.find(cookie_name + "=", idx + 1);
     }
-    else {
-	rda_username_="";
+    if (idx != string::npos) {
+      s = s.substr(idx + cookie_name.length() + 1);
+      idx=s.find(";");
+      if (idx != string::npos) {
+        s = s.substr(0, idx);
+      }
+      idx=s.find(":");
+      if (idx != string::npos) {
+        s = s.substr(0, idx);
+      }
+    } else {
+      s = "";
     }
   }
-  return rda_username_;
+  return s;
 }
 
-std::string duser()
-{
-  return rda_username();
+string duser() {
+  return cookie_value("duser");
 }
 
-std::string session_ID()
-{
-  std::string session_ID_;
-  char *env;
-  if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    session_ID_=env;
-    size_t idx;
-    if ( (idx=session_ID_.find("sess=")) != std::string::npos) {
-	session_ID_=session_ID_.substr(idx+5);
-	if ( (idx=session_ID_.find(";")) != std::string::npos) {
-	  session_ID_=session_ID_.substr(0,idx);
-	}
-	if (session_ID_.length() != 20) {
-	  session_ID_="";
-	}
-    }
-    else {
-	session_ID_="";
+string session_ID() {
+  string s = cookie_value("sess");
+  if (s.length() != 20) {
+    s = "";
+  }
+  return s;
+}
+
+string twiki_name() {
+  return cookie_value("twikiname");
+}
+
+list<string> accesses_from_cookie() {
+  list<string> l; // return value
+  string s;
+  auto *env = getenv("HTTP_COOKIE");
+  if (env != nullptr) {
+    s = env;
+  }
+  if (!s.empty()) {
+    auto idx = s.find("duser=");
+    if (idx != string::npos) {
+      l.emplace_back("<g>");
+      s = s.substr(idx + 6);
+      idx=s.find(";");
+      if (idx != string::npos) {
+        s = s.substr(0, idx);
+      }
+      auto sp = split(s, ":");
+      sp.pop_front();
+      for (const auto& access : sp) {
+        l.emplace_back(access);
+      }
     }
   }
-  return session_ID_;
+  return l;
 }
 
-std::string twiki_name()
-{
-  std::string twiki_name_;
-  char *env;
-  if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    twiki_name_=env;
-    size_t idx;
-    if ( (idx=twiki_name_.find("twikiname=")) != std::string::npos) {
-	twiki_name_=twiki_name_.substr(idx+6);
-	if ( (idx=twiki_name_.find(";")) != std::string::npos) {
-	  twiki_name_=twiki_name_.substr(0,idx);
-	}
-	if ( (idx=twiki_name_.find(":")) != std::string::npos) {
-	  twiki_name_=twiki_name_.substr(0,idx);
-	}
-    }
-    else {
-	twiki_name_="";
-    }
-  }
-  return twiki_name_;
-}
-
-std::list<std::string> accesses_from_cookie()
-{
-  std::list<std::string> accesses;
-  char *env;
-  std::string cookie;
-  if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    cookie=env;
-  }
-  if (!cookie.empty() > 0) {
-    size_t idx;
-    if ( (idx=cookie.find("duser=")) != std::string::npos) {
-	accesses.emplace_back("<g>");
-	cookie=cookie.substr(idx+6);
-	if ( (idx=cookie.find(";")) != std::string::npos) {
-	  cookie=cookie.substr(0,idx);
-	}
-	auto access_list=strutils::split(cookie,":");
-	access_list.pop_front();
-	for (const auto& access : access_list) {
-	  accesses.emplace_back(access);
-	}
-    }
-  }
-  return accesses;
-}
-
-bool has_access(std::string acode)
-{
-  auto accesses=accesses_from_cookie();
-  for (const auto& access : accesses) {
-    if (access == acode) {
-	return true;
+bool has_access(string acode) {
+  auto l = accesses_from_cookie();
+  for (const auto& e : l) {
+    if (e == acode) {
+      return true;
     }
   }
   return false;
 }
 
-std::string value_from_cookie(std::string name)
-{
-
-  std::string value;
-  char *env;
-  if ( (env=getenv("HTTP_COOKIE")) != NULL) {
-    value=env;
-    auto idx=value.find(name+"=");
-    while (idx != std::string::npos && idx > 0 && value.substr(idx-2,2) != "; ") {
-	idx=value.find(name+"=",idx+1);
-    }
-    if (idx != std::string::npos) {
-	value=value.substr(idx+name.length()+1);
-	if ( (idx=value.find(";")) != std::string::npos) {
-	  value=value.substr(0,idx);
-	}
-	if ( (idx=value.find(":")) != std::string::npos) {
-	  value=value.substr(0,idx);
-	}
-    }
-    else {
-	value="";
-    }
+void set_cookie(string cookie_name, string cookie_value, string domain, string
+    path, DateTime *expiration_datetime) {
+  cout << "Set-Cookie: " << cookie_name << "=" << cookie_value << "; domain=" <<
+      domain << "; path=" << path << "; secure;";
+  if (expiration_datetime != nullptr) {
+    cout << " expires=" << expiration_datetime->to_string("%a, %d-%h-%Y "
+        "%HH:%MM:%SS") << " GMT;";
   }
-  return value;
+  cout << endl;
+}
+
+void clear_cookie(string cookie_name, string domain, string path) {
+  cout << "Set-Cookie: " << cookie_name << "=; domain=" << domain << "; path="
+      << path << "; expires=Mon, 1-Jan-2007 0:00:00 GMT;" << endl;
 }
