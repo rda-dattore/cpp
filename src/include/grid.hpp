@@ -29,16 +29,17 @@ public:
       staggeredLatitudeLongitude};
 
   struct GridDimensions {
-    GridDimensions() : x{0}, y{0}, size{0} { }
+    GridDimensions() : x(0), y(0), size(0) { }
 
     short x, y;
     size_t size;
   };
+
   struct GridDefinition {
-    GridDefinition() : type{Type::not_set}, slatitude{0.}, slongitude{0.},
-        elatitude{0.}, elongitude{0.}, loincrement{0.}, laincrement{0.},
-        projection_flag{0xff}, num_centers{0}, stdparallel1{99.},
-        stdparallel2{99.}, is_cell{false} { }
+    GridDefinition() : type(Type::not_set), slatitude(0.), slongitude(0.),
+        elatitude(0.), elongitude(0.), loincrement(0.), laincrement(0.),
+        projection_flag(0xff), num_centers(0), stdparallel1(99.),
+        stdparallel2(99.), is_cell(false) { }
 
     Type type;
     float slatitude, slongitude; // starting latitude, longitude
@@ -67,21 +68,24 @@ public:
     float stdparallel1, stdparallel2;
     bool is_cell;
   };
+
   struct GridStatistics {
-    GridStatistics() : min_val{MISSING_VALUE}, max_val{-MISSING_VALUE},
-        avg_val{0.}, min_i{-1}, min_j{-1}, max_i{-1}, max_j{-1} { }
+    GridStatistics() : min_val(MISSING_VALUE), max_val(-MISSING_VALUE),
+        avg_val(0.), min_i(-1), min_j(-1), max_i(-1), max_j(-1) { }
 
     double min_val, max_val, avg_val;
     int min_i, min_j, max_i, max_j;
   };
+
   struct EnsembleData {
-    EnsembleData() : fcst_type{ }, id{ }, total_size{0} { }
+    EnsembleData() : fcst_type(), id(), total_size(0) { }
 
     std::string fcst_type, id;
     short total_size;
   };
+
   struct GLatEntry {
-    GLatEntry() : key{ }, lats{nullptr} { }
+    GLatEntry() : key(), lats(nullptr) { }
     GLatEntry(const GLatEntry& source) : GLatEntry() { *this = source; }
     ~GLatEntry() {
       if (lats != nullptr) {
@@ -104,27 +108,28 @@ public:
     size_t key;  // number of latitude circles
     float *lats;
   };
+
   struct LL_SubsetDefinition {
     struct Latitude {
-      Latitude() : south{0.}, north{0.}, stride{0} { }
+      Latitude() : south(0.), north(0.), stride(0) { }
 
       float south, north;
       int stride;
     };
     struct Longitude {
-      Longitude() : west{0.}, east{0.}, stride{0} { }
+      Longitude() : west(0.), east(0.), stride(0) { }
 
       float west, east;
       int stride;
     };
     struct Dimension {
-      Dimension() : min{0}, max{0}, num{0} { }
+      Dimension() : min(0), max(0), num(0) { }
 
       int min, max, num;
     };
 
-    LL_SubsetDefinition() : latitude{ }, longitude{ }, x{ }, y{ },
-        crosses_greenwich{false} { }
+    LL_SubsetDefinition() : latitude(), longitude(), x(), y(),
+        crosses_greenwich(false) { }
 
     Latitude latitude;
     Longitude longitude;
@@ -132,9 +137,9 @@ public:
     bool crosses_greenwich;
   };
 
-  Grid() : m_reference_date_time{ }, m_forecast_date_time{ },
-      m_valid_date_time{ }, dim{ }, def{ }, stats{ }, ensdata{ }, grid{ },
-      m_gridpoints{nullptr}, num_in_sum{nullptr}, _path_to_gauslat_lists{ } { }
+  Grid() : m_reference_date_time(), m_forecast_date_time(), m_valid_date_time(),
+      dim(), def(), stats(), ensdata(), grid(), m_gridpoints(nullptr),
+      num_in_sum(nullptr), _path_to_gauslat_lists() { }
   Grid(const Grid& source) : Grid() { *this = source; }
   virtual ~Grid();
   Grid& operator=(const Grid& source) { return *this; }
@@ -206,9 +211,9 @@ protected:
   GridStatistics stats;
   EnsembleData ensdata;
   struct GridData {
-    GridData() : grid_type{0}, nmean{0}, param{0}, src{0}, num_missing{0},
-        level1{0.}, level2{0.}, level1_type{0}, level2_type{-1}, fcst_time{0},
-        pole{0.}, num_in_pole_sum{0}, filled{false} { }
+    GridData() : grid_type(0), nmean(0), param(0), src(0), num_missing(0),
+        level1(0.), level2(0.), level1_type(0), level2_type(-1), fcst_time(0),
+        pole(0.), num_in_pole_sum(0), filled(false) { }
 
     short grid_type, nmean, param, src;
     size_t num_missing;
@@ -229,7 +234,7 @@ protected:
 
 class InputGRIBStream : public idstream {
 public:
-  InputGRIBStream() : curr_offset{0} { }
+  InputGRIBStream() : curr_offset(0) { }
 
   // pure virtual functions from idstream
   int ignore() { return bfstream::error; }
@@ -242,20 +247,6 @@ public:
   // local methods
   off_t current_record_offset() const { return curr_offset; }
 
-  // exceptions for this input stream
-  class Exception : public std::exception {
-  public:
-    enum class Type { COS_blocked, already_connected, not_GRIB, i_overflow,
-        no_end };
-
-    Exception() = delete;
-    Exception(const Type& type) : m_type{type} { }
-    const char *what() const throw();
-
-  private:
-    Type m_type;
-  };
-
 private:
   int find_grib(unsigned char *buffer);
 
@@ -265,21 +256,21 @@ private:
 class GRIBMessage {
 public:
   struct Offsets {
-    Offsets() : is{-1}, ids{-1}, pds{-1}, gds{-1}, drs{-1}, bms{-1}, bds{-1},
-        ds{-1} { }
+    Offsets() : is(-1), ids(-1), pds(-1), gds(-1), drs(-1), bms(-1), bds(-1),
+        ds(-1) { }
 
     int is, ids, pds, gds, drs, bms, bds, ds;
   };
   struct Lengths {
-    Lengths() : is{0}, ids{0}, pds{0}, pds_supp{0}, gds{0}, drs{0}, bms{0},
-        bds{0}, ds{0} { }
+    Lengths() : is(0), ids(0), pds(0), pds_supp(0), gds(0), drs(0), bms(0),
+        bds(0), ds(0) { }
 
     int is, ids, pds, pds_supp, gds, drs, bms, bds, ds;
   };
 
-  GRIBMessage() : m_edition{-1}, discipline{0}, mlength{0}, curr_off{-1},
-      m_offsets{ }, m_lengths{ }, pds_supp{nullptr}, gds_included{false},
-      bms_included{false}, grids{ } { }
+  GRIBMessage() : m_edition(-1), discipline(0), mlength(0), curr_off(-1),
+      m_offsets(), m_lengths(), pds_supp(nullptr), gds_included(false),
+      bms_included(false), grids(} { }
   GRIBMessage(const GRIBMessage& source) : GRIBMessage() { *this = source; }
   virtual ~GRIBMessage() { }
   GRIBMessage& operator=(const GRIBMessage& source);
@@ -334,7 +325,7 @@ class GRIB2Message : public GRIBMessage {
 public:
 #ifdef __JASPER
   struct JasMatrix {
-    JasMatrix() : height{0}, width{0}, data{nullptr} { }
+    JasMatrix() : height(0), width(0), data(nullptr) { }
     JasMatrix(const JasMatrix& source) = delete;
     ~JasMatrix() {
       if (data != nullptr) {
@@ -349,9 +340,9 @@ public:
 #endif
 
 #ifdef __JASPER
-  GRIB2Message() : lus_len{0}, jas_matrix() { }
+  GRIB2Message() : lus_len(0), jas_matrix() { }
 #else
-  GRIB2Message() : lus_len{0} { }
+  GRIB2Message() : lus_len(0) { }
 #endif
   off_t copy_to_buffer(unsigned char *output_buffer, const size_t
       buffer_length);
@@ -376,7 +367,7 @@ protected:
 
   int lus_len;
 #ifdef __JASPER
-    JasMatrix jas_matrix;
+  JasMatrix jas_matrix;
 #endif
 };
 
@@ -400,13 +391,14 @@ public:
   static const short OCTAGONAL_GRID_PARAMETER_MAP[94];
   static const short NAVY_GRID_PARAMETER_MAP[60];
   static const short ON84_GRID_PARAMETER_MAP[406];
+
   struct GRIBData {
-    GRIBData() : reference_date_time{ }, valid_date_time{ }, dim{ }, def{ },
-        param_version{0}, source{0}, process{0}, grid_catalog_id{0},
-        time_unit{0}, time_range{0}, sub_center{0}, D{0}, grid_type{0},
-        scan_mode{0}, rescomp_flag{0}, level_types{0, 0}, param_code{0},
-        levels{0, 0}, p1{0}, p2{0}, num_averaged{0}, num_averaged_missing{0},
-        pack_width{0}, gds_included{false}, plist{nullptr}, gridpoints{nullptr}
+    GRIBData() : reference_date_time(), valid_date_time(), dim(), def(),
+        param_version(0), source(0), process(0), grid_catalog_id(0),
+        time_unit(0), time_range(0), sub_center(0), D(0), grid_type(0),
+        scan_mode(0), rescomp_flag(0), level_types(0, 0), param_code(0),
+        levels(0, 0), p1(0), p2(0), num_averaged(0), num_averaged_missing(0),
+        pack_width(0), gds_included(false), plist(nullptr), gridpoints(nullptr)
         { }
 
     DateTime reference_date_time, valid_date_time;
@@ -421,7 +413,8 @@ public:
     int *plist;
     double **gridpoints;
   };
-  GRIBGrid() : plist{nullptr}, bitmap{ }, grib{ }, map{ } { }
+
+  GRIBGrid() : plist(nullptr), bitmap(), grib(), map() { }
   GRIBGrid(const GRIBGrid& source) : GRIBGrid() { *this = source; }
   virtual ~GRIBGrid();
   GRIBGrid& operator=(const GRIBGrid& source);
@@ -508,24 +501,26 @@ protected:
 
   int *plist;
   struct Bitmap {
-    Bitmap() : map{ }, capacity{0}, applies{false} { }
+    Bitmap() : map(), capacity(0), applies(false) { }
 
     unsigned char *map;
     size_t capacity;
     bool applies;
   } bitmap;
+
   struct GRIB {
-    GRIB() : capacity{ }, last_src{0}, table{0}, process{0}, grid_catalog_id{0},
-        scan_mode{0}, time_unit{0}, p1{0}, p2{0}, t_range{0}, nmean_missing{0},
-        century{0}, sub_center{0}, pack_width{0}, prod_descr{ }, D{0}, E{0},
-        rescomp{ }, sp_lat{0.}, sp_lon{0.}, map_available{true},
-        map_filled{false} { }
+    GRIB() : capacity(), last_src(0), table(0), process(0), grid_catalog_id(0),
+        scan_mode(0), time_unit(0), p1(0), p2(0), t_range(0), nmean_missing(0),
+        century(0), sub_center(0), pack_width(0), prod_descr(), D(0), E(0),
+        rescomp(), sp_lat(0.), sp_lon(0.), map_available(true), map_filled(
+        false) { }
 
     struct Capacity {
-	Capacity() : y{0}, points{0} { }
+	Capacity() : y(0), points(0) { }
 
 	size_t y, points;
     } capacity;
+
     short last_src, table, process, grid_catalog_id, scan_mode, time_unit, p1,
         p2, t_range, nmean_missing, century, sub_center, pack_width;
     std::string prod_descr;
@@ -534,13 +529,15 @@ protected:
     float sp_lat, sp_lon;
     bool map_available, map_filled;
   } grib;
+
   struct Map {
-    Map() : param{nullptr}, level_type{nullptr}, lvl{nullptr}, lvl2{nullptr},
-        mult{nullptr} { }
+    Map() : param(nullptr), level_type(nullptr), lvl(nullptr), lvl2(nullptr),
+        mult(nullptr) { }
 
     short *param, *level_type, *lvl, *lvl2;
     float *mult;
   } map;
+
 };
 
 class GRIB2Grid : public GRIBGrid {
@@ -555,7 +552,7 @@ public:
     } period_length, period_time_increment;
   };
 
-  GRIB2Grid() : grib2{ } { }
+  GRIB2Grid() : grib2() { }
   GRIB2Grid(const GRIB2Grid& source) : GRIB2Grid() { *this = source; }
   GRIB2Grid& operator=(const GRIB2Grid& source);
   void compute_mean();
@@ -614,12 +611,12 @@ private:
   virtual std::string build_parameter_search_key() const;
 
   struct GRIB2 {
-    GRIB2() : discipline{0}, data_type{0}, stat_process_nmissing{0},
-        prod_status{0}, local_table{0}, time_sig{0}, product_type{0},
-        param_cat{0}, backgen_process{0}, fcstgen_process{0}, data_rep{0},
-        num_coord_vals{0}, level2_type{0}, lp_width{0}, lpi{0}, earth_shape{0},
-        orig_val_type{0}, stat_period_end{ }, modelv_date{ },
-        stat_process_ranges{ }, spatial_process{ }, complex_pack{ } { }
+    GRIB2() : discipline(0), data_type(0), stat_process_nmissing(0),
+        prod_status(0), local_table(0), time_sig(0), product_type(0),
+        param_cat(0), backgen_process(0), fcstgen_process(0), data_rep(0),
+        num_coord_vals(0), level2_type(0), lp_width(0), lpi(0), earth_shape(0),
+        orig_val_type(0), stat_period_end(), modelv_date(),
+        stat_process_ranges(), spatial_process(), complex_pack() { }
 
     size_t discipline, data_type, stat_process_nmissing;
     short prod_status, local_table, time_sig;
@@ -628,35 +625,42 @@ private:
     short level2_type, lp_width, lpi, earth_shape, orig_val_type;
     DateTime stat_period_end, modelv_date;
     std::vector<StatisticalProcessRange> stat_process_ranges;
+
     struct SpatialProcess {
-	SpatialProcess() : stat_process{0}, type{-1}, num_points{0} { }
+	SpatialProcess() : stat_process(0), type(-1), num_points(0) { }
 
 	short stat_process, type,num_points;
     } spatial_process;
+
     struct ComplexPack{
-	ComplexPack() : grid_point{ } { }
+	ComplexPack() : grid_point() { }
 
 	struct GridPoint {
-	  GridPoint() : split_method{0}, miss_val_mgmt{0}, width_ref{0},
-              width_pack_width{0}, length_incr{0}, length_pack_width{0},
-              primary_miss_sub{0.}, secondary_miss_sub{0.}, num_groups{0},
-              length_ref{0}, last_length{0}, ref_vals{ }, widths{ }, lengths{ },
-              pvals{ }, spatial_diff{ } { }
+	  GridPoint() : split_method(0), miss_val_mgmt(0), width_ref(0),
+              width_pack_width(0), length_incr(0), length_pack_width(0),
+              primary_miss_sub(0.), secondary_miss_sub(0.), num_groups(0),
+              length_ref(0), last_length(0), ref_vals(), widths(), lengths(),
+              pvals(), spatial_diff() { }
 
 	  short split_method, miss_val_mgmt, width_ref, width_pack_width,
               length_incr, length_pack_width;
 	  double primary_miss_sub, secondary_miss_sub;
 	  int num_groups, length_ref, last_length;
 	  std::vector<int> ref_vals, widths, lengths, pvals;
+
 	  struct SpatialDiff {
-	    SpatialDiff() : order{0}, order_vals_width{0}, first_vals{ } { }
+	    SpatialDiff() : order(0), order_vals_width(0), first_vals() { }
 
 	    short order, order_vals_width;
 	    std::vector<int> first_vals;
 	  } spatial_diff;
+
 	} grid_point;
+
     } complex_pack;
+
   } grib2;
+
 };
 
 class InputOctagonalGridStream : public idstream {
@@ -723,7 +727,7 @@ private:
 
 class InputLatLonGridStream : public idstream {
 public:
-  InputLatLonGridStream() : res{5.} { }
+  InputLatLonGridStream() : res(5.) { }
   InputLatLonGridStream(float resolution) : res(resolution) { }
   int ignore() { return bfstream::error; }
   int peek();
@@ -868,7 +872,7 @@ public:
   static const char *PARAMETER_DESCRIPTION[PARAMETER_SIZE];
   static const char *PARAMETER_UNITS[PARAMETER_SIZE];
 
-  ON84Grid() : on84{ } { }
+  ON84Grid() : on84() { }
   ON84Grid(const ON84Grid& source) : ON84Grid() { *this = source; }
   ON84Grid& operator=(const ON84Grid& source);
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
@@ -892,7 +896,7 @@ private:
       path_to_parameter_map) const;
 
   struct ON84 {
-    ON84() : capacity{0}, f1{0}, f2{0}, time_mark{0}, run_mark{0}, gen_prog{0}
+    ON84() : capacity(0), f1(0), f2(0), time_mark(0), run_mark(0), gen_prog(0)
         { }
 
     size_t capacity;
@@ -902,8 +906,8 @@ private:
 
 class InputQuasiON84GridStream : public idstream {
 public:
-  InputQuasiON84GridStream() : yr{0}, mo{0}, dy{0}, hr{0}, fcst_hr{0.},
-      rec_num{0} { }
+  InputQuasiON84GridStream() : yr(0), mo(0), dy(0), hr(0), fcst_hr(0.),
+      rec_num(0) { }
   int ignore() { return bfstream::error; }
   int peek() { return bfstream::error; }
   int read(unsigned char *buffer, size_t buffer_length);
@@ -916,7 +920,7 @@ private:
 
 class InputCGCM1GridStream : public idstream {
 public:
-  InputCGCM1GridStream() : is_binary{false} { }
+  InputCGCM1GridStream() : is_binary(false) { }
   int ignore() { return bfstream::error; }
   int peek();
   int read(unsigned char *buffer, size_t buffer_length);
@@ -944,7 +948,7 @@ private:
       path_to_parameter_map) const;
 
   struct CGCM1 {
-    CGCM1() : capacity{0}, tstep{0}, pack_dens{0}, var_name{ } { }
+    CGCM1() : capacity(0), tstep(0), pack_dens(0), var_name() { }
 
     size_t capacity, tstep;
     short pack_dens;
@@ -976,7 +980,7 @@ class TDLGRIBGrid : public GRIBGrid {
 friend class TDLGRIBMessage;
 
 public:
-  TDLGRIBGrid() : tdl{ } { }
+  TDLGRIBGrid() : tdl() { }
   TDLGRIBGrid(const TDLGRIBGrid& source) : TDLGRIBGrid() { *this = source; }
   TDLGRIBGrid& operator=(const TDLGRIBGrid& source);
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
@@ -997,19 +1001,20 @@ private:
       path_to_parameter_map) const;
 
   struct TDLData {
-    TDLData() : param{0}, B{0}, V{0}, T{0}, RR{0}, O{0}, HH{0}, seq{0}, E{0},
-        first_val{0}, first_diff{0}, pds39_a{pds39} { }
+    TDLData() : param(0), B(0), V(0), T(0), RR(0), O(0), HH(0), seq(0), E(0),
+        first_val(0), first_diff(0), pds39_a(pds39) { }
 
     size_t param;
     short B, V, T, RR, O, HH, seq;
     int E, first_val, first_diff;
     unsigned char pds39[39], *pds39_a;
   } tdl;
+
 };
 
 class InputUSSRSLPGridStream : public idstream {
 public:
-  InputUSSRSLPGridStream() : ptr_to_lrec{2316} { }
+  InputUSSRSLPGridStream() : ptr_to_lrec(2316) { }
   int ignore() { return bfstream::error; }
   int peek();
   int read(unsigned char *buffer, size_t buffer_length);
@@ -1046,7 +1051,7 @@ public:
 
 class NavyGrid : public Grid {
 public:
-  NavyGrid() : status{0} { }
+  NavyGrid() : status(0) { }
   void fill(const unsigned char *stream_buffer, bool fill_header_only = false);
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
       buffer_length) const;
@@ -1107,7 +1112,7 @@ class NOAAOI2SSTGrid : public Grid {
 public:
   static const unsigned char MASK[180][360];
 
-  NOAAOI2SSTGrid() : m_version{0} { }
+  NOAAOI2SSTGrid() : m_version(0) { }
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
       buffer_length) const;
   void fill(const unsigned char *stream_buffer, bool fill_header_only = false);
@@ -1128,8 +1133,8 @@ private:
 
 class InputJRAIEEEMMGridStream : public idstream {
 public:
-  InputJRAIEEEMMGridStream() : file_type{ }, recln{0}, yr{0}, mo{0},
-      def_type{Grid::Type::not_set}, dimx{0}, dimy{0}, xres{0.}, yres{0.} { }
+  InputJRAIEEEMMGridStream() : file_type(), recln(0), yr(0), mo(0), def_type(
+      Grid::Type::not_set), dimx(0), dimy(0), xres(0.), yres(0.) { }
   int ignore() { return bfstream::error; }
   bool open(std::string filename);
   int peek();
@@ -1167,7 +1172,7 @@ private:
 
 class JRAIEEEMMGrid : public Grid {
 public:
-  JRAIEEEMMGrid() : m_time_range{ } { }
+  JRAIEEEMMGrid() : m_time_range() { }
   JRAIEEEMMGrid(const JRAIEEEMMGrid &source) : JRAIEEEMMGrid() { *this =
       source; }
   JRAIEEEMMGrid& operator=(const JRAIEEEMMGrid& source);
@@ -1191,8 +1196,8 @@ private:
 
 class InputCMORPH025GridStream : public idstream {
 public:
-  InputCMORPH025GridStream() : type{0}, m_date_time{ }, parameter{ },
-      latitude{ } { } 
+  InputCMORPH025GridStream() : type(0), m_date_time(), parameter(),
+      latitude() { } 
   int ignore() { return bfstream::error; }
   bool open(std::string filename);
   DateTime date_time() { return m_date_time; }
@@ -1207,21 +1212,25 @@ public:
 private:
   short type;
   DateTime m_date_time;
+
   struct ParameterData {
-    ParameterData() : code{ }, description{ }, units{ } { }
+    ParameterData() : code(), description(), units() { }
 
     std::string code, description, units;
   } parameter;
+
   struct LatitudeData {
-    LatitudeData() : start{0.}, end{0.} { }
+    LatitudeData() : start(0.), end(0.) { }
 
     float start, end;
   } latitude;
+
 };
 
 class CMORPH025Grid : public Grid {
 public:
-  enum {CMORPHCombinedType=1, CMORPHAccumulationType};
+  enum { CMORPHCombinedType=1, CMORPHAccumulationType };
+
   CMORPH025Grid();
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
       buffer_length) const;
@@ -1243,7 +1252,7 @@ private:
 
 class InputCMORPH8kmGridStream : public idstream {
 public:
-  InputCMORPH8kmGridStream() : m_date_time{ } { }
+  InputCMORPH8kmGridStream() : m_date_time() { }
   int ignore() { return bfstream::error; }
   bool open(std::string filename);
   int peek();
@@ -1274,8 +1283,8 @@ private:
 
 class InputGPCPGridStream : public idstream {
 public:
-  InputGPCPGridStream() : header{nullptr}, hdr_size{0}, rec_size{0},
-      eof_offset{0} { }
+  InputGPCPGridStream() : header(nullptr), hdr_size(0), rec_size(0),
+      eof_offset(0) { }
   int ignore();
   int peek();
   int read(unsigned char *buffer, size_t buffer_length);
@@ -1289,8 +1298,8 @@ private:
 
 class GPCPGrid : public Grid {
 public:
-  GPCPGrid() : x_capacity{0}, y_capacity{0}, param_name{ }, param_units{ },
-      is_empty{true} { }
+  GPCPGrid() : x_capacity(0), y_capacity(0), param_name(), param_units(),
+      is_empty(true) { }
   size_t copy_to_buffer(unsigned char *output_buffer, const size_t
       buffer_length) const;
   void fill(const unsigned char *stream_buffer, bool fill_header_only);
@@ -1316,22 +1325,17 @@ private:
 namespace grib_utils {
 
 struct StringEntry {
-  StringEntry() : key{ } { }
+  StringEntry() : key() { }
 
   std::string key;
 };
 
-extern std::string grib_product_description(GRIBGrid *grid, DateTime&
-    forecast_date_time, DateTime& valid_date_time, size_t& fcst_time);
-extern std::string grib2_product_description(GRIB2Grid *grid, DateTime&
-    forecast_date_time, DateTime& valid_date_time);
+extern std::tuple<std::string, DateTime, DateTime, size_t> grib_product(
+    GRIBGrid *grid);
+extern std::tuple<std::string, DateTime, DateTime> grib2_product(GRIB2Grid
+    *grid);
 
 extern short p2_from_statistical_end_time(const GRIB2Grid& grid);
-
-#ifdef __JASPER
-int dec_jpeg2000(char *injpc, int bufsize, GRIB2Message::JasMatrix& jas_matrix,
-    int *outfld);
-#endif
 
 } // end namespace grib_utils
 
@@ -1339,9 +1343,9 @@ namespace grid_to_netcdf {
 
 class GridData {
 public:
-  GridData() : ref_date_time{ }, cell_methods{ }, subset_definition{ },
-      parameter_mapper{ }, record_flag{0}, num_parameters_in_file{1},
-      num_parameters_written{0}, path_to_gauslat_lists{ }, wrote_header{false}
+  GridData() : ref_date_time(), cell_methods(), subset_definition(),
+      parameter_mapper(), record_flag(0), num_parameters_in_file(1),
+      num_parameters_written(0), path_to_gauslat_lists(), wrote_header(false)
       { }
 
   DateTime ref_date_time;
@@ -1353,8 +1357,9 @@ public:
   std::string path_to_gauslat_lists;
   bool wrote_header;
 };
+
 struct HouseKeeping {
-  HouseKeeping() : unique_variable_table{ }, include_parameter_set{nullptr} { }
+  HouseKeeping() : unique_variable_table(), include_parameter_set(nullptr) { }
 
   my::map<NetCDF::UniqueVariableEntry> unique_variable_table;
   std::shared_ptr<std::unordered_set<std::string>> include_parameter_set;
@@ -1396,14 +1401,18 @@ extern void convert_grid_parameter_string(Grid::Format format, const char
 
 namespace grid_print {
 
-extern int print(std::string input_filename, size_t format, bool headers_only,
-    bool verbose, size_t start, size_t stop, std::string
+extern int print(std::string input_filename, Grid::Format format, bool
+    headers_only, bool verbose, size_t start, size_t stop, std::string
     path_to_parameter_map = "");
-extern int print_ascii(std::string input_filename, size_t format, size_t start,
-    size_t stop);
+extern int print_ascii(std::string input_filename, Grid::Format format, size_t
+    start, size_t stop);
 
 } // end namespace grid_print
 
+#ifdef __JASPER
+extern int encode_jpeg2000(unsigned char *cin, int *pwidth, int *pheight, int
+    *pnbits, int *ltype, int *ratio, int *retry, char *outjpc, int *jpclen);
+#endif
 extern bool operator==(const Grid::GridDefinition& def1, const
     Grid::GridDefinition& def2);
 extern bool operator!=(const Grid::GridDefinition& def1, const
