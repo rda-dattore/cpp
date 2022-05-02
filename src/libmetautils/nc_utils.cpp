@@ -137,9 +137,9 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
       if (l.find("monthly") != string::npos) {
         s = "Monthly ";
       } else if (time_data.units == "hours") {
-        if (tre.data->bounded.first_valid_datetime.year() > 0) {
-          auto n = tre.data->instantaneous.first_valid_datetime.hours_since(tre.
-              data->bounded.first_valid_datetime) * 2;
+        if (tre.bounded.first_valid_datetime.year() > 0) {
+          auto n = tre.instantaneous.first_valid_datetime.hours_since(tre.
+              bounded.first_valid_datetime) * 2;
           switch (n) {
             case 1: {
               s = "Hourly ";
@@ -152,10 +152,10 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
           s = "Hourly ";
         }
       } else if (time_data.units == "days") {
-        if (tre.data->bounded.first_valid_datetime.year() > 0) {
-          auto a = tre.data->bounded.last_valid_datetime.days_since(tre.data->
-              bounded.first_valid_datetime, time_data.calendar);
-          auto n = a / tre.data->num_steps;
+        if (tre.bounded.first_valid_datetime.year() > 0) {
+          auto a = tre.bounded.last_valid_datetime.days_since(tre.bounded.
+              first_valid_datetime, time_data.calendar);
+          auto n = a / tre.num_steps;
           switch (n) {
             case 1: {
               s = "Daily ";
@@ -167,8 +167,8 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
             }
             case 30:
             case 31: {
-              if (tre.data->bounded.last_valid_datetime.years_since(tre.data->
-                  bounded.first_valid_datetime) > 0) {
+              if (tre.bounded.last_valid_datetime.years_since(tre.bounded.
+                  first_valid_datetime) > 0) {
                 s = "Monthly ";
               }
               break;
@@ -220,7 +220,7 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
       auto idx = l.find(" within");
       if (idx != string::npos) {
         auto c = strutils::capitalize(l.substr(0, idx) + "s");
-        switch (tre.data->unit) {
+        switch (tre.unit) {
           case 1: {
             s += "Monthly " + c;
             break;
@@ -366,9 +366,9 @@ string write_level_map(const vector<LevelInfo>& level_info) {
 
 namespace NcParameter {
 
-string write_parameter_map(std::list<string>& varlist, my::map<metautils::
-    StringEntry>& var_changes_table, string map_type, string map_name, bool
-    found_map, string& warning) {
+string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
+    var_changes_table, string map_type, string map_name, bool found_map, string&
+    warning) {
   stringstream ess; // return value
   if (varlist.size() > 0) {
     vector<string> v;
@@ -408,9 +408,7 @@ string write_parameter_map(std::list<string>& varlist, my::map<metautils::
       for (const auto& e : v) {
         if (e.find(" code=\"") != string::npos) {
           auto sp = split(e, "\"");
-          metautils::StringEntry se;
-          se.key = sp[1];
-          if (var_changes_table.found(se.key, se)) {
+          if (var_changes_table.find(sp[1]) != var_changes_table.end()) {
             b = true;
           }
         }
