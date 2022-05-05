@@ -175,6 +175,14 @@ struct GrMLQueryStruct {
   Hashes hashes;
 };
 
+struct UtilityIdentification {
+  UtilityIdentification() = delete;
+  UtilityIdentification(std::string caller, std::string user) : m_caller(caller),
+      m_user( user) { }
+
+  std::string m_caller, m_user;
+};
+
 class DatasetChecker {
 public:
   static const std::string field_nonexist;
@@ -219,17 +227,12 @@ struct TimeData {
 };
 
 struct TimeRangeEntry {
-  struct Data {
-    Data() : unit(-1), num_steps(0), instantaneous(), bounded() { }
-
-    int unit, num_steps;
-    TimeRange instantaneous,bounded;
-  };
-
-  TimeRangeEntry() : key(), data(nullptr) { }
+  TimeRangeEntry() : key(), unit(-1), num_steps(0), instantaneous(), bounded()
+      { }
 
   size_t key;
-  std::shared_ptr<Data> data;
+  int unit, num_steps;
+  TimeRange instantaneous, bounded;
 };
 
 DateTime actual_date_time(double time, const TimeData& time_data, std::string&
@@ -258,8 +261,8 @@ std::string write_level_map(const std::vector<LevelInfo>& level_info);
 
 namespace NcParameter {
 
-std::string write_parameter_map(std::list<std::string>& varlist, my::map<
-    metautils::StringEntry>& var_changes_table, std::string map_type, std::
+std::string write_parameter_map(std::list<std::string>& varlist, std::
+    unordered_set<std::string>& var_changes_table, std::string map_type, std::
     string map_name, bool found_map, std::string& warning);
 
 } // end namespace metautils::NcParameter
@@ -300,6 +303,8 @@ extern void log_error(std::string error, std::string caller, std::string user,
     bool no_exit = false);
 extern void log_error2(std::string error, std::string reporter, std::string
     caller, std::string user, bool no_exit = false);
+extern void log_error2(std::string error, std::string reporter, const
+    UtilityIdentification& util_ident, bool no_exit = false);
 extern void log_info(std::string message, std::string caller, std::string user);
 extern void log_warning(std::string warning, std::string caller, std::string
     user);
