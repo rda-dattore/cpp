@@ -280,6 +280,14 @@ std::string get_grib2_time_range(GRIB2Grid& grid)
         trange="Accum_"+strutils::itos(spranges[0].period_length.unit);
         break;
       }
+      case 2: {
+        trange = "Max_" + strutils::itos(spranges[0].period_length.unit);
+        break;
+      }
+      case 3: {
+        trange = "Min_" + strutils::itos(spranges[0].period_length.unit);
+        break;
+      }
       case 193:
       case 194: {
         if (grid.source() == 7 || grid.source() == 60) {
@@ -935,11 +943,12 @@ void write_netcdf_header_from_grib_file(InputGRIBStream& istream,OutputNetCDFStr
       grid=msg->grid(n);
       if (hk.include_parameter_set != nullptr) {
         include_parameter=false;
+        auto key = strutils::itos(grid->parameter());
         if (edition == 2) {
-          auto key=strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->discipline())+"."+strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->parameter_category())+"."+strutils::itos(grid->parameter());
-          if (hk.include_parameter_set->find(key) != hk.include_parameter_set->end()) {
-            include_parameter=true;
-          }
+          key=strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->discipline())+"."+strutils::itos((reinterpret_cast<GRIB2Grid *>(grid))->parameter_category())+"."+key;
+        }
+        if (hk.include_parameter_set->find(key) != hk.include_parameter_set->end()) {
+          include_parameter=true;
         }
       }
       if (include_parameter) {
@@ -1811,15 +1820,30 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
             for (m=0; m <= grid_data.subset_definition.x.max; ++m) {
               gridpoints.set(l++,source_grid->gridpoint(m,n));
             }
-          }
-          else {
+          } else {
             for (m=grid_data.subset_definition.x.min; m <= grid_data.subset_definition.x.max; ++m) {
               gridpoints.set(l++,source_grid->gridpoint(m,n));
             }
           }
         }
-      }
-      else {
+      } else if (g->scan_mode() == 0x40) {
+        for (n = grid_data.subset_definition.y.max, l = 0; n >= 0; --n) {
+          if (grid_data.subset_definition.crosses_greenwich) {
+            for (m = grid_data.subset_definition.x.min; m < source_grid->
+                dimensions().x; ++m) {
+              gridpoints.set(l++, source_grid->gridpoint(m, n));
+            }
+            for (m = 0; m <= grid_data.subset_definition.x.max; ++m) {
+              gridpoints.set(l++, source_grid->gridpoint(m, n));
+            }
+          } else {
+            for (m = grid_data.subset_definition.x.min; m <= grid_data.
+                subset_definition.x.max; ++m) {
+              gridpoints.set(l++, source_grid->gridpoint(m, n));
+            }
+          }
+        }
+      } else {
 std::cerr << "Error: unable to handle scan mode " << g->scan_mode() << std::endl;
 exit(1);
       }
