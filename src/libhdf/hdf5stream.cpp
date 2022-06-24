@@ -119,6 +119,10 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
           unsigned char *cbuf = new unsigned char[length];
           std::copy(buffer.get(), buffer.get() + length, cbuf);
           auto sl = length / dataset.data.size_of_element;
+#ifdef __DEBUG
+          cerr << "length: " << length << "  size of data element: " <<
+              dataset.data.size_of_element << "  sl: " << sl << endl;
+#endif
           for (size_t x = 1, y = 0; x < length - 1; ++x) {
             auto z = x % sl;
             if (z == 0) {
@@ -1701,10 +1705,10 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
           int n;
           if (decode_attribute(&buf2[local_off], attr, n, 2)) {
 #ifdef __DEBUG
-            cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->first << "' " <<
-                &root_group << " " << frhp_data.dse->second << endl;
+            cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->key << "' " <<
+                &root_group << " " << frhp_data.dse->p_ds << endl;
             cerr << "  name: " << attr.first << "  dataset: " << frhp_data.dse->
-                second << endl;
+                p_ds << endl;
 #endif
             if (frhp_data.dse->p_ds->attributes.find(attr.first) == frhp_data.
                 dse->p_ds->attributes.end()) {
@@ -1901,7 +1905,7 @@ bool InputHDF5Stream::decode_header_messages(int ohdr_version, size_t
       group->datasets.emplace_back(dse);
     }
 #ifdef __DEBUG
-    cerr << "  HERE " << dse.second << " '" << dse.first << "' '" << ident <<
+    cerr << "  HERE " << dse.p_ds << " '" << dse.key << "' '" << ident <<
         "'" << endl;
 #endif
   } else {
@@ -1992,7 +1996,7 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
 
       // Fill value (deprecated)
 #ifdef __DEBUG
-      cerr << "FILLVALUE (deprecated) '" << dse.first << "'" << endl;
+      cerr << "FILLVALUE (deprecated) '" << dse.key << "'" << endl;
 #endif
       if (dse.p_ds->fillvalue.length == 0) {
         if ( (dse.p_ds->fillvalue.length=HDF5::value(&buffer[0], 4)) > 0) {
@@ -2008,7 +2012,7 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
 
       // Fill value
 #ifdef __DEBUG
-      cerr << "FILLVALUE '" << dse.first << "'" << endl;
+      cerr << "FILLVALUE '" << dse.key << "'" << endl;
 #endif
       switch (static_cast<int>(buffer[0])) {
         case 2: {
@@ -2265,7 +2269,7 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
 
       // Attribute
 #ifdef __DEBUG
-      cerr << "ATTRIBUTE (2) of '" << dse.first << "' " << group << " " << dse.
+      cerr << "ATTRIBUTE (2) of '" << dse.key << "' " << group << " " << dse.
           p_ds << endl;
 #endif
       Attribute attr;
@@ -2321,9 +2325,12 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
       if (group == nullptr) {
         g = &root_group;
       } else {
+        group->groups.emplace_back(GroupEntry());
+        group->groups.back().key = ident;
+        group->groups.back().p_g.reset(new Group);
 #ifdef __DEBUG
-        group->groups.emplace_back(ident, new Group);
-        cerr << "SUBGROUP '" << ident << "' " << group->groups[ident] << endl;
+        cerr << "SUBGROUP '" << ident << "' " << group->groups.back().p_g <<
+            endl;
 #endif
         g = group->groups.back().p_g.get();
       }
