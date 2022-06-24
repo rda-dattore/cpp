@@ -4,6 +4,13 @@
 #include <bits.hpp>
 #include <myerror.hpp>
 
+using std::cerr;
+using std::endl;
+using std::string;
+using std::to_string;
+using std::vector;
+using strutils::append;
+
 namespace HDF5 {
 
 int data_array_index(size_t chunk_index,const std::deque<size_t>& multipliers,const std::vector<size_t> offsets,const std::vector<unsigned long long>& array_dimensions)
@@ -397,20 +404,53 @@ else if (bit_length == 64 && datatype.properties[5] == 11 && datatype.properties
   return true;
 }
 
-bool decode_string_array(const unsigned char *buffer,const InputHDF5Stream::Datatype& datatype,int size_of_element,void **values,size_t num_values,DataArray::Type& type,size_t& index,size_t chunk_length)
-{
-  unsigned char *buf=const_cast<unsigned char *>(buffer);
+bool decode_string_array(const InputHDF5Stream::Chunk& chunk, int buffer_off,
+    int size_of_element, void **values, size_t num_values, DataArray::Type&
+    type, size_t& index) {
+  auto buf = const_cast<unsigned char *>(&chunk.buffer[buffer_off]);
   if (*values == nullptr) {
-    *values=new std::string[num_values];
-    type=DataArray::Type::STRING;
+    *values = new string[num_values];
+    for (size_t n = 0; n < num_values; ++n) {
+      reinterpret_cast<string *>(*values)[n].assign(size_of_element, ' ');
+    }
+    type = DataArray::Type::STRING;
   }
-  size_t nvals=chunk_length/size_of_element;
-  size_t end=index+nvals;
+  size_t end = index + chunk.length / size_of_element;
   if (end > num_values) {
-    end=num_values;
+    end = num_values;
   }
-  for (; index < end; ++index,buf+=size_of_element) {
-    ((reinterpret_cast<std::string *>(*values))[index]).assign(reinterpret_cast<char *>(buf),size_of_element);
+  for (; index < end; ++index, buf += size_of_element) {
+    reinterpret_cast<string *>(*values)[index].replace(0, size_of_element,
+        reinterpret_cast<char *>(buf), size_of_element);
+  }
+  return true;
+}
+
+bool decode_2D_string_array(const InputHDF5Stream::Chunk& chunk, int buffer_off,
+    const InputHDF5Stream::Dataset& dataset, void **values, DataArray::Type&
+    type) {
+  auto index = chunk.offsets.front();
+  auto buf = const_cast<unsigned char *>(&chunk.buffer[buffer_off]);
+  if (*values == nullptr) {
+    *values = new string[dataset.dataspace.sizes.front()];
+    for (size_t n = 0; n < dataset.dataspace.sizes.front(); ++n) {
+      reinterpret_cast<string *>(*values)[n].assign(dataset.dataspace.sizes.
+          back(), ' ');
+    }
+    type = DataArray::Type::STRING;
+  }
+  size_t end = index + chunk.length / dataset.data.sizes.back();
+  if (end > dataset.dataspace.sizes.front()) {
+    end = dataset.dataspace.sizes.front();
+  }
+  auto num_to_copy = dataset.data.sizes.back();
+  while (num_to_copy > 0 && chunk.offsets.back() + num_to_copy > dataset.
+      dataspace.sizes.back()) {
+    --num_to_copy;
+  }
+  for (; index < end; ++index, buf += dataset.data.sizes.back()) {
+    reinterpret_cast<string *>(*values)[index].replace(chunk.offsets.back(),
+        num_to_copy, reinterpret_cast<char *>(buf), num_to_copy);
   }
   return true;
 }
@@ -579,129 +619,136 @@ DataArray& DataArray::operator=(const DataArray& source)
   return *this;
 }
 
-bool DataArray::fill(InputHDF5Stream& istream,InputHDF5Stream::Dataset& dataset,size_t compound_member_index)
-{
+bool DataArray::fill(InputHDF5Stream& istream, InputHDF5Stream::Dataset&
+    dataset, size_t compound_member_index) {
   clear();
   if (dataset.data.address == istream.undefined_address()) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="dataset address is undefined";
+    append(myerror, "dataset address is undefined", ", ");
     return false;
   }
-  auto fs=istream.file_stream();
-  auto curr_off=fs->tellg();
-  fs->seekg(dataset.data.address,std::ios_base::beg);
+  auto fs = istream.file_stream();
+  auto curr_off = fs->tellg();
+  fs->seekg(dataset.data.address, std::ios_base::beg);
   char test[4];
-  fs->read(test,4);
+  fs->read(test, 4);
   if (fs->gcount() != 4) {
     std::cout << "Data read error";
-  }
-  else {
+  } else {
     InputHDF5Stream::CompoundDatatype cdtype;
     if (dataset.datatype.class_ == 6) {
-      decode_compound_datatype(dataset.datatype,cdtype);
+      decode_compound_datatype(dataset.datatype, cdtype);
     }
-    if (std::string(test,4) == "TREE") {
-// chunked data
+    if (string(test, 4) == "TREE") {
+
+      // chunked data
 #ifdef __DEBUG
-      std::cerr << "Filling data array from chunked data..." << std::endl;
+      cerr << "Filling data array from chunked data..." << endl;
 #endif
-      for (size_t n=0; n < dataset.data.chunks.size(); ++n) {
+      for (size_t n = 0; n < dataset.data.chunks.size(); ++n) {
         if (dataset.data.chunks[n].buffer == nullptr) {
-          if (!dataset.data.chunks[n].fill(*fs,dataset)) {
+          if (!dataset.data.chunks[n].fill(*fs, dataset)) {
             exit(1);
           }
         }
       }
-dimensions.resize(dataset.dataspace.sizes.size(),0);
-for (size_t n=0; n < dataset.dataspace.sizes.size(); ++n) {
-dimensions[n]=dataset.dataspace.sizes[n];
-}
-/*
-if (dataset.dataspace.dimensionality == 1 && static_cast<size_t>(num_values) > dataset.dataspace.sizes[0]) {
-num_values=dataset.dataspace.sizes[0];
-}
-*/
-      num_values=1;
-      for (size_t n=0; n < dataset.dataspace.sizes.size(); ++n) {
-        num_values*=dataset.dataspace.sizes[n];
+      dimensions.resize(dataset.dataspace.sizes.size(), 0);
+      for (size_t n = 0; n < dataset.dataspace.sizes.size(); ++n) {
+        dimensions[n] = dataset.dataspace.sizes[n];
       }
-      for (size_t n=0,idx=0; n < dataset.data.chunks.size(); ++n) {
+      num_values = 1;
+      for (size_t n = 0; n < dataset.dataspace.sizes.size(); ++n) {
+        num_values *= dataset.dataspace.sizes[n];
+      }
+      for (size_t n=0, idx=0; n < dataset.data.chunks.size(); ++n) {
         switch (dataset.datatype.class_) {
           case 0: {
-            decode_class0_array(*this,dataset,n,nullptr,dimensions);
+            decode_class0_array(*this, dataset, n, nullptr, dimensions);
             break;
           }
           case 1: {
-            decode_class1_array(*this,dataset,n,nullptr);
+            decode_class1_array(*this, dataset, n, nullptr);
             break;
           }
           case 3: {
+#ifdef __DEBUG
+            cerr << "Decoding string array with dataspace dimensionality of " <<
+                dataset.dataspace.dimensionality << "  size of element: " <<
+                dataset.dataspace.sizes.back() << " (last dim) or " << dataset.
+                data.size_of_element << " (size of element)  # values: " <<
+                dataset.dataspace.sizes.front() << " (first dataspace size) or "
+                << num_values << " (computed) " << dataset.data.sizes.front() <<
+                " " << dataset.data.sizes.back() << endl;
+#endif
             if (dataset.dataspace.dimensionality == 2) {
-              decode_string_array(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.dataspace.sizes.back(),&values,dataset.dataspace.sizes.front(),type,idx,dataset.data.chunks[n].length);
-              num_values=dataset.dataspace.sizes.front();
-            }
-            else {
-              decode_string_array(dataset.data.chunks[n].buffer.get(),dataset.datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+              decode_2D_string_array(dataset.data.chunks[n], 0, dataset,
+                  &values, type);
+              num_values = dataset.dataspace.sizes.front();
+            } else {
+              decode_string_array(dataset.data.chunks[n], 0, dataset.data.
+                  size_of_element, &values, num_values, type, idx);
             }
             break;
           }
           case 6: {
-            int off=0;
-            for (size_t m=0; m < compound_member_index; ++m) {
-              off+=cdtype.members[m].datatype.size;
+            int off = 0;
+            for (size_t m = 0; m < compound_member_index; ++m) {
+              off += cdtype.members[m].datatype.size;
             }
             switch (cdtype.members[compound_member_index].datatype.class_) {
               case 0: {
-                decode_class0_array(*this,dataset,n,&cdtype.members[compound_member_index],dimensions);
+                decode_class0_array(*this, dataset, n, &cdtype.members[
+                    compound_member_index], dimensions);
                 break;
               }
               case 1: {
-                decode_class1_array(*this,dataset,n,&cdtype.members[compound_member_index]);
+                decode_class1_array(*this, dataset, n, &cdtype.members[
+                    compound_member_index]);
                 break;
               }
               case 3: {
-                decode_string_array(&dataset.data.chunks[n].buffer[off],cdtype.members[compound_member_index].datatype,dataset.data.size_of_element,&values,num_values,type,idx,dataset.data.chunks[n].length);
+                decode_string_array(dataset.data.chunks[n], off, dataset.data.
+                    size_of_element, &values, num_values, type, idx);
                 break;
               }
               default: {
-std::cerr << "DEFAULT " << cdtype.members[compound_member_index].datatype.class_ << std::endl;
+cerr << "DEFAULT " << cdtype.members[compound_member_index].datatype.class_ << endl;
                 InputHDF5Stream::DataValue v;
-                auto nval=0;
-                for (size_t m=0; m < dataset.data.chunks[n].length; m+=dataset.data.size_of_element) {
-                  v.set(*fs,&dataset.data.chunks[n].buffer[m+off],istream.size_of_offsets(),istream.size_of_lengths(),cdtype.members[compound_member_index].datatype,dataset.dataspace);
-std::cerr << idx+nval << " ";
-v.print(std::cerr,nullptr);
-std::cerr << std::endl;
-                  if (!cast_value(v,idx+nval,&values,num_values,type,cdtype.members[compound_member_index].datatype.size)) {
-                    if (!myerror.empty()) {
-                      myerror+=", ";
-                    }
-                    myerror+="unable to get data for class "+strutils::itos(cdtype.members[compound_member_index].datatype.class_)+" and precision "+strutils::itos(v.precision_);
+                auto nval = 0;
+                for (size_t m = 0; m < dataset.data.chunks[n].length; m +=
+                    dataset.data.size_of_element) {
+                  v.set(*fs, &dataset.data.chunks[n].buffer[m + off], istream.
+                      size_of_offsets(), istream.size_of_lengths(), cdtype.
+                      members[compound_member_index].datatype, dataset.
+                      dataspace);
+cerr << idx+nval << " ";
+v.print(std::cerr, nullptr);
+cerr << endl;
+                  if (!cast_value(v, idx + nval, &values, num_values, type,
+                      cdtype.members[compound_member_index].datatype.size)) {
+                    append(myerror, "unable to get data for class " + to_string(
+                        cdtype.members[compound_member_index].datatype.class_) +
+                        " and precision " + to_string(v.precision_), ", ");
                     return false;
                   }
                   ++nval;
                 }
-                idx+=nval;
+                idx += nval;
               }
             }
             break;
           }
           default: {
-            if (!myerror.empty()) {
-              myerror+=", ";
-            }
-            myerror+="unable to fill data array for class "+strutils::itos(dataset.datatype.class_);
+            append(myerror, "unable to fill data array for class " + to_string(
+                dataset.datatype.class_), ", ");
             return false;
           }
         }
       }
-    }
-    else {
-// contiguous data
+    } else {
+
+      // contiguous data
 #ifdef __DEBUG
-      std::cerr << "Filling data array from contiguous data..." << std::endl;
+      cerr << "Filling data array from contiguous data..." << std::endl;
 #endif
       num_values=dataset.data.sizes[0]/dataset.datatype.size;
       dataset.data.size_of_element=dataset.datatype.size;
