@@ -97,11 +97,11 @@ int Server::command(string command, string& result) {
     return -1;
   }
   MYSQL_RES *res = mysql_store_result(&mysql);
-  MYSQL_ROW row;
-  size_t num_fields = 0;
-  string separator("|");
   result = "";
   if (res != nullptr) {
+    size_t num_fields = 0;
+    string separator("|");
+    MYSQL_ROW row;
     while ( (row = mysql_fetch_row(res))) {
       if (!result.empty()) {
         result += "\n";
@@ -446,8 +446,8 @@ void Query::fill_column_list(string columns) {
     auto idx = key.find(" as ");
     if (idx != string::npos) {
       key = key.substr(idx + 4);
-      trim(key);
     }
+    trim(key);
     column_lists.front()[key] = n++;
   }
 }
@@ -534,11 +534,14 @@ int LocalQuery::submit(Server& server) {
   if (mysql_errno(server.handle()) > 0) {
     m_error = mysql_error(server.handle()) + string(" - errno: ") + itos(
         mysql_errno(server.handle()));
-  }
-  if (!m_error.empty()) {
     return -1;
   }
   RESULT.reset(mysql_store_result(server.handle()));
+  if (mysql_errno(server.handle()) > 0) {
+    m_error = mysql_error(server.handle()) + string(" - errno: ") + itos(
+        mysql_errno(server.handle()));
+    return -1;
+  }
   m_num_rows = mysql_num_rows(RESULT.get());
   num_fields = mysql_num_fields(RESULT.get());
   return 0;
@@ -605,8 +608,13 @@ bool PreparedStatement::bind_parameter(size_t parameter_number, float
     return false;
   }
   input_bind.is_nulls[parameter_number] = is_null;
-  input_bind.binds[parameter_number].is_null = &input_bind.is_nulls[
-      parameter_number];
+#ifdef MYSQL57
+  input_bind.binds[parameter_number].is_null = new my_bool;
+#endif
+#ifdef MYSQL8
+  input_bind.binds[parameter_number].is_null = new bool;
+#endif
+  *input_bind.binds[parameter_number].is_null = is_null;
   if (is_null) {
     if (input_bind.binds[parameter_number].buffer != nullptr) {
       delete reinterpret_cast<float *>(input_bind.binds[parameter_number].
@@ -637,8 +645,13 @@ bool PreparedStatement::bind_parameter(size_t parameter_number, int
     return false;
   }
   input_bind.is_nulls[parameter_number] = is_null;
-  input_bind.binds[parameter_number].is_null = &input_bind.is_nulls[
-      parameter_number];
+#ifdef MYSQL57
+  input_bind.binds[parameter_number].is_null = new my_bool;
+#endif
+#ifdef MYSQL8
+  input_bind.binds[parameter_number].is_null = new bool;
+#endif
+  *input_bind.binds[parameter_number].is_null = is_null;
   if (is_null) {
     if (input_bind.binds[parameter_number].buffer != nullptr) {
       delete reinterpret_cast<int *>(input_bind.binds[parameter_number].buffer);
@@ -668,8 +681,13 @@ bool PreparedStatement::bind_parameter(size_t parameter_number, string
     return false;
   }
   input_bind.is_nulls[parameter_number] = is_null;
-  input_bind.binds[parameter_number].is_null = &input_bind.is_nulls[
-      parameter_number];
+#ifdef MYSQL57
+  input_bind.binds[parameter_number].is_null = new my_bool;
+#endif
+#ifdef MYSQL8
+  input_bind.binds[parameter_number].is_null = new bool;
+#endif
+  *input_bind.binds[parameter_number].is_null = is_null;
   if (is_null) {
     if (input_bind.binds[parameter_number].buffer != nullptr) {
       delete[] reinterpret_cast<char *>(input_bind.binds[parameter_number].
@@ -799,8 +817,16 @@ int PreparedStatement::submit(Server& server) {
       v.emplace_back(new char[result_bind.binds[n].buffer_length]);
       result_bind.binds[n].buffer = v[n];
       result_bind.binds[n].length = &result_bind.lengths[n];
-      result_bind.binds[n].is_null = &result_bind.is_nulls[n];
-      result_bind.binds[n].error = &result_bind.errors[n];
+#ifdef MYSQL57
+      result_bind.binds[n].is_null = new my_bool;
+      result_bind.binds[n].error = new my_bool;
+#endif
+#ifdef MYSQL8
+      result_bind.binds[n].is_null = new bool;
+      result_bind.binds[n].error = new bool;
+#endif
+      *result_bind.binds[n].is_null = result_bind.is_nulls[n];
+      *result_bind.binds[n].error = result_bind.errors[n];
     }
     if (mysql_stmt_bind_result(STMT.get(), result_bind.binds.get()) != 0) {
       m_error = "unable to bind result set";
