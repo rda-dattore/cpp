@@ -273,19 +273,43 @@ public:
   };
 
   struct FractalHeapData {
-    FractalHeapData() : dse(nullptr), start_block_size(0), objects(), id_len(0),
-        io_filter_size(0), max_size(0), table_width(0), max_dblock_rows(0),
-        nrows(0), K(0), N(0), max_dblock_size(0), max_managed_obj_size(0),
-        curr_row(0), curr_col(0), flags() { }
+    struct Space {
+      Space() : bytes_free(0), bytes_total(0), bytes_allocated(0),
+          next_allocation(0), manager_addr(0) { }
 
-    DatasetEntry *dse;
-    unsigned long long start_block_size;
+      unsigned long long bytes_free, bytes_total, bytes_allocated,
+          next_allocation;
+      unsigned long long manager_addr;
+    };
+
+    struct SpaceManager {
+      SpaceManager() : total_bytes(0), num_sections(0), num_serialized(0),
+          num_unserialized(0), max_size(0), list_addr(0), list_size(0),
+          list_asize(0), addr_size(0), free_space_map() { }
+
+      unsigned long long total_bytes, num_sections, num_serialized,
+          num_unserialized, max_size, list_addr, list_size, list_asize;
+      size_t addr_size;
+      std::unordered_map<unsigned long long, unsigned long long> free_space_map;
+    };
+
     struct Objects {
 	Objects() : num_managed(0), num_huge(0), num_tiny(0) { }
 
 	unsigned long long num_managed, num_huge, num_tiny;
-    } objects;
+    };
 
+    FractalHeapData() : dse(nullptr), start_block_size(0), space(),
+        space_manager(), objects(), id_len(0), io_filter_size(0), max_size(0),
+        table_width(0), max_dblock_rows(0), nrows(0), K(0), N(0),
+        max_dblock_size(0), max_managed_obj_size(0), curr_row(0), curr_col(0),
+        flags() { }
+
+    DatasetEntry *dse;
+    unsigned long long start_block_size;
+    Space space;
+    SpaceManager space_manager;
+    Objects objects;
     int id_len, io_filter_size, max_size, table_width, max_dblock_rows, nrows,
         K, N;
     int max_dblock_size, max_managed_obj_size;
@@ -324,11 +348,14 @@ protected:
       FractalHeapData& frhp_data);
   bool decode_fractal_heap_block(unsigned long long address, int
        header_message_type, FractalHeapData& frhp_data);
+  bool decode_free_space_manager(FractalHeapData& frhp_data);
+  bool decode_free_space_section_list(FractalHeapData& frhp_data);
   bool decode_header_messages(int ohdr_version, size_t header_size, std::string
       ident, Group *group, DatasetEntry *dse_in, unsigned char flags);
   int decode_header_message(std::string ident, int ohdr_version, int type, int
       length, unsigned char flags, unsigned char *buffer, Group *group,
       DatasetEntry& dse, bool& is_subgroup);
+  bool decode_indirect_data(FractalHeapData& frhp_data);
   bool decode_object_header(SymbolTableEntry& ste, Group *group);
   bool decode_superblock(unsigned long long& objhdr_addr);
   bool decode_symbol_table_entry(SymbolTableEntry& ste, Group *group);
