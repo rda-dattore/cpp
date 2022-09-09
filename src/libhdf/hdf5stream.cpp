@@ -6,6 +6,7 @@
 #include <bits.hpp>
 #include <myerror.hpp>
 
+using miscutils::min_byte_width;
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -100,11 +101,13 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
           // gzip
           allocate();
           uncompress(buffer.get(), &length, buf, size);
+/*
 #ifdef __DEBUG
           cerr << "--GUNZIPPED-------" << endl;
           dump(buffer.get(), length);
           cerr << "------------------" << endl;
 #endif
+*/
           break;
         }
         case 2: {
@@ -131,11 +134,13 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
             buffer[z * dataset.data.size_of_element + y] = cbuf[x];
           }
           delete[] cbuf;
+/*
 #ifdef __DEBUG
           cerr << "--UNSHUFFLED------" << endl;
           dump(buffer.get(), length);
           cerr << "------------------" << endl;
 #endif
+*/
           break;
         }
         case 3: {
@@ -1457,6 +1462,225 @@ bool InputHDF5Stream::decode_Btree(Group& group,FractalHeapData *frhp_data)
   return false;
 }
 
+bool InputHDF5Stream::decode_indirect_data(FractalHeapData& frhp_data) {
+  auto off_size = frhp_data.max_size / 8;
+  std::streamsize bytes_to_read = off_size + 6;
+  unsigned char buf[64];
+  char *cbuf = reinterpret_cast<char *>(buf);
+  fs.read(cbuf, bytes_to_read);
+  if (fs.gcount() != bytes_to_read) {
+    append(myerror, "read error for indirect data", ", ");
+    return false;
+  }
+#if __DEBUG
+  auto off = HDF5::value(&buf[0], off_size);
+  cerr << "    indirect offset: " << off << endl;
+#endif
+#if __DEBUG
+  auto start_row = HDF5::value(&buf[off_size], 2);
+  cerr << "    indirect start row: " << start_row << endl;
+#endif
+#if __DEBUG
+  auto end_row = HDF5::value(&buf[off_size + 2], 2);
+  cerr << "    indirect end row: " << end_row << endl;
+#endif
+#if __DEBUG
+  auto nblocks = HDF5::value(&buf[off_size + 4], 2);
+  cerr << "    indirect number of blocks: " << nblocks << endl;
+#endif
+  return true;
+}
+
+bool InputHDF5Stream::decode_free_space_section_list(FractalHeapData&
+    frhp_data) {
+  if (frhp_data.space_manager.list_addr == undef_addr) {
+    append(myerror, "free space section list address is not defined", ", ");
+    return false;
+  }
+  auto curr_off = fs.tellg();
+  fs.seekg(frhp_data.space_manager.list_addr, std::ios_base::beg);
+  unsigned char buf[64];
+  char *cbuf = reinterpret_cast<char *>(buf);
+  fs.read(cbuf, 5);
+  if (fs.gcount() != 5) {
+    append(myerror, "read error bytes 1-5 in free space section list", ", ");
+    return false;
+  }
+  if (string(reinterpret_cast<char *>(buf), 4) != "FSSE") {
+    append(myerror, "not a free space section list", ", ");
+    return false;
+  }
+  if (buf[4] != 0) {
+    append(myerror, "unable to decode free space section list version " +
+        to_string(static_cast<int>(buf[4])), ", ");
+    return false;
+  }
+  fs.read(cbuf, sizes.offsets);
+  if (fs.gcount() != static_cast<int>(sizes.offsets)) {
+    append(myerror, "read error for free space manager header address", ", ");
+    return false;
+  }
+  auto addr = HDF5::value(&buf[0], sizes.offsets);
+#if __DEBUG
+  cerr << "free space manager header address (from section list): " << addr <<
+      endl;
+#endif
+  if (addr != frhp_data.space.manager_addr) {
+    append(myerror, "free space manager header address in free space secton "
+        "list does not match address in fractal heap", ", ");
+    exit(1);
+  }
+  for (size_t n = 0; n < frhp_data.space_manager.num_serialized; ++n) {
+#if __DEBUG
+    cerr << "set #" << n + 1 << " of " << frhp_data.space_manager.num_serialized
+        << endl;
+#endif
+    auto nsec_len = min_byte_width(frhp_data.space_manager.num_serialized);
+    auto sec_size_len = min_byte_width(frhp_data.space_manager.max_size);
+    auto off_len = frhp_data.space_manager.addr_size / 8;
+    std::streamsize bytes_to_read = nsec_len + sec_size_len + off_len + 1;
+    fs.read(cbuf, bytes_to_read);
+    if (fs.gcount() != bytes_to_read) {
+      append(myerror, "read error for set #" + to_string(n + 1) + " record "
+          "data", ", ");
+      return false;
+    }
+#if __DEBUG
+    auto nsec = HDF5::value(&buf[0], nsec_len);
+    cerr << "  number of section records: " << nsec << endl;
+#endif
+    auto sec_size = HDF5::value(&buf[1], sec_size_len);
+#if __DEBUG
+    cerr << "  section size for all records (bytes): " << sec_size << endl;
+#endif
+    auto off = HDF5::value(&buf[4], off_len);
+#if __DEBUG
+    cerr << "  section record offset (bytes): " << off << endl;
+#endif
+    auto typ = HDF5::value(&buf[9], 1);
+#if __DEBUG
+    cerr << "  section record type: " << typ << endl;
+#endif
+    switch (typ) {
+      case 1:
+      case 3: {
+        if (!decode_indirect_data(frhp_data)) {
+          exit(1);
+        }
+        break;
+      }
+      default: {
+        frhp_data.space_manager.free_space_map.emplace(off - 22, sec_size);
+      }
+    }
+  }
+  fs.seekg(curr_off, std::ios_base::beg);
+  return true;
+}
+
+bool InputHDF5Stream::decode_free_space_manager(FractalHeapData& frhp_data) {
+  if (frhp_data.space.manager_addr == undef_addr) {
+    append(myerror, "free space manager address is not defined", ", ");
+    return false;
+  }
+  auto curr_off = fs.tellg();
+  fs.seekg(frhp_data.space.manager_addr, std::ios_base::beg);
+  unsigned char buf[64];
+  char *cbuf = reinterpret_cast<char *>(buf);
+  fs.read(cbuf, 6);
+  if (fs.gcount() != 6) {
+    append(myerror, "read error bytes 1-6 in free space manager", ", ");
+    return false;
+  }
+  if (string(reinterpret_cast<char *>(buf), 4) != "FSHD") {
+    append(myerror, "not a free space manager header", ", ");
+    return false;
+  }
+  if (buf[4] != 0) {
+    append(myerror, "unable to decode free space manager header version " +
+        to_string(static_cast<int>(buf[4])), ", ");
+    return false;
+  }
+  if (buf[5] != 0) {
+    append(myerror, "client ID is not a fractal heap", ", ");
+    return false;
+  }
+  fs.read(cbuf, sizes.lengths * 4 + 2);
+  if (fs.gcount() != static_cast<int>(sizes.lengths) * 4 + 2) {
+    append(myerror, "read error for space and section data", ", ");
+    return false;
+  }
+  frhp_data.space_manager.total_bytes = HDF5::value(&buf[0], sizes.lengths);
+#if __DEBUG
+  cerr << "total space tracked (bytes): " << frhp_data.space_manager.total_bytes
+      << endl;
+#endif
+  frhp_data.space_manager.num_sections = HDF5::value(&buf[sizes.lengths], sizes.
+      lengths);
+#if __DEBUG
+  cerr << "total number of sections: " << frhp_data.space_manager.num_sections
+      << endl;
+#endif
+  frhp_data.space_manager.num_serialized = HDF5::value(&buf[sizes.lengths * 2],
+      sizes.lengths);
+#if __DEBUG
+  cerr << "number of serialized sections: " << frhp_data.space_manager.
+      num_serialized << endl;
+#endif
+  frhp_data.space_manager.num_unserialized = HDF5::value(&buf[sizes.lengths *
+      3], sizes.lengths);
+#if __DEBUG
+  cerr << "number of un-serialized sections: " << frhp_data.space_manager.
+      num_unserialized << endl;
+#endif
+  fs.read(cbuf, 6 + sizes.lengths);
+  if (fs.gcount() != 6 + static_cast<int>(sizes.lengths)) {
+    append(myerror, "read error for size data", ", ");
+    return false;
+  }
+  frhp_data.space_manager.addr_size = HDF5::value(&buf[4], 2);
+#if __DEBUG
+  cerr << "size of address space: " << frhp_data.space_manager.addr_size <<
+      endl;
+#endif
+  frhp_data.space_manager.max_size = HDF5::value(&buf[6], sizes.lengths);
+#if __DEBUG
+  cerr << "maximum section size: " << frhp_data.space_manager.max_size << endl;
+#endif
+  fs.read(cbuf, sizes.offsets);
+  if (fs.gcount() != static_cast<int>(sizes.offsets)) {
+    append(myerror, "read error for serialized section list address", ", ");
+    return false;
+  }
+  frhp_data.space_manager.list_addr = HDF5::value(&buf[0], sizes.offsets);
+#if __DEBUG
+  cerr << "address of serialized section list: " << frhp_data.space_manager.
+      list_addr << endl;
+#endif
+  fs.read(cbuf, sizes.lengths * 2);
+  if (fs.gcount() != static_cast<int>(sizes.lengths) * 2) {
+    append(myerror, "read error for serialized section list address", ", ");
+    return false;
+  }
+  frhp_data.space_manager.list_size = HDF5::value(&buf[0], sizes.lengths);
+#if __DEBUG
+  cerr << "size of serialized section list (bytes): " << frhp_data.
+      space_manager.list_size << endl;
+#endif
+  frhp_data.space_manager.list_asize = HDF5::value(&buf[sizes.lengths], sizes.
+      lengths);
+#if __DEBUG
+  cerr << "allocated size of serialized section list (bytes): " << frhp_data.
+      space_manager.list_asize << endl;
+#endif
+  if (!decode_free_space_section_list(frhp_data)) {
+    append(myerror, "failed to decode free space section list", ", ");
+    exit(1);
+  }
+  fs.seekg(curr_off, std::ios_base::beg);
+  return true;
+}
+
 bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_message_type,FractalHeapData& frhp_data)
 {
   if (address == undef_addr) {
@@ -1474,28 +1698,20 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,5);
   if (fs.gcount() != 5) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error bytes 1-5 in fractal heap";
+    append(myerror, "read error bytes 1-5 in fractal heap", ", ");
     return false;
   }
   if (string(reinterpret_cast<char *>(buf),4) != "FRHP") {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="not a fractal heap";
+    append(myerror, "not a fractal heap", ", ");
     return false;
   }
   if (buf[4] != 0) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to decode fractal heap version "+strutils::itos(static_cast<int>(buf[4]));
+    append(myerror, "unable to decode fractal heap version " + to_string(
+        static_cast<int>(buf[4])), ", ");
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "yay! fractal heap" << std::endl;
+  std::cerr << "yay! fractal heap at address: " << address << std::endl;
 #endif
   fs.read(cbuf,9);
   if (fs.gcount() != 9) {
@@ -1514,6 +1730,9 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
   std::cerr << "io_filter_size: " << frhp_data.io_filter_size << std::endl;
 #endif
   frhp_data.flags=buf[4];
+#ifdef __DEBUG
+  cerr << "flags: " << static_cast<int>(frhp_data.flags) << endl;
+#endif
   frhp_data.max_managed_obj_size=HDF5::value(&buf[5],4);
 #ifdef __DEBUG
   std::cerr << "max size of managed objects: " << frhp_data.max_managed_obj_size << std::endl;
@@ -1534,14 +1753,38 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
     myerror+="unable to read free space data";
     return false;
   }
+  frhp_data.space.bytes_free = HDF5::value(&buf[0], sizes.lengths);
+#if __DEBUG
+  cerr << "free space (bytes): " << frhp_data.space.bytes_free << endl;
+#endif
+  frhp_data.space.manager_addr = HDF5::value(&buf[sizes.lengths], sizes.
+      offsets);
+#if __DEBUG
+  cerr << "address of free space manager: " << frhp_data.space.manager_addr <<
+      endl;
+#endif
   fs.read(cbuf,sizes.lengths*4);
   if (fs.gcount() != static_cast<int>(sizes.lengths*4)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read managed space data";
+    append(myerror, "unable to read managed space data", ", ");
     return false;
   }
+  frhp_data.space.bytes_total = HDF5::value(&buf[0], sizes.lengths);
+#ifdef __DEBUG
+  cerr << "total managed space (bytes): " << frhp_data.space.bytes_total <<
+      endl;
+#endif
+  frhp_data.space.bytes_allocated = HDF5::value(&buf[sizes.lengths], sizes.
+      lengths);
+#ifdef __DEBUG
+  cerr << "allocated managed space (bytes): " << frhp_data.space.bytes_allocated
+      << endl;
+#endif
+  frhp_data.space.next_allocation = HDF5::value(&buf[sizes.lengths * 2], sizes.
+      lengths);
+#ifdef __DEBUG
+  cerr << "offset to next allocation: " << frhp_data.space.next_allocation <<
+      endl;
+#endif
   frhp_data.objects.num_managed=HDF5::value(&buf[sizes.lengths*3],sizes.lengths);
 #ifdef __DEBUG
   std::cerr << "number of managed objects in heap: " << frhp_data.objects.num_managed << std::endl;
@@ -1590,10 +1833,7 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
 #endif
   fs.read(cbuf,4+sizes.offsets);
   if (fs.gcount() != static_cast<int>(4+sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read block data";
+    append(myerror, "unable to read block data", ", ");
     return false;
   }
 #ifdef __DEBUG
@@ -1616,6 +1856,11 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
 #ifdef __DEBUG
   std::cerr << "K=" << frhp_data.K << " N=" << frhp_data.N << std::endl;
 #endif
+  if (frhp_data.space.manager_addr != undef_addr && !decode_free_space_manager(
+      frhp_data)) {
+    append(myerror, "error decoding free space manager", ", ");
+    exit(1);
+  }
   frhp_data.curr_row=frhp_data.curr_col=1;
   if (!decode_fractal_heap_block(root_block_addr,header_message_type,frhp_data)) {
     return false;
@@ -1701,12 +1946,20 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
       case 12: {
         auto local_off = 0;
         while (local_off < size_to_read) {
+          auto it = frhp_data.space_manager.free_space_map.find(local_off);
+          if (it != frhp_data.space_manager.free_space_map.end()) {
+            local_off += it->second;
+#if __DEBUG
+            cerr << "skipping " << it->second << " bytes of free space" << endl;
+#endif
+          }
           Attribute attr;
           int n;
           if (decode_attribute(&buf2[local_off], attr, n, 2)) {
 #ifdef __DEBUG
-            cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->key << "' " <<
-                &root_group << " " << frhp_data.dse->p_ds << endl;
+            cerr << "ATTRIBUTE (1) of '" << frhp_data.dse->key << "' at: " <<
+                local_off << " with length: " << n << " " << &root_group << " "
+                << frhp_data.dse->p_ds << endl;
             cerr << "  name: " << attr.first << "  dataset: " << frhp_data.dse->
                 p_ds << endl;
 #endif
