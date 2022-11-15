@@ -13,6 +13,7 @@ using std::string;
 using std::stringstream;
 using std::unordered_map;
 using std::vector;
+using strutils::is_numeric;
 using strutils::itos;
 using strutils::to_lower;
 using strutils::split;
@@ -134,18 +135,24 @@ void Server::connect(string host, string user, string password, string db, int
         &timeout));
   }
   auto port = 0;
+  string sock;
   size_t idx = host.find(":");
   if (idx != string::npos) {
-    port = stoi(host.substr(idx + 1));
+    auto s = host.substr(idx + 1);
+    if (is_numeric(s)) {
+      port = stoi(s);
+    } else {
+      sock = s;
+    }
     host = host.substr(0, idx);
   }
   mysql_real_connect(&mysql, host.c_str(), user.c_str(), password.c_str(), db.
-      c_str(), port, nullptr, 0);
+      c_str(), port, sock.c_str(), 0);
   auto num_tries = 0;
   while (mysql_errno(&mysql) > 0 && num_tries < 3) {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     mysql_real_connect(&mysql, host.c_str(), user.c_str(), password.c_str(), db.
-        c_str(), port, nullptr, 0);
+        c_str(), port, sock.c_str(), 0);
     ++num_tries;
   }
   m_error.clear();
@@ -799,6 +806,8 @@ int PreparedStatement::submit(Server& server) {
       }
     }
     result_bind.binds.reset(new MYSQL_BIND[result_bind.field_count]);
+    memset(result_bind.binds.get(), 0, sizeof(MYSQL_BIND) * result_bind.
+        field_count);
     result_bind.lengths.resize(result_bind.field_count);
     result_bind.is_nulls.resize(result_bind.field_count);
     result_bind.errors.resize(result_bind.field_count);
