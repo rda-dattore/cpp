@@ -2,6 +2,7 @@
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <bits.hpp>
+#include <MySQL.hpp>
 
 namespace metautils {
 
