@@ -279,7 +279,7 @@ int Server::insert(const string& absolute_table, vector<string>&
 int Server::insert(const string& absolute_table, const string& column_list,
     const string& value_list, const string& on_duplicate_key) {
   static const unordered_set<unsigned int> retry_codes{
-      1213
+      1213 // deadlock
   };
   m_error.clear();
   auto s = "insert into " + absolute_table + " (" + column_list + ") values (" +
