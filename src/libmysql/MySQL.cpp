@@ -1,5 +1,6 @@
 #include <string>
 #include <regex>
+#include <unordered_set>
 #include <thread>
 #include <MySQL.hpp>
 #include <strutils.hpp>
@@ -12,6 +13,7 @@ using std::stoi;
 using std::string;
 using std::stringstream;
 using std::unordered_map;
+using std::unordered_set;
 using std::vector;
 using strutils::is_numeric;
 using strutils::itos;
@@ -276,17 +278,33 @@ int Server::insert(const string& absolute_table, vector<string>&
 
 int Server::insert(const string& absolute_table, const string& column_list,
     const string& value_list, const string& on_duplicate_key) {
+  static const unordered_set<unsigned int> retry_codes{
+      1213
+  };
+  m_error.clear();
   auto s = "insert into " + absolute_table + " (" + column_list + ") values (" +
       value_list + ")";
   if (!on_duplicate_key.empty()) {
     s += " on duplicate key " + on_duplicate_key;
   }
   s += ";";
-  mysql_real_query(&mysql, s.c_str(), s.length());
-  m_error.clear();
-  if (mysql_errno(&mysql) > 0) {
-    m_error = mysql_error(&mysql) + string(" - errno: ") + itos(mysql_errno(
-        &mysql)) + "\nfailed insert: '" + s + "'";
+  unsigned int err_num = 0xffffffff;
+  auto num_tries = 0;
+  while (err_num > 0 && num_tries < 3) {
+    mysql_real_query(&mysql, s.c_str(), s.length());
+    err_num = mysql_errno(&mysql);
+    if (err_num > 0) {
+      m_error = mysql_error(&mysql) + string(" - errno: ") + itos(err_num) +
+          "\nfailed insert: '" + s + "'";
+      if (retry_codes.find(err_num) != retry_codes.end()) {
+        int sleep = pow(2., ++num_tries);
+        std::this_thread::sleep_for(std::chrono::seconds(sleep));
+      } else {
+        err_num = 0;
+      }
+    } else {
+      m_error.clear();
+    }
   }
   if (!m_error.empty()) {
     return -1;
