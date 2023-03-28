@@ -1,4 +1,4 @@
-// FILE; citation.h
+// FILE citation.hpp
 
 #ifndef CITATION_H
 #define  CITATION_H
