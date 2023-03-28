@@ -5,7 +5,8 @@
 
 class Mutex {
 public:
-  Mutex() : lock_flag(0) {}
+  Mutex() : lock_flag(0) { }
+  bool is_locked() const { return lock_flag == 1; }
   void lock();
   void unlock();
 
