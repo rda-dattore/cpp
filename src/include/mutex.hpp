@@ -1,4 +1,4 @@
-// FILE: mutex.h
+// FILE: mutex.hpp
 
 #ifndef MUTEX_H
 #define   MUTEX_H
