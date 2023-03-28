@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unordered_map>
 #include <bitmap.hpp>
 #include <strutils.hpp>
 
@@ -67,8 +68,17 @@ void compress_non_monotonic_values(const std::vector<size_t>& values,size_t mult
 
 void compress_values(const std::vector<size_t>& values,std::string& compressed_bitmap)
 {
-  std::string bit[2]={"1","0"};
-  std::string bit2[2][28]={{"","","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",},{"","0","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"}};
+  static const std::string BIT[2]={"1","0"};
+  static const std::string ALIAS[2][28]={
+    {"","","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",},
+    {"","0","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"}
+  };
+  static const std::unordered_map<char,char> ZERO_ALIAS{
+    {'0','2'},{'a','3'},{'b','4'},{'c','5'},{'d','6'},{'e','7'},{'f','8'},
+    {'g','9'},{'h','!'},{'i','"'},{'j','#'},{'k','$'},{'l','%'},{'m','&'},
+   {'n','\''},{'o','('},{'p',')'},{'q','*'},{'r','+'},{'s',','},{'t',';'},
+    {'u','<'},{'v','='},{'w','>'},{'x','?'},{'y','@'},{'z','.'}
+  };
 
   if (values.empty()) {
     return;
@@ -96,51 +106,56 @@ void compress_values(const std::vector<size_t>& values,std::string& compressed_b
     if (cnt > 0) {
 	++cnt;
 	if (cnt > 4) {
-	  compressed_bitmap+="-"+strutils::itos(cnt)+"/"+bit[idx];
+	  compressed_bitmap+="-"+strutils::itos(cnt)+"/"+BIT[idx];
 	}
 	else {
 	  for (int n=0; n < cnt; ++n) {
-	    compressed_bitmap+=bit[idx];
+	    compressed_bitmap+=BIT[idx];
 	  }
 	}
 	auto repeat=cnt/27;
 	if (repeat > 4) {
-	  alternate_compressed_bitmap+="-"+strutils::itos(repeat)+"/"+bit2[idx][27];
+	  alternate_compressed_bitmap+="-"+strutils::itos(repeat)+"/"+ALIAS[idx][27];
 	}
 	else {
 	  for (int n=0; n < repeat; ++n) {
-	    alternate_compressed_bitmap+=bit2[idx][27];
+	    alternate_compressed_bitmap+=ALIAS[idx][27];
 	  }
 	}
-	alternate_compressed_bitmap+=bit2[idx][(cnt % 27)];
+	alternate_compressed_bitmap+=ALIAS[idx][(cnt % 27)];
 	idx=1-idx;
     }
     else {
-	compressed_bitmap+=bit[idx];
-	alternate_compressed_bitmap+=bit[idx];
+	compressed_bitmap+=BIT[idx];
+	if (idx == 0 && ((alternate_compressed_bitmap.back() >= 'a' && alternate_compressed_bitmap.back() <= 'z') || alternate_compressed_bitmap.back() == '0')) {
+	  alternate_compressed_bitmap.back()=ZERO_ALIAS.at(alternate_compressed_bitmap.back());
+	}
+	else {
+	  alternate_compressed_bitmap+=BIT[idx];
+	}
 	idx=1-idx;
     }
     if (it != end) {
 	cnt=*it-last_value-1;
 	if (cnt >= 0) {
 	  if (cnt > 4) {
-	    compressed_bitmap+="-"+strutils::itos(cnt)+"/"+bit[idx];
+	    compressed_bitmap+="-"+strutils::itos(cnt)+"/"+BIT[idx];
 	  }
 	  else {
 	    for (int n=0; n < cnt; ++n) {
-		compressed_bitmap+=bit[idx];
+		compressed_bitmap+=BIT[idx];
 	    }
 	  }
 	  auto repeat=cnt/27;
 	  if (repeat > 4) {
-	    alternate_compressed_bitmap+="-"+strutils::itos(repeat)+"/"+bit2[idx][27];
+	    alternate_compressed_bitmap+="-"+strutils::itos(repeat)+"/"+ALIAS[idx][27];
 	  }
 	  else {
 	    for (int n=0; n < repeat; ++n) {
-		alternate_compressed_bitmap+=bit2[idx][27];
+		alternate_compressed_bitmap+=ALIAS[idx][27];
 	    }
 	  }
-	  alternate_compressed_bitmap+=bit2[idx][(cnt % 27)];
+	  alternate_compressed_bitmap+=ALIAS[idx][(cnt % 27)];
 	  idx=1-idx;
 	}
 	else {
@@ -160,14 +175,28 @@ void compress_values(const std::vector<size_t>& values,std::string& compressed_b
   }
   else {
     if (idx == 0) {
-	compressed_bitmap+=bit[idx];
-	alternate_compressed_bitmap+=bit[idx];
+	compressed_bitmap+=BIT[idx];
+	if ((alternate_compressed_bitmap.back() >= 'a' && alternate_compressed_bitmap.back() <= 'z') || alternate_compressed_bitmap.back() == '0') {
+	  alternate_compressed_bitmap.back()=ZERO_ALIAS.at(alternate_compressed_bitmap.back());
+	}
+	else {
+	  alternate_compressed_bitmap+=BIT[idx];
+	}
     }
+//std::cerr << compressed_bitmap << " (" << compressed_bitmap.length() << ")" << std::endl;
+//std::cerr << alternate_compressed_bitmap << " (" << alternate_compressed_bitmap.length() << ")" << std::endl;
+    std::string further_compressed_bitmap;
     if (compressed_bitmap.length() > 255) {
-	further_compress(compressed_bitmap,compressed_bitmap);
-    }
-    if (compressed_bitmap.length() > 255) {
-	compressed_bitmap=alternate_compressed_bitmap;
+	further_compress(compressed_bitmap,further_compressed_bitmap);
+//std::cerr << "*" << further_compressed_bitmap << " (" << further_compressed_bitmap.length() << ")" << std::endl;
+	if (further_compressed_bitmap.length() > 255) {
+	  further_compress(alternate_compressed_bitmap,further_compressed_bitmap);
+//std::cerr << "**" << further_compressed_bitmap << " (" << further_compressed_bitmap.length() << ")" << std::endl;
+	  compressed_bitmap= (further_compressed_bitmap.length() < alternate_compressed_bitmap.length()) ? std::move(further_compressed_bitmap) : std::move(alternate_compressed_bitmap);
+	}
+	else {
+	  compressed_bitmap=std::move(further_compressed_bitmap);
+	}
     }
   }
 }
@@ -344,7 +373,10 @@ void further_compress(const std::string& compressed_bitmap,std::string& further_
 		}
 	    }
 	    else if (!g.empty()) {
-		further_compressed_bitmap+="-"+g;
+		if (&g != &groups.front()) {
+		  further_compressed_bitmap+="-";
+		}
+		further_compressed_bitmap+=g;
 	    }
 	  }
 	}
@@ -362,7 +394,7 @@ void further_compress(const std::string& compressed_bitmap,std::string& further_
 	  if (g == last_group) {
 	    ++num_occurs;
 	  }
-	  else if (!last_group.empty() && g.substr(0,last_group.length()) == last_group) {
+	  else if (!last_group.empty() && g.substr(0,last_group.length()) == last_group && strutils::occurs(last_group,"/") == strutils::occurs(g,"/")) {
 	    auto end=g.substr(last_group.length());
 	    further_compressed_bitmap+="-"+std::to_string(++num_occurs)+"/{"+last_group+"}"+g.substr(last_group.length());
 	    num_occurs=1;
@@ -396,7 +428,13 @@ void uncompress(const std::string& compressed_bitmap,size_t& first_value,std::st
 {
   auto start=compressed_bitmap.find(":");
   if (start == std::string::npos) {
-    uncompressed_bitmap="";
+    if (compressed_bitmap[0] == '!') {
+      first_value = std::stoi(compressed_bitmap.substr(1));
+      uncompressed_bitmap = "1";
+    } else {
+      first_value = 0;
+      uncompressed_bitmap = "";
+    }
     return;
   }
   uncompressed_bitmap.reserve(32768);
@@ -437,10 +475,167 @@ void uncompress(const std::string& compressed_bitmap,size_t& first_value,std::st
   }
 }
 
+void decode_bit(char bit,std::vector<size_t>& values,size_t& next_value,size_t multiplier)
+{
+  switch (bit) {
+    case '0': {
+	++next_value;
+	break;
+    }
+    case '1': {
+	values.emplace_back(next_value++);
+	values.back()-=(multiplier*values.size());
+	break;
+    }
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'E':
+    case 'F':
+    case 'G':
+    case 'H':
+    case 'I':
+    case 'J':
+    case 'K':
+    case 'L':
+    case 'M':
+    case 'N':
+    case 'O':
+    case 'P':
+    case 'Q':
+    case 'R':
+    case 'S':
+    case 'T':
+    case 'U':
+    case 'V':
+    case 'W':
+    case 'X':
+    case 'Y':
+    case 'Z': {
+	size_t num_vals=bit-63;
+	for (size_t m=0; m < num_vals; ++m) {
+	  values.emplace_back(next_value++);
+	  values.back()-=(multiplier*values.size());
+	}
+	break;
+    }
+    case 'a':
+    case 'b':
+    case 'c':
+    case 'd':
+    case 'e':
+    case 'f':
+    case 'g':
+    case 'h':
+    case 'i':
+    case 'j':
+    case 'k':
+    case 'l':
+    case 'm':
+    case 'n':
+    case 'o':
+    case 'p':
+    case 'q':
+    case 'r':
+    case 's':
+    case 't':
+    case 'u':
+    case 'v':
+    case 'w':
+    case 'x':
+    case 'y':
+    case 'z': {
+	size_t skip=bit-95;
+	next_value+=skip;
+	break;
+    }
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9': {
+	size_t skip=bit-49;
+	next_value+=skip;
+	values.emplace_back(next_value++);
+	values.back()-=(multiplier*values.size());
+	break;
+    }
+    case '!':
+    case '"':
+    case '#':
+    case '$':
+    case '%':
+    case '&':
+    case '\'':
+    case '(':
+    case ')':
+    case '*':
+    case '+':
+    case ',': {
+	size_t skip=bit-24;
+	next_value+=skip;
+	values.emplace_back(next_value++);
+	values.back()-=(multiplier*values.size());
+	break;
+    }
+    case ';':
+    case '<':
+    case '=':
+    case '>':
+    case '?':
+    case '@': {
+	size_t skip=bit-38;
+	next_value+=skip;
+	values.emplace_back(next_value++);
+	values.back()-=(multiplier*values.size());
+	break;
+    }
+    case '.': {
+	size_t skip=bit-46;
+	next_value+=skip;
+	values.emplace_back(next_value++);
+	values.back()-=(multiplier*values.size());
+	break;
+    }
+    default: {
+	throw std::runtime_error("decode_bit(): invalid value bit '"+std::string(bit,1)+"'");
+    }
+  }
+}
+
+void decode_group(std::string group,std::vector<size_t>& values,size_t& next_value,size_t multiplier)
+{
+  auto parts=strutils::split(group,"/");
+  size_t repeat=1;
+  switch (parts.size()) {
+    case 1: {
+	break;
+    }
+    case 2: {
+	repeat=std::stoi(parts[0]);
+	parts.pop_front();
+	break;
+    }
+    default: {
+	throw std::runtime_error("decode_group(): malformed bitmap group '"+group+"'");
+    }
+  }
+  for (size_t n=0; n < repeat; ++n) {
+    decode_bit(parts[0][0],values,next_value,multiplier);
+  }
+  for (size_t n=1; n < parts[0].length(); ++n) {
+    decode_bit(parts[0][n],values,next_value,multiplier);
+  }
+}
+
 void uncompress_values(const std::string& compressed_bitmap,std::vector<size_t>& values)
 {
-  size_t start=compressed_bitmap.find(":");
   values.clear();
+  size_t start=compressed_bitmap.find(":");
   if (start == std::string::npos) {
     if (compressed_bitmap[0] == '!') {
 	auto vlist=strutils::split(compressed_bitmap.substr(1),",");
@@ -451,7 +646,7 @@ void uncompress_values(const std::string& compressed_bitmap,std::vector<size_t>&
     return;
   }
   auto sparts=strutils::split(compressed_bitmap.substr(0,start),NON_MONOTONIC_DELIMITER);
-  auto value=std::stoi(sparts[0]);
+  size_t next_value=std::stoi(sparts[0]);
   size_t multiplier;
   if (sparts.size() > 1) {
     multiplier=std::stoi(sparts[1]);
@@ -464,100 +659,39 @@ void uncompress_values(const std::string& compressed_bitmap,std::vector<size_t>&
   if (!strutils::has_ending(s0,":")) {
     s0=s0.substr(start+1);
     for (size_t n=0; n < s0.length(); ++n) {
-	if (s0[n] == '1') {
-	  values.emplace_back(value++);
-	  values.back()-=(multiplier*values.size());
-	}
-	else if (s0[n] == '0') {
-	  ++value;
-	}
-	else if (s0[n] >= 'A' && s0[n] <= 'Z') {
-	  size_t num=s0[n]-63;
-	  for (size_t m=0; m < num; ++m) {
-	    values.emplace_back(value++);
-	    values.back()-=(multiplier*values.size());
-	  }
-	}
-	else if (s0[n] >= 'a' && s0[n] <= 'z') {
-	  size_t num=s0[n]-95;
-	  for (size_t m=0; m < num; ++m) {
-	    ++value;
-	  }
-	}
+	decode_bit(s0[n],values,next_value,multiplier);
     }
   }
   for (size_t n=1; n < sections.size(); ++n) {
     auto parts=strutils::split(sections[n],"/");
-    auto num=std::stoi(parts[0]);
+    if (parts.size() == 3) {
+	parts[1]+="/"+parts[2];
+    }
+    else if (parts.size() != 2) {
+	throw std::runtime_error("uncompress_values(): malformed bitmap group in '"+compressed_bitmap+"'");
+    }
+    auto repeat=std::stoi(parts[0]);
     std::string bitmap_section;
     if (parts[1][0] == '{') {
 	auto idx=parts[1].find("}");
+	if (idx == std::string::npos) {
+	  throw std::runtime_error("uncompress_values(): missing end-of-group delimiter in '"+compressed_bitmap+"'");
+	}
 	bitmap_section=parts[1].substr(1,idx-1);
-	for (int m=0; m < num; ++m) {
-	  for (size_t l=0; l < bitmap_section.length(); ++l) {
-	    if (bitmap_section[l] == '1') {
-		values.emplace_back(value++);
-		values.back()-=(multiplier*values.size());
-	    }
-	    else if (bitmap_section[l] == '0') {
-		++value;
-	    }
-	    else if (bitmap_section[l] >= 'A' && bitmap_section[l] <= 'Z') {
-		size_t repeat=bitmap_section[l]-63;
-		for (size_t m=0; m < repeat; ++m) {
-		  values.emplace_back(value++);
-		  values.back()-=(multiplier*values.size());
-		}
-	    }
-	    else if (bitmap_section[l] >= 'a' && bitmap_section[n] <= 'z') {
-		size_t repeat=bitmap_section[l]-95;
-		for (size_t m=0; m < repeat; ++m) {
-		  ++value;
-		}
-	    }
-	  }
+	for (int m=0; m < repeat; ++m) {
+	  decode_group(bitmap_section,values,next_value,multiplier);
 	}
 	bitmap_section=parts[1].substr(idx);
     }
     else {
-	auto repeat=1;
-	if (parts[1][0] == '1') {
-	  for (int m=0; m < num; ++m) {
-	    values.emplace_back(value+m);
-	    values.back()-=(multiplier*values.size());
-	  }
+	for (int m=0; m < repeat; ++m) {
+	  decode_bit(parts[1][0],values,next_value,multiplier);
 	}
-	else if (parts[1][0] >= 'A' && parts[1][0] <= 'Z') {
-	  repeat=parts[1][0]-63;
-	  for (int m=0; m < repeat; ++m) {
-	    values.emplace_back(value+m);
-	    values.back()-=(multiplier*values.size());
-	  }
-	}
-	else if (parts[1][0] >= 'a' && parts[1][0] <= 'z') {
-	  repeat=parts[1][0]-95;
-	}
-	value+=num*repeat;
 	bitmap_section=parts[1];
     }
     if (bitmap_section.length() > 1) {
 	for (size_t m=1; m < bitmap_section.length(); ++m) {
-	  auto repeat=1;
-	  if (bitmap_section[m] == '1') {
-	    values.emplace_back(value);
-	    values.back()-=(multiplier*values.size());
-	  }
-	  else if (bitmap_section[m] >= 'A' && bitmap_section[m] <= 'Z') {
-	    repeat=bitmap_section[m]-63;
-	    for (int l=0; l < repeat; ++l) {
-		values.emplace_back(value+l);
-		values.back()-=(multiplier*values.size());
-	    }
-	  }
-	  else if (bitmap_section[m] >= 'a' && bitmap_section[m] <= 'z') {
-	    repeat=bitmap_section[m]-95;
-	  }
-	  value+=repeat;
+	  decode_bit(bitmap_section[m],values,next_value,multiplier);
 	}
     }
   }
