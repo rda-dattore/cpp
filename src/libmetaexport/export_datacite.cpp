@@ -93,7 +93,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   }
   ofs << indent << "  <publicationYear>" << pub_date.substr(0,4) << "</publicationYear>" << std::endl;
   ofs << indent << "  <subjects>" << std::endl;
-  query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	ofs << indent << "    <subject subjectScheme=\"GCMD\">" << row[0] << "</subject>" << std::endl;

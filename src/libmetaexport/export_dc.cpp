@@ -9,8 +9,7 @@
 
 namespace metadataExport {
 
-bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
-{
+bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length) {
   ofs << "<meta name=\"DC.type\" content=\"Dataset\" />" << std::endl;
   ofs << "<meta name=\"DC.identifier\" content=\"";
   MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
@@ -75,7 +74,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   auto summary=htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
   strutils::replace_all(summary,"\n","\\n");
   ofs << "<meta name=\"DC.description\" content=\"" << strutils::substitute(summary,"\"","\\\"") << "\" />" << std::endl;
-  query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	ofs << "<meta name=\"DC.subject\" content=\"" << row[0] << "\" />" << std::endl;

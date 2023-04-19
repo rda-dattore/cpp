@@ -155,7 +155,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	  token_doc->add_repeat("__PROJECT__",row[0]);
 	}
     }
-    query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+    query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	for (const auto& row : query) {
 	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);

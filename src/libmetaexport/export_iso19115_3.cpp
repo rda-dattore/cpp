@@ -218,7 +218,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
 	token_doc->add_replacement("__"+concept_scheme+"_VERSION__",row[1]);
 //	token_doc->add_replacement("__"+concept_scheme+"_REVISION_DATE__",row[2]);
     }
-    query.set("select g.path from search.variables_new as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+    query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	while (query.fetch_row(row)) {
 	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);
