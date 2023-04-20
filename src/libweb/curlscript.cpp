@@ -58,77 +58,6 @@ void print_curl_head(string script_type, string& remark, string& cert_opt,
   *outs << remark << " you can add cURL options here (progress bars, etc.)" <<
       endl;
   *outs << "set opts = \"\"" << endl;
-  *outs << remark << endl;
-  if (script_type == "csh") {
-    *outs << "set passwd = 'xxxxxx'" << endl;
-    *outs << "set num_chars = `echo \"$passwd\" |awk '{print length($0)}'`" << endl;
-    *outs << "@ num = 1" << endl;
-    *outs << "set newpass = \"\"" << endl;
-    *outs << "while ($num <= $num_chars)" << endl;
-    *outs << "  set c = `echo \"$passwd\" |cut -b{$num}-{$num}`" << endl;
-    *outs << "  if (\"$c\" == \"&\") then" << endl;
-    *outs << "    set c = \"%26\";" << endl;
-    *outs << "  else" << endl;
-    *outs << "    if (\"$c\" == \"?\") then" << endl;
-    *outs << "      set c = \"%3F\"" << endl;
-    *outs << "    else" << endl;
-    *outs << "      if (\"$c\" == \"=\") then" << endl;
-    *outs << "        set c = \"%3D\"" << endl;
-    *outs << "      endif" << endl;
-    *outs << "    endif" << endl;
-    *outs << "  endif" << endl;
-    *outs << "  set newpass = \"$newpass$c\"" << endl;
-    *outs << "  @ num ++" << endl;
-    *outs << "end" << endl;
-    *outs << "set passwd = \"$newpass\"" << endl;
-  } else {
-    *outs << "set passwd = \"xxxxxx\"" << endl;
-  }
-  *outs << remark << endl;
-  if (script_type == "csh") {
-    *outs << "if (\"$passwd\" == \"xxxxxx\") then" << endl;
-  } else {
-    *outs << "if ($passwd == \"xxxxxx\") then" << endl;
-  }
-  *outs << "  echo \"You need to set your password before you can continue\"" << endl;
-  *outs << "  echo \"  see the documentation in the script\"" << endl;
-  *outs << "  exit" << endl;
-  *outs << "endif" << endl;
-  *outs << remark << endl;
-  *outs << remark << " authenticate - NOTE: You should only execute this command ONE TIME." << endl;
-  *outs << remark << " Executing this command for every data file you download may cause" << endl;
-  *outs << remark << " your download privileges to be suspended." << endl;
-  *outs << "curl -o auth_status." << SERVER_NAME << " -k -s -c auth." << SERVER_NAME;
-  if (script_type == "csh") {
-    *outs << ".$$";
-  }
-  *outs << " -d \"email=";
-    *outs << "$user";
-  *outs << "&passwd=";
-  if (script_type == "csh") {
-    *outs << "$passwd";
-  } else if (script_type == "bat") {
-    *outs << "%passwd%";
-  }
-  *outs << "&action=login\" https://" << SERVER_NAME << "/cgi-bin/login" << endl;
-}
-
-void print_curl_tail(string script_type, string remark, std::ostream *outs) {
-  const string SERVER_NAME = getenv("SERVER_NAME");
-
-  *outs << remark << endl;
-  *outs << remark << " clean up" << endl;
-  if (script_type == "csh") {
-    *outs << "rm";
-  } else if (script_type == "bat") {
-    *outs << "DEL";
-  }
-  *outs << " auth." << SERVER_NAME;
-  if (script_type == "csh") {
-    *outs << ".$$";
-  }
-  *outs << " auth_status." << SERVER_NAME;
-  *outs << endl;
 }
 
 void create_curl_script(const vector<string>& filelist, string server, string
@@ -174,8 +103,6 @@ void create_curl_script(const vector<string>& filelist, string server, string
   print_curl_head(script_type, remark, cert_opt, opts, &cout);
   cout << remark << endl;
   cout << remark << " download the file(s)" << endl;
-  cout << remark << " NOTE:  if you get 403 Forbidden errors when downloading the data files, check" << endl;
-  cout << remark << "        the contents of the file 'auth_status.rda.ucar.edu'" << endl;
   for (const auto& file : filelist) {
     auto local_file = file;
     auto idx = local_file.find("/");
@@ -331,7 +258,6 @@ void create_curl_script(const vector<string>& filelist, string server, string
       cout << "/" << file << " -o " << local_file << endl;
     }
   }
-  print_curl_tail(script_type, remark, &cout);
 }
 
 void create_curl_script(const vector<string>& filelist, string server, string
@@ -371,5 +297,4 @@ void create_curl_script(const vector<string>& filelist, string server, string
     }
     *outs << "/" << file << " -o " << file << endl;
   }
-  print_curl_tail(script_type, remark, outs);
 }
