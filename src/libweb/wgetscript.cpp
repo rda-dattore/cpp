@@ -2,7 +2,6 @@
 #include <fstream>
 #include <ftw.h>
 #include <string>
-#include <list>
 #include <strutils.hpp>
 #include <web/web.hpp>
 
@@ -24,7 +23,7 @@ extern "C" int getWgetDirectoryFiles(const char *name, const struct stat64
   return 0;
 }
 
-void create_wget_script(vector<string>& filelist, string server, string
+void create_wget_script(const vector<string>& filelist, string server, string
     directory, string script_type, std::ofstream *ostream) {
   const string SERVER_NAME = getenv("SERVER_NAME");
   if (server.empty()) {
@@ -154,7 +153,7 @@ void create_wget_script(vector<string>& filelist, string server, string
   *outs << remark << " download the file(s)" << endl;
   *outs << remark << " NOTE:  if you get 403 Forbidden errors when downloading the data files, check" << endl;
   *outs << remark << "        the contents of the file 'auth_status.rda.ucar.edu'" << endl;
-  vector<string> *flist;
+  const vector<string> *flist;
   if (filelist.size() == 0) {
     nftw64(directory.c_str(), getWgetDirectoryFiles, 1, 0);
     flist = &wget_filelist;
@@ -187,6 +186,6 @@ void create_wget_script(vector<string>& filelist, string server, string
   *outs << endl;
 }
 
-void create_wget_script(vector<string>& filelist) {
+void create_wget_script(const vector<string>& filelist) {
   create_wget_script(filelist, "", "", "csh");
 }
