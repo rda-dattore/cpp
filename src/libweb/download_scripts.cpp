@@ -325,23 +325,44 @@ void create_curl_script(const vector<string>& filelist, string server, string
           cout << range_start[n] << "-" << range_end[n];
         }
         replace_all(local_file,".tar","");
-        cout << " https://" << server << directory << "/" << file << " -o " <<
-            local_file << ".subset" << endl;
+        if (server.empty()) {
+          cout << " https://" << SERVER_NAME;
+        } else {
+          cout << " " << server;
+        }
+        if (!directory.empty()) {
+          cout << directory;
+        }
+        cout << "/" << file << " -o " << local_file << ".subset" << endl;
       } else {
         cout << "curl " << opts << " -k -b auth." << SERVER_NAME;
         if (script_type == "csh") {
           cout << ".$$";
         }
-        cout << " https://" << server << directory << "/" << file << " -o " <<
-            local_file << endl;
+        if (server.empty()) {
+          cout << " https://" << SERVER_NAME;
+        } else {
+          cout << " " << server;
+        }
+        if (!directory.empty()) {
+          cout << directory;
+        }
+        cout << "/" << file << " -o " << local_file << endl;
       }
     } else {
       cout << "curl " << opts << " -k -b auth." << SERVER_NAME;
       if (script_type == "csh") {
         cout << ".$$";
       }
-      cout << " https://" << server << directory << "/" << file << " -o " <<
-          local_file << endl;
+      if (server.empty()) {
+        cout << " https://" << SERVER_NAME;
+      } else {
+        cout << " " << server;
+      }
+      if (!directory.empty()) {
+        cout << directory;
+      }
+      cout << "/" << file << " -o " << local_file << endl;
     }
   }
   print_curl_tail(script_type, remark, &cout);
