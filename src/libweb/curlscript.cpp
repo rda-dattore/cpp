@@ -75,6 +75,9 @@ void create_curl_script(const vector<string>& filelist, string server, string
         }
       }
     }
+  } else {
+    create_curl_script(filelist, server, directory, script_type);
+    return;
   }
   unordered_set<string> selected_levels_set;
   if (!level.empty()) {
