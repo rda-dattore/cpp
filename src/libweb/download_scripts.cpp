@@ -673,11 +673,15 @@ void create_wget_script(const vector<string>& filelist, string server, string
   }
   for (const auto& file : *flist) {
     *outs << "wget " << cert_opt << " " << opts << " --load-cookies auth." <<
-        server;
+        SERVER_NAME;
     if (script_type == "csh") {
       *outs << ".$$";
     }
-    *outs << " https://" << server;
+    if (server.empty()) {
+      *outs << " https://" << SERVER_NAME;
+    } else {
+      *outs << " " << server;
+    }
     if (flist == &filelist && !directory.empty()) {
       *outs << directory;
     }
