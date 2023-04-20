@@ -137,6 +137,9 @@ void QueryString::fill(std::string query_string,bool convert_codes)
     }
     strutils::trim(nv_pair);
     auto parts=strutils::split(nv_pair,"=");
+    if (parts.size() == 1) {
+	parts.emplace_back();
+    }
     if (parts.size() != 2) {
 	if (strutils::contains(nv_pair,"=") && !strutils::contains(nv_pair,"=[")) {
 	  nv_pair=nv_pair.substr(0,nv_pair.find("="))+"=["+nv_pair.substr(nv_pair.find("=")+1);
