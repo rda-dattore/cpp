@@ -2,7 +2,6 @@
 #include <fstream>
 #include <regex>
 #include <web/web.hpp>
-#include <web/login.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <tempfile.hpp>
@@ -113,105 +112,6 @@ std::string server_variable(std::string variable_name)
 }
 
 } // end namespace cgi
-
-namespace login {
-
-bool read_config(Directives& directives)
-{
-  std::string raddr=getenv("REMOTE_ADDR");
-  directives.sign_in_enabled=true;
-  directives.registration_enabled=true;
-  std::ifstream ifs((std::string(getenv("DOCUMENT_ROOT"))+"/cgi-bin/internal/conf/login.conf").c_str());
-  if (!ifs.is_open()) {
-    myerror="unable to open config file";
-    return false;
-  }
-  const size_t LINE_LENGTH=32768;
-  char line[LINE_LENGTH];
-  ifs.getline(line,LINE_LENGTH);
-  while (!ifs.eof()) {
-    if (line[0] != '#') {
-	auto directive=strutils::split(line);
-	if (directive.front() == "SignIns") {
-	  if (directive.back() == "disabled")
-	    directives.sign_in_enabled=false;
-	}
-	else if (directive.front() == "Registration") {
-	  if (directive.back() == "disabled")
-	    directives.registration_enabled=false;
-	}
-	else if (directive.front() == "mget.tar") {
-	  if (directive.back() == "disabled")
-	    directives.mget_enabled=false;
-	}
-	else if (directive.front() == "Notify") {
-	  for (size_t n=1; n < directive.size(); ++n)
-	    directives.notify.emplace_back(directive[n]);
-	}
-	else if (directive.front() == "DatabaseServerHost") {
-	  if (directive.size() > 1)
-	    directives.database_server_host=directive[1];
-	}
-	else if (directive.front() == "DatabaseServerUser") {
-	  directives.database_server_user=directive.back();
-	}
-	else if (directive.front() == "DatabaseServerPassword") {
-	  directives.database_server_password=directive.back();
-	}
-	else if (directive.front() == "DatabaseServerDefault") {
-	  directives.database_server_default=directive.back();
-	}
-	else if (directive.front() == "DatabaseServerTimeout") {
-	  directives.database_server_timeout=std::stoi(directive.back());
-	}
-	else if (directive.front() == "LogDirectory") {
-	  directives.log_directory=directive.back();
-	  strutils::replace_all(directives.log_directory,"{SERVER_ROOT}",strutils::token(unixutils::host_name(),".",0));
-	}
-	else if (directive.front() == "IScript") {
-	  for (size_t n=1; n < directive.size(); ++n) {
-	    directives.isc_users.emplace_back(directive[n]);
-	  }
-	}
-	else if (directive.front() == "DelayDomain" && directive.size() == 3) {
-	  if (directive[1] == "contains") {
-	    directives.delay_domain_contains.emplace_back(directive[2]);
-	  }
-	  else if (directive[1] == "is") {
-	    directives.delay_domain_is.emplace_back("@"+directive[2]);
-	  }
-	}
-	else if (directive.front() == "AnonymousDomain" && directive.size() == 2) {
-	  directives.anonymous_domains.emplace(directive.back());
-	}
-	else if (directive.front() == "DelayCountry" && directive.size() == 3) {
-	  directives.delay_country.emplace_back(directive[2]);
-	}
-	else if (directive.front() == "DenyFrom") {
-	  if (std::regex_search(raddr,std::regex("^"+directive.back()))) {
-	    myerror="Permission denied";
-	    return false;
-	  }
-	}
-	else if (directive.front() == "ExportBan") {
-	  directives.export_bans.countries.emplace(directive.back());
-	}
-	else if (directive.front() == "ExportBanAction") {
-	  if (directive[1] == "registration" && directive[2] == "allow") {
-	    directives.export_bans.allow_registration=true;
-	  }
-	  else if (directive[1] == "validation" && directive[2] == "allow") {
-	    directives.export_bans.allow_validation=true;
-	  }
-	}
-    }
-    ifs.getline(line,LINE_LENGTH);
-  }
-  ifs.close();
-  return true;
-}
-
-} // end namespace login
 
 void convert_html_special_characters(std::string& string)
 {
