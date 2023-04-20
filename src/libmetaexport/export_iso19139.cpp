@@ -140,7 +140,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
 	  token_doc->add_repeat("__PLATFORM__",strutils::substitute(row[0],"&","&amp;"));
 	}
     }
-    query.set("select g.path from search.instruments_new as i left join search.GCMD_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
+    query.set("select g.path from search.instruments_new as i left join search.gcmd_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
 	token_doc->add_if("__HAS_INSTRUMENTS__");
 	for (const auto& row : query) {
