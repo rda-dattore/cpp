@@ -209,10 +209,7 @@ void create_curl_script(const vector<string>& filelist, string server, string
         range_end.emplace_back(end);
       }
       if (!range_start.empty() && num_matches < num_lines) {
-        cout << "curl " << opts << " -k -b auth." << SERVER_NAME;
-        if (script_type == "csh")
-          cout << ".$$";
-        cout << " -r ";
+        cout << "curl " << opts << " -k -r ";
         for (size_t n = 0; n < range_start.size(); ++n) {
           if (n > 0) {
             cout << ",";
@@ -230,9 +227,7 @@ void create_curl_script(const vector<string>& filelist, string server, string
         }
         cout << "/" << file << " -o " << local_file << ".subset" << endl;
       } else {
-        cout << "curl " << opts << " -k -b auth." << SERVER_NAME;
-        if (script_type == "csh")
-          cout << ".$$";
+        cout << "curl " << opts << " -k";
         if (server.empty()) {
           cout << " https://" << SERVER_NAME;
         } else {
@@ -244,9 +239,7 @@ void create_curl_script(const vector<string>& filelist, string server, string
         cout << "/" << file << " -o " << local_file << endl;
       }
     } else {
-      cout << "curl " << opts << " -k -b auth." << SERVER_NAME;
-      if (script_type == "csh")
-        cout << ".$$";
+      cout << "curl " << opts << " -k";
       if (server.empty()) {
         cout << " https://" << SERVER_NAME;
       } else {
@@ -283,10 +276,7 @@ void create_curl_script(const vector<string>& filelist, string server, string
     flist = &filelist;
   }
   for (const auto& file : *flist) {
-    *outs << "curl " << cert_opt << " " << opts << " -b auth." << SERVER_NAME;
-    if (script_type == "csh") {
-      *outs << ".$$";
-    }
+    *outs << "curl " << cert_opt << " " << opts;
     if (server.empty()) {
       *outs << " https://" << SERVER_NAME;
     } else {
