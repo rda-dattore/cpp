@@ -37,7 +37,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
     }
   }
   else {
-    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
 	myerror="database error: "+server.error();
 	return false;
