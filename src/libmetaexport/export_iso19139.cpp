@@ -72,7 +72,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
     }
   }
   else {
-    query.set("select g.path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    query.set("select g.path from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	token_doc->add_if("__HAS_AUTHOR_ORGS__");
 	for (const auto& row : query) {
