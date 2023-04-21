@@ -341,7 +341,7 @@ bool indexed_locations(MySQL::Server& server, string dsnum, string& error) {
   server._delete("search.locations_wordlist", "dsid = '" + dsnum + "'");
   size_t m;
   for (const auto& loc : locs) {
-    if (inserted_word_into_search_wordlist(server, "search.locations_wordlist",
+    if (!inserted_word_into_search_wordlist(server, "search.locations_wordlist",
         dsnum, loc, m, error)) {
       if (error.find("Duplicate entry") == string::npos) {
         return false;
