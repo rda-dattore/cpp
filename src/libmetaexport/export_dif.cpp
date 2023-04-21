@@ -132,7 +132,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   }
   e=xdoc.element("dsOverview/topic@vocabulary=ISO");
   ofs << indent << "  <ISO_Topic_Category>" << e.content() << "</ISO_Topic_Category>" << std::endl;
-  query.set("select g.path from search.platforms_new as p left join search.GCMD_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
+  query.set("select g.path from search.platforms_new as p left join search.gcmd_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;

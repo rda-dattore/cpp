@@ -224,14 +224,14 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
 	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);
 	}
     }
-    query.set("select g.path from search.platforms_new as p left join search.GCMD_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
+    query.set("select g.path from search.platforms_new as p left join search.gcmd_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
 	token_doc->add_if("__HAS_PLATFORMS__");
 	while (query.fetch_row(row)) {
 	  token_doc->add_repeat("__PLATFORM__",row[0]);
 	}
     }
-    query.set("select distinct g.path from (select keyword from search.projects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD' union select keyword from search.supportedProjects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD') as p left join search.GCMD_projects as g on g.uuid = p.keyword");
+    query.set("select distinct g.path from (select keyword from search.projects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD' union select keyword from search.supportedProjects_new where dsid = '"+dsnum+"' and vocabulary = 'GCMD') as p left join search.gcmd_projects as g on g.uuid = p.keyword");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
 	token_doc->add_if("__HAS_PROJECTS__");
 	while (query.fetch_row(row)) {
