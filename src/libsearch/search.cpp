@@ -277,9 +277,9 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
   error = "";
 
   // get GCMD variables
-  MySQL::LocalQuery query("select k.path from search.variables_new as v left "
-      "join search.GCMD_sciencekeywords as k on k.uuid = v.keyword where v."
-      "dsid = '" + dsnum + "' and v.vocabulary = 'GCMD'");
+  MySQL::LocalQuery query("select k.path from search.variables as v left join "
+      "search.GCMD_sciencekeywords as k on k.uuid = v.keyword where v.dsid = '"
+      + dsnum + "' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     error = query.error();
     return false;
@@ -292,7 +292,7 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
   }
 
   // get CMDMAP variables (mapped from content metadata)
-  query.set("keyword", "search.variables_new", "dsid = '" + dsnum + "' and "
+  query.set("keyword", "search.variables", "dsid = '" + dsnum + "' and "
       "vocabulary = 'CMDMAP'");
   if (query.submit(server) < 0) {
     error = query.error();
@@ -302,7 +302,7 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
   // if no CMDMAP variables, get CMDMM variables (specified with metadata
   //     manager)
   if (query.num_rows() == 0) {
-    query.set("keyword", "search.variables_new", "dsid = '" + dsnum + "' and "
+    query.set("keyword", "search.variables", "dsid = '" + dsnum + "' and "
         "vocabulary = 'CMDMM'");
     if (query.submit(server) < 0) {
       error = query.error();
