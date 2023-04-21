@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 #include <MySQL.hpp>
 #include <search.hpp>
@@ -314,7 +315,7 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
   }
   server._delete("search.variables_wordlist", "dsid = '" + dsnum + "'");
   auto vars = split(varlist);
-  size_t m;
+  size_t m = 0;
   for (const auto& var : vars) {
     if (!inserted_word_into_search_wordlist(server, "search."
         "variables_wordlist", dsnum, var, m, error)) {
@@ -339,7 +340,7 @@ bool indexed_locations(MySQL::Server& server, string dsnum, string& error) {
   }
   auto locs = split(loclist);
   server._delete("search.locations_wordlist", "dsid = '" + dsnum + "'");
-  size_t m;
+  size_t m = 0;
   for (const auto& loc : locs) {
     if (!inserted_word_into_search_wordlist(server, "search.locations_wordlist",
         dsnum, loc, m, error)) {
