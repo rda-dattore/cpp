@@ -107,7 +107,7 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
     ofs << indent << "    </spdom>" << std::endl;
   }
   ofs << indent << "    <keywords>" << std::endl;
-  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;

@@ -62,7 +62,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   else {
 // dataset does not have specific authors, so use contributors
-    query.set("select g.last_in_path from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    query.set("select g.last_in_path from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	token_doc->add_if("__HAS_AUTHOR_ORGS__");
 	for (const auto& row : query) {
@@ -211,14 +211,14 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
 	token_doc->add_repeat("__FORMAT__",strutils::to_capital(strutils::substitute(row[0],"proprietary_","")));
     }
   }
-  query.set("select concept_scheme,version,revision_date from search.GCMD_versions");
+  query.set("select concept_scheme,version,revision_date from search.gcmd_versions");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	auto concept_scheme=strutils::to_upper(row[0]);
 	token_doc->add_replacement("__"+concept_scheme+"_VERSION__",row[1]);
 //	token_doc->add_replacement("__"+concept_scheme+"_REVISION_DATE__",row[2]);
     }
-    query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+    query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	while (query.fetch_row(row)) {
 	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);
@@ -238,7 +238,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
 	  token_doc->add_repeat("__PROJECT__",row[0]);
 	}
     }
-    query.set("select g.path from search.instruments_new as i left join search.gcmd_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
+    query.set("select g.path from search.instruments as i left join search.gcmd_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
 	token_doc->add_if("__HAS_INSTRUMENTS__");
 	while (query.fetch_row(row)) {

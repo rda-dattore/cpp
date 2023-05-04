@@ -44,7 +44,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
     }
   }
   else {
-    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
 	myerror="database error: "+server.error();
 	return false;
@@ -93,7 +93,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   }
   ofs << indent << "  <publicationYear>" << pub_date.substr(0,4) << "</publicationYear>" << std::endl;
   ofs << indent << "  <subjects>" << std::endl;
-  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	ofs << indent << "    <subject subjectScheme=\"GCMD\">" << row[0] << "</subject>" << std::endl;

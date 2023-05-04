@@ -68,7 +68,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
     ofs << "," << std::endl;
   }
   else {
-    query.set("select g.path,c.contact from search.contributors_new as c left join search.GCMD_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
+    query.set("select g.path,c.contact from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
 	myerror="database error: "+server.error();
 	return false;
@@ -127,7 +127,7 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
     }
     ofs << "," << std::endl;
   }
-  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     ofs << "    \"keywords\": ";
     if (query.num_rows() == 1) {

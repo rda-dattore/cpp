@@ -74,7 +74,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   auto summary=htmlutils::convert_html_summary_to_ascii(xdoc.element("dsOverview/summary").to_string(),0x7fffffff,0);
   strutils::replace_all(summary,"\n","\\n");
   ofs << "<meta name=\"DC.description\" content=\"" << strutils::substitute(summary,"\"","\\\"") << "\" />" << std::endl;
-  query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
 	ofs << "<meta name=\"DC.subject\" content=\"" << row[0] << "\" />" << std::endl;

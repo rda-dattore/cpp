@@ -126,7 +126,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
 	token_doc->add_repeat("__FORMAT__",strutils::to_capital(strutils::substitute(row[0],"proprietary_","")));
     }
   }
-  query.set("select concept_scheme,version,revision_date from search.GCMD_versions");
+  query.set("select concept_scheme,version,revision_date from search.gcmd_versions");
   if (query.submit(server) == 0) {
     for (const auto& row : query) {
 	auto concept_scheme=strutils::to_upper(row[0]);
@@ -140,7 +140,7 @@ bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& 
 	  token_doc->add_repeat("__PLATFORM__",strutils::substitute(row[0],"&","&amp;"));
 	}
     }
-    query.set("select g.path from search.instruments_new as i left join search.gcmd_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
+    query.set("select g.path from search.instruments as i left join search.gcmd_instruments as g on g.uuid = i.keyword where i.dsid = '"+dsnum+"' and i.vocabulary = 'GCMD'");
     if (query.submit(server) == 0 && query.num_rows() > 0) {
 	token_doc->add_if("__HAS_INSTRUMENTS__");
 	for (const auto& row : query) {
@@ -155,7 +155,7 @@ query.set("select distinct g.path from (select keyword from search.projects_new 
 	  token_doc->add_repeat("__PROJECT__",row[0]);
 	}
     }
-    query.set("select g.path from search.variables as v left join search.GCMD_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+    query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
     if (query.submit(server) == 0) {
 	for (const auto& row : query) {
 	  token_doc->add_repeat("__SCIENCEKEYWORD__",row[0]);
