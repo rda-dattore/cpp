@@ -6,6 +6,8 @@
 #include <utils.hpp>
 #include <xml.hpp>
 
+using std::string;
+
 namespace gridutils {
 
 void cartesianll(Grid::GridDimensions dim,Grid::GridDefinition def,int pole_x,int pole_y,double **lat,double **lon)
@@ -97,7 +99,6 @@ void decode_grid_subset_string(std::string rinfo,struct Args& args)
 {
   std::deque<std::string> sp,sp2,sp3;
   size_t n,m,idx;
-  Parameter param;
 
   args.subset_bounds.nlat=99.;
   args.subset_bounds.slat=-99.;
@@ -130,16 +131,15 @@ void decode_grid_subset_string(std::string rinfo,struct Args& args)
     else if (sp2[0] == "parameters") {
 	sp3=strutils::split(sp2[1],",");
 	for (m=0; m < sp3.size(); m++) {
-	  if ( (idx=sp3[m].find("!")) != std::string::npos) {
-	    param.key=sp3[m].substr(idx+1);
-	    param.format_code.reset(new std::string);
-	    *param.format_code=sp3[m].substr(0,idx);
+          string key, format_code;
+	  idx=sp3[m].find("!");
+	  if (idx != std::string::npos) {
+	    key = sp3[m].substr(idx + 1);
+	    format_code = sp3[m].substr(0, idx);
+	  } else {
+	    key = sp3[m];
 	  }
-	  else {
-	    param.key=sp3[m];
-	    param.format_code=nullptr;
-	  }
-	  args.parameters.insert(param);
+	  args.parameters.emplace(key, format_code);
 	}
     }
     else if (sp2[0] == "grid_definition") {
