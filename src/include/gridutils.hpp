@@ -62,7 +62,7 @@ struct Args {
   std::string dsnum, startdate, enddate, grid_definition_code, ensemble_id,
       tindex, inittime;
   std::list<std::string> level_codes, product_codes;
-  std::unordered_map<string, string> parameters;
+  std::unordered_map<std::string, std::string> parameters;
   SubsetBounds subset_bounds;
   bool dates_are_init;
 };
