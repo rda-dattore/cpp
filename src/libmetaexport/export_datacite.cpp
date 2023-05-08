@@ -26,55 +26,55 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
     for (const auto& author : elist) {
-	ofs << indent << "    <creator>" << std::endl;
-	ofs << indent << "      <creatorName>";
-	auto author_type=author.attribute_value("xsi:type");
-	if (author_type == "authorPerson" || author_type.empty()) {
-	  ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
-	  auto mname=author.attribute_value("mname");
-	  if (!mname.empty()) {
-	    ofs << " " << mname;
-	  }
-	}
-	else {
-	  ofs << author.attribute_value("name");
-	}
-	ofs << "</creatorName>" << std::endl;
-	ofs << indent << "    </creator>" << std::endl;
+      ofs << indent << "    <creator>" << std::endl;
+      ofs << indent << "      <creatorName>";
+      auto author_type=author.attribute_value("xsi:type");
+      if (author_type == "authorPerson" || author_type.empty()) {
+        ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
+        auto mname=author.attribute_value("mname");
+        if (!mname.empty()) {
+          ofs << " " << mname;
+        }
+      }
+      else {
+        ofs << author.attribute_value("name");
+      }
+      ofs << "</creatorName>" << std::endl;
+      ofs << indent << "    </creator>" << std::endl;
     }
   }
   else {
     query.set("select g.path,c.contact from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
-	myerror="database error: "+server.error();
-	return false;
+      myerror="database error: "+server.error();
+      return false;
     }
     if (query.num_rows() == 0) {
-	myerror="no contributors were found for ds"+dsnum;
-	return false;
+      myerror="no contributors were found for ds"+dsnum;
+      return false;
     }
     auto n=0;
     while (query.fetch_row(row)) {
-	auto name_parts=strutils::split(row[0]," > ");
-	if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
-	  auto contact_parts=strutils::split(row[1],",");
-	  if (contact_parts.size() > 0) {
-	    name_parts.back()=strutils::capitalize(strutils::substitute(strutils::to_lower(name_parts.back())," ","_"))+", "+contact_parts.front();
-	  }
-	  else {
-	    name_parts.back()="";
-	  }
-	}
-	if (!name_parts.back().empty()) {
-	  ofs << indent << "    <creator>" << std::endl;
-	  ofs << indent << "      <creatorName>" << strutils::substitute(name_parts.back(),", ","/") << "</creatorName>" << std::endl;
-	  ofs << indent << "    </creator>" << std::endl;
-	  ++n;
-	}
+      auto name_parts=strutils::split(row[0]," > ");
+      if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+        auto contact_parts=strutils::split(row[1],",");
+        if (contact_parts.size() > 0) {
+          name_parts.back()=strutils::capitalize(strutils::substitute(strutils::to_lower(name_parts.back())," ","_"))+", "+contact_parts.front();
+        }
+        else {
+          name_parts.back()="";
+        }
+      }
+      if (!name_parts.back().empty()) {
+        ofs << indent << "    <creator>" << std::endl;
+        ofs << indent << "      <creatorName>" << strutils::substitute(name_parts.back(),", ","/") << "</creatorName>" << std::endl;
+        ofs << indent << "    </creator>" << std::endl;
+        ++n;
+      }
     }
     if (n == 0) {
-	myerror="no useable contributors were found for ds"+dsnum;
-	return false;
+      myerror="no useable contributors were found for ds"+dsnum;
+      return false;
     }
   }
   ofs << indent << "  </creators>" << std::endl;
@@ -88,7 +88,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   if (pub_date.empty()) {
     query.set("pub_date","search.datasets","dsid = '"+dsnum+"'");
     if (query.submit(server) == 0 && query.fetch_row(row)) {
-	pub_date=row[0];
+      pub_date=row[0];
     }
   }
   ofs << indent << "  <publicationYear>" << pub_date.substr(0,4) << "</publicationYear>" << std::endl;
@@ -96,7 +96,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
-	ofs << indent << "    <subject subjectScheme=\"GCMD\">" << row[0] << "</subject>" << std::endl;
+      ofs << indent << "    <subject subjectScheme=\"GCMD\">" << row[0] << "</subject>" << std::endl;
     }
   }
   ofs << indent << "  </subjects>" << std::endl;
@@ -120,7 +120,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   if (elist.size() > 0) {
     ofs << indent << "  <relatedIdentifiers>" << std::endl;
     for (const auto& doi : elist) {
-	ofs << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\" relationType=\"" << doi.attribute_value("relationType") << "\">" << doi.content() << "</relatedIdentifier>" << std::endl;
+      ofs << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\" relationType=\"" << doi.attribute_value("relationType") << "\">" << doi.content() << "</relatedIdentifier>" << std::endl;
     }
     ofs << indent << "  </relatedIdentifiers>" << std::endl;
   }
@@ -134,7 +134,7 @@ bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,si
   if (query.submit(server) == 0 && query.num_rows() > 0) {
     ofs << indent << "  <formats>" << std::endl;
     while (query.fetch_row(row)) {
-	ofs << indent << "    <format>" << strutils::substitute(row[0],"_"," ") << "</format>" << std::endl;
+      ofs << indent << "    <format>" << strutils::substitute(row[0],"_"," ") << "</format>" << std::endl;
     }
     ofs << indent << "  </formats>" << std::endl;
   }
