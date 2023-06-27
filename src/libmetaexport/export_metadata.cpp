@@ -54,6 +54,8 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
         exported = export_to_oai_dc(ofs, ident, xdoc, initial_indent_length);
       } else if (format == "datacite") {
         exported = export_to_datacite(ofs, ident, xdoc, initial_indent_length);
+      } else if (format == "datacite4") {
+        exported = export_to_datacite4(ofs, ident, xdoc, initial_indent_length);
       } else if (format == "dc-meta-tags") {
         exported = export_to_dc_meta_tags(ofs, ident, xdoc,
             initial_indent_length);
