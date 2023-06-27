@@ -52,6 +52,16 @@ bool export_to_datacite(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
         ofs << author.attribute_value("name");
       }
       ofs << "</creatorName>" << endl;
+      if (author_type == "authorPerson" || author_type.empty()) {
+        auto orcid_id = author.attribute_value("orcid_id");
+        if (!orcid_id.empty()) {
+          ofs << "      <nameIdentifier>" << orcid_id << "</nameIdentifier>" <<
+              endl;
+          ofs << "      <nameIdentifierScheme>ORCID</nameIdentifierScheme>" <<
+              endl;
+          ofs << "      <schemeURI>https://orcid.org/</schemeURI>" << endl;
+        }
+      }
       ofs << indent << "    </creator>" << endl;
     }
   } else {
