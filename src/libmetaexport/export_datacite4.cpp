@@ -6,10 +6,16 @@
 #include <metadata.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
+#include <bitmap.hpp>
 #include <myerror.hpp>
 
 using std::endl;
+using std::min;
+using std::max;
 using std::string;
+using std::stringstream;
+using std::to_string;
+using std::vector;
 using strutils::split;
 using strutils::capitalize;
 using strutils::substitute;
@@ -151,9 +157,10 @@ bool added_publication_year(MySQL::Server& server, std::ostream& ofs,
   return true;
 }
 
-bool added_resource_type(std::ostream& ofs) {
-  ofs << indent << "  <resourceType resourceTypeGeneral=\"Dataset\">"
-      "</resourceType>" << endl;
+bool added_resource_type(std::ostream& ofs, XMLDocument& xdoc) {
+  auto e = xdoc.element("dsOverview/topic@vocabulary=ISO");
+  ofs << indent << "  <resourceType resourceTypeGeneral=\"Dataset\">" << e.
+      content() << "</resourceType>" << endl;
   return true;
 }
 
@@ -174,7 +181,7 @@ bool added_mandatory_fields(MySQL::Server& server, std::ostream& ofs,
   if (!added_publication_year(server, ofs, xdoc, dsnum)) {
     return false;
   }
-  if (!added_resource_type(ofs)) {
+  if (!added_resource_type(ofs, xdoc)) {
     return false;
   }
   return true;
@@ -235,7 +242,7 @@ void add_related_identifier(std::ostream& ofs, XMLDocument& xdoc) {
   }
 }
 
-void add_description(XMLDocument& xdoc, std::ostream& ofs) {
+void add_description(std::ostream& ofs, XMLDocument& xdoc) {
   ofs << indent << "  <descriptions>" << endl;
   ofs << indent << "    <description descriptionType=\"Abstract\">" <<
       htmlutils::convert_html_summary_to_ascii(xdoc.element(
@@ -243,7 +250,108 @@ void add_description(XMLDocument& xdoc, std::ostream& ofs) {
   ofs << indent << "  </descriptions>" << endl;
 }
 
-void add_geolocation() {
+void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
+  auto elist = ele.element_list("grid");
+  double mnlon = 999., mnlat = 999., mxlon = -999., mxlat = -999.;
+  for (const auto& e : elist) {
+    auto d = e.attribute_value("definition");
+    if (e.attribute_value("isCell") == "true") {
+      d += "Cell";
+    }
+    d += "<!>" + e.attribute_value("numX") + ":" + e.attribute_value("numY");
+    if (d.find("latLon") == 0 || d.find("mercator") == 0) {
+      d += ":" + e.attribute_value("startLat") + ":" + e.attribute_value(
+          "startLon") + ":" + e.attribute_value("endLat") + ":" + e.
+          attribute_value("endLon") + ":" + e.attribute_value("xRes") + ":" + e.
+          attribute_value("yRes");
+    } else if (d.find("gaussLatLon") == 0) {
+      d += ":" + e.attribute_value("startLat") + ":" + e.attribute_value(
+          "startLon") + ":" + e.attribute_value("endLat") + ":" + e.
+          attribute_value("endLon") + ":" + e.attribute_value("xRes") + ":" + e.
+          attribute_value("numY");
+    } else if (d.find("polarStereographic") == 0) {
+      d += ":" + e.attribute_value("startLat") + ":" + e.attribute_value(
+          "startLon") + ":60" + e.attribute_value("pole") + ":" + e.
+          attribute_value("projLon") + ":" + e.attribute_value("pole") + ":" +
+          e.attribute_value("xRes") + ":" + e.attribute_value("yRes");
+    } else if (d.find("lambertConformal") == 0) {
+      d += ":" + e.attribute_value("startLat") + ":" + e.attribute_value(
+          "startLon") + ":" + e.attribute_value("resLat") + ":" + e.
+          attribute_value("projLon") + ":" + e.attribute_value("pole") + ":" +
+          e.attribute_value("xRes") + ":" + e.attribute_value("yRes") + ":" + e.
+          attribute_value("stdParallel1") + ":" + e.attribute_value(
+          "stdParallel2");
+    }
+    double wlon, slat, elon, nlat;
+    gridutils::fill_spatial_domain_from_grid_definition(d, "primeMeridian",
+        wlon, slat, elon, nlat);
+    mnlon = min(mnlon, wlon);          
+    mnlat = min(mnlat, slat);
+    mxlon = max(mxlon, elon);
+    mxlat = max(mxlat, nlat);
+  }
+  ofs << indent << "  <geoLocations>" << endl;
+  ofs << indent << "    <geoLocationBox>" << endl;
+  ofs << indent << "      <westBoundLongitude>" << mnlon <<
+      "</westBoundLongitude>" << std::endl;
+  ofs << indent << "      <eastBoundLongitude>" << mxlon <<
+      "</eastBoundLongitude>" << std::endl;
+  ofs << indent << "      <southBoundLatitude>" << mnlat <<
+      "</southBoundLatitude>" << std::endl;
+  ofs << indent << "      <northBoundLatitude>" << mxlat <<
+      "</northBoundLatitude>" << std::endl;
+  ofs << indent << "    </geoLocationBox>" << endl;
+  ofs << indent << "  </geoLocations>" << endl;
+}
+
+void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
+    string dsnum) {
+  auto d2 = substitute(dsnum, ".", "");
+  MySQL::LocalQuery q("distinct grid_definition_codes", "WGrML.ds" + d2 +
+      "_agrids2");
+  if (q.submit(server) == 0) {
+    double mnlon = 999., mnlat = 999., mxlon = -999., mxlat = -999.;
+    for (const auto& r : q) {
+      vector<size_t> v;
+      bitmap::uncompress_values(r[0], v);
+      for (const auto& e : v) {
+        MySQL::LocalQuery q2("definition, def_params", "WGrML.grid_definitions",
+            "code = " + to_string(e));
+        MySQL::Row r2;
+        if (q2.submit(server) == 0 && q2.fetch_row(r2)) {
+          double wlon, slat, elon, nlat;
+          gridutils::fill_spatial_domain_from_grid_definition(r2[0] + "<!>" +
+              r2[1], "primeMeridian", wlon, slat, elon, nlat);
+          mnlon = min(mnlon, wlon);          
+          mnlat = min(mnlat, slat);
+          mxlon = max(mxlon, elon);
+          mxlat = max(mxlat, nlat);
+        }
+      }
+    }
+    ofs << indent << "  <geoLocations>" << endl;
+    ofs << indent << "    <geoLocationBox>" << endl;
+    ofs << indent << "      <westBoundLongitude>" << mnlon <<
+        "</westBoundLongitude>" << std::endl;
+    ofs << indent << "      <eastBoundLongitude>" << mxlon <<
+        "</eastBoundLongitude>" << std::endl;
+    ofs << indent << "      <southBoundLatitude>" << mnlat <<
+        "</southBoundLatitude>" << std::endl;
+    ofs << indent << "      <northBoundLatitude>" << mxlat <<
+        "</northBoundLatitude>" << std::endl;
+    ofs << indent << "    </geoLocationBox>" << endl;
+    ofs << indent << "  </geoLocations>" << endl;
+  }
+}
+
+void add_geolocation(MySQL::Server& server, std::ostream& ofs, XMLDocument&
+    xdoc, string dsnum) {
+  auto e = xdoc.element("dsOverview/contentMetadata/geospatialCoverage");
+  if (e.name() == "geospatialCoverage") {
+    add_geolocation_from_xml(ofs, e);
+  } else {
+    add_geolocation_from_database(server, ofs, dsnum);
+  }
 }
 
 void add_recommended_fields(MySQL::Server& server, std::ostream& ofs,
@@ -252,8 +360,8 @@ void add_recommended_fields(MySQL::Server& server, std::ostream& ofs,
   add_contributors(ofs);
   add_date(server, ofs, dsnum);
   add_related_identifier(ofs, xdoc);
-  add_description(xdoc, ofs);
-  add_geolocation();
+  add_description(ofs, xdoc);
+  add_geolocation(server, ofs, xdoc, dsnum);
 }
 
 void add_language(std::ostream& ofs) {
@@ -315,7 +423,140 @@ void add_rights(MySQL::Server& server, std::ostream& ofs, XMLDocument& xdoc) {
 void add_funding_reference() {
 }
 
-void add_related_item() {
+void add_related_identifiers(const XMLElement& e, stringstream& rss) {
+  auto doi = e.element("doi").content();
+  if (!doi.empty()) {
+    rss << indent << "      <relatedIdentifier relatedIdentifierType=\"DOI\">"
+        << doi << "</relatedIdentifier>" << endl;
+    return;
+  }
+  auto url = e.element("url").content();
+  if (!url.empty()) {
+    rss << indent << "      <relatedIdentifier relatedIdentifierType=\"URL\">"
+        << url << "</relatedIdentifier>" << endl;
+    return;
+  }
+}
+
+void add_pub_head(const XMLElement& e, stringstream& rss) {
+  rss << indent << "      <creators>" << endl;
+  rss << indent << "        <creatorName>" << e.element("authorList").content()
+      << "</creatorName>" << endl;
+  rss << indent << "      </creators>" << endl;
+  rss << indent << "      <titles>" << endl;
+  rss << indent << "        <title>" << e.element("title").content() <<
+      "</title>" << endl;
+  rss << indent << "      </titles>" << endl;
+  rss << indent << "      <publicationYear>" << e.element("year").content() <<
+      "</publicationYear>" << endl;
+}
+
+void add_pages(string pages, stringstream& rss) {
+  if (!pages.empty()) {
+    auto sp = split(pages, "-");
+    rss << indent << "      <firstPage>" << sp.front() << "</firstPage>" << endl;
+    rss << indent << "      <lastPage>" << sp.back() << "</lastPage>" << endl;
+  }
+}
+
+void add_book(const XMLElement& e, stringstream& rss) {
+  auto ds_relation = e.attribute_value("ds_relation");
+  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
+      "relatedItemType=\"Book\">" << endl;
+  add_related_identifiers(e, rss);
+  add_pub_head(e, rss);
+  auto p = e.element("publisher");
+  rss << indent << "      <publisher>" << p.content() << ", " << p.
+      attribute_value("place") << "</publisher>" << endl;
+  rss << indent << "    </relatedItem>" << endl;
+}
+
+void add_book_chapter(const XMLElement& e, stringstream& rss) {
+  auto ds_relation = e.attribute_value("ds_relation");
+  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
+      "relatedItemType=\"BookChapter\">" << endl;
+  add_related_identifiers(e, rss);
+  add_pub_head(e, rss);
+  auto b = e.element("book");
+  rss << indent << "      <issue>" << b.content() << "</issue>" << endl;
+  add_pages(b.attribute_value("pages"), rss);
+  rss << indent << "      <publisher>Ed. " << b.attribute_value("editor") << ", "
+      << b.attribute_value("publisher") << "</publisher>" << endl;
+  rss << indent << "    </relatedItem>" << endl;
+}
+
+void add_journal_article(const XMLElement& e, stringstream& rss) {
+  auto ds_relation = e.attribute_value("ds_relation");
+  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
+      "relatedItemType=\"";
+  if (ds_relation == "IsDescribedBy") {
+    rss << "DataPaper";
+  } else {
+    rss << "JournalArticle";
+  }
+  rss << "\">" << endl;
+  add_related_identifiers(e, rss);
+  add_pub_head(e, rss);
+  auto p = e.element("periodical");
+  rss << indent << "      <issue>" << p.content() << "</issue>" << endl;
+  rss << indent << "      <number>" << p.attribute_value("number") <<
+      "</number>" << endl;
+  add_pages(p.attribute_value("pages"), rss);
+  rss << indent << "    </relatedItem>" << endl;
+}
+
+void add_conference_proceeding(const XMLElement& e, stringstream& rss) {
+  auto ds_relation = e.attribute_value("ds_relation");
+  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
+      "relatedItemType=\"ConferenceProceeding\">" << endl;
+  add_related_identifiers(e, rss);
+  add_pub_head(e, rss);
+  auto c = e.element("conference");
+  rss << indent << "      <issue>" << c.content() << "</issue>" << endl;
+  add_pages(c.attribute_value("pages"), rss);
+  rss << indent << "      <publisher>" << c.attribute_value("host") << ", " << c.
+      attribute_value("location") << "</publisher>" << endl;
+  rss << indent << "    </relatedItem>" << endl;
+}
+
+void add_report(const XMLElement& e, stringstream& rss) {
+  auto ds_relation = e.attribute_value("ds_relation");
+  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
+      "relatedItemType=\"Report\">" << endl;
+  add_related_identifiers(e, rss);
+  add_pub_head(e, rss);
+  auto o = e.element("organization");
+  auto report_id = o.attribute_value("reportID");
+  if (!report_id.empty()) {
+    rss << indent << "      <number>" << report_id << "</number>" << endl;
+  }
+  add_pages(o.attribute_value("pages"), rss);
+  rss << indent << "      <publisher>" << o.content() << "</publisher>" << endl;
+  rss << indent << "    </relatedItem>" << endl;
+}
+
+void add_related_item(std::ostream& ofs, XMLDocument& xdoc) {
+  auto elist = xdoc.element_list("dsOverview/reference");
+  stringstream rss;
+  for (const auto& e : elist) {
+    auto type = e.attribute_value("type");
+    if (type == "book") {
+      add_book(e, rss);
+    } else if (type == "book_chapter") {
+      add_book_chapter(e, rss);
+    } else if (type == "journal") {
+      add_journal_article(e, rss);
+    } else if (type == "preprint") {
+      add_conference_proceeding(e, rss);
+    } else if (type == "technical_report") {
+      add_report(e, rss);
+    }
+  }
+  if (!rss.str().empty()) {
+    ofs << indent << "  <relatedItems>" << std::endl;
+    ofs << rss.str();
+    ofs << indent << "  </relatedItems>" << std::endl;
+  }
 }
 
 void add_optional_fields(MySQL::Server& server, std::ostream& ofs,
@@ -327,7 +568,7 @@ void add_optional_fields(MySQL::Server& server, std::ostream& ofs,
   add_version();
   add_rights(server, ofs, xdoc);
   add_funding_reference();
-  add_related_item();
+  add_related_item(ofs, xdoc);
 }
 
 bool export_to_datacite4(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
