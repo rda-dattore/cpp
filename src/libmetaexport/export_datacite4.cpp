@@ -290,18 +290,22 @@ void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
     mxlon = max(mxlon, elon);
     mxlat = max(mxlat, nlat);
   }
-  ofs << indent << "  <geoLocations>" << endl;
-  ofs << indent << "    <geoLocationBox>" << endl;
-  ofs << indent << "      <westBoundLongitude>" << mnlon <<
-      "</westBoundLongitude>" << std::endl;
-  ofs << indent << "      <eastBoundLongitude>" << mxlon <<
-      "</eastBoundLongitude>" << std::endl;
-  ofs << indent << "      <southBoundLatitude>" << mnlat <<
-      "</southBoundLatitude>" << std::endl;
-  ofs << indent << "      <northBoundLatitude>" << mxlat <<
-      "</northBoundLatitude>" << std::endl;
-  ofs << indent << "    </geoLocationBox>" << endl;
-  ofs << indent << "  </geoLocations>" << endl;
+  if (mnlon < 999.) {
+    ofs << indent << "  <geoLocations>" << endl;
+    ofs << indent << "    <geoLocation>" << endl;
+    ofs << indent << "      <geoLocationBox>" << endl;
+    ofs << indent << "        <westBoundLongitude>" << mnlon <<
+        "</westBoundLongitude>" << std::endl;
+    ofs << indent << "        <eastBoundLongitude>" << mxlon <<
+        "</eastBoundLongitude>" << std::endl;
+    ofs << indent << "        <southBoundLatitude>" << mnlat <<
+        "</southBoundLatitude>" << std::endl;
+    ofs << indent << "        <northBoundLatitude>" << mxlat <<
+        "</northBoundLatitude>" << std::endl;
+    ofs << indent << "      </geoLocationBox>" << endl;
+    ofs << indent << "    </geoLocation>" << endl;
+    ofs << indent << "  </geoLocations>" << endl;
+  }
 }
 
 void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
@@ -329,18 +333,22 @@ void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
         }
       }
     }
-    ofs << indent << "  <geoLocations>" << endl;
-    ofs << indent << "    <geoLocationBox>" << endl;
-    ofs << indent << "      <westBoundLongitude>" << mnlon <<
-        "</westBoundLongitude>" << std::endl;
-    ofs << indent << "      <eastBoundLongitude>" << mxlon <<
-        "</eastBoundLongitude>" << std::endl;
-    ofs << indent << "      <southBoundLatitude>" << mnlat <<
-        "</southBoundLatitude>" << std::endl;
-    ofs << indent << "      <northBoundLatitude>" << mxlat <<
-        "</northBoundLatitude>" << std::endl;
-    ofs << indent << "    </geoLocationBox>" << endl;
-    ofs << indent << "  </geoLocations>" << endl;
+    if (mnlon < 999.) {
+      ofs << indent << "  <geoLocations>" << endl;
+      ofs << indent << "    <geoLocation>" << endl;
+      ofs << indent << "      <geoLocationBox>" << endl;
+      ofs << indent << "        <westBoundLongitude>" << mnlon <<
+          "</westBoundLongitude>" << std::endl;
+      ofs << indent << "        <eastBoundLongitude>" << mxlon <<
+          "</eastBoundLongitude>" << std::endl;
+      ofs << indent << "        <southBoundLatitude>" << mnlat <<
+          "</southBoundLatitude>" << std::endl;
+      ofs << indent << "        <northBoundLatitude>" << mxlat <<
+          "</northBoundLatitude>" << std::endl;
+      ofs << indent << "      </geoLocationBox>" << endl;
+      ofs << indent << "    </geoLocation>" << endl;
+      ofs << indent << "  </geoLocations>" << endl;
+    }
   }
 }
 
@@ -423,25 +431,27 @@ void add_rights(MySQL::Server& server, std::ostream& ofs, XMLDocument& xdoc) {
 void add_funding_reference() {
 }
 
-void add_related_identifiers(const XMLElement& e, stringstream& rss) {
+void add_related_item_identifiers(const XMLElement& e, stringstream& rss) {
   auto doi = e.element("doi").content();
   if (!doi.empty()) {
-    rss << indent << "      <relatedIdentifier relatedIdentifierType=\"DOI\">"
-        << doi << "</relatedIdentifier>" << endl;
+    rss << indent << "      <relatedItemIdentifier relatedItemIdentifierType=\""
+        "DOI\">" << doi << "</relatedItemIdentifier>" << endl;
     return;
   }
   auto url = e.element("url").content();
   if (!url.empty()) {
-    rss << indent << "      <relatedIdentifier relatedIdentifierType=\"URL\">"
-        << url << "</relatedIdentifier>" << endl;
+    rss << indent << "      <relatedItemIdentifier relatedItemIdentifierType=\""
+        "URL\">" << url << "</relatedItemIdentifier>" << endl;
     return;
   }
 }
 
 void add_pub_head(const XMLElement& e, stringstream& rss) {
   rss << indent << "      <creators>" << endl;
-  rss << indent << "        <creatorName>" << e.element("authorList").content()
-      << "</creatorName>" << endl;
+  rss << indent << "        <creator>" << endl;
+  rss << indent << "          <creatorName>" << e.element("authorList").
+      content() << "</creatorName>" << endl;
+  rss << indent << "        </creator>" << endl;
   rss << indent << "      </creators>" << endl;
   rss << indent << "      <titles>" << endl;
   rss << indent << "        <title>" << e.element("title").content() <<
@@ -463,7 +473,7 @@ void add_book(const XMLElement& e, stringstream& rss) {
   auto ds_relation = e.attribute_value("ds_relation");
   rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
       "relatedItemType=\"Book\">" << endl;
-  add_related_identifiers(e, rss);
+  add_related_item_identifiers(e, rss);
   add_pub_head(e, rss);
   auto p = e.element("publisher");
   rss << indent << "      <publisher>" << p.content() << ", " << p.
@@ -475,7 +485,7 @@ void add_book_chapter(const XMLElement& e, stringstream& rss) {
   auto ds_relation = e.attribute_value("ds_relation");
   rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
       "relatedItemType=\"BookChapter\">" << endl;
-  add_related_identifiers(e, rss);
+  add_related_item_identifiers(e, rss);
   add_pub_head(e, rss);
   auto b = e.element("book");
   rss << indent << "      <issue>" << b.content() << "</issue>" << endl;
@@ -495,7 +505,7 @@ void add_journal_article(const XMLElement& e, stringstream& rss) {
     rss << "JournalArticle";
   }
   rss << "\">" << endl;
-  add_related_identifiers(e, rss);
+  add_related_item_identifiers(e, rss);
   add_pub_head(e, rss);
   auto p = e.element("periodical");
   rss << indent << "      <issue>" << p.content() << "</issue>" << endl;
@@ -509,7 +519,7 @@ void add_conference_proceeding(const XMLElement& e, stringstream& rss) {
   auto ds_relation = e.attribute_value("ds_relation");
   rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
       "relatedItemType=\"ConferenceProceeding\">" << endl;
-  add_related_identifiers(e, rss);
+  add_related_item_identifiers(e, rss);
   add_pub_head(e, rss);
   auto c = e.element("conference");
   rss << indent << "      <issue>" << c.content() << "</issue>" << endl;
@@ -523,7 +533,7 @@ void add_report(const XMLElement& e, stringstream& rss) {
   auto ds_relation = e.attribute_value("ds_relation");
   rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
       "relatedItemType=\"Report\">" << endl;
-  add_related_identifiers(e, rss);
+  add_related_item_identifiers(e, rss);
   add_pub_head(e, rss);
   auto o = e.element("organization");
   auto report_id = o.attribute_value("reportID");
