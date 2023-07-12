@@ -311,10 +311,10 @@ void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
 void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
     string dsnum) {
   auto d2 = substitute(dsnum, ".", "");
+  double mnlon = 999., mnlat = 999., mxlon = -999., mxlat = -999.;
   MySQL::LocalQuery q("distinct grid_definition_codes", "WGrML.ds" + d2 +
       "_agrids2");
   if (q.submit(server) == 0) {
-    double mnlon = 999., mnlat = 999., mxlon = -999., mxlat = -999.;
     for (const auto& r : q) {
       vector<size_t> v;
       bitmap::uncompress_values(r[0], v);
@@ -333,8 +333,20 @@ void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
         }
       }
     }
+  }
+  vector<string> locs;
+  q.set("select g.path from search.locations_new as l left join search."
+      "gcmd_locations as g on g.uuid = l.keyword where l.dsid = '" + dsnum +
+      "' and l.vocabulary = 'GCMD' order by g.path");
+  if (q.submit(server) == 0) {
+    locs.reserve(q.num_rows());
+    for (const auto& r : q) {
+      locs.emplace_back(r[0]);
+    }
+  }
+  if (mnlon < 999. || !locs.empty()) {
+    ofs << indent << "  <geoLocations>" << endl;
     if (mnlon < 999.) {
-      ofs << indent << "  <geoLocations>" << endl;
       ofs << indent << "    <geoLocation>" << endl;
       ofs << indent << "      <geoLocationBox>" << endl;
       ofs << indent << "        <westBoundLongitude>" << mnlon <<
@@ -347,8 +359,16 @@ void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
           "</northBoundLatitude>" << std::endl;
       ofs << indent << "      </geoLocationBox>" << endl;
       ofs << indent << "    </geoLocation>" << endl;
-      ofs << indent << "  </geoLocations>" << endl;
     }
+    if (!locs.empty()) {
+      ofs << indent << "    <geoLocation>" << endl;
+      for (const auto& loc : locs) {
+        ofs << indent << "      <geoLocationPlace>" << loc <<
+            "</geoLocationPlace>" << endl;
+      }
+      ofs << indent << "    </geoLocation>" << endl;
+    }
+    ofs << indent << "  </geoLocations>" << endl;
   }
 }
 
