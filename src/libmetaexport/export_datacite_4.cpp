@@ -295,13 +295,13 @@ void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
     ofs << indent << "    <geoLocation>" << endl;
     ofs << indent << "      <geoLocationBox>" << endl;
     ofs << indent << "        <westBoundLongitude>" << mnlon <<
-        "</westBoundLongitude>" << std::endl;
+        "</westBoundLongitude>" << endl;
     ofs << indent << "        <eastBoundLongitude>" << mxlon <<
-        "</eastBoundLongitude>" << std::endl;
+        "</eastBoundLongitude>" << endl;
     ofs << indent << "        <southBoundLatitude>" << mnlat <<
-        "</southBoundLatitude>" << std::endl;
+        "</southBoundLatitude>" << endl;
     ofs << indent << "        <northBoundLatitude>" << mxlat <<
-        "</northBoundLatitude>" << std::endl;
+        "</northBoundLatitude>" << endl;
     ofs << indent << "      </geoLocationBox>" << endl;
     ofs << indent << "    </geoLocation>" << endl;
     ofs << indent << "  </geoLocations>" << endl;
@@ -350,13 +350,13 @@ void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
       ofs << indent << "    <geoLocation>" << endl;
       ofs << indent << "      <geoLocationBox>" << endl;
       ofs << indent << "        <westBoundLongitude>" << mnlon <<
-          "</westBoundLongitude>" << std::endl;
+          "</westBoundLongitude>" << endl;
       ofs << indent << "        <eastBoundLongitude>" << mxlon <<
-          "</eastBoundLongitude>" << std::endl;
+          "</eastBoundLongitude>" << endl;
       ofs << indent << "        <southBoundLatitude>" << mnlat <<
-          "</southBoundLatitude>" << std::endl;
+          "</southBoundLatitude>" << endl;
       ofs << indent << "        <northBoundLatitude>" << mxlat <<
-          "</northBoundLatitude>" << std::endl;
+          "</northBoundLatitude>" << endl;
       ofs << indent << "      </geoLocationBox>" << endl;
       ofs << indent << "    </geoLocation>" << endl;
     }
@@ -489,103 +489,146 @@ void add_pages(string pages, stringstream& rss) {
   }
 }
 
-void add_book(const XMLElement& e, stringstream& rss) {
-  auto ds_relation = e.attribute_value("ds_relation");
-  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
-      "relatedItemType=\"Book\">" << endl;
-  add_related_item_identifiers(e, rss);
-  add_pub_head(e, rss);
-  auto p = e.element("publisher");
-  rss << indent << "      <publisher>" << p.content() << ", " << p.
-      attribute_value("place") << "</publisher>" << endl;
-  rss << indent << "    </relatedItem>" << endl;
-}
-
-void add_book_chapter(const XMLElement& e, stringstream& rss) {
-  auto ds_relation = e.attribute_value("ds_relation");
-  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
-      "relatedItemType=\"BookChapter\">" << endl;
-  add_related_item_identifiers(e, rss);
-  add_pub_head(e, rss);
-  auto b = e.element("book");
-  rss << indent << "      <issue>" << b.content() << "</issue>" << endl;
-  add_pages(b.attribute_value("pages"), rss);
-  rss << indent << "      <publisher>Ed. " << b.attribute_value("editor") << ", "
-      << b.attribute_value("publisher") << "</publisher>" << endl;
-  rss << indent << "    </relatedItem>" << endl;
-}
-
-void add_journal_article(const XMLElement& e, stringstream& rss) {
-  auto ds_relation = e.attribute_value("ds_relation");
-  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
-      "relatedItemType=\"";
-  if (ds_relation == "IsDescribedBy") {
-    rss << "DataPaper";
+void add_book(const XMLElement& e, stringstream& rss, stringstream& rids) {
+  string type = "Book";
+  auto doi = e.element("doi").content();
+  if (doi.empty()) {
+    rss << " relatedItemType=\"" << type << "\">" << endl;
+    add_related_item_identifiers(e, rss);
+    add_pub_head(e, rss);
+    auto p = e.element("publisher");
+    rss << indent << "      <publisher>" << p.content() << ", " << p.
+        attribute_value("place") << "</publisher>" << endl;
+    rss << indent << "    </relatedItem>" << endl;
   } else {
-    rss << "JournalArticle";
+    rids << " resourceTypeGeneral=\"" << type << "\">" << doi <<
+        "</relatedIdentifier>" << endl;
   }
-  rss << "\">" << endl;
-  add_related_item_identifiers(e, rss);
-  add_pub_head(e, rss);
-  auto p = e.element("periodical");
-  rss << indent << "      <issue>" << p.content() << "</issue>" << endl;
-  rss << indent << "      <number>" << p.attribute_value("number") <<
-      "</number>" << endl;
-  add_pages(p.attribute_value("pages"), rss);
-  rss << indent << "    </relatedItem>" << endl;
 }
 
-void add_conference_proceeding(const XMLElement& e, stringstream& rss) {
-  auto ds_relation = e.attribute_value("ds_relation");
-  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
-      "relatedItemType=\"ConferenceProceeding\">" << endl;
-  add_related_item_identifiers(e, rss);
-  add_pub_head(e, rss);
-  auto c = e.element("conference");
-  rss << indent << "      <issue>" << c.content() << "</issue>" << endl;
-  add_pages(c.attribute_value("pages"), rss);
-  rss << indent << "      <publisher>" << c.attribute_value("host") << ", " << c.
-      attribute_value("location") << "</publisher>" << endl;
-  rss << indent << "    </relatedItem>" << endl;
+void add_book_chapter(const XMLElement& e, stringstream& rss, stringstream&
+    rids) {
+  string type = "BookChapter";
+  auto doi = e.element("doi").content();
+  if (doi.empty()) {
+    rss << " relatedItemType=\"" << type << "\">" << endl;
+    add_related_item_identifiers(e, rss);
+    add_pub_head(e, rss);
+    auto b = e.element("book");
+    rss << indent << "      <issue>" << b.content() << "</issue>" << endl;
+    add_pages(b.attribute_value("pages"), rss);
+    rss << indent << "      <publisher>Ed. " << b.attribute_value("editor") <<
+        ", " << b.attribute_value("publisher") << "</publisher>" << endl;
+    rss << indent << "    </relatedItem>" << endl;
+  } else {
+    rids << " resourceTypeGeneral=\"" << type << "\">" << doi <<
+        "</relatedIdentifier>" << endl;
+  }
 }
 
-void add_report(const XMLElement& e, stringstream& rss) {
+void add_journal_article(const XMLElement& e, stringstream& rss, stringstream&
+    rids) {
   auto ds_relation = e.attribute_value("ds_relation");
-  rss << indent << "    <relatedItem relationType=\"" << ds_relation << "\" "
-      "relatedItemType=\"Report\">" << endl;
-  add_related_item_identifiers(e, rss);
-  add_pub_head(e, rss);
-  auto o = e.element("organization");
-  auto report_id = o.attribute_value("reportID");
-  if (!report_id.empty()) {
-    rss << indent << "      <number>" << report_id << "</number>" << endl;
+  string type;
+  if (ds_relation == "IsDescribedBy") {
+    type = "DataPaper";
+  } else {
+    type = "JournalArticle";
   }
-  add_pages(o.attribute_value("pages"), rss);
-  rss << indent << "      <publisher>" << o.content() << "</publisher>" << endl;
-  rss << indent << "    </relatedItem>" << endl;
+  auto doi = e.element("doi").content();
+  if (doi.empty()) {
+    rss << " relatedItemType=\"" << type << "\">" << endl;
+    add_related_item_identifiers(e, rss);
+    add_pub_head(e, rss);
+    auto p = e.element("periodical");
+    rss << indent << "      <issue>" << p.content() << "</issue>" << endl;
+    rss << indent << "      <number>" << p.attribute_value("number") <<
+        "</number>" << endl;
+    add_pages(p.attribute_value("pages"), rss);
+    rss << indent << "    </relatedItem>" << endl;
+  } else {
+    rids << " resourceTypeGeneral=\"" << type << "\">" << doi <<
+        "</relatedIdentifier>" << endl;
+  }
+}
+
+void add_conference_proceeding(const XMLElement& e, stringstream& rss,
+    stringstream& rids) {
+  string type = "ConferenceProceeding";
+  auto doi = e.element("doi").content();
+  if (doi.empty()) {
+    rss << " relatedItemType=\"" << type << "\">" << endl;
+    add_related_item_identifiers(e, rss);
+    add_pub_head(e, rss);
+    auto c = e.element("conference");
+    rss << indent << "      <issue>" << c.content() << "</issue>" << endl;
+    add_pages(c.attribute_value("pages"), rss);
+    rss << indent << "      <publisher>" << c.attribute_value("host") << ", " <<
+        c.attribute_value("location") << "</publisher>" << endl;
+    rss << indent << "    </relatedItem>" << endl;
+  } else {
+    rids << " resourceTypeGeneral=\"" << type << "\">" << doi <<
+        "</relatedIdentifier>" << endl;
+  }
+}
+
+void add_report(const XMLElement& e, stringstream& rss, stringstream& rids) {
+  string type = "Report";
+  auto doi = e.element("doi").content();
+  if (doi.empty()) {
+    rss << " relatedItemType=\"" << type << "\">" << endl;
+    add_related_item_identifiers(e, rss);
+    add_pub_head(e, rss);
+    auto o = e.element("organization");
+    auto report_id = o.attribute_value("reportID");
+    if (!report_id.empty()) {
+      rss << indent << "      <number>" << report_id << "</number>" << endl;
+    }
+    add_pages(o.attribute_value("pages"), rss);
+    rss << indent << "      <publisher>" << o.content() << "</publisher>" <<
+        endl;
+    rss << indent << "    </relatedItem>" << endl;
+  } else {
+    rids << " resourceTypeGeneral=\"" << type << "\">" << doi <<
+        "</relatedIdentifier>" << endl;
+  }
 }
 
 void add_related_item(std::ostream& ofs, XMLDocument& xdoc) {
   auto elist = xdoc.element_list("dsOverview/reference");
-  stringstream rss;
+  stringstream rss, rids;
   for (const auto& e : elist) {
+    auto doi = e.element("doi").content();
+    auto ds_relation = e.attribute_value("ds_relation");
+    if (doi.empty()) {
+      rss << indent << "    <relatedItem relationType=\"" << ds_relation <<
+          "\"";
+    } else {
+      rids << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\""
+          " relationType=\"" << ds_relation << "\"";
+    }
     auto type = e.attribute_value("type");
     if (type == "book") {
-      add_book(e, rss);
+      add_book(e, rss, rids);
     } else if (type == "book_chapter") {
-      add_book_chapter(e, rss);
+      add_book_chapter(e, rss, rids);
     } else if (type == "journal") {
-      add_journal_article(e, rss);
+      add_journal_article(e, rss, rids);
     } else if (type == "preprint") {
-      add_conference_proceeding(e, rss);
+      add_conference_proceeding(e, rss, rids);
     } else if (type == "technical_report") {
-      add_report(e, rss);
+      add_report(e, rss, rids);
     }
   }
   if (!rss.str().empty()) {
-    ofs << indent << "  <relatedItems>" << std::endl;
+    ofs << indent << "  <relatedItems>" << endl;
     ofs << rss.str();
-    ofs << indent << "  </relatedItems>" << std::endl;
+    ofs << indent << "  </relatedItems>" << endl;
+  }
+  if (!rids.str().empty()) {
+    ofs << indent << "  <relatedIdentifiers>" << endl;
+    ofs << rids.str();
+    ofs << indent << "  </relatedIdentifiers>" << endl;
   }
 }
 
@@ -601,7 +644,7 @@ void add_optional_fields(MySQL::Server& server, std::ostream& ofs,
   add_related_item(ofs, xdoc);
 }
 
-bool export_to_datacite4(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
+bool export_to_datacite_4(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     size_t indent_length) {
   indent = string(indent_length, ' ');
   MySQL::Server server(metautils::directives.database_server, metautils::
