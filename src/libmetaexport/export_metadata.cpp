@@ -21,6 +21,7 @@ using std::regex_search;
 using std::string;
 using std::stringstream;
 using std::unique_ptr;
+using strutils::replace_all;
 
 namespace metadataExport {
 
@@ -50,26 +51,23 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
     }
     XMLDocument xdoc(ds_overview);
     if (xdoc.is_open()) {
+      replace_all(format, "-", "_");
       if (format == "oai_dc") {
         exported = export_to_oai_dc(ofs, ident, xdoc, initial_indent_length);
-      } else if (format == "datacite") {
-        exported = export_to_datacite(ofs, ident, xdoc, initial_indent_length);
-      } else if (format == "datacite4") {
-        exported = export_to_datacite4(ofs, ident, xdoc, initial_indent_length);
-      } else if (format == "dc-meta-tags") {
+      } else if (format.find("datacite") == 0) {
+        exported = export_to_datacite(format.substr(8), ofs, ident, xdoc,
+            initial_indent_length);
+      } else if (format == "dc_meta_tags") {
         exported = export_to_dc_meta_tags(ofs, ident, xdoc,
             initial_indent_length);
       } else if (format == "dif") {
         exported = export_to_dif(ofs, ident, xdoc, initial_indent_length);
       } else if (format == "fgdc") {
         exported = export_to_fgdc(ofs, ident, xdoc, initial_indent_length);
-      } else if (format == "iso19139") {
-        exported = export_to_iso19139(token_doc, ofs, ident, xdoc,
+      } else if (format.find("iso") == 0) {
+        exported = export_to_iso(format.substr(3), token_doc, ofs, ident, xdoc,
             initial_indent_length);
-      } else if (format == "iso19115-3") {
-        exported = export_to_iso19115_3(token_doc, ofs, ident, xdoc,
-            initial_indent_length);
-      } else if (format == "json-ld") {
+      } else if (format == "json_ld") {
         exported = export_to_json_ld(ofs, ident, xdoc, initial_indent_length);
       } else if (format == "native") {
         exported = export_to_native(ofs, ident, xdoc, initial_indent_length);
