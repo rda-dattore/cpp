@@ -13,6 +13,7 @@ using Number = JSON::Number;
 using String = JSON::String;
 using Value = JSON::Value;
 using ValueType = JSON::ValueType;
+using std::endl;
 using std::ostream;
 using std::runtime_error;
 using std::string;
@@ -96,6 +97,39 @@ vector<string> Value::keys() const {
     }
     default: {
       return vector<string>{};
+    }
+  }
+}
+
+void Value::pretty_print(ostream& o, size_t indent) const {
+  switch (m_type) {
+    case ValueType::String: {
+      o << "\"" << *(reinterpret_cast<String *>(json_value)) << "\"";
+      break;
+    }
+    case ValueType::Number: {
+      auto number = reinterpret_cast<Number *>(json_value);
+      if (number->is_float()) {
+        o << number->dvalue();
+      } else {
+        o << number->lvalue();
+      }
+      break;
+    }
+    case ValueType::Object: {
+      reinterpret_cast<Object *>(json_value)->pretty_print(o, indent);
+      break;
+    }
+    case ValueType::Array: {
+      reinterpret_cast<Array *>(json_value)->pretty_print(o, indent);
+      break;
+    }
+    case ValueType::Boolean: {
+      o << reinterpret_cast<Boolean *>(json_value)->to_string();
+      break;
+    }
+    default: {
+      o << "mtype(" << static_cast<int>(m_type) << ")";
     }
   }
 }
@@ -350,6 +384,27 @@ void Object::fill(std::ifstream& ifs) {
   fill(json);
 }
 
+void Object::pretty_print(ostream& o, size_t indent) const {
+  o << "{";
+  auto n = 0;
+  for (const auto& e : pairs) {
+    if (n > 0) {
+      o << ",";
+    }
+    o << endl;
+    indent += 2;
+    o << string(indent, ' ') << "\"" << e.first << "\": ";
+    e.second->pretty_print(o, indent);
+    indent -= 2;
+    ++n;
+  }
+  o << endl;
+  o << string(indent, ' ') << "}";
+  if (indent == 0) {
+    o << endl;
+  }
+}
+
 vector<string> Object::keys() const {
   vector<string> v;
   for (const auto& e : pairs) {
@@ -545,6 +600,29 @@ void Array::fill(string json_array) {
 */
       first = ++last;
     }
+  }
+}
+
+void Array::pretty_print(ostream& o, size_t indent)  const {
+  o << "[";
+  auto n = 0;
+  for (const auto& e : elements) {
+    if (n > 0) {
+      o << ",";
+    }
+    o << endl;
+    indent += 2;
+    if (e->type() == ValueType::Object) {
+      o << string(indent, ' ');
+    }
+    e->pretty_print(o, indent);
+    indent -= 2;
+    ++n;
+  }
+  o << endl;
+  o << string(indent, ' ') << "]";
+  if (indent == 0) {
+    o << endl;
   }
 }
 
