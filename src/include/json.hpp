@@ -15,6 +15,7 @@ public:
     operator bool() const;
     void clear();
     std::vector<std::string> keys() const;
+    void pretty_print(std::ostream& o, size_t indent) const;
     size_t size() const;
     std::string to_string() const;
     ValueType type() const { return m_type; }
@@ -80,6 +81,7 @@ public:
     void fill(std::string json_object);
     void fill(std::ifstream& ifs);
     std::vector<std::string> keys() const;
+    void pretty_print(std::ostream& o, size_t indent = 0) const;
     size_t size() const { return pairs.size(); }
     std::string to_string() const { return "[Object]"; }
     const Value& operator[](const char* key) const;
@@ -98,6 +100,7 @@ public:
     ~Array();
     operator bool() const { return elements.size() > 0; }
     void fill(std::string json_array);
+    void pretty_print(std::ostream& o, size_t indent = 0) const;
     size_t size() const { return elements.size(); }
     std::string to_string() const { return "[Array]"; }
     const Value& operator[](size_t index) const;
