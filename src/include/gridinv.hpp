@@ -17,7 +17,7 @@ public:
   size_t copy_to_buffer(unsigned char *output_buffer,const size_t buffer_length) const;
   DateTime end_datetime() const { return datetime[1]; }
   void fill(const unsigned char *buffer,bool fill_date_only);
-  void fill_from_grid(const Grid *source,size_t format_number,float dataset_number,std::string filename);
+  void fill_from_grid(const Grid *source, Grid::Format format,float dataset_number,std::string filename);
   std::string filename() const { return filename_; }
   short format() const { return format_; }
   size_t grid_length() const { return grid_length_; }
@@ -32,7 +32,7 @@ public:
   DateTime start_datetime() const { return datetime[0]; }
   short time_range() const { return time_range_; }
   short time_unit() const { return time_unit_; }
-  const char *time_unit_string() const { return GRIBGrid::time_units[time_unit_]; }
+  const char *time_unit_string() const { return GRIBGrid::TIME_UNITS[time_unit_]; }
   size_t top_level() const { return level_id[0]; }
   void set_verbose_off() { verbose=false; }
   void set_verbose_on() { verbose=true; }
