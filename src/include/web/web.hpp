@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <mymap.hpp>
 #include <tempfile.hpp>
+#include <datetime.hpp>
 
 class QueryString
 {
@@ -91,26 +92,38 @@ private:
   TempFile ofs;
 };
 
-extern void create_curl_script(std::list<std::string>& filelist,std::string directory,std::string dsnum,std::string script_type,std::string parameters,std::string level,std::string product,std::string start_date,std::string end_date);
-extern void create_curl_script(std::list<std::string>& filelist,std::string directory,std::string script_type,std::ofstream *ofs = NULL);
-extern void create_python_script(std::list<std::string>& filelist,std::string directory,std::string script_type);
-extern void create_python_script(std::list<std::string>& filelist);
-extern void create_wget_script(std::list<std::string>& filelist,std::string directory,std::string script_type,std::ofstream *ofs = NULL);
-extern void create_wget_script(std::list<std::string>& filelist);
-extern void web_error(std::string message,bool print_content_type = true);
-extern void web_error2(std::string message,std::string status);
-extern void weblog_error(std::string error,std::string caller,std::string user);
-extern void weblog_info(std::string warning,std::string caller,std::string user);
+extern void clear_cookie(std::string cookie_name, std::string domain, std::
+    string path);
+extern void create_curl_script(const std::vector<std::string>& filelist, std::
+    string server, std::string directory, std::string dsnum, std::string
+    script_type, std::string parameters, std::string level, std::string product,
+    std::string start_date, std::string end_date);
+extern void create_curl_script(const std::vector<std::string>& filelist, std::
+    string server, std::string directory, std::string script_type, std::ofstream
+    *ofs = nullptr);
+extern void create_python_script(const std::vector<std::string>& filelist, std::
+    string server, std::string directory, std::string script_type);
+extern void create_python_script(const std::vector<std::string>& filelist);
+extern void create_wget_script(const std::vector<std::string>& filelist, std::
+    string server, std::string directory, std::string script_type, std::ofstream
+    *ofs = nullptr);
+extern void create_wget_script(const std::vector<std::string>& filelist);
+extern void set_cookie(std::string cookie_name, std::string cookie_value, std::
+    string domain, std::string path, DateTime *expiration_datetime = nullptr);
+extern void web_error(std::string message, bool print_content_type = true);
+extern void web_error2(std::string message, std::string status);
+extern void weblog_error(std::string error, std::string caller, std::string
+    user);
+extern void weblog_info(std::string warning, std::string caller, std::string
+    user);
 
 extern std::list<std::string> accesses_from_cookie();
 
-extern std::string url_encode(std::string string);
-extern std::string rda_username();
+extern std::string cookie_value(std::string name);
 extern std::string duser();
 extern std::string iuser();
 extern std::string session_ID();
 extern std::string twiki_name();
-extern std::string value_from_cookie(std::string name);
 
 extern bool has_access(std::string acode);
 
