@@ -22,7 +22,7 @@ struct Directives {
       web_server(), database_server(), rdadb_username(), rdadb_password(),
       metadb_username(), metadb_password(), metadata_manager(), server_root(),
       decs_root(), local_root(), hpss_root(), decs_bindir(), rdadata_home(),
-      parameter_map_path(),level_map_path() { }
+      parameter_map_path(),level_map_path(), singularity_binds() { }
 
   std::string temp_path, data_root, data_root_alias;
   std::string host, web_server, database_server, rdadb_username, rdadb_password,
@@ -30,6 +30,7 @@ struct Directives {
   std::string metadata_manager;
   std::string server_root, decs_root, local_root, hpss_root;
   std::string decs_bindir, rdadata_home, parameter_map_path, level_map_path;
+  std::vector<std::string> singularity_binds;
 };
 
 struct Args {
