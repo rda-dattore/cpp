@@ -12,7 +12,7 @@ extern std::string root_of_word(std::string word);
 extern std::string time_resolution_keyword(std::string frequency_type, int
     number, std::string unit, std::string statistics);
 
-extern bool index_locations(MySQL::Server& server, std::string dsnum, std::
+extern bool indexed_locations(MySQL::Server& server, std::string dsnum, std::
     string& error);
 extern bool indexed_variables(MySQL::Server& server, std::string dsnum, std::
     string& error);
