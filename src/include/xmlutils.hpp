@@ -135,7 +135,7 @@ public:
     GMapEntry() : key(),def(),dim(),single_pole_point(false),pole_point_location_() {}
 
     void reset() {
-	def.type=0;
+	def.type = Grid::Type::not_set;
 	dim.x=dim.y=0;
 	single_pole_point=false;
 	pole_point_location_="";
