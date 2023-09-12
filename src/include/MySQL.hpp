@@ -80,6 +80,7 @@ public:
       std::string where_conditions = "");
   int update(std::string absolute_table, std::vector<std::string>&
       column_name_value_pairs, std::string where_conditions = "");
+  size_t version() { return mysql_get_server_version(&mysql); }
 
 private:
   MYSQL mysql;
@@ -129,7 +130,7 @@ public:
       where_conditions = "") :
       Query() { set(columns, absolute_table, where_conditions); }
   Query(std::string query_specification) : Query() { set(query_specification); }
-  virtual ~Query() {}
+  virtual ~Query() { }
   operator bool() const { return (!query.empty()); }
   std::string error() const { return m_error; };
   virtual bool fetch_row(Row& row) const;
@@ -265,7 +266,12 @@ private:
     };
     std::unique_ptr<MYSQL_BIND[], MYSQL_BIND_DELETER> binds;
     std::vector<size_t> lengths;
+#ifdef MYSQL57
     std::vector<my_bool> is_nulls, errors;
+#endif
+#ifdef MYSQL8
+    std::vector<bool> is_nulls, errors;
+#endif
     size_t field_count;
   } input_bind, result_bind;
   std::unordered_map<std::string, size_t> column_list;
