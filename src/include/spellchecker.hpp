@@ -4,8 +4,7 @@
 #include <mymap.hpp>
 #include <MySQL.hpp>
 
-class SpellChecker
-{
+class SpellChecker {
 public:
   SpellChecker();
   ~SpellChecker();
