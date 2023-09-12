@@ -66,6 +66,14 @@ extern void lon_index_bounds_from_bitmap(const char *bitmap,size_t& min_lon_inde
 
 } // end namespace geoutils
 
+namespace htmlutils {
+
+extern std::string convert_html_summary_to_ascii(std::string summary,size_t wrap_length,size_t indent_length);
+extern std::string transform_superscripts(std::string s);
+extern std::string unicode_escape_to_html(std::string u);
+
+} // end namespace htmlutils
+
 namespace metcalcs {
 
 extern double compute_relative_humidity(double temperature,double dew_point_temperature);
@@ -79,23 +87,23 @@ extern void uv2wind(double u,double v,int& dd,double& ff);
 
 } // end namespace metcalcs
 
-namespace htmlutils {
+namespace miscutils {
 
-extern std::string convert_html_summary_to_ascii(std::string summary,size_t wrap_length,size_t indent_length);
-extern std::string transform_superscripts(std::string s);
-extern std::string unicode_escape_to_html(std::string u);
+extern size_t min_byte_width(size_t value);
 
-} // end namespace htmlutils
+extern std::string this_function_label(std::string function_name);
+
+} // end namespace miscutils
 
 namespace unixutils {
 
-enum class DumpType {bytes=0,bits};
+enum class DumpType { bytes = 0, bits };
 
 extern const char *cat(std::string filename);
 
 extern int rdadata_sync(std::string directory,std::string relative_path,std::string remote_path,std::string rdadata_home,std::string& error);
 extern int rdadata_sync_from(std::string remote_filename,std::string local_filename,std::string rdadata_home,std::stringstream& ess);
-extern int rdadata_unsync(std::string remote_filename,std::string rdadata_home,std::string& error);
+extern int rdadata_unsync(std::string remote_filename,std::string local_tmpdir,std::string rdadata_home,std::string& error);
 extern int mysystem2(std::string command,std::stringstream& output,std::stringstream& error);
 
 extern long long little_endian(unsigned char *buffer,size_t num_bytes);
