@@ -42,12 +42,14 @@ extern void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,
 
 extern bool compare_references(XMLElement& left,XMLElement& right);
 extern bool export_metadata(std::string format,std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,size_t initial_indent_length = 0);
-extern bool export_to_datacite(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_datacite(std::string version, std::ostream& ofs, std::
+    string dsnum, XMLDocument& xdoc, size_t indent_length);
 extern bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 extern bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 extern bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
-extern bool export_to_iso19139(std::unique_ptr<TokenDocument>& token_doc,std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
+extern bool export_to_iso(std::string version, std::unique_ptr<TokenDocument>&
+     token_doc, std::ostream& ofs, std::string dsnum, XMLDocument& xdoc, size_t
+     indent_length);
 extern bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 extern bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
 extern bool export_to_oai_dc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length);
