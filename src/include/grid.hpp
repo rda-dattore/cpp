@@ -270,7 +270,7 @@ public:
 
   GRIBMessage() : m_edition(-1), discipline(0), mlength(0), curr_off(-1),
       m_offsets(), m_lengths(), pds_supp(nullptr), gds_included(false),
-      bms_included(false), grids(} { }
+      bms_included(false), grids() { }
   GRIBMessage(const GRIBMessage& source) : GRIBMessage() { *this = source; }
   virtual ~GRIBMessage() { }
   GRIBMessage& operator=(const GRIBMessage& source);
@@ -396,8 +396,8 @@ public:
     GRIBData() : reference_date_time(), valid_date_time(), dim(), def(),
         param_version(0), source(0), process(0), grid_catalog_id(0),
         time_unit(0), time_range(0), sub_center(0), D(0), grid_type(0),
-        scan_mode(0), rescomp_flag(0), level_types(0, 0), param_code(0),
-        levels(0, 0), p1(0), p2(0), num_averaged(0), num_averaged_missing(0),
+        scan_mode(0), rescomp_flag(0), level_types{ 0, 0 }, param_code(0),
+        levels{ 0, 0 }, p1(0), p2(0), num_averaged(0), num_averaged_missing(0),
         pack_width(0), gds_included(false), plist(nullptr), gridpoints(nullptr)
         { }
 
@@ -496,6 +496,7 @@ protected:
       path_to_parameter_map) const;
   void galloc();
   void remap_parameters();
+  void resize_bitmap(size_t new_size);
   virtual std::string build_level_search_key() const;
   virtual std::string build_parameter_search_key() const;
 
