@@ -10,7 +10,6 @@
 #include <grid.hpp>
 #include <xml.hpp>
 #include <tempfile.hpp>
-#include <MySQL.hpp>
 #include <satellite.hpp>
 #include <datetime.hpp>
 #include <tokendoc.hpp>
