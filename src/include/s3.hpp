@@ -181,15 +181,14 @@ class is3stream {
 public:
   is3stream() : session(nullptr), bucket(), key(), num_read(0), curr_offset(0)
       { }
-  void close();
-  off_t current_record_offset() const { return curr_offset; }
-  int ignore();
+  void close() { session.reset(nullptr); }
   bool is_open() const { return session != nullptr; }
   size_t number_read() const { return num_read; }
   bool open(std::string url);
-  int peek();
-  int read(unsigned char *buffer, size_t buffer_length);
-  void rewind();
+  int read(unsigned char *buffer, size_t num_bytes);
+  void rewind() { curr_offset = 0; }
+  void seek(off_t off) { curr_offset = off; }
+  off_t tell() const { return curr_offset; }
 
 private:
   std::unique_ptr<s3::Session> session;
