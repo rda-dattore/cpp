@@ -4,6 +4,7 @@
 #define IMPLEMENTED private: \
                       void implemented() { }
 
+#include <iostream>
 #include <exception>
 #include <string>
 
@@ -12,6 +13,20 @@ namespace my {
 class Exception : public std::exception {
 public:
   Exception(std::string message) : m(message) { }
+  const char *what() const throw() {
+      std::cerr << "  what(): " << m << std::endl;
+      exit(1);
+  }
+
+protected:
+  virtual void implemented() = 0;
+
+  std::string m;
+};
+
+class CoreDump : public std::exception {
+public:
+  CoreDump(std::string message) : m(message) { }
   const char *what() const throw() { return m.c_str(); }
 
 protected:
@@ -59,6 +74,12 @@ public:
 class MissingParameter_Error : public Exception {
 public:
   MissingParameter_Error(std::string message) : Exception(message) { }
+  IMPLEMENTED
+};
+
+class NotAuthorized_Error : public Exception {
+public:
+  NotAuthorized_Error(std::string message) : Exception(message) { }
   IMPLEMENTED
 };
 
