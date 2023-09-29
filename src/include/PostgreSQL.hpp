@@ -65,6 +65,7 @@ public:
   Query() : result(nullptr), query(), m_error(), m_num_rows(0), m_num_fields(0),
       curr_row(0) { }
   Query(const Query& source) = delete;
+  Query(std::string query_specification) : Query() { set(query_specification); }
   virtual ~Query();
   Query operator=(const Query& source) = delete;
   std::string error() const { return m_error; }
@@ -102,6 +103,9 @@ private:
 bool table_exists(Server& server, std::string absolute_table);
 bool field_exists(Server& server, std::string absolute_table, std::string
     field);
+
+std::vector<std::string> table_names(Server& server, std::string database, std::
+    string like_expr, std::string& error);
 
 } // end namespace PostgreSQL
 
