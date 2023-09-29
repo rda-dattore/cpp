@@ -2,8 +2,10 @@
 #define  POSTGRESQL_H
 
 #include <libpq-fe.h>
+#include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace PostgreSQL {
 
@@ -27,19 +29,25 @@ class Server {
 public:
   Server() : conn(nullptr), m_error() { }
   Server(const Server& source) = delete;
-  ~Server() { disconnect(); }
   Server operator=(const Server& source) = delete;
-  operator bool() const { return PQstatus(conn) != CONNECTION_BAD; }
+  operator bool() const { return PQstatus(conn.get()) != CONNECTION_BAD; }
   void connect(std::string host, std::string user, std::string password, std::
       string db, int timeout = -1);
   void disconnect();
   std::string error() const { return m_error; }
-  PGconn *handle() { return conn; }
+  PGconn *handle() { return conn.get(); }
   int insert(const std::string& absolute_table, const std::string& column_list,
       const std::string& value_list, const std::string& on_conflict);
 
 private:
-  PGconn *conn;
+  struct PGconn_deleter {
+    void operator()(PGconn *conn) {
+      if (conn != nullptr) {
+        PQfinish(conn);
+      }
+    }
+  };
+  std::unique_ptr<PGconn, PGconn_deleter> conn;
   std::string m_error;
 };
 
@@ -66,7 +74,7 @@ public:
       curr_row(0) { }
   Query(const Query& source) = delete;
   Query(std::string query_specification) : Query() { set(query_specification); }
-  virtual ~Query();
+  virtual ~Query() { }
   Query operator=(const Query& source) = delete;
   std::string error() const { return m_error; }
   virtual bool fetch_row(Row& row);
@@ -80,7 +88,14 @@ public:
   QueryIterator end();
 
 protected:
-  PGresult *result;
+  struct PGresult_deleter {
+    void operator()(PGresult *result) {
+      if (result != nullptr) {
+        PQclear(result);
+      }
+    }
+  };
+  std::unique_ptr<PGresult, PGresult_deleter> result;
   std::string query, m_error;
   size_t m_num_rows, m_num_fields, curr_row;
 };
@@ -96,6 +111,12 @@ public:
   // Query overrides
   bool fetch_row(Row& row);
   int submit(Server& server);
+
+private:
+};
+
+class PreparedStatement {
+public:
 
 private:
 };
