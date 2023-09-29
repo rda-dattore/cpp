@@ -1,5 +1,4 @@
 #include <PostgreSQL.hpp>
-#include <iostream>
 
 using std::string;
 using std::to_string;
@@ -13,12 +12,12 @@ void Server::connect(string host, string user, string password, string db, int
       " password=" + password +
       " dbname=" + db +
       " connect_timeout=" + to_string(timeout);
-  conn = PQconnectdb(conninfo.c_str());
+  conn.reset(PQconnectdb(conninfo.c_str()));
 }
 
 void Server::disconnect() {
   if (conn != nullptr) {
-    PQfinish(conn);
+    PQfinish(conn.release());
   }
 }
 
@@ -31,7 +30,7 @@ int Server::insert(const string& absolute_table, const string& column_list,
     s += " on conflict " + on_conflict;
   }
   s += ";";
-  auto result = PQexec(conn, s.c_str());
+  auto result = PQexec(conn.get(), s.c_str());
   if (PQresultStatus(result) == PGRES_COMMAND_OK) {
     return 0;
   }

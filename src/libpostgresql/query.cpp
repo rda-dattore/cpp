@@ -28,12 +28,6 @@ Row& QueryIterator::operator*() {
   return row;
 }
 
-Query::~Query() {
-  if (result != nullptr) {
-    PQclear(result);
-  }
-}
-
 bool Query::fetch_row(Row& row) {
   return true;
 }
@@ -51,7 +45,7 @@ bool LocalQuery::fetch_row(Row& row) {
     row.clear();
     return false;
   }
-  row.fill(result, m_num_fields, curr_row++);
+  row.fill(result.get(), m_num_fields, curr_row++);
   return true;
 }
 
@@ -61,17 +55,17 @@ int LocalQuery::submit(Server& server) {
     return -1;
   }
   if (result != nullptr) {
-    PQclear(result);
+    PQclear(result.release());
     m_num_rows = m_num_fields = 0;
     curr_row = 0;
   }
-  result = PQexec(server.handle(), query.c_str());
-  auto status = PQresultStatus(result);
+  result.reset(PQexec(server.handle(), query.c_str()));
+  auto status = PQresultStatus(result.get());
   if (status == PGRES_TUPLES_OK) {
-    m_num_rows = PQntuples(result);
-    m_num_fields = PQnfields(result);
+    m_num_rows = PQntuples(result.get());
+    m_num_fields = PQnfields(result.get());
   } else {
-    m_error = PQresultErrorMessage(result);
+    m_error = PQresultErrorMessage(result.get());
     return -1;
   }
   return 0;

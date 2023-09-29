@@ -1,5 +1,4 @@
 #include <PostgreSQL.hpp>
-#include <iostream>
 
 using std::string;
 
