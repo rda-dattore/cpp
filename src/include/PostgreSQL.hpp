@@ -72,6 +72,7 @@ public:
   size_t num_rows() const { return m_num_rows; }
   void rewind() { curr_row = 0; }
   void set(std::string query_specification);
+  std::string show() const { return query; }
 
   // range-based support
   QueryIterator begin();
@@ -97,6 +98,10 @@ public:
 
 private:
 };
+
+bool table_exists(Server& server, std::string absolute_table);
+bool field_exists(Server& server, std::string absolute_table, std::string
+    field);
 
 } // end namespace PostgreSQL
 
