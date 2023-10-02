@@ -185,7 +185,8 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
     if (server.insert(table,
         "word, sword, location, dsid",
         "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc + ", '" +
-        dsnum + "'") < 0) {
+        dsnum + "'",
+        "") < 0) {
       if (server.error().find("Duplicate entry") == string::npos) {
         error = error_message(server.error(), table, word, location);
         return false;
@@ -202,8 +203,11 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       auto word = row[1];
       sword = cleaned_search_word(word, ignore);
       if (!ignore) {
-        if (server.insert(table, "'" + word + "', '" + strutils::soundex(sword)
-            + "', " + iloc + ", '" + dsnum + "'") < 0) {
+        if (server.insert(table,
+            "word, sword, location, dsid",
+            "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
+            ", '" + dsnum + "'",
+            "") < 0) {
           if (server.error().find("Duplicate entry") == string::npos) {
             error = error_message(server.error(), table, word, location);
             return false;
@@ -228,8 +232,11 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       auto word = word_parts[m];
       sword = cleaned_search_word(word, ignore);
       if (!ignore) {
-        if (server.insert(table, "'" + word + "', '" + strutils::soundex(sword)
-            + "', " + iloc + ", '" + dsnum + "'") < 0) {
+        if (server.insert(table,
+            "word, sword, location, dsid",
+            "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
+            ", '" + dsnum + "'",
+            "") < 0) {
           if (server.error().find("Duplicate entry") == string::npos) {
             error = error_message(server.error(), table, word, location);
             return false;
@@ -246,8 +253,11 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
           auto word = row[1];
           sword = cleaned_search_word(word, ignore);
           if (!ignore) {
-            if (server.insert(table, "'" + word + "', '" + strutils::soundex(
-                sword) + "', " + iloc + ", '" + dsnum + "'") < 0) {
+            if (server.insert(table,
+                "word, sword, location, dsid",
+                "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
+                ", '" + dsnum + "'",
+                "") < 0) {
               if (server.error().find("Duplicate entry") == string::npos) {
                 error = error_message(server.error(), table, word, location);
                 return false;
@@ -261,8 +271,11 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       if (!strutils::has_beginning(cword, "ignore")) {
         sword = cleaned_search_word(cword, ignore);
         if (!ignore) {
-          if (server.insert(table, "'" + cword + "', '" + strutils::soundex(
-              sword) + "', " + iloc + ", '" + dsnum + "'") < 0) {
+          if (server.insert(table,
+              "word, sword, location, dsid",
+              "'" + cword + "', '" + strutils::soundex(sword) + "', " + iloc +
+              ", '" + dsnum + "'",
+              "") < 0) {
             if (server.error().find("Duplicate entry") == string::npos) {
               error = error_message(server.error(), table, word, location);
               return false;
