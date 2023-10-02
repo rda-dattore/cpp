@@ -182,8 +182,10 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
   auto sword = cleaned_search_word(word, ignore);
   auto iloc = to_string(location);
   if (!ignore) {
-    if (server.insert(table, "'" + word + "', '" + strutils::soundex(sword) +
-        "', " + iloc + ", '" + dsnum + "'") < 0) {
+    if (server.insert(table,
+        "word, sword, location, dsid",
+        "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc + ", '" +
+        dsnum + "'") < 0) {
       if (server.error().find("Duplicate entry") == string::npos) {
         error = error_message(server.error(), table, word, location);
         return false;
@@ -279,7 +281,7 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
 
   // get GCMD variables
   MySQL::LocalQuery query("select k.path from search.variables as v left join "
-      "search.GCMD_sciencekeywords as k on k.uuid = v.keyword where v.dsid = '"
+      "search.gcmd_sciencekeywords as k on k.uuid = v.keyword where v.dsid = '"
       + dsnum + "' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     error = query.error();
