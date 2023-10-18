@@ -4,6 +4,7 @@
 #include <search.hpp>
 #include <strutils.hpp>
 
+using namespace MySQL;
 using std::deque;
 using std::string;
 using std::to_string;
@@ -14,6 +15,7 @@ using strutils::has_ending;
 using strutils::occurs;
 using strutils::replace_all;
 using strutils::split;
+using strutils::strand;
 using strutils::to_lower;
 using strutils::trim;
 
@@ -175,26 +177,26 @@ string error_message(string sql_error, string table, string word, size_t
   return error.str();
 }
 
-bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
-    table, string dsnum, string word, size_t& location, string& error) {
+bool inserted_word_into_search_wordlist(Server& server, const string& table,
+    string dsnum, string word, size_t& location, string uflg, string& error) {
   error = "";
   bool ignore;
   auto sword = cleaned_search_word(word, ignore);
   auto iloc = to_string(location);
   if (!ignore) {
-    if (server.insert(table,
-        "word, sword, location, dsid",
-        "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc + ", '" +
-        dsnum + "'",
-        "") < 0) {
-      if (server.error().find("Duplicate entry") == string::npos) {
-        error = error_message(server.error(), table, word, location);
-        return false;
-      }
+    if (server.insert(
+          table,
+          "word, sword, location, dsid, uflg",
+          "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc + ", '"
+              + dsnum + "', '" + uflg + "'",
+          "update uflg = values(uflg)"
+          ) < 0) {
+      error = error_message(server.error(), table, word, location);
+      return false;
     }
-    MySQL::LocalQuery query("select a, b from search.cross_reference where a = "
-        "'" + word + "' union select b, a from search.cross_reference where b "
-        "= '" + word + "'");
+    LocalQuery query("select a, b from search.cross_reference where a = '" +
+        word + "' union select b, a from search.cross_reference where b = '" +
+        word + "'");
     if (query.submit(server) < 0) {
       error = error_message(query.error(), table, word, location);
       return false;
@@ -203,15 +205,15 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       auto word = row[1];
       sword = cleaned_search_word(word, ignore);
       if (!ignore) {
-        if (server.insert(table,
-            "word, sword, location, dsid",
-            "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
-            ", '" + dsnum + "'",
-            "") < 0) {
-          if (server.error().find("Duplicate entry") == string::npos) {
-            error = error_message(server.error(), table, word, location);
-            return false;
-          }
+        if (server.insert(
+              table,
+              "word, sword, location, dsid, uflg",
+              "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
+                  ", '" + dsnum + "', '" + uflg + "'",
+              "update uflg = values(uflg)"
+              ) < 0) {
+          error = error_message(server.error(), table, word, location);
+          return false;
         }
       }
     }
@@ -232,15 +234,15 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       auto word = word_parts[m];
       sword = cleaned_search_word(word, ignore);
       if (!ignore) {
-        if (server.insert(table,
-            "word, sword, location, dsid",
-            "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
-            ", '" + dsnum + "'",
-            "") < 0) {
-          if (server.error().find("Duplicate entry") == string::npos) {
-            error = error_message(server.error(), table, word, location);
-            return false;
-          }
+        if (server.insert(
+              table,
+              "word, sword, location, dsid, uflg",
+              "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
+                  ", '" + dsnum + "', '" + uflg + "'",
+              "update uflg = values(uflg)"
+              ) < 0) {
+          error = error_message(server.error(), table, word, location);
+          return false;
         }
         query.set("select a, b from search.cross_reference where a = '" + word +
             "' union select b, a from search.cross_reference where b = '" + word
@@ -253,15 +255,15 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
           auto word = row[1];
           sword = cleaned_search_word(word, ignore);
           if (!ignore) {
-            if (server.insert(table,
-                "word, sword, location, dsid",
-                "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc +
-                ", '" + dsnum + "'",
-                "") < 0) {
-              if (server.error().find("Duplicate entry") == string::npos) {
-                error = error_message(server.error(), table, word, location);
-                return false;
-              }
+            if (server.insert(
+                  table,
+                  "word, sword, location, dsid, uflg",
+                  "'" + word + "', '" + strutils::soundex(sword) + "', " + iloc
+                      + ", '" + dsnum + "', '" + uflg + "'",
+                  "update uflg = values(uflg)"
+                  ) < 0) {
+              error = error_message(server.error(), table, word, location);
+              return false;
             }
           }
         }
@@ -271,15 +273,15 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
       if (!strutils::has_beginning(cword, "ignore")) {
         sword = cleaned_search_word(cword, ignore);
         if (!ignore) {
-          if (server.insert(table,
-              "word, sword, location, dsid",
-              "'" + cword + "', '" + strutils::soundex(sword) + "', " + iloc +
-              ", '" + dsnum + "'",
-              "") < 0) {
-            if (server.error().find("Duplicate entry") == string::npos) {
-              error = error_message(server.error(), table, word, location);
-              return false;
-            }
+          if (server.insert(
+                table,
+                "word, sword, location, dsid, uflg",
+                "'" + cword + "', '" + strutils::soundex(sword) + "', " + iloc +
+                    ", '" + dsnum + "', '" + uflg + "'",
+                "update uflg = values(uflg)"
+                ) < 0) {
+            error = error_message(server.error(), table, word, location);
+            return false;
           }
         }
       }
@@ -289,13 +291,13 @@ bool inserted_word_into_search_wordlist(MySQL::Server& server, const string&
   return true;
 }
 
-bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
+bool indexed_variables(Server& server, string dsnum, string& error) {
   error = "";
 
   // get GCMD variables
-  MySQL::LocalQuery query("select k.path from search.variables as v left join "
-      "search.gcmd_sciencekeywords as k on k.uuid = v.keyword where v.dsid = '"
-      + dsnum + "' and v.vocabulary = 'GCMD'");
+  LocalQuery query("select k.path from search.variables as v left join search."
+      "gcmd_sciencekeywords as k on k.uuid = v.keyword where v.dsid = '" + dsnum
+      + "' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     error = query.error();
     return false;
@@ -328,23 +330,25 @@ bool indexed_variables(MySQL::Server& server, string dsnum, string& error) {
   for (const auto& row : query) {
     append(varlist, row[0], " ");
   }
-  server._delete("search.variables_wordlist", "dsid = '" + dsnum + "'");
   auto vars = split(varlist);
   size_t m = 0;
+  auto uflg = strand(3);
   for (const auto& var : vars) {
-    if (!inserted_word_into_search_wordlist(server, "search."
-        "variables_wordlist", dsnum, var, m, error)) {
+    if (!inserted_word_into_search_wordlist(server, "search.variables_wordlist",
+        dsnum, var, m, uflg, error)) {
       return false;
     }
   }
+  server._delete("search.variables_wordlist", "dsid = '" + dsnum + "' and uflg "
+      "!= '" + uflg + "'");
   return true;
 }
 
-bool indexed_locations(MySQL::Server& server, string dsnum, string& error) {
+bool indexed_locations(Server& server, string dsnum, string& error) {
   error = "";
 
   // get locations
-  MySQL::Query query("keyword", "search.locations", "dsid = '" + dsnum + "'");
+  Query query("keyword", "search.locations", "dsid = '" + dsnum + "'");
   if (query.submit(server) < 0) {
     error = query.error();
     return false;
@@ -354,17 +358,18 @@ bool indexed_locations(MySQL::Server& server, string dsnum, string& error) {
     append(loclist, row[0], " ");
   }
   auto locs = split(loclist);
-  server._delete("search.locations_wordlist", "dsid = '" + dsnum + "'");
   size_t m = 0;
+  auto uflg = strand(3);
   for (const auto& loc : locs) {
     if (!inserted_word_into_search_wordlist(server, "search.locations_wordlist",
-        dsnum, loc, m, error)) {
+        dsnum, loc, m, uflg, error)) {
       if (error.find("Duplicate entry") == string::npos) {
         return false;
       }
     }
   }
-  server.disconnect();
+  server._delete("search.locations_wordlist", "dsid = '" + dsnum + "' and uflg "
+      "!= '" + uflg + "'");
   return true;
 }
 
