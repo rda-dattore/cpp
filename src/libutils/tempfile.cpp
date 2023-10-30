@@ -5,169 +5,165 @@
 #include <tempfile.hpp>
 #include <strutils.hpp>
 
+using std::cerr;
+using std::endl;
+using std::string;
+
 int errno;
 
-TempFile::~TempFile()
-{
+TempFile::~TempFile() {
   close();
   if (rm_file) {
-    if (system(("rm -f "+tpath).c_str()) != 0) { } // suppress compiler warning
+    if (system(("rm -f " + tpath).c_str()) != 0) {
+    } // suppress compiler warning
   }
-  tpath="";
-  fp=nullptr;
+  tpath = "";
+  fp = nullptr;
 }
 
-TempFile& TempFile::operator=(const TempFile& source)
-{
+TempFile& TempFile::operator=(const TempFile& source) {
   if (this == &source) {
     return *this;
   }
-  tpath=source.tpath;
-  *fp=*source.fp;
-  rm_file=source.rm_file;
+  tpath = source.tpath;
+  *fp = *source.fp;
+  rm_file = source.rm_file;
   return *this;
 }
 
-void TempFile::close()
-{
+void TempFile::close() {
   if (fp != nullptr) {
     fclose(fp);
-    fp=nullptr;
+    fp = nullptr;
   }
 }
 
-std::string TempFile::extension() const {
-  size_t index;
-  if ( (index=tpath.rfind(".")) == std::string::npos) {
+string TempFile::extension() const {
+  auto idx = tpath.rfind(".");
+  if (idx == string::npos) {
     return "";
-  }
-  else {
-    return tpath.substr(index+1);
+  } else {
+    return tpath.substr(idx + 1);
   }
 }
 
-std::string TempFile::name(const std::string& directory,const std::string& extension)
-{
+string TempFile::name(const string& directory, const string& extension) {
   if (tpath.empty()) {
-    fill_temp_path(directory,extension);
+    fill_temp_path(directory, extension);
   }
   return tpath;
 }
 
-bool TempFile::open(const std::string& directory,const std::string& extension)
-{
-  fill_temp_path(directory,extension);
-  if ( (fp=fopen(tpath.c_str(),"w")) == NULL) {
+bool TempFile::open(const string& directory, const string& extension) {
+  fill_temp_path(directory, extension);
+  fp = fopen(tpath.c_str(), "w");
+  if (fp == nullptr) {
     return false;
   }
-  rm_file=true;
+
+  // run chmod to override any umask that was used by mkdir
+  chmod(tpath.c_str(), 0644);
+  rm_file = true;
   return true;
 }
 
-void TempFile::write(const std::string& s)
-{
-  if (fp != NULL) {
+void TempFile::write(const string& s) {
+  if (fp != nullptr) {
     if (s.empty()) {
-	fprintf(fp,"\n");
+      fprintf(fp, "\n");
+    } else {
+      fwrite(s.c_str(), 1, s.length(), fp);
     }
-    else {
-	fwrite(s.c_str(),1,s.length(),fp);
-    }
-  }
-  else {
-    std::cerr << "Error writing to tempfile - file not open for writing" << std::endl;
+  } else {
+    cerr << "Error writing to tempfile - file not open for writing" << endl;
     exit(1);
   }
 }
 
-void TempFile::writeln(const std::string& s)
-{
-  if (fp != NULL) {
+void TempFile::writeln(const string& s) {
+  if (fp != nullptr) {
     if (!s.empty()) {
-	fwrite(s.c_str(),1,s.length(),fp);
+      fwrite(s.c_str(), 1, s.length(), fp);
     }
-    fprintf(fp,"\n");
-  }
-  else {
-    std::cerr << "Error writing to tempfile - file not open for writing" << std::endl;
+    fprintf(fp, "\n");
+  } else {
+    cerr << "Error writing to tempfile - file not open for writing" << endl;
     exit(1);
   }
 }
 
-void TempFile::fill_temp_path(const std::string& directory,const std::string& extension)
-{
+void TempFile::fill_temp_path(const string& directory, const string&
+     extension) {
   char tnam[32768];
   if (tmpnam(tnam) == nullptr) {
-    std::cerr << "Error: tmpnam failed" << std::endl;
+    cerr << "Error: tmpnam failed" << endl;
     exit(1);
   }
-  auto tnam_s=std::string(tnam);
-  auto idx=tnam_s.rfind("/");
-  if (idx != std::string::npos) {
-    tnam_s=tnam_s.substr(idx+1);
+  auto tnam_s = string(tnam);
+  auto idx = tnam_s.rfind("/");
+  if (idx != string::npos) {
+    tnam_s = tnam_s.substr(idx + 1);
   }
   if (!directory.empty()) {
-    tpath=directory;
-    if (!strutils::has_ending(tpath,"/")) {
-	tpath+="/";
+    tpath = directory;
+    if (tpath.back() != '/') {
+      tpath += "/";
     }
+  } else {
+    tpath = "/tmp/";
   }
-  else {
-    tpath="/tmp/";
-  }
-  tpath+=tnam_s;
+  tpath += tnam_s;
   if (!extension.empty()) {
-    tpath+=extension;
+    tpath += extension;
   }
 }
 
-TempDir::~TempDir()
-{
+TempDir::~TempDir() {
   if (rm_file && !tpath.empty()) {
-    if (system(("rm -rf "+tpath).c_str()) != 0) { } // suppress compiler warning
+    if (system(("rm -rf " + tpath).c_str()) != 0) {
+    } // suppress compiler warning
   }
-  tpath="";
+  tpath = "";
 }
 
-std::string TempDir::name(const std::string& directory,const std::string& extension)
-{
+string TempDir::name(const string& directory, const string& extension) {
   if (tpath.empty()) {
-    fill_temp_path(directory,extension);
+    fill_temp_path(directory, extension);
   }
   return tpath;
 }
 
-bool TempDir::create(const std::string& directory,const std::string& extension)
-{
-  fill_temp_path(directory,extension);
-  if (mkdir(tpath.c_str(),0755) < 0) {
+bool TempDir::create(const string& directory, const string& extension) {
+  fill_temp_path(directory, extension);
+  if (mkdir(tpath.c_str(), 0755) < 0) {
     return false;
   }
-  rm_file=true;
+
+  // run chmod to override any umask that was used by mkdir
+  chmod(tpath.c_str(), 0755);
+  rm_file = true;
   return true;
 }
 
-void TempDir::fill_temp_path(const std::string& directory,const std::string& extension)
-{
+void TempDir::fill_temp_path(const string& directory, const string& extension) {
   if (!directory.empty()) {
-    tpath=directory;
-    if (!strutils::has_ending(tpath,"/")) {
-	tpath+="/";
+    tpath = directory;
+    if (tpath.back() != '/') {
+      tpath += "/";
     }
-  }
-  else {
-    tpath="/tmp/";
+  } else {
+    tpath = "/tmp/";
   }
   char tnam[32768];
   if (tmpnam(tnam) != nullptr) {
-    auto tnam_s=std::string(tnam);
-    auto idx=tnam_s.rfind("/");
-    if (idx != std::string::npos) {
-      tnam_s=tnam_s.substr(idx+1);
+    auto tnam_s = string(tnam);
+    auto idx = tnam_s.rfind("/");
+    if (idx != string::npos) {
+      tnam_s = tnam_s.substr(idx + 1);
     }
-    tpath+=tnam_s;
+    tpath += tnam_s;
   }
   if (!extension.empty()) {
-    tpath+=extension;
+    tpath += extension;
   }
 }
