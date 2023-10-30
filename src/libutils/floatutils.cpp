@@ -27,9 +27,9 @@ bool myequalf(double a,double b,double tol)
 size_t precision(double value)
 {
   value=fabs(value);
-  value-=value;
-  value*=10.;
+//  value-=value;
   size_t precision=1;
+  value*=10.;
   while (precision < 10 && value < 1.) {
     ++precision;
     value*=10.;
@@ -191,6 +191,20 @@ size_t ibmconv(double native_real)
   }
 
   return ibm_real;
+}
+
+double ibm36conv(const unsigned char *buf,size_t off)
+{
+// IBM 700-series used 36-bit words
+  size_t sign;
+  bits::get(buf,sign,off,1);
+  int exp;
+  bits::get(buf,exp,off+1,8);
+  exp-=128;
+  size_t fr;
+  bits::get(buf,fr,off+9,27);
+  double native_real=pow(2.,-27.)*fr*pow(2.,exp);
+  return (sign == 1) ? -native_real : native_real;
 }
 
 } // end namespace floatutils
