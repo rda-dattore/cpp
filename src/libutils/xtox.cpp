@@ -4,64 +4,49 @@
 
 namespace xtox {
 
-long long hex2long(std::string hex_string,int num_chars)
-{
-  static long long ival=0;
-  static int length=num_chars;
-  long long add=0;
-
-  if (num_chars > 1) {
-    hex2long(hex_string,num_chars-1);
-  }
-  switch (hex_string[num_chars-1]) {
-    case 'a':
-    case 'A':
-    {
-	add=10*pow(16.,length-num_chars);
-	break;
-    }
-    case 'b':
-    case 'B':
-    {
-	add=11*pow(16.,length-num_chars);
-	break;
-    }
-    case 'c':
-    case 'C':
-    {
-	add=12*pow(16.,length-num_chars);
-	break;
-    }
-    case 'd':
-    case 'D':
-    {
-	add=13*pow(16.,length-num_chars);
-	break;
-    }
-    case 'e':
-    case 'E':
-    {
-	add=14*pow(16.,length-num_chars);
-	break;
-    }
-    case 'f':
-    case 'F':
-    {
-	add=15*pow(16.,length-num_chars);
-	break;
-    }
-    default:
-    {
-	add=(hex_string[num_chars-1]-48)*pow(16.,length-num_chars);
-    }
-  }
-  ival+=add;
-  return ival;
-}
-
 long long htoi(std::string hex_string)
 {
-  return hex2long(hex_string,hex_string.length());
+  long long ival=0;
+  for (size_t n=0; n < hex_string.length(); ++n) {
+    long long hval;
+    switch (hex_string[n]) {
+	case 'a':
+	case 'A': {
+	  hval=10;
+	  break;
+	}
+	case 'b':
+	case 'B': {
+	  hval=11;
+	  break;
+	}
+	case 'c':
+	case 'C': {
+	  hval=12;
+	  break;
+	}
+	case 'd':
+	case 'D': {
+	  hval=13;
+	  break;
+	}
+	case 'e':
+	case 'E': {
+	  hval=14;
+	  break;
+	}
+	case 'f':
+	case 'F': {
+	  hval=15;
+	  break;
+	}
+	default: {
+	  hval=(hex_string[n]-48);
+	}
+    }
+    ival+=hval*pow(16.,hex_string.length()-n-1);
+  }
+  return ival;
 }
 
 char *lltoh(long long lval)
