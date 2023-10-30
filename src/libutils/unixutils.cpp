@@ -402,4 +402,9 @@ x = ftos(0, 7, 0, '0');
   return true;
 }
 
+void open_output(std::ofstream& ofs, string filename) {
+  ofs.open(filename.c_str());
+  chmod(filename.c_str(), 0644);
+}
+
 } // end namespace unixutils
