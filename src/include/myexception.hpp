@@ -95,6 +95,12 @@ public:
   IMPLEMENTED
 };
 
+class OutOfRange_Error : public Exception {
+public:
+  OutOfRange_Error(std::string message) : Exception(message) { }
+  IMPLEMENTED
+};
+
 class UndefinedVariable_Error : public Exception {
 public:
   UndefinedVariable_Error(std::string message) : Exception(message) { }
