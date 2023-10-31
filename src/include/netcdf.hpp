@@ -190,7 +190,6 @@ public:
   InputNetCDFStream() : var_buf(), size_(0), var_indexes() { }
   bool close();
   bool open(std::string filename);
-  void dump();
   void print_dimensions() const;
   void print_global_attributes() const;
   void print_header() const;
