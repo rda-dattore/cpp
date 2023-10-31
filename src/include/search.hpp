@@ -18,7 +18,7 @@ extern bool indexed_variables(MySQL::Server& server, std::string dsnum, std::
     string& error);
 extern bool inserted_word_into_search_wordlist(MySQL::Server& server, const
     std::string& table, std::string dsnum, std::string word, size_t& location,
-    std::string& error);
+    std::string uflg, std::string& error);
 extern bool is_compound_term(std::string word, std::string& separator);
 
 } // end namespace searchutils
