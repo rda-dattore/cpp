@@ -15,10 +15,13 @@ using std::stringstream;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
+using strutils::append;
 using strutils::is_numeric;
 using strutils::itos;
-using strutils::to_lower;
+using strutils::replace_all;
 using strutils::split;
+using strutils::substitute;
+using strutils::to_lower;
 using strutils::trim;
 
 namespace MySQL {
@@ -204,6 +207,56 @@ void Server::disconnect() {
     mysql_close(&mysql);
   }
   m_connected = false;
+}
+
+int Server::duplicate_table(string absolute_table_source, string
+    absolute_table_target) {
+  auto p_src = split(absolute_table_source, ".");
+  if (p_src.size() != 2) {
+    throw my::BadSpecification_Error("'" + absolute_table_source + "' is not "
+        "an absolute table name");
+  }
+  auto p_tgt = split(absolute_table_target, ".");
+  if (p_tgt.size() != 2) {
+    throw my::BadSpecification_Error("'" + absolute_table_target + "' is not "
+        "an absolute table name");
+  }
+  string result;
+  int status = command("create table " + absolute_table_target + " like " +
+      absolute_table_source, result);
+  if (status != 0) {
+    return status;
+  }
+  status = command("show index from " + absolute_table_source, result);
+  if (status != 0) {
+    return status;
+  }
+  unordered_set<string> indexes;
+  auto sp = split(result, "\n");
+  for (const auto& line : sp) {
+    auto sp2 = split(line, "|");
+    if (sp2[3] != "PRIMARY") {
+      indexes.emplace(sp2[3]);
+    }
+  }
+  for (const auto& i : indexes) {
+    auto new_name = i;
+    replace_all(new_name, p_src.back(), p_tgt.back());
+    replace_all(new_name, "dsnnnn_inventory_p", p_tgt.back());
+    replace_all(new_name, "dsnnnn_inventory_lati_loni_b", p_tgt.back());
+    replace_all(new_name, "dsnnnn_inventory_lati_loni", p_tgt.back());
+    replace_all(new_name, "dsnnnn_point_times_decade", p_tgt.back());
+    replace_all(new_name, "dsnnnn_time_series_times_decade", p_tgt.back());
+    if (p_tgt.back().find("ds") == 0) {
+      replace_all(new_name, "dsnnnn_", p_tgt.back().substr(0, 7));
+    }
+    status = command("alter table " + absolute_table_target + " rename index " +
+        i + " to " + new_name, result);
+    if (status != 0) {
+      return status;
+    }
+  }
+  return 0;
 }
 
 int Server::insert(const string& absolute_table, const string&
@@ -890,6 +943,64 @@ Row& PreparedStatementIterator::operator*() {
   return row;
 }
 
+int Transaction::commit() {
+  if (is_started) {
+    string res;
+    if (m_server->command("commit", res) < 0) {
+      m_error = "Commit error: '" + m_server->error() + "'";
+      return -1;
+    }
+    is_started = false;
+    return 0;
+  }
+  m_error = "Transaction not started.";
+  return -1;
+}
+
+void Transaction::lock_rows(string absolute_table, string where_conditions) {
+  if (!is_started) {
+    throw my::BadOperation_Error("Transaction not started.");
+  }
+  if (absolute_table.empty()) {
+    throw my::BadOperation_Error("No table was specified for row locking.");
+  }
+  string command = "select * from " + absolute_table;
+  if (!where_conditions.empty()) {
+    command += " where " + where_conditions;
+  }
+  command += " for update";
+  string res;
+  if (m_server->command(command, res) < 0) {
+    throw my::BadOperation_Error("Unable to lock rows.");
+  }
+}
+
+int Transaction::rollback() {
+  if (is_started) {
+    string res;
+    if (m_server->command("rollback", res) < 0) {
+      m_error = m_server->error();
+      return -1;
+    }
+    is_started = false;
+    return 0;
+  }
+  m_error = "Transaction not started.";
+  return -1;
+}
+
+void Transaction::start(Server& server) {
+  if (is_started) {
+    throw my::BadOperation_Error("Transaction already started.");
+  }
+  m_server = &server;
+  string res;
+  if (m_server->command("start transaction", res) < 0) {
+    throw my::BadOperation_Error(m_server->error());
+  }
+  is_started = true;
+}
+
 bool table_exists(Server& server, string absolute_table) {
   if (!regex_search(absolute_table, regex("\\."))) {
     throw my::BadSpecification_Error("bad absolute table specification '" +
@@ -898,7 +1009,7 @@ bool table_exists(Server& server, string absolute_table) {
   auto db = absolute_table.substr(0, absolute_table.find("."));
   auto tbl = absolute_table.substr(absolute_table.find(".") + 1);
   LocalQuery q;
-  q.set("show tables from " + db + " like '" + tbl + "'");
+  q.set("show tables from " + db + " like '" + substitute(tbl, "`", "") + "'");
   if (q.submit(server) < 0) {
     return false;
   }
