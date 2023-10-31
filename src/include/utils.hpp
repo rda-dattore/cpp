@@ -120,6 +120,7 @@ extern bool hosts_loaded(std::list<std::string>& hosts,std::string rdadata_home)
 extern bool tar(std::string tarfile,std::list<std::string>& filenames);
 
 extern void dump(const unsigned char *buffer,int length,DumpType = DumpType::bytes);
+extern void open_output(std::ofstream& ofs, std::string filename);
 extern void sendmail(std::string to_list,std::string from,std::string bcc_list,std::string subject,std::string body);
 extern void untar(std::string dirname,std::string filename);
 
