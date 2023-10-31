@@ -64,6 +64,8 @@ public:
   int _delete(std::string absolute_table, std::string where_conditions = "");
   std::vector<std::string> db_names();
   void disconnect();
+  int duplicate_table(std::string absolute_table_source, std::string
+      absolute_table_target);
   std::string error() const { return m_error; }
   MYSQL *handle() { return &mysql; }
   long long last_insert_ID() const {
@@ -275,6 +277,24 @@ private:
     size_t field_count;
   } input_bind, result_bind;
   std::unordered_map<std::string, size_t> column_list;
+};
+
+class Transaction {
+public:
+  Transaction() : m_server(nullptr), m_error(), is_started(false) { }
+  Transaction(const Transaction& source) = delete;
+  ~Transaction() { rollback(); }
+  Transaction operator=(const Transaction& source) = delete;
+  int commit();
+  std::string error() const { return m_error; }
+  void lock_rows(std::string absolute_table, std::string where_conditions);
+  int rollback();
+  void start(Server& server);
+
+private:
+  Server *m_server;
+  std::string m_error;
+  bool is_started;
 };
 
 bool table_exists(Server& server, std::string absolute_table);
