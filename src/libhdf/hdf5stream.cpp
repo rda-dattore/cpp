@@ -1463,7 +1463,7 @@ bool InputHDF5Stream::decode_Btree(Group& group,FractalHeapData *frhp_data)
 }
 
 bool InputHDF5Stream::decode_indirect_data(FractalHeapData& frhp_data) {
-  auto off_size = frhp_data.max_size / 8;
+  auto off_size = min_byte_width(frhp_data.max_size);
   std::streamsize bytes_to_read = off_size + 6;
   unsigned char buf[64];
   char *cbuf = reinterpret_cast<char *>(buf);
@@ -1481,8 +1481,8 @@ bool InputHDF5Stream::decode_indirect_data(FractalHeapData& frhp_data) {
   cerr << "    indirect start row: " << start_row << endl;
 #endif
 #if __DEBUG
-  auto end_row = HDF5::value(&buf[off_size + 2], 2);
-  cerr << "    indirect end row: " << end_row << endl;
+  auto start_column = HDF5::value(&buf[off_size + 2], 2);
+  cerr << "    indirect start column: " << start_column << endl;
 #endif
 #if __DEBUG
   auto nblocks = HDF5::value(&buf[off_size + 4], 2);
@@ -1515,6 +1515,14 @@ bool InputHDF5Stream::decode_free_space_section_list(FractalHeapData&
         to_string(static_cast<int>(buf[4])), ", ");
     return false;
   }
+#if __DEBUG
+  unsigned char buf2[160];
+  char *cbuf2 = reinterpret_cast<char *>(buf2);
+  fs.seekg(-5, std::ios_base::cur);
+  fs.read(cbuf2, 160);
+  dump(buf2, 160);
+  fs.seekg(-155, std::ios_base::cur);
+#endif
   fs.read(cbuf, sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
     append(myerror, "read error for free space manager header address", ", ");
@@ -1530,48 +1538,63 @@ bool InputHDF5Stream::decode_free_space_section_list(FractalHeapData&
         "list does not match address in fractal heap", ", ");
     exit(1);
   }
-  for (size_t n = 0; n < frhp_data.space_manager.num_serialized; ++n) {
+  for (size_t sec_num = 0; sec_num < frhp_data.space_manager.num_serialized; ) {
 #if __DEBUG
-    cerr << "set #" << n + 1 << " of " << frhp_data.space_manager.num_serialized
-        << endl;
+    cerr << "set #" << sec_num+1 << " of " << frhp_data.space_manager.
+        num_serialized << endl;
 #endif
     auto nsec_len = min_byte_width(frhp_data.space_manager.num_serialized);
     auto sec_size_len = min_byte_width(frhp_data.space_manager.max_size);
-    auto off_len = frhp_data.space_manager.addr_size / 8;
-    std::streamsize bytes_to_read = nsec_len + sec_size_len + off_len + 1;
+#if __DEBUG
+    cerr << "lengths: # records: " << nsec_len << ", section size: " <<
+        sec_size_len << endl;
+#endif
+    std::streamsize bytes_to_read = nsec_len + sec_size_len;
     fs.read(cbuf, bytes_to_read);
     if (fs.gcount() != bytes_to_read) {
-      append(myerror, "read error for set #" + to_string(n + 1) + " record "
+      append(myerror, "read error for set #" + to_string(sec_num+1) + " record "
           "data", ", ");
       return false;
     }
-#if __DEBUG
     auto nsec = HDF5::value(&buf[0], nsec_len);
+#if __DEBUG
     cerr << "  number of section records: " << nsec << endl;
 #endif
-    auto sec_size = HDF5::value(&buf[1], sec_size_len);
+    auto sec_size = HDF5::value(&buf[nsec_len], sec_size_len);
 #if __DEBUG
     cerr << "  section size for all records (bytes): " << sec_size << endl;
 #endif
-    auto off = HDF5::value(&buf[4], off_len);
+    for (size_t k = 0; k < nsec; ++k) {
+      auto off_len = (frhp_data.space_manager.addr_size + 7) / 8;
+      bytes_to_read = off_len + 1;
+      fs.read(cbuf, bytes_to_read);
+      if (fs.gcount() != bytes_to_read) {
+        append(myerror, "read error for set #" + to_string(sec_num+1) +
+            " record data", ", ");
+        return false;
+      }
+      auto off = HDF5::value(&buf[0], off_len);
 #if __DEBUG
-    cerr << "  section record offset (bytes): " << off << endl;
+      cerr << "  section #" << k << " offset length: " << off_len << ", record "
+          "offset (bytes): " << off << endl;
 #endif
-    auto typ = HDF5::value(&buf[9], 1);
+      auto typ = HDF5::value(&buf[off_len], 1);
 #if __DEBUG
-    cerr << "  section record type: " << typ << endl;
+      cerr << "  section #" << k << " record type: " << typ << endl;
 #endif
-    switch (typ) {
-      case 1:
-      case 3: {
-        if (!decode_indirect_data(frhp_data)) {
-          exit(1);
+      switch (typ) {
+        case 1:
+        case 3: {
+          if (!decode_indirect_data(frhp_data)) {
+            exit(1);
+          }
+          break;
         }
-        break;
+        default: {
+          frhp_data.space_manager.free_space_map.emplace(off-22, sec_size);
+        }
       }
-      default: {
-        frhp_data.space_manager.free_space_map.emplace(off - 22, sec_size);
-      }
+      ++sec_num;
     }
   }
   fs.seekg(curr_off, std::ios_base::beg);
