@@ -282,33 +282,20 @@ public:
       unsigned long long manager_addr;
     };
 
-    struct SpaceManager {
-      SpaceManager() : total_bytes(0), num_sections(0), num_serialized(0),
-          num_unserialized(0), max_size(0), list_addr(0), list_size(0),
-          list_asize(0), addr_size(0), free_space_map() { }
-
-      unsigned long long total_bytes, num_sections, num_serialized,
-          num_unserialized, max_size, list_addr, list_size, list_asize;
-      size_t addr_size;
-      std::unordered_map<unsigned long long, unsigned long long> free_space_map;
-    };
-
     struct Objects {
 	Objects() : num_managed(0), num_huge(0), num_tiny(0) { }
 
 	unsigned long long num_managed, num_huge, num_tiny;
     };
 
-    FractalHeapData() : dse(nullptr), start_block_size(0), space(),
-        space_manager(), objects(), id_len(0), io_filter_size(0), max_size(0),
-        table_width(0), max_dblock_rows(0), nrows(0), K(0), N(0),
-        max_dblock_size(0), max_managed_obj_size(0), curr_row(0), curr_col(0),
-        flags() { }
+    FractalHeapData() : dse(nullptr), start_block_size(0), space(), objects(),
+        id_len(0), io_filter_size(0), max_size(0), table_width(0),
+        max_dblock_rows(0), nrows(0), K(0), N(0), max_dblock_size(0),
+        max_managed_obj_size(0), curr_row(0), curr_col(0), flags() { }
 
     DatasetEntry *dse;
     unsigned long long start_block_size;
     Space space;
-    SpaceManager space_manager;
     Objects objects;
     int id_len, io_filter_size, max_size, table_width, max_dblock_rows, nrows,
         K, N;
@@ -317,8 +304,20 @@ public:
     unsigned char flags;
   };
 
+  struct FreeSpaceManager {
+    FreeSpaceManager() : total_bytes(0), num_sections(0), num_serialized(0),
+        num_unserialized(0), max_size(0), list_addr(0), list_size(0),
+        list_asize(0), addr_size(0), space_map() { }
+
+    unsigned long long total_bytes, num_sections, num_serialized,
+        num_unserialized, max_size, list_addr, list_size, list_asize;
+    size_t addr_size;
+    std::unordered_map<unsigned long long, unsigned long long> space_map;
+  };
+
   InputHDF5Stream() : sb_version(0), sizes(), group_K(), base_addr(0), eof_addr(
-      0), undef_addr(0), root_group(), ref_table(nullptr) { }
+      0), undef_addr(0), root_group(), ref_table(nullptr), free_space_manager()
+      { }
   ~InputHDF5Stream();
   void close();
   Attribute attribute(std::string xpath);
@@ -381,6 +380,7 @@ protected:
   unsigned long long base_addr, eof_addr, undef_addr;
   Group root_group;
   std::shared_ptr<std::unordered_map<size_t, std::string>> ref_table;
+  FreeSpaceManager free_space_manager;
 };
 
 namespace HDF5 {
