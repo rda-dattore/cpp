@@ -8,6 +8,7 @@
 
 using miscutils::min_byte_width;
 using std::cerr;
+using std::copy;
 using std::cout;
 using std::endl;
 using std::find_if;
@@ -60,7 +61,7 @@ InputHDF5Stream::Chunk& InputHDF5Stream::Chunk::operator=(const Chunk& source) {
   length = source.length;
   if (source.buffer != nullptr) {
     allocate();
-    std::copy(source.buffer.get(), source.buffer.get() + length, buffer.get());
+    copy(source.buffer.get(), source.buffer.get() + length, buffer.get());
   }
   for (const auto& e : source.offsets) {
     offsets.emplace_back(e);
@@ -120,7 +121,7 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
             return false;
           }
           unsigned char *cbuf = new unsigned char[length];
-          std::copy(buffer.get(), buffer.get() + length, cbuf);
+          copy(buffer.get(), buffer.get() + length, cbuf);
           auto sl = length / dataset.data.size_of_element;
 #ifdef __DEBUG
           cerr << "length: " << length << "  size of data element: " <<
@@ -178,8 +179,8 @@ InputHDF5Stream::Datatype& InputHDF5Stream::Datatype::operator=(const Datatype&
   size = source.size;
   prop_len = source.prop_len;
   properties.reset(new unsigned char[prop_len]);
-  std::copy(source.properties.get(), source.properties.get()+prop_len,
-      properties.get());
+  copy(source.properties.get(), source.properties.get()+prop_len, properties.
+      get());
   return *this;
 }
 
@@ -269,8 +270,8 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const
     case 3: {
       array_type = ArrayType::STRING;
       array = new char[precision_ + 1];
-      std::copy(reinterpret_cast<char *>(source.array), reinterpret_cast<
-          char *>(source.array)+precision_, reinterpret_cast<char *>(array));
+      copy(reinterpret_cast<char *>(source.array), reinterpret_cast<char *>(
+          source.array)+precision_, reinterpret_cast<char *>(array));
       (reinterpret_cast<char *>(array))[precision_] = '\0';
       break;
     }
@@ -289,22 +290,22 @@ InputHDF5Stream::DataValue& InputHDF5Stream::DataValue::operator=(const
       }
       array_type = ArrayType::BYTE;
       array = new unsigned char[m];
-      std::copy(reinterpret_cast<unsigned char *>(source.array),
-          reinterpret_cast<unsigned char *>(source.array) + m,
-          reinterpret_cast<unsigned char *>(array));
+      copy(reinterpret_cast<unsigned char *>(source.array), reinterpret_cast<
+          unsigned char *>(source.array) + m, reinterpret_cast<unsigned char *>(
+          array));
       break;
     }
     case 9: {
       array_type = ArrayType::BYTE;
       array = new unsigned char[size+1];
-      std::copy(reinterpret_cast<unsigned char *>(source.array),
-          reinterpret_cast<unsigned char *>(source.array) + size + 1,
-          reinterpret_cast<unsigned char *>(array));
+      copy(reinterpret_cast<unsigned char *>(source.array), reinterpret_cast<
+          unsigned char *>(source.array) + size + 1, reinterpret_cast<unsigned
+          char *>(array));
       vlen.class_ = source.vlen.class_;
       if (source.vlen.size > 0) {
         vlen.size = source.vlen.size;
         vlen.buffer.reset(new unsigned char[vlen.size]);
-        std::copy(&source.vlen.buffer[0], &source.vlen.buffer[vlen.size], vlen.
+        copy(&source.vlen.buffer[0], &source.vlen.buffer[vlen.size], vlen.
             buffer.get());
       } else {
         vlen.size = 0;
@@ -556,7 +557,7 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs, shared_ptr<
             int len;
             bits::get(&vlen.buffer[off], len, 0, 32);
             ofs << "\"" << string(reinterpret_cast<char *>(&vlen.buffer[off +
-                4]),len) << "\"" << std::endl;
+                4]),len) << "\"" << endl;
             off += 4 + len;
           }
           break;
@@ -593,89 +594,91 @@ void InputHDF5Stream::DataValue::print(std::ostream& ofs, shared_ptr<
   }
 }
 
-bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,short size_of_offsets,short size_of_lengths,const InputHDF5Stream::Datatype& datatype,const InputHDF5Stream::Dataspace& dataspace)
-{
-  _class_=datatype.class_;
-  dim_sizes=dataspace.sizes;
+bool InputHDF5Stream::DataValue::set(std::fstream& fs, unsigned char *buffer,
+    short size_of_offsets, short size_of_lengths, const Datatype& datatype,
+    const Dataspace& dataspace) {
+  _class_ = datatype.class_;
+  dim_sizes = dataspace.sizes;
 #ifdef __DEBUG
-  std::cerr << "class: " << _class_ << " dim_sizes size: " << dim_sizes.size() << std::endl;
+  cerr << "class: " << _class_ << " dim_sizes size: " << dim_sizes.size() <<
+      endl;
   for (auto& dim_size : dim_sizes) {
-    std::cerr << "  dim_size: " << dim_size << std::endl;
+    cerr << "  dim_size: " << dim_size << endl;
   }
 #endif
   switch (_class_) {
     case 0:
-// fixed point numbers (integers)
+
+      // fixed point numbers (integers)
     case 4: {
-// bitfield
+
+      // bitfield
       short byte_order[2];
-      bits::get(datatype.bit_fields,byte_order[0],7,1);
+      bits::get(datatype.bit_fields, byte_order[0], 7, 1);
       short lo_pad;
-      bits::get(datatype.bit_fields,lo_pad,6,1);
+      bits::get(datatype.bit_fields, lo_pad, 6, 1);
       short hi_pad;
-      bits::get(datatype.bit_fields,hi_pad,5,1);
+      bits::get(datatype.bit_fields, hi_pad, 5, 1);
       short sign;
       if (_class_ == 0) {
-        bits::get(datatype.bit_fields,sign,4,1);
+        bits::get(datatype.bit_fields, sign, 4, 1);
       }
-      auto off=HDF5::value(&datatype.properties[0],2);
-      precision_=HDF5::value(&datatype.properties[2],2);
-      size_t max_cnt=1;
+      auto off = HDF5::value(&datatype.properties[0], 2);
+      precision_ = HDF5::value(&datatype.properties[2], 2);
+      size_t max_cnt = 1;
       if (dim_sizes.size() == 1) {
-        max_cnt*=dim_sizes[0];
+        max_cnt *= dim_sizes[0];
       }
       switch (byte_order[0]) {
         case 0: {
           if (off == 0) {
             if ( (precision_ % 8) == 0) {
-              auto byte_len=precision_/8;
-              for (size_t n=0; n < max_cnt; ++n) {
+              auto byte_len = precision_ / 8;
+              for (size_t n = 0; n < max_cnt; ++n) {
                 switch (byte_len) {
                   case 1: {
                     if (n == 0) {
-                      allocate(ArrayType::BYTE,max_cnt);
+                      allocate(ArrayType::BYTE, max_cnt);
                     }
-                    (reinterpret_cast<unsigned char *>(array))[n]=HDF5::value(&buffer[byte_len*n],1);
+                    (reinterpret_cast<unsigned char *>(array))[n] = HDF5::value(
+                        &buffer[byte_len*n], 1);
                     break;
                   }
                   case 2: {
                     if (n == 0) {
-                      allocate(ArrayType::SHORT,max_cnt);
+                      allocate(ArrayType::SHORT, max_cnt);
                     }
-                    (reinterpret_cast<short *>(array))[n]=HDF5::value(&buffer[byte_len*n],2);
+                    (reinterpret_cast<short *>(array))[n] = HDF5::value(&buffer[
+                        byte_len*n], 2);
                     break;
                   }
                   case 4: {
                     if (n == 0) {
-                      allocate(ArrayType::INT,max_cnt);
+                      allocate(ArrayType::INT, max_cnt);
                     }
-                    (reinterpret_cast<int *>(array))[n]=HDF5::value(&buffer[byte_len*n],4);
+                    (reinterpret_cast<int *>(array))[n] = HDF5::value(&buffer[
+                        byte_len*n], 4);
                     break;
                   }
                   case 8: {
                     if (n == 0) {
-                      allocate(ArrayType::LONG_LONG,max_cnt);
+                      allocate(ArrayType::LONG_LONG, max_cnt);
                     }
-                    (reinterpret_cast<long long *>(array))[n]=HDF5::value(&buffer[byte_len*n],8);
+                    (reinterpret_cast<long long *>(array))[n] = HDF5::value(
+                        &buffer[byte_len*n], 8);
                     break;
                   }
                 }
               }
-              size=byte_len*max_cnt;
-            }
-            else {
-              if (!myerror.empty()) {
-                myerror+=", ";
-              }
-              myerror+="unable to decode little-endian integer with precision "+strutils::itos(precision_);
+              size = byte_len * max_cnt;
+            } else {
+              append(myerror, "unable to decode little-endian integer with "
+                  "precision " + to_string(precision_), ", ");
               return false;
             }
-          }
-          else {
-            if (!myerror.empty()) {
-              myerror+=", ";
-            }
-            myerror+="unable to decode little-endian integer with bit offset "+strutils::itos(off);
+          } else {
+            append(myerror, "unable to decode little-endian integer with bit "
+                "offset " + to_string(off), ", ");
             return false;
           }
           break;
@@ -683,54 +686,52 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
         case 1: {
           if (off == 0) {
             if ( (precision_ % 8) == 0) {
-              auto byte_len=precision_/8;
-              for (size_t n=0; n < max_cnt; ++n) {
+              auto byte_len = precision_ / 8;
+              for (size_t n = 0; n < max_cnt; ++n) {
                 switch (byte_len) {
                   case 1: {
                     if (n == 0) {
-                      allocate(ArrayType::BYTE,max_cnt);
+                      allocate(ArrayType::BYTE, max_cnt);
                     }
-                    bits::get(&buffer[byte_len*n],(reinterpret_cast<unsigned char *>(array))[n],0,precision_);
+                    bits::get(&buffer[byte_len*n], (reinterpret_cast<unsigned
+                        char *>(array))[n], 0, precision_);
                     break;
                   }
                   case 2: {
                     if (n == 0) {
-                      allocate(ArrayType::SHORT,max_cnt);
+                      allocate(ArrayType::SHORT, max_cnt);
                     }
-                    bits::get(&buffer[byte_len*n],(reinterpret_cast<short *>(array))[n],0,precision_);
+                    bits::get(&buffer[byte_len*n], (reinterpret_cast<short *>(
+                        array))[n], 0, precision_);
                     break;
                   }
                   case 4: {
                     if (n == 0) {
-                      allocate(ArrayType::INT,max_cnt);
+                      allocate(ArrayType::INT, max_cnt);
                     }
-                    bits::get(&buffer[byte_len*n],(reinterpret_cast<int *>(array))[n],0,precision_);
+                    bits::get(&buffer[byte_len*n], (reinterpret_cast<int *>(
+                        array))[n], 0, precision_);
                     break;
                   }
                   case 8: {
                     if (n == 0) {
-                      allocate(ArrayType::LONG_LONG,max_cnt);
+                      allocate(ArrayType::LONG_LONG, max_cnt);
                     }
-                    bits::get(&buffer[byte_len*n],(reinterpret_cast<long long *>(array))[n],0,precision_);
+                    bits::get(&buffer[byte_len*n], (reinterpret_cast<long
+                        long *>(array))[n], 0, precision_);
                     break;
                   }
                 }
               }
-              size=byte_len*max_cnt;
-            }
-            else {
-              if (!myerror.empty()) {
-                myerror+=", ";
-              }
-              myerror+="unable to decode big-endian integer with precision "+strutils::itos(precision_);
+              size = byte_len * max_cnt;
+            } else {
+              append(myerror, "unable to decode big-endian integer with "
+                  "precision " + to_string(precision_), ", ");
               return false;
             }
-          }
-          else {
-            if (!myerror.empty()) {
-              myerror+=", ";
-            }
-            myerror+="unable to decode big-endian integer with bit offset "+strutils::itos(off);
+          } else {
+            append(myerror, "unable to decode big-endian integer with bit "
+                "offset " + to_string(off), ", ");
             return false;
           }
           break;
@@ -739,130 +740,141 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
       break;
     }
     case 1: {
-// floating-point numbers
+
+      // floating-point numbers
       short byte_order[2];
-      bits::get(datatype.bit_fields,byte_order[0],1,1);
-      bits::get(datatype.bit_fields,byte_order[1],7,1);
+      bits::get(datatype.bit_fields, byte_order[0], 1, 1);
+      bits::get(datatype.bit_fields, byte_order[1], 7, 1);
       short lo_pad;
-      bits::get(datatype.bit_fields,lo_pad,6,1);
+      bits::get(datatype.bit_fields, lo_pad, 6, 1);
       short hi_pad;
-      bits::get(datatype.bit_fields,hi_pad,5,1);
+      bits::get(datatype.bit_fields, hi_pad, 5, 1);
       short int_pad;
-      bits::get(datatype.bit_fields,int_pad,4,1);
+      bits::get(datatype.bit_fields, int_pad, 4, 1);
       short mant_norm;
-      bits::get(datatype.bit_fields,mant_norm,2,2);
-      precision_=HDF5::value(&datatype.properties[2],2);
-      size_t max_cnt=1;
+      bits::get(datatype.bit_fields, mant_norm, 2, 2);
+      precision_ = HDF5::value(&datatype.properties[2], 2);
+      size_t max_cnt = 1;
       if (dim_sizes.size() == 1) {
-        max_cnt*=dim_sizes[0];
+        max_cnt *= dim_sizes[0];
       }
-      auto sign_offset=precision_-static_cast<int>(datatype.bit_fields[1])-1;
-      auto exp_offset=precision_-static_cast<int>(datatype.properties[4])-static_cast<int>(datatype.properties[5]);
-      auto exp_length=static_cast<int>(datatype.properties[5]);
-      auto exp_bias=HDF5::value(&datatype.properties[8],4);
-      auto mant_offset=precision_-static_cast<int>(datatype.properties[6])-static_cast<int>(datatype.properties[7]);
-      auto mant_length=static_cast<int>(datatype.properties[7]);
-      size_t byte_len=precision_/8;
+      auto sign_offset = precision_ - static_cast<int>(datatype.bit_fields[1]) -
+          1;
+      auto exp_offset = precision_ - static_cast<int>(datatype.properties[4]) -
+          static_cast<int>(datatype.properties[5]);
+      auto exp_length = static_cast<int>(datatype.properties[5]);
+      auto exp_bias = HDF5::value(&datatype.properties[8], 4);
+      auto mant_offset = precision_ - static_cast<int>(datatype.properties[6]) -
+          static_cast<int>(datatype.properties[7]);
+      auto mant_length = static_cast<int>(datatype.properties[7]);
+      size_t byte_len = precision_ / 8;
       switch (precision_) {
         case 32: {
-          allocate(ArrayType::FLOAT,max_cnt);
-          size=sizeof(float)*max_cnt;
+          allocate(ArrayType::FLOAT, max_cnt);
+          size = sizeof(float) * max_cnt;
           break;
         }
         case 64: {
-          allocate(ArrayType::DOUBLE,max_cnt);
-          size=sizeof(double)*max_cnt;
+          allocate(ArrayType::DOUBLE, max_cnt);
+          size = sizeof(double) * max_cnt;
           break;
         }
       }
-      for (size_t n=0; n < max_cnt; ++n) {
+      for (size_t n = 0; n < max_cnt; ++n) {
         unsigned char v[8];
-        auto do_unpack=true;
+        auto do_unpack = true;
         if (byte_order[0] == 0 && byte_order[1] == 0) {
-// little-endian
+
+          // little-endian
 #ifdef __DEBUG
-          std::cerr << "#" << n << " of " << max_cnt << ", floating-point, little-endian, precision: " << precision_ << std::endl;
+          cerr << "#" << n << " of " << max_cnt << ", floating-point, "
+              "little-endian, precision: " << precision_ << endl;
 #endif
           if (!unixutils::system_is_big_endian()) {
             switch (precision_) {
               case 32: {
-                (reinterpret_cast<float *>(array))[n]=*(reinterpret_cast<float *>(&buffer[byte_len*n]));
+                (reinterpret_cast<float *>(array))[n] = *(reinterpret_cast<
+                    float *>(&buffer[byte_len*n]));
                 break;
               }
               case 64: {
-                (reinterpret_cast<double *>(array))[n]=*(reinterpret_cast<double *>(&buffer[byte_len*n]));
+                (reinterpret_cast<double *>(array))[n] = *(reinterpret_cast<
+                    double *>(&buffer[byte_len*n]));
                 break;
               }
             }
-            do_unpack=false;
-          }
-          else {
-            auto buffer_offset=byte_len*n+byte_len;
-            for (size_t m=0; m < byte_len; ++m) {
-              v[m]=buffer[--buffer_offset];
+            do_unpack = false;
+          } else {
+            auto buffer_offset = byte_len * n + byte_len;
+            for (size_t m = 0; m < byte_len; ++m) {
+              v[m] = buffer[--buffer_offset];
             }
           }
-        }
-        else if (byte_order[0] == 0 && byte_order[1] == 1) {
-// big-endian
+        } else if (byte_order[0] == 0 && byte_order[1] == 1) {
+
+          // big-endian
 #ifdef __DEBUG
-          std::cerr << "#" << n << " of " << max_cnt << ", floating-point, big-endian" << std::endl;
+          cerr << "#" << n << " of " << max_cnt << ", floating-point, "
+              "big-endian" << endl;
 #endif
           if (unixutils::system_is_big_endian()) {
             switch (precision_) {
               case 32: {
-                (reinterpret_cast<float *>(array))[n]=*(reinterpret_cast<float *>(&buffer[byte_len*n]));
+                (reinterpret_cast<float *>(array))[n] = *(reinterpret_cast<
+                    float *>(&buffer[byte_len*n]));
                 break;
               }
               case 64: {
-                (reinterpret_cast<double *>(array))[n]=*(reinterpret_cast<double *>(&buffer[byte_len*n]));
+                (reinterpret_cast<double *>(array))[n] = *(reinterpret_cast<
+                    double *>(&buffer[byte_len*n]));
                 break;
               }
-              do_unpack=false;
+              do_unpack = false;
             }
+          } else {
+            auto start = byte_len * n;
+            copy(&buffer[start], &buffer[start+byte_len], v);
           }
-          else {
-            auto start=byte_len*n;
-            std::copy(&buffer[start],&buffer[start+byte_len],v);
-          }
-        }
-        else {
-          if (!myerror.empty()) {
-            myerror+=", ";
-          }
-          myerror+="unknown byte order for data value";
+        } else {
+          append(myerror, "unknown byte order for data value", ", ");
           return false;
         }
         if (do_unpack) {
-          if (HDF5::value(&datatype.properties[0],2) == 0) {
+          if (HDF5::value(&datatype.properties[0], 2) == 0) {
             long long exp = 0;
-            bits::get(reinterpret_cast<unsigned char *>(v),exp,exp_offset,exp_length);
+            bits::get(reinterpret_cast<unsigned char *>(v), exp, exp_offset,
+                exp_length);
             long long mant = 0;
-            bits::get(reinterpret_cast<unsigned char *>(v),mant,mant_offset,mant_length);
+            bits::get(reinterpret_cast<unsigned char *>(v), mant, mant_offset,
+                mant_length);
             short sign;
-            bits::get(reinterpret_cast<unsigned char *>(v),sign,sign_offset,1);
+            bits::get(reinterpret_cast<unsigned char *>(v), sign, sign_offset,
+                1);
             if (mant == 0 && (mant_norm != 2 || exp == 0)) {
               switch (precision_) {
                 case 32: {
-                  (reinterpret_cast<float *>(array))[n]=0.;
+                  (reinterpret_cast<float *>(array))[n] = 0.;
                   break;
                 }
                 case 64: {
-                  (reinterpret_cast<double *>(array))[n]=0.;
+                  (reinterpret_cast<double *>(array))[n] = 0.;
                   break;
                 }
               }
-            }
-            else {
-              exp-=exp_bias;
+            } else {
+              exp -= exp_bias;
               if (mant_norm == 2) {
                 switch (precision_) {
                   case 32: {
-                    (reinterpret_cast<float *>(array))[n]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
+                    (reinterpret_cast<float *>(array))[n] = pow(-1., sign) * (1
+                        + pow(2., -static_cast<double>(datatype.properties[7]))
+                        * mant) * pow(2., exp);
                     break;
                   }
                   case 64: {
-                    (reinterpret_cast<double *>(array))[n]=pow(-1.,sign)*(1+pow(2.,-static_cast<double>(datatype.properties[7]))*mant)*pow(2.,exp);
+                    (reinterpret_cast<double *>(array))[n] = pow(-1., sign) * (1
+                        + pow(2., -static_cast<double>(datatype.properties[7]))
+                        * mant) * pow(2., exp);
                     break;
                   }
                 }
@@ -874,214 +886,227 @@ bool InputHDF5Stream::DataValue::set(std::fstream& fs,unsigned char *buffer,shor
       break;
     }
     case 3: {
-// strings
+
+      // strings
       if (dataspace.dimensionality < 0) {
-        precision_=0;
+        precision_ = 0;
+      } else {
+        precision_ = datatype.size;
       }
-      else {
-        precision_=datatype.size;
-      }
-      size=precision_;
-      allocate(ArrayType::STRING,precision_+1);
-      bits::get(buffer,(reinterpret_cast<char *>(array)),0,8,0,precision_);
-      (reinterpret_cast<char *>(array))[precision_]='\0';
+      size = precision_;
+      allocate(ArrayType::STRING, precision_+1);
+      bits::get(buffer, (reinterpret_cast<char *>(array)), 0, 8, 0, precision_);
+      (reinterpret_cast<char *>(array))[precision_] = '\0';
       break;
     }
     case 6: {
-// compound
+
+      // compound
 #ifdef __DEBUG
-      std::cerr << "Setting value for compound type - version: " << datatype.version << std::endl;
+      cerr << "Setting value for compound type - version: " << datatype.version
+          << endl;
 #endif
-      compound.members.resize(HDF5::value(datatype.bit_fields,2));
+      compound.members.resize(HDF5::value(datatype.bit_fields, 2));
 #ifdef __DEBUG
-      std::cerr << "  number of members: " << compound.members.size() << " " << datatype.prop_len << std::endl;
+      cerr << "  number of members: " << compound.members.size() << " " <<
+          datatype.prop_len << endl;
 #endif
       std::unique_ptr<Datatype[]> l_datatypes;
       l_datatypes.reset(new Datatype[compound.members.size()]);
-      auto total_size=0;
+      auto total_size = 0;
       switch (datatype.version) {
         case 1: {
-          auto off=0;
-          for (size_t n=0; n < compound.members.size(); ++n) {
-            compound.members[n].name=&(reinterpret_cast<char *>(datatype.properties.get()))[off];
+          auto off = 0;
+          for (size_t n = 0; n < compound.members.size(); ++n) {
+            compound.members[n].name = &(reinterpret_cast<char *>(datatype.
+                properties.get()))[off];
 #ifdef __DEBUG
-            std::cerr << "  name: " << compound.members[n].name << " at offset " << off << std::endl;
+            cerr << "  name: " << compound.members[n].name << " at offset " <<
+                off << endl;
 #endif
-            auto len=compound.members[n].name.length();
-            off+=len;
+            auto len = compound.members[n].name.length();
+            off += len;
             while ( (len++ % 8) > 0) {
               ++off;
             }
-            off+=4;
+            off += 4;
             if (static_cast<int>(datatype.properties[off]) != 0) {
-              if (!myerror.empty()) {
-                myerror+=", ";
-              }
-              myerror+="unable to decode compound type version "+strutils::itos(datatype.version)+" with dimensionality "+strutils::itos(static_cast<int>(datatype.properties[off]));
+              append(myerror, "unable to decode compound type version " +
+                  to_string(datatype.version) + " with dimensionality " +
+                  to_string(static_cast<int>(datatype.properties[off])), ", ");
               exit(1);
             }
-            off+=28;
-            HDF5::decode_datatype(&datatype.properties[off],l_datatypes[n]);
-            compound.members[n].class_=l_datatypes[n].class_;
-            compound.members[n].size=l_datatypes[n].size;
-            total_size+=l_datatypes[n].size;
-            off+=8+l_datatypes[n].prop_len;
+            off += 28;
+            HDF5::decode_datatype(&datatype.properties[off], l_datatypes[n]);
+            compound.members[n].class_ = l_datatypes[n].class_;
+            compound.members[n].size = l_datatypes[n].size;
+            total_size += l_datatypes[n].size;
+            off += 8 + l_datatypes[n].prop_len;
           }
           break;
         }
         case 3: {
           if (dim_sizes.size() > 1) {
-            std::cerr << "unable to decode compound type with dimensionality "+strutils::itos(dim_sizes.size()) << std::endl;
+            append(myerror, "unable to decode compound type with "
+                "dimensionality " + to_string(dim_sizes.size()), ", ");
             exit(1);
           }
-          auto off=0;
-          for (size_t n=0; n < compound.members.size(); ++n) {
-            compound.members[n].name=&(reinterpret_cast<char *>(datatype.properties.get()))[off];
+          auto off = 0;
+          for (size_t n = 0; n < compound.members.size(); ++n) {
+            compound.members[n].name = &(reinterpret_cast<char *>(datatype.
+                properties.get()))[off];
 #ifdef __DEBUG
-            std::cerr << "  name: " << compound.members[n].name << " at offset " << off << std::endl;
+            cerr << "  name: " << compound.members[n].name << " at offset " <<
+                off << endl;
 #endif
-            while (datatype.properties[off++] != 0);
-            auto len=1;
-            auto s=datatype.size;
-            while (s/256 > 0) {
+            while (datatype.properties[off++] != 0) { }
+            auto len = 1;
+            auto s = datatype.size;
+            while ( (s / 256) > 0) {
               ++len;
-              s/=256;
+              s /= 256;
             }
-            off+=len;
-            HDF5::decode_datatype(&datatype.properties[off],l_datatypes[n]);
-            compound.members[n].class_=l_datatypes[n].class_;
-            compound.members[n].size=l_datatypes[n].size;
-            total_size+=l_datatypes[n].size;
-            off+=8+l_datatypes[n].prop_len;
+            off += len;
+            HDF5::decode_datatype(&datatype.properties[off], l_datatypes[n]);
+            compound.members[n].class_ = l_datatypes[n].class_;
+            compound.members[n].size = l_datatypes[n].size;
+            total_size += l_datatypes[n].size;
+            off += 8 + l_datatypes[n].prop_len;
           }
           break;
         }
         default: {
-          if (!myerror.empty()) {
-            myerror+=", ";
-          }
-          myerror+="unable to decode compound type version "+strutils::itos(datatype.version);
+          append(myerror, "unable to decode compound type version " + to_string(
+              datatype.version), ", ");
           return false;
         }
       }
-      array= (dim_sizes.size() > 0) ? new unsigned char[total_size*dim_sizes[0]] : new unsigned char[total_size];
+      array = (!dim_sizes.empty()) ? new unsigned char[total_size*dim_sizes[0]]
+          : new unsigned char[total_size];
 #ifdef __DEBUG
-      std::cerr << "num values: " << compound.members.size() << std::endl;
+      cerr << "num values: " << compound.members.size() << endl;
 #endif
-      auto off=0;
-      auto voff=off;
-      auto end= (dim_sizes.size() > 0) ? dim_sizes[0] : 1;
-      for (size_t n=0; n < end; ++n) {
-        auto roff=off;
-        for (size_t m=0; m < compound.members.size(); ++m) {
+      auto off = 0;
+      auto voff = off;
+      auto end = (!dim_sizes.empty()) ? dim_sizes[0] : 1;
+      for (size_t n = 0; n < end; ++n) {
+        auto roff = off;
+        for (size_t m = 0; m < compound.members.size(); ++m) {
           DataValue l_value;
-          l_value.set(fs,&buffer[roff],size_of_offsets,size_of_lengths,l_datatypes[m],dataspace);
+          l_value.set(fs, &buffer[roff], size_of_offsets, size_of_lengths,
+              l_datatypes[m], dataspace);
           if (n == 0) {
-            compound.members[m].precision_=l_value.precision_;
+            compound.members[m].precision_ = l_value.precision_;
           }
-          std::copy(reinterpret_cast<unsigned char *>(l_value.array),reinterpret_cast<unsigned char *>(l_value.array)+l_datatypes[m].size,&(reinterpret_cast<unsigned char *>(array))[voff]);
-          roff+=l_datatypes[m].size;
-          voff+=l_datatypes[m].size;
+          copy(reinterpret_cast<unsigned char *>(l_value.array),
+              reinterpret_cast<unsigned char *>(l_value.array) + l_datatypes[m].
+              size, &(reinterpret_cast<unsigned char *>(array))[voff]);
+          roff += l_datatypes[m].size;
+          voff += l_datatypes[m].size;
         }
-        off+=datatype.size;
+        off += datatype.size;
       }
-      l_datatypes=nullptr;
-      size=off;
+      l_datatypes = nullptr;
+      size = off;
       break;
     }
     case 7: {
-// reference
-      auto type=((datatype.bit_fields[0] & 0xf0) >> 4);
+
+      // reference
+      auto type = ((datatype.bit_fields[0] & 0xf0) >> 4);
       if (type == 0 || type == 1) {
-        size=size_of_offsets;
-        allocate(ArrayType::BYTE,size);
-        std::copy(buffer,buffer+size,reinterpret_cast<unsigned char *>(array));
-      }
-      else {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
-        myerror+="unable to set class 7 value for bits 0-3="+strutils::itos(type);
+        size = size_of_offsets;
+        allocate(ArrayType::BYTE, size);
+        copy(buffer, buffer+size, reinterpret_cast<unsigned char *>(array));
+      } else {
+        append(myerror, "unable to set class 7 value for bits 0-3=" + to_string(
+            type), ", ");
         return false;
       }
       break;
     }
     case 9: {
-// variable-length
-      short type,pad,charset;
-      bits::get(datatype.bit_fields,type,0,4);
-      bits::get(datatype.bit_fields,pad,4,4);
-      bits::get(datatype.bit_fields,charset,8,4);
+
+      // variable-length
+      short type, pad, charset;
+      bits::get(datatype.bit_fields, type, 0, 4);
+      bits::get(datatype.bit_fields, pad, 4, 4);
+      bits::get(datatype.bit_fields, charset, 8, 4);
 #ifdef __DEBUG
-      std::cerr << "decoding data class 9 -  type: " << type << " pad: " << pad << " charset: " << charset << " size: " << datatype.size << " base type class and version: " << static_cast<int>(datatype.properties[0] & 0xf) << "/" << static_cast<int>((datatype.properties[0] & 0xf0) >> 4) << std::endl;
+      cerr << "decoding data class 9 -  type: " << type << " pad: " << pad <<
+          " charset: " << charset << " size: " << datatype.size << " base type "
+          "class and version: " << static_cast<int>(datatype.properties[0] &
+          0xf) << "/" << static_cast<int>((datatype.properties[0] & 0xf0) >> 4)
+          << endl;
 #endif
       if (type == 0) {
-        size=datatype.size;
-        precision_=size_of_offsets;
-        size_t num_pointers=1;
-        if (dim_sizes.size() > 0) {      
-          num_pointers=dim_sizes.front();
-          size*=dim_sizes.front();
+        size = datatype.size;
+        precision_ = size_of_offsets;
+        size_t num_pointers = 1;
+        if (!dim_sizes.empty()) {      
+          num_pointers = dim_sizes.front();
+          size *= dim_sizes.front();
         }
-        allocate(ArrayType::BYTE,size);
-        vlen.class_=(datatype.properties[0] & 0xf);
-        auto element_size=HDF5::value(&datatype.properties[4],4);
-// patch for strings stored as sequence of fixed-point numbers
+        allocate(ArrayType::BYTE, size);
+        vlen.class_ = (datatype.properties[0] & 0xf);
+        auto element_size = HDF5::value(&datatype.properties[4], 4);
+
+        // patch for strings stored as sequence of fixed-point numbers
         if (vlen.class_ == 0 && datatype.size > 1 && element_size == 1) {
-          vlen.class_=3;
+          vlen.class_ = 3;
 #ifdef __DEBUG
-          std::cerr << "***BASE CLASS changed from 'fixed-point number' to 'string'" << std::endl;
+          cerr << "***BASE CLASS changed from 'fixed-point number' to 'string'"
+              << endl;
 #endif
         }
-        vlen.size=0;
-        auto off=0;
+        vlen.size = 0;
+        auto off = 0;
         vector<int> lengths;
-        for (size_t n=0; n < num_pointers; ++n) {
-          lengths.emplace_back(HDF5::value(&buffer[off],4)*element_size);
-          vlen.size+=lengths.back();
-          off+=(8+precision_);
+        for (size_t n = 0; n < num_pointers; ++n) {
+          lengths.emplace_back(HDF5::value(&buffer[off], 4) * element_size);
+          vlen.size += lengths.back();
+          off += 8 + precision_;
         }
-        vlen.size+=4*num_pointers;
+        vlen.size += 4 * num_pointers;
         vlen.buffer.reset(new unsigned char[vlen.size]);
 #ifdef __DEBUG
-        std::cerr << "Variable length (class " << vlen.class_ << ") buffer set to " << vlen.size << " bytes" << std::endl;
+        cerr << "Variable length (class " << vlen.class_ << ") buffer set to "
+            << vlen.size << " bytes" << endl;
 #endif
-        off=0;
-        auto voff=0;
-        for (size_t n=0; n < num_pointers; ++n) {
-          bits::set(&vlen.buffer[voff],lengths[n],0,32);
-          unsigned char *buf2=nullptr;
-          auto len=HDF5::global_heap_object(fs,size_of_lengths,HDF5::value(&buffer[off+4],precision_),HDF5::value(&buffer[off+4+precision_],4),&buf2);
-          std::copy(&buf2[0],&buf2[lengths[n]],&vlen.buffer[voff+4]);
+        off = 0;
+        auto voff = 0;
+        for (size_t n = 0; n < num_pointers; ++n) {
+          bits::set(&vlen.buffer[voff], lengths[n], 0, 32);
+          unsigned char *buf2 = nullptr;
+          auto len = HDF5::global_heap_object(fs, size_of_lengths, HDF5::value(
+              &buffer[off+4], precision_), HDF5::value(&buffer[
+              off+4+precision_], 4), &buf2);
+          copy(&buf2[0], &buf2[lengths[n]], &vlen.buffer[voff+4]);
 #ifdef __DEBUG
-          std::cerr << "***LEN=" << len;
+          cerr << "***LEN=" << len;
           if (vlen.class_ == 7) {
-            std::cerr << " " << HDF5::value(buf2,size_of_offsets);
+            cerr << " " << HDF5::value(buf2,size_of_offsets);
           }
-          std::cerr << std::endl;
+          cerr << endl;
 #endif
           if (len > 0) {
             delete[] buf2;
           }
-          off+=(8+precision_);
-          voff+=(4+lengths[n]);
+          off += 8 + precision_;
+          voff += 4 + lengths[n];
         }
-        std::copy(&buffer[0],&buffer[off],reinterpret_cast<unsigned char *>(array));
-      }
-      else {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
-        myerror+="unable to set class 9 value for type "+strutils::itos(type);
+        copy(&buffer[0], &buffer[off], reinterpret_cast<unsigned char *>(
+            array));
+      } else {
+        append(myerror, "unable to set class 9 value for type " + to_string(
+            type), ", ");
         return false;
       }
       break;
     }
     default: {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="unable to decode data of class "+strutils::itos(datatype.class_);
+      append(myerror, "unable to decode data of class " + to_string(datatype.
+          class_), ", ");
       return false;
     }
   }
@@ -1213,21 +1238,14 @@ list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(
   return lst;
 }
 
-bool InputHDF5Stream::open(const char *filename)
-{
+bool InputHDF5Stream::open(const char *filename) {
   if (is_open()) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="currently connected to another file stream";
+    append(myerror, "currently connected to another file stream", ", ");
     return false;
   }
   fs.open(filename,std::ios::in);
   if (!fs.is_open()) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to open "+string(filename);
+    append(myerror, "unable to open " + string(filename), ", ");
     return false;
   }
   SymbolTableEntry ste;
@@ -1242,9 +1260,9 @@ bool InputHDF5Stream::open(const char *filename)
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "ROOT GROUP heap address: " << root_group.local_heap.addr << std::endl;
-  std::cerr << "ROOT GROUP heap data start address: " << root_group.local_heap.data_start << std::endl;
-  std::cerr << "ROOT GROUP b-tree address: " << root_group.btree_addr << std::endl;
+  cerr << "ROOT GROUP heap address: " << root_group.local_heap.addr << endl;
+  cerr << "ROOT GROUP heap data start address: " << root_group.local_heap.data_start << endl;
+  cerr << "ROOT GROUP b-tree address: " << root_group.btree_addr << endl;
 #endif
   free_space_manager.space_map.reserve(1024);
   return true;
@@ -1279,13 +1297,11 @@ void InputHDF5Stream::print_fill_value(string xpath) {
   }
 }
 
-int InputHDF5Stream::read(unsigned char *buffer,size_t buffer_length)
-{
+int InputHDF5Stream::read(unsigned char *buffer, size_t buffer_length) {
 return bfstream::error;
 }
 
-void InputHDF5Stream::show_file_structure()
-{
+void InputHDF5Stream::show_file_structure() {
   print_a_group_tree(root_group);
 }
 
@@ -1306,114 +1322,124 @@ void InputHDF5Stream::clear_groups(Group& group) {
   group.datasets.clear();
 }
 
-bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribute,int& length,int ohdr_version)
-{
+bool InputHDF5Stream::decode_attribute(unsigned char *buffer, Attribute&
+    attribute, int& length, int ohdr_version) {
   struct {
-    int name,datatype,dataspace;
+    int name, datatype, dataspace;
   } l_sizes;
-  if ( (l_sizes.name=HDF5::value(&buffer[2],2)) == 0) {
+  l_sizes.name = HDF5::value(&buffer[2], 2);
+  if (l_sizes.name == 0) {
     return false;
   }
-  if ( (l_sizes.datatype=HDF5::value(&buffer[4],2)) == 0) {
+  l_sizes.datatype = HDF5::value(&buffer[4], 2);
+  if (l_sizes.datatype == 0) {
     return false;
   }
-  if ( (l_sizes.dataspace=HDF5::value(&buffer[6],2)) == 0) {
+  l_sizes.dataspace = HDF5::value(&buffer[6], 2);
+  if (l_sizes.dataspace == 0) {
     return false;
   }
-  length=8;
+  length = 8;
 #ifdef __DEBUG
-  std::cerr << "decode attribute version " << static_cast<int>(buffer[0]) << " name size: " << l_sizes.name << " datatype size: " << l_sizes.datatype << " dataspace size: " << l_sizes.dataspace << " ohdr_version: " << ohdr_version << std::endl;
+  cerr << "decode attribute version " << static_cast<int>(buffer[0]) << " name "
+      "size: " << l_sizes.name << " datatype size: " << l_sizes.datatype <<
+      " dataspace size: " << l_sizes.dataspace << " ohdr_version: " <<
+      ohdr_version << endl;
 #endif
   int name_off;
   switch (static_cast<int>(buffer[0])) {
     case 1: {
-      name_off=length;
-      length+=l_sizes.name;
-      int mod;
-      if ( (mod=(l_sizes.name % 8)) > 0) {
-        length+=8-mod;
+      name_off = length;
+      length += l_sizes.name;
+      int mod = l_sizes.name % 8;
+      if (mod > 0) {
+        length += 8 - mod;
       }
       Datatype datatype;
-      if (!HDF5::decode_datatype(&buffer[length],datatype)) {
+      if (!HDF5::decode_datatype(&buffer[length], datatype)) {
         return false;
       }
-      length+=l_sizes.datatype;
-      if ( (mod=(l_sizes.datatype % 8)) > 0) {
-        length+=8-mod;
+      length += l_sizes.datatype;
+      mod = l_sizes.datatype % 8;
+      if (mod > 0) {
+        length += 8 - mod;
       }
       Dataspace dataspace;
-      if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
+      if (!HDF5::decode_dataspace(&buffer[length], sizes.lengths, dataspace)) {
         return false;
       }
-      length+=l_sizes.dataspace;
-      if ( (mod=(l_sizes.dataspace % 8)) > 0) {
-        length+=8-mod;
+      length += l_sizes.dataspace;
+      mod = l_sizes.dataspace % 8;
+      if (mod > 0) {
+        length += 8 - mod;
       }
-      if (!attribute.second.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+      if (!attribute.second.set(fs, &buffer[length], sizes.offsets, sizes.
+          lengths, datatype, dataspace)) {
         return false;
       }
-      length+=attribute.second.size;
+      length += attribute.second.size;
       if (ohdr_version == 1 && datatype.class_ == 3) {
-        mod=(length % 8);
+        mod = length % 8;
         if (mod != 0) {
-          length+=8-mod;
+          length += 8 - mod;
 #ifdef __DEBUG
-          std::cerr << "string length adjusted from " << attribute.second.size << " to " << (attribute.second.size+8-mod) << std::endl;
+          cerr << "string length adjusted from " << attribute.second.size <<
+              " to " << (attribute.second.size+8-mod) << endl;
 #endif
         }
       }
       break;
     }
     case 2: {
-      name_off=length;
-      length+=l_sizes.name;
+      name_off = length;
+      length += l_sizes.name;
       Datatype datatype;
-      if (!HDF5::decode_datatype(&buffer[length],datatype)) {
+      if (!HDF5::decode_datatype(&buffer[length], datatype)) {
         return false;
       }
-      length+=l_sizes.datatype;
+      length += l_sizes.datatype;
       Dataspace dataspace;
-      if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
+      if (!HDF5::decode_dataspace(&buffer[length], sizes.lengths, dataspace)) {
         return false;
       }
-      length+=l_sizes.dataspace;
-      if (!attribute.second.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+      length += l_sizes.dataspace;
+      if (!attribute.second.set(fs, &buffer[length], sizes.offsets, sizes.
+          lengths, datatype, dataspace)) {
         return false;
       }
-      length+=attribute.second.size;
+      length += attribute.second.size;
       break;
     }
     case 3: {
       length++;
-      name_off=length;
-      length+=l_sizes.name;
+      name_off = length;
+      length += l_sizes.name;
       Datatype datatype;
-      if (!HDF5::decode_datatype(&buffer[length],datatype)) {
+      if (!HDF5::decode_datatype(&buffer[length], datatype)) {
         return false;
       }
-      length+=l_sizes.datatype;
+      length += l_sizes.datatype;
 #ifdef __DEBUG
-      std::cerr << "C offset: " << length << std::endl;
+      cerr << "C offset: " << length << endl;
 #endif
       Dataspace dataspace;
-      if (!HDF5::decode_dataspace(&buffer[length],sizes.lengths,dataspace)) {
+      if (!HDF5::decode_dataspace(&buffer[length], sizes.lengths, dataspace)) {
         return false;
       }
-      length+=l_sizes.dataspace;
+      length += l_sizes.dataspace;
       if (dataspace.dimensionality > 1) {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
-        myerror+="unable to decode attribute with dimensionality "+strutils::itos(dataspace.dimensionality);
+        append(myerror, "unable to decode attribute with dimensionality " +
+            to_string(dataspace.dimensionality), ", ");
         return false;
       }
 #ifdef __DEBUG
-      std::cerr << "setting value at offset: " << length << std::endl;
+      cerr << "setting value at offset: " << length << endl;
 #endif
-      if (!attribute.second.set(fs,&buffer[length],sizes.offsets,sizes.lengths,datatype,dataspace)) {
+      if (!attribute.second.set(fs, &buffer[length], sizes.offsets, sizes.
+          lengths, datatype, dataspace)) {
         return false;
       }
-      length+=attribute.second.size;
+      length += attribute.second.size;
       break;
     }
     default: {
@@ -1422,45 +1448,38 @@ bool InputHDF5Stream::decode_attribute(unsigned char *buffer,Attribute& attribut
   }
 /*
 #ifdef __DEBUG
-  std::cerr << "value set: ";
-  attribute.second.print(std::cerr, ref_table);
-  std::cerr << std::endl;
+  cerr << "value set: ";
+  attribute.second.print(cerr, ref_table);
+  cerr << endl;
 #endif
 */
-  attribute.first.assign(reinterpret_cast<char *>(&buffer[name_off]),l_sizes.name);
+  attribute.first.assign(reinterpret_cast<char *>(&buffer[name_off]), l_sizes.
+      name);
   if (attribute.first.back() == '\0') {
     attribute.first.pop_back();
   }
   return true;
 }
 
-bool InputHDF5Stream::decode_Btree(Group& group,FractalHeapData *frhp_data)
-{
+bool InputHDF5Stream::decode_Btree(Group& group, FractalHeapData *frhp_data) {
 #ifdef __DEBUG
-  std::cerr << "seeking " << group.btree_addr << std::endl;
+  cerr << "seeking " << group.btree_addr << endl;
 #endif
-  fs.seekg(group.btree_addr,std::ios_base::beg);
+  fs.seekg(group.btree_addr, std::ios_base::beg);
   char buf[4];
-  fs.read(buf,4);
+  fs.read(buf, 4);
   if (fs.gcount() != 4) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error tree signature";
+    append(myerror, "read error tree signature", ", ");
     return false;
   }
-  auto signature=string(buf,4);
+  auto signature = string(buf, 4);
   if (signature == "TREE") {
     return decode_v1_Btree(group);
-  }
-  else if (signature == "BTHD") {
-    return decode_v2_Btree(group,frhp_data);
-  }
-  else {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unrecognized tree signature '"+string(buf,4)+"'";
+  } else if (signature == "BTHD") {
+    return decode_v2_Btree(group, frhp_data);
+  } else {
+    append(myerror, "unrecognized tree signature '" + string(buf, 4) + "'",
+        ", ");
   }
   return false;
 }
@@ -1722,10 +1741,7 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
 {
   if (address == undef_addr) {
     if (header_message_type != 0x0006) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="fractal heap is not defined";
+      append(myerror, "fractal heap is not defined", ", ");
     }
     return false;
   }
@@ -1748,23 +1764,20 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "yay! fractal heap at address: " << address << std::endl;
+  cerr << "yay! fractal heap at address: " << address << endl;
 #endif
   fs.read(cbuf,9);
   if (fs.gcount() != 9) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error bytes 6-14 in fractal heap";
+    append(myerror, "read error bytes 6-14 in fractal heap", ", ");
     return false;
   }
   frhp_data.id_len=HDF5::value(buf,2);
 #ifdef __DEBUG
-  std::cerr << "id_len: " << frhp_data.id_len << std::endl;
+  cerr << "id_len: " << frhp_data.id_len << endl;
 #endif
   frhp_data.io_filter_size=HDF5::value(&buf[2],2);
 #ifdef __DEBUG
-  std::cerr << "io_filter_size: " << frhp_data.io_filter_size << std::endl;
+  cerr << "io_filter_size: " << frhp_data.io_filter_size << endl;
 #endif
   frhp_data.flags=buf[4];
 #ifdef __DEBUG
@@ -1772,22 +1785,16 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
 #endif
   frhp_data.max_managed_obj_size=HDF5::value(&buf[5],4);
 #ifdef __DEBUG
-  std::cerr << "max size of managed objects: " << frhp_data.max_managed_obj_size << std::endl;
+  cerr << "max size of managed objects: " << frhp_data.max_managed_obj_size << endl;
 #endif
   fs.read(cbuf,sizes.lengths+sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.lengths+sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read huge object data";
+    append(myerror, "unable to read huge object data", ", ");
     return false;
   }
   fs.read(cbuf,sizes.lengths+sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.lengths+sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read free space data";
+    append(myerror, "unable to read free space data", ", ");
     return false;
   }
   frhp_data.space.bytes_free = HDF5::value(&buf[0], sizes.lengths);
@@ -1824,49 +1831,43 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
 #endif
   frhp_data.objects.num_managed=HDF5::value(&buf[sizes.lengths*3],sizes.lengths);
 #ifdef __DEBUG
-  std::cerr << "number of managed objects in heap: " << frhp_data.objects.num_managed << std::endl;
+  cerr << "number of managed objects in heap: " << frhp_data.objects.num_managed << endl;
 #endif
   fs.read(cbuf,sizes.lengths*4);
   if (fs.gcount() != static_cast<int>(sizes.lengths*4)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read huge/tiny object data";
+    append(myerror, "unable to read huge/tiny object data", ", ");
     return false;
   }
   frhp_data.objects.num_huge=HDF5::value(&buf[sizes.lengths],sizes.lengths);
   frhp_data.objects.num_tiny=HDF5::value(&buf[sizes.lengths*3],sizes.lengths);
 #ifdef __DEBUG
-  std::cerr << "number of huge objects: " << frhp_data.objects.num_huge << std::endl;
-  std::cerr << "number of tiny objects: " << frhp_data.objects.num_tiny << std::endl;
+  cerr << "number of huge objects: " << frhp_data.objects.num_huge << endl;
+  cerr << "number of tiny objects: " << frhp_data.objects.num_tiny << endl;
 #endif
   fs.read(cbuf,4+sizes.lengths*2);
   if (fs.gcount() != static_cast<int>(4+sizes.lengths*2)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read table width and block size data";
+    append(myerror, "unable to read table width and block size data", ", ");
     return false;
   }
   frhp_data.table_width=HDF5::value(buf,2);
 #ifdef __DEBUG
-  std::cerr << "table width=" << frhp_data.table_width << std::endl;
+  cerr << "table width=" << frhp_data.table_width << endl;
 #endif
   frhp_data.start_block_size=HDF5::value(&buf[2],sizes.lengths);
 #ifdef __DEBUG
-  std::cerr << "starting block size: " << frhp_data.start_block_size << std::endl;
+  cerr << "starting block size: " << frhp_data.start_block_size << endl;
 #endif
   frhp_data.max_dblock_size=HDF5::value(&buf[2+sizes.lengths],sizes.lengths);
 #ifdef __DEBUG
-  std::cerr << "max direct block size: " << frhp_data.max_dblock_size << std::endl;
+  cerr << "max direct block size: " << frhp_data.max_dblock_size << endl;
 #endif
   frhp_data.max_dblock_rows=static_cast<int>(log2(HDF5::value(&buf[2+sizes.lengths],sizes.lengths))-log2(HDF5::value(&buf[2],sizes.lengths)))+2;
 #ifdef __DEBUG
-  std::cerr << "max_dblock_rows=" << frhp_data.max_dblock_rows << std::endl;
+  cerr << "max_dblock_rows=" << frhp_data.max_dblock_rows << endl;
 #endif
   frhp_data.max_size=HDF5::value(&buf[2+sizes.lengths*2],2);
 #ifdef __DEBUG
-  std::cerr << "max_heap_size: " << frhp_data.max_size << std::endl;
+  cerr << "max_heap_size: " << frhp_data.max_size << endl;
 #endif
   fs.read(cbuf,4+sizes.offsets);
   if (fs.gcount() != static_cast<int>(4+sizes.offsets)) {
@@ -1874,15 +1875,15 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "start # rows: " << HDF5::value(buf,2) << std::endl;
+  cerr << "start # rows: " << HDF5::value(buf,2) << endl;
 #endif
   unsigned long long root_block_addr=HDF5::value(&buf[2],sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "address of root block: " << root_block_addr << std::endl;
+  cerr << "address of root block: " << root_block_addr << endl;
 #endif
   frhp_data.nrows=HDF5::value(&buf[2+sizes.offsets],2);
 #ifdef __DEBUG
-  std::cerr << "nrows=" << frhp_data.nrows << std::endl;
+  cerr << "nrows=" << frhp_data.nrows << endl;
 #endif
   frhp_data.K= (frhp_data.nrows < frhp_data.max_dblock_rows) ? frhp_data.nrows : frhp_data.max_dblock_rows;
   frhp_data.K*=frhp_data.table_width;
@@ -1891,7 +1892,7 @@ bool InputHDF5Stream::decode_fractal_heap(unsigned long long address,int header_
     frhp_data.N=0;
   }
 #ifdef __DEBUG
-  std::cerr << "K=" << frhp_data.K << " N=" << frhp_data.N << std::endl;
+  cerr << "K=" << frhp_data.K << " N=" << frhp_data.N << endl;
 #endif
   if (frhp_data.space.manager_addr != undef_addr && !decode_free_space_manager(
       frhp_data)) {
@@ -2021,9 +2022,6 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
         break;
       }
       default: {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
         append(myerror, "unable to decode FHDB object data for message type " +
             to_string(header_message_type), ", ");
         return false;
@@ -2294,8 +2292,8 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
         if ( (dse.p_ds->fillvalue.length=HDF5::value(&buffer[0], 4)) > 0) {
           dse.p_ds->fillvalue.bytes = new unsigned char[dse.p_ds->fillvalue.
               length];
-          std::copy(buffer + 4, buffer + 4 + dse.p_ds->fillvalue.length, dse.
-              p_ds->fillvalue.bytes);
+          copy(buffer+4, buffer+4+dse.p_ds->fillvalue.length, dse.p_ds->
+              fillvalue.bytes);
         }
       }
       return length;
@@ -2313,8 +2311,8 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
             if (dse.p_ds->fillvalue.length > 0) {
               dse.p_ds->fillvalue.bytes = new unsigned char[dse.p_ds->fillvalue.
                   length];
-              std::copy(buffer + 8, buffer + 8 + dse.p_ds->fillvalue.length,
-                  dse.p_ds->fillvalue.bytes);
+              copy(buffer+8, buffer+8+dse.p_ds->fillvalue.length, dse.p_ds->
+                  fillvalue.bytes);
             } else {
               dse.p_ds->fillvalue.bytes = nullptr;
             }
@@ -2330,8 +2328,8 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
             if (dse.p_ds->fillvalue.length > 0) {
               dse.p_ds->fillvalue.bytes = new unsigned char[dse.p_ds->fillvalue.
                   length];
-              std::copy(buffer + 6, buffer + 6 + dse.p_ds->fillvalue.length,
-                  dse.p_ds->fillvalue.bytes);
+              copy(buffer+6, buffer+6+dse.p_ds->fillvalue.length, dse.p_ds->
+                  fillvalue.bytes);
             } else {
               dse.p_ds->fillvalue.bytes = nullptr;
             }
@@ -2726,23 +2724,18 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,4);
   if (fs.gcount() != 4) {
-    if (!myerror.empty()) {
-      myerror+="\n";
-    }
-    myerror+=THIS_FUNC+"(): unable to decode first 4 bytes of object header";
+    append(myerror, THIS_FUNC + "(): unable to decode first 4 bytes of object "
+        "header", "\n");
     return false;
   }
   auto signature=string(reinterpret_cast<char *>(cbuf),4);
 #ifdef __DEBUG
-  std::cerr << "object header signature: \"" << signature << "\" for '" << ste.linkname << "' " << ste.objhdr_addr << std::endl;
+  cerr << "object header signature: \"" << signature << "\" for '" << ste.linkname << "' " << ste.objhdr_addr << endl;
 #endif
   if (signature == "OHDR") {
     fs.read(cbuf,2);
     if (fs.gcount() != 2) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+=THIS_FUNC+"(): unable to get version for OHDR";
+      append(myerror, THIS_FUNC + "(): unable to get version for OHDR", "\n");
       return false;
     }
     auto version=static_cast<short>(buf[0]);
@@ -2751,110 +2744,93 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
       if ( (flags & 0x20) == 0x20) {
         fs.read(cbuf,4);
         if (fs.gcount() != 4) {
-          if (!myerror.empty()) {
-            myerror+="\n";
-          }
-          myerror+=THIS_FUNC+"(): unable to read OHDR access time";
+          append(myerror, THIS_FUNC + "(): unable to read OHDR access time",
+              "\n");
           return false;
         }
 #ifdef __DEBUG
-        std::cerr << "access time: " << HDF5::value(buf,4) << std::endl;
+        cerr << "access time: " << HDF5::value(buf,4) << endl;
 #endif
         fs.read(cbuf,4);
         if (fs.gcount() != 4) {
-          if (!myerror.empty()) {
-            myerror+="\n";
-          }
-          myerror+=THIS_FUNC+"(): unable to read OHDR modification time";
+          append(myerror, THIS_FUNC + "(): unable to read OHDR modification "
+              "time", "\n");
           return false;
         }
 #ifdef __DEBUG
-        std::cerr << "mod time: " << HDF5::value(buf,4) << std::endl;
+        cerr << "mod time: " << HDF5::value(buf,4) << endl;
 #endif
         fs.read(cbuf,4);
         if (fs.gcount() != 4) {
-          if (!myerror.empty()) {
-            myerror+="\n";
-          }
-          myerror+=THIS_FUNC+"(): unable to read OHDR change time";
+          append(myerror, THIS_FUNC + "(): unable to read OHDR change time",
+              "\n");
           return false;
         }
 #ifdef __DEBUG
-        std::cerr << "change time: " << HDF5::value(buf,4) << std::endl;
+        cerr << "change time: " << HDF5::value(buf,4) << endl;
 #endif
         fs.read(cbuf,4);
         if (fs.gcount() != 4) {
-          if (!myerror.empty()) {
-            myerror+="\n";
-          }
-          myerror+=THIS_FUNC+"(): unable to read OHDR birth time";
+          append(myerror, THIS_FUNC + "(): unable to read OHDR birth time",
+              "\n");
           return false;
         }
 #ifdef __DEBUG
-        std::cerr << "birth time: " << HDF5::value(buf,4) << std::endl;
+        cerr << "birth time: " << HDF5::value(buf,4) << endl;
 #endif
       }
       if ( (flags & 0x10) == 0x10) {
         fs.read(cbuf,4);
         if (fs.gcount() != 4) {
-          if (!myerror.empty()) {
-            myerror+="\n";
-          }
-          myerror+=THIS_FUNC+"(): unable to read OHDR attribute data";
+          append(myerror, THIS_FUNC + "(): unable to read OHDR attribute data",
+              "\n");
           return false;
         }
 #ifdef __DEBUG
-        std::cerr << "max # compact attributes: " << HDF5::value(buf,2) << std::endl;
-        std::cerr << "min # dense attributes: " << HDF5::value(&buf[2],2) << std::endl;
+        cerr << "max # compact attributes: " << HDF5::value(buf,2) << endl;
+        cerr << "min # dense attributes: " << HDF5::value(&buf[2],2) << endl;
 #endif
       }
       size_t hdr_size=pow(2.,static_cast<int>(flags & 0x3));
       fs.read(cbuf,hdr_size);
       if (fs.gcount() != static_cast<int>(hdr_size)) {
-        if (!myerror.empty()) {
-          myerror+="\n";
-        }
-        myerror+=THIS_FUNC+"(): unable to read OHDR size of chunk #0";
+        append(myerror, THIS_FUNC + "(): unable to read OHDR size of chunk #0",
+            "\n");
         return false;
       }
       hdr_size=HDF5::value(buf,hdr_size);
 #ifdef __DEBUG
-      std::cerr << "flags=" << static_cast<int>(flags) << " " << static_cast<int>(flags & 0x3) << " " << pow(2.,static_cast<int>(flags & 0x3)) << " " << hdr_size << std::endl;
+      cerr << "flags=" << static_cast<int>(flags) << " " << static_cast<int>(flags & 0x3) << " " << pow(2.,static_cast<int>(flags & 0x3)) << " " << hdr_size << endl;
 #endif
-      long long curr_off=fs.tellg();
-      if (!decode_header_messages(2,hdr_size,ste.linkname,group,NULL,flags)) {
+      long long curr_off = fs.tellg();
+      if (!decode_header_messages(2, hdr_size, ste.linkname, group, nullptr,
+          flags)) {
         return false;
       }
-      fs.seekg(curr_off+hdr_size,std::ios_base::beg);
-    }
-    else {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+=THIS_FUNC+"(): unable to decode OHDR at addr="+strutils::lltos(ste.objhdr_addr);
+      fs.seekg(curr_off+hdr_size, std::ios_base::beg);
+    } else {
+      append(myerror, THIS_FUNC + "(): unable to decode OHDR at addr=" +
+          to_string(ste.objhdr_addr), "\n");
       return false;
     }
-  }
-  else {
-    auto version=static_cast<int>(buf[0]);
+  } else {
+    auto version = static_cast<int>(buf[0]);
     if (version == 1) {
 #ifdef __DEBUG
-      auto num_msgs=HDF5::value(&buf[2],2);
+      auto num_msgs = HDF5::value(&buf[2], 2);
 #endif
       fs.read(cbuf,8);
       if (fs.gcount() != 8) {
-        if (!myerror.empty()) {
-          myerror+="\n";
-        }
-        myerror+=THIS_FUNC+"(): unable to decode next 8 bytes of object header";
+        append(myerror, THIS_FUNC + "(): unable to decode next 8 bytes of "
+            "object header", "\n");
         return false;
       }
 #ifdef __DEBUG
-      auto ref_cnt=HDF5::value(buf,4);
+      auto ref_cnt = HDF5::value(buf, 4);
 #endif
-      auto hdr_size=HDF5::value(&buf[4],4);
+      auto hdr_size = HDF5::value(&buf[4], 4);
 #ifdef __DEBUG
-      std::cerr << "object header version=" << version << " num_msgs=" << num_msgs << " ref_cnt=" << ref_cnt << " hdr_size=" << hdr_size << std::endl;
+      cerr << "object header version=" << version << " num_msgs=" << num_msgs << " ref_cnt=" << ref_cnt << " hdr_size=" << hdr_size << endl;
 #endif
       fs.seekg(4,std::ios_base::cur);
       long long curr_off=fs.tellg();
@@ -2862,52 +2838,40 @@ bool InputHDF5Stream::decode_object_header(SymbolTableEntry& ste,Group *group)
         return false;
       }
       fs.seekg(curr_off+hdr_size,std::ios_base::beg);
-    }
-    else {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+=THIS_FUNC+"(): expected version 1 but got version "+strutils::itos(version)+" at offset "+strutils::itos(fs.tellg());
+    } else {
+      append(myerror, THIS_FUNC + "(): expected version 1 but got version " +
+          to_string(version) + " at offset " + to_string(fs.tellg()), "\n");
       return false;
     }
   }
-  fs.seekg(start_off,std::ios_base::beg);
+  fs.seekg(start_off, std::ios_base::beg);
   return true;
 }
 
-bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
-{
+bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr) {
   unsigned char buf[12];
-  char *cbuf=reinterpret_cast<char *>(buf);
-// check for 0x894844460d0a1a0a in first eight bytes (\211HDF\r\n\032\n)
-  fs.read(cbuf,12);
+  char *cbuf = reinterpret_cast<char *>(buf);
+
+  // check for 0x894844460d0a1a0a in first eight bytes (\211HDF\r\n\032\n)
+  fs.read(cbuf, 12);
   if (fs.gcount() != 12) {
-    if (!myerror.empty()) {
-      myerror+="\n";
-    }
-    myerror+="read error in first 12 bytes";
+    append(myerror, "read error in first 12 bytes", "\n");
     return false;
   }
   unsigned long long magic;
-  bits::get(buf,magic,0,64);
+  bits::get(buf, magic, 0, 64);
   if (magic != 0x894844460d0a1a0a) {
-    if (!myerror.empty()) {
-      myerror+="\n";
-    }
-    myerror+="not an HDF5 file";
+    append(myerror, "not an HDF5 file", "\n");
     return false;
   }
-  sb_version=static_cast<int>(buf[8]);
+  sb_version = static_cast<int>(buf[8]);
   if (sb_version == 0 || sb_version == 1) {
 #ifdef __DEBUG
-    std::cerr << "sb_version=" << sb_version << std::endl;
+    cerr << "sb_version=" << sb_version << endl;
 #endif
     fs.read(cbuf,12);
     if (fs.gcount() != 12) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error in second 12 bytes of V0/1 superblock";
+      append(myerror, "read error in second 12 bytes of V0/1 superblock", "\n");
       return false;
     }
     sizes.offsets=static_cast<int>(buf[1]);
@@ -2916,145 +2880,109 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
     group_K.leaf=HDF5::value(&buf[4],2);
     group_K.internal=HDF5::value(&buf[6],2);
 #ifdef __DEBUG
-    std::cerr << sizes.offsets << " " << sizes.lengths << " " << group_K.leaf << " " << group_K.internal << std::endl;
+    cerr << sizes.offsets << " " << sizes.lengths << " " << group_K.leaf << " " << group_K.internal << endl;
 #endif
     if (sb_version == 1) {
       fs.read(cbuf,4);
       if (fs.gcount() != 4) {
-        if (!myerror.empty()) {
-          myerror+="\n";
-        }
-        myerror+="read error for superblock v1 additions";
+        append(myerror, "read error for superblock v1 additions", "\n");
         return false;
       }
     }
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for V0/1 superblock base address";
+      append(myerror, "read error for V0/1 superblock base address", "\n");
       return false;
     }
     base_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "base address: " << base_addr << std::endl;
+    cerr << "base address: " << base_addr << endl;
 #endif
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for V0/1 superblock file free-space address";
+      append(myerror, "read error for V0/1 superblock file free-space address",
+          "\n");
       return false;
     }
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for V0/1 superblock end-of-file address";
+      append(myerror, "read error for V0/1 superblock end-of-file address",
+          "\n");
       return false;
     }
-    eof_addr=HDF5::value(buf,sizes.offsets);
+    eof_addr = HDF5::value(buf, sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "eof address: " << eof_addr << std::endl;
+    cerr << "eof address: " << eof_addr << endl;
 #endif
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for V0/1 superblock driver information block address";
+      append(myerror, "read error for V0/1 superblock driver information block "
+          "address", "\n");
       return false;
     }
-  }
-  else if (sb_version == 2) {
-    sizes.offsets=static_cast<int>(buf[9]);
+  } else if (sb_version == 2) {
+    sizes.offsets = static_cast<int>(buf[9]);
 #ifdef __DEBUG
-    std::cerr << "size of offsets: " << sizes.offsets << std::endl;
+    cerr << "size of offsets: " << sizes.offsets << endl;
 #endif
-    bits::create_mask(undef_addr,sizes.offsets*8);
-    sizes.lengths=static_cast<int>(buf[10]);
+    bits::create_mask(undef_addr, sizes.offsets*8);
+    sizes.lengths = static_cast<int>(buf[10]);
 #ifdef __DEBUG
-    std::cerr << "size of lengths: " << sizes.lengths << std::endl;
+    cerr << "size of lengths: " << sizes.lengths << endl;
 #endif
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for v2 superblock base address";
+      append(myerror, "read error for v2 superblock base address", "\n");
       return false;
     }
-    base_addr=HDF5::value(buf,sizes.offsets);
+    base_addr = HDF5::value(buf, sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "base addr: " << base_addr << std::endl;
+    cerr << "base addr: " << base_addr << endl;
 #endif
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for v2 superblock extension address";
+      append(myerror, "read error for v2 superblock extension address", "\n");
       return false;
     }
-    unsigned long long ext_addr=HDF5::value(buf,sizes.offsets);
+    unsigned long long ext_addr = HDF5::value(buf, sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "ext addr: " << ext_addr << std::endl;
+    cerr << "ext addr: " << ext_addr << endl;
 #endif
     if (ext_addr != undef_addr) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="unable to handle superblock extension";
+      append(myerror, "unable to handle superblock extension", "\n");
       return false;
     }
-    fs.read(cbuf,sizes.offsets);
+    fs.read(cbuf, sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for v2 superblock end-of-file address";
+      append(myerror, "read error for v2 superblock end-of-file address", "\n");
       return false;
     }
     eof_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "eof addr: " << eof_addr << std::endl;
+    cerr << "eof addr: " << eof_addr << endl;
 #endif
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for v2 superblock root group object header address";
+      append(myerror, "read error for v2 superblock root group object header "
+          "address", "\n");
       return false;
     }
     objhdr_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-    std::cerr << "root group object header addr=" << objhdr_addr << std::endl;
+    cerr << "root group object header addr=" << objhdr_addr << endl;
 #endif 
     fs.read(cbuf,4);
     if (fs.gcount() != 4) {
-      if (!myerror.empty()) {
-        myerror+="\n";
-      }
-      myerror+="read error for v2 superblock checksum";
+      append(myerror, "read error for v2 superblock checksum", "\n");
       return false;
     }
-  }
-  else {
-    if (!myerror.empty()) {
-      myerror+="\n";
-    }
-    myerror+="unable to decode superblock version "+strutils::itos(sb_version);
+  } else {
+    append(myerror, "unable to decode superblock version " + to_string(
+        sb_version), "\n");
     return false;
   }
   if (sizes.lengths > 16 || sizes.offsets > 16) {
-    if (!myerror.empty()) {
-      myerror+="\n";
-    }
-    myerror+="the size of lengths and/or offsets is out of range";
+    append(myerror, "the size of lengths and/or offsets is out of range", "\n");
     return false;
   }
   return true;
@@ -3063,25 +2991,22 @@ bool InputHDF5Stream::decode_superblock(unsigned long long& objhdr_addr)
 bool InputHDF5Stream::decode_symbol_table_entry(SymbolTableEntry& ste,Group *group)
 {
 #ifdef __DEBUG
-  std::cerr << "SYMBOL TABLE ENTRY " << fs.tellg() << std::endl;
+  cerr << "SYMBOL TABLE ENTRY " << fs.tellg() << endl;
 #endif
   unsigned char buf[16];
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for symbol table entry link name offset";
+    append(myerror, "read error for symbol table entry link name offset", ", ");
     return false;
   }
   ste.linkname_off=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "link name offset: " << ste.linkname_off << std::endl;
+  cerr << "link name offset: " << ste.linkname_off << endl;
 #endif
   if (group != NULL) {
 #ifdef __DEBUG
-    std::cerr << "  local heap data start: " << group->local_heap.data_start << std::endl;
+    cerr << "  local heap data start: " << group->local_heap.data_start << endl;
 #endif
     ste.linkname="";
     auto curr_off=fs.tellg();
@@ -3089,55 +3014,43 @@ bool InputHDF5Stream::decode_symbol_table_entry(SymbolTableEntry& ste,Group *gro
     while (1) {
       fs.read(cbuf,1);
       if (fs.gcount() != 1) {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
-        myerror+="read error while getting link name";
+        append(myerror, "read error while getting link name", ", ");
         return false;
       }
       if (buf[0] == 0) {
         break;
-      }
-      else {
+      } else {
         ste.linkname+=string(reinterpret_cast<char *>(buf),1);
       }
     }
     fs.seekg(curr_off,std::ios_base::beg);
 #ifdef __DEBUG
-    std::cerr << "  link name is '" << ste.linkname << "'" << std::endl;
+    cerr << "  link name is '" << ste.linkname << "'" << endl;
 #endif
   }
   fs.read(cbuf,sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for symbol table entry object header address";
+    append(myerror, "read error for symbol table entry object header address",
+        ", ");
     return false;
   }
   ste.objhdr_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "object header address: " << ste.objhdr_addr << std::endl;
+  cerr << "object header address: " << ste.objhdr_addr << endl;
 #endif
   fs.read(cbuf,8);
   if (fs.gcount() != 8) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for symbol table entry cache_type";
+    append(myerror, "read error for symbol table entry cache_type", ", ");
     return false;
   }
   ste.cache_type=HDF5::value(buf,4);
   fs.read(reinterpret_cast<char *>(ste.scratchpad),16);
   if (fs.gcount() != 16) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for symbol table entry scratchpad";
+    append(myerror, "read error for symbol table entry scratchpad", ", ");
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "-- DONE: SYMBOL TABLE ENTRY" << std::endl;
+  cerr << "-- DONE: SYMBOL TABLE ENTRY" << endl;
 #endif
   return true;
 }
@@ -3150,17 +3063,12 @@ bool InputHDF5Stream::decode_symbol_table_node(unsigned long long address,Group&
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,8);
   if (fs.gcount() != 8) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="error reading first 8 bytes of symbol table node";
+    append(myerror, "error reading first 8 bytes of symbol table node", ", ");
     return false;
   }
   if (string(cbuf,4) != "SNOD") {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="bad signature '"+string(cbuf,4)+"' for symbol table node";
+    append(myerror, "bad signature '" + string(cbuf, 4) + "' for symbol table "
+        "node", ", ");
     return false;
   }
   size_t num_symbols=HDF5::value(&buf[6],2);
@@ -3184,74 +3092,53 @@ bool InputHDF5Stream::decode_v1_Btree(Group& group)
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,4);
   if (fs.gcount() != 4) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error bytes 5-8 in v1 tree";
+    append(myerror, "read error bytes 5-8 in v1 tree", ", ");
     return false;
   }
   group.tree.node_type=static_cast<int>(buf[0]);
   if (group.tree.node_type != 0) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="can't decode chunk node tree as group node tree";
+    append(myerror, "can't decode chunk node tree as group node tree", ", ");
     return false;
   }
   group.tree.node_level=static_cast<int>(buf[1]);
   size_t num_children=HDF5::value(&buf[2],2);
 #ifdef __DEBUG
-  std::cerr << "v1 Tree GROUP node_type=" << group.tree.node_type << " node_level=" << group.tree.node_level << " num_children=" << num_children << std::endl;
+  cerr << "v1 Tree GROUP node_type=" << group.tree.node_type << " node_level=" << group.tree.node_level << " num_children=" << num_children << endl;
 #endif
   fs.read(cbuf,sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for address of left sibling";
+    append(myerror, "read error for address of left sibling", ", ");
     return false;
   }
   group.tree.left_sibling_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "address of left sibling: " << group.tree.left_sibling_addr << std::endl;
+  cerr << "address of left sibling: " << group.tree.left_sibling_addr << endl;
 #endif
   fs.read(cbuf,sizes.offsets);
   if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for address of right sibling";
+    append(myerror, "read error for address of right sibling", ", ");
     return false;
   }
   group.tree.right_sibling_addr=HDF5::value(buf,sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "address of right sibling: " << group.tree.right_sibling_addr << std::endl;
+  cerr << "address of right sibling: " << group.tree.right_sibling_addr << endl;
 #endif
   fs.read(cbuf,sizes.lengths);
   if (fs.gcount() != static_cast<int>(sizes.lengths)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error for throwaway key";
+    append(myerror, "read error for throwaway key", ", ");
     return false;
   }
   for (size_t n=0; n < num_children; ++n) {
     fs.read(cbuf,sizes.offsets);
     if (fs.gcount() != static_cast<int>(sizes.offsets)) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="read error for address of child "+strutils::itos(n);
+      append(myerror, "read error for address of child " + to_string(n), ", ");
       return false;
     }
     long long chld_p=HDF5::value(buf,sizes.offsets);
     group.tree.child_pointers.emplace_back(chld_p);
     fs.read(cbuf,sizes.lengths);
     if (fs.gcount() != static_cast<int>(sizes.lengths)) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="read error for key "+strutils::itos(n);
+      append(myerror, "read error for key " + to_string(n), ", ");
       return false;
     }
     group.tree.keys.emplace_back(HDF5::value(buf,sizes.lengths));
@@ -3267,10 +3154,7 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
 {
   unsigned long long ldum;
   if (address == undef_addr) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="tree is not defined";
+    append(myerror, "tree is not defined", ", ");
     return false;
   }
   auto curr_off=fs.tellg();
@@ -3280,49 +3164,37 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,num_to_read);
   if (fs.gcount() != num_to_read) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="error reading v1 B-tree";
+    append(myerror, "error reading v1 B-tree", ", ");
     return false;
   }
   if (string(cbuf,4) != "TREE") {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="not a v1 B-tree";
+    append(myerror, "not a v1 B-tree", ", ");
     return false;
   }
   auto node_type=static_cast<int>(buf[4]);
   if (node_type != 1) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="can't decode group node tree as chunk node tree";
+    append(myerror, "can't decode group node tree as chunk node tree", ", ");
     return false;
   }
   auto node_level=static_cast<int>(buf[5]);
   size_t num_children=HDF5::value(&buf[6],2);
 #ifdef __DEBUG
-  std::cerr << "v1 Tree CHUNK node_type=" << node_type << " node_level=" << node_level << " num_children=" << num_children << std::endl;
+  cerr << "v1 Tree CHUNK node_type=" << node_type << " node_level=" << node_level << " num_children=" << num_children << endl;
 #endif
   ldum=HDF5::value(&buf[8],sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "address of left sibling: " << ldum << std::endl;
+  cerr << "address of left sibling: " << ldum << endl;
 #endif
   ldum=HDF5::value(&buf[8+sizes.offsets],sizes.offsets);
 #ifdef __DEBUG
-  std::cerr << "address of right sibling: " << ldum << std::endl;
+  cerr << "address of right sibling: " << ldum << endl;
 #endif
   delete[] buf;
   num_to_read=num_children*(8+8*dataset.data.sizes.size()+sizes.offsets*2);
   buf=new unsigned char[num_to_read];
   fs.read(reinterpret_cast<char *>(buf),num_to_read);
   if (fs.gcount() != num_to_read) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to decode v1 B-tree";
+    append(myerror, "unable to decode v1 B-tree", ", ");
     return false;
   }
   auto boff=0;
@@ -3330,7 +3202,7 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
     size_t chunk_size=HDF5::value(&buf[boff],4);
     boff+=8;
 #ifdef __DEBUG
-    std::cerr << "chunk size: " << chunk_size;
+    cerr << "chunk size: " << chunk_size;
 #endif
     size_t chunk_len=1;
     vector<size_t> offsets;
@@ -3339,54 +3211,49 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
       offsets.emplace_back(HDF5::value(&buf[boff],8));
       boff+=8;
 #ifdef __DEBUG
-      std::cerr << " dimension " << m << " offset: " << offsets.back();
+      cerr << " dimension " << m << " offset: " << offsets.back();
 #endif
     }
     chunk_len*=dataset.data.size_of_element;
     ldum=HDF5::value(&buf[boff],sizes.offsets);
     boff+=sizes.offsets;
     if (ldum != 0) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="datatype offset for child "+strutils::itos(n)+" is NOT zero";
+      append(myerror, "datatype offset for child " + to_string(n) + " is NOT "
+          "zero", ", ");
       return false;
     }
     ldum=HDF5::value(&buf[boff],sizes.offsets);
     boff+=sizes.offsets;
 #ifdef __DEBUG
-    std::cerr << " pointer: " << ldum << " chunk length: " << chunk_len << " #filters: " << dataset.filters.size() << " " << time(NULL) << std::endl;
+    cerr << " pointer: " << ldum << " chunk length: " << chunk_len << " #filters: " << dataset.filters.size() << " " << time(NULL) << endl;
 #endif
 /*
     char cbuf[4];
-    fs.seekg(ldum,std::ios_base::beg);
+    fs.seekg(ldum, std::ios_base::beg);
     fs.read(cbuf,4);
     if (fs.gcount() != 4) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="error reading test bytes for child "+strutils::itos(n);
+      append(myerror, "error reading test bytes for child " + to_string(n),
+          ", ");
       return false;
     }
-    if (string(cbuf,4) == "TREE") {
+    if (string(cbuf, 4) == "TREE") {
 */
 if (node_level == 1) {
 #ifdef __DEBUG
-      std::cerr << "ANOTHER TREE" << std::endl;
+      cerr << "ANOTHER TREE" << endl;
 #endif
-      decode_v1_Btree(ldum,dataset);
-    }
-    else {
-      dataset.data.chunks.emplace_back(ldum,chunk_size,chunk_len,offsets);
+      decode_v1_Btree(ldum, dataset);
+    } else {
+      dataset.data.chunks.emplace_back(ldum, chunk_size, chunk_len, offsets);
     }
   }
-  fs.seekg(curr_off,std::ios_base::beg);
+  fs.seekg(curr_off, std::ios_base::beg);
   delete[] buf;
   return true;
 }
 
-bool InputHDF5Stream::decode_v2_Btree(Group& group,FractalHeapData *frhp_data)
-{
+bool InputHDF5Stream::decode_v2_Btree(Group& group, FractalHeapData
+    *frhp_data) {
   unsigned long long curr_off;
 
   curr_off=fs.tellg();
@@ -3394,26 +3261,20 @@ bool InputHDF5Stream::decode_v2_Btree(Group& group,FractalHeapData *frhp_data)
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,12);
   if (fs.gcount() != 12) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="read error bytes 5-16 in v2 tree";
+    append(myerror, "read error bytes 5-16 in v2 tree", ", ");
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "v2 BTree:" << std::endl;
-  std::cerr << "version: " << static_cast<int>(buf[0]) << " type: " << static_cast<int>(buf[1]) << " node size: " << HDF5::value(&buf[2],4) << " record size: " << HDF5::value(&buf[6],2) << " depth: " << HDF5::value(&buf[8],2) << " split %: " << static_cast<int>(buf[10]) << " merge %: " << static_cast<int>(buf[11]) << std::endl;
+  cerr << "v2 BTree:" << endl;
+  cerr << "version: " << static_cast<int>(buf[0]) << " type: " << static_cast<int>(buf[1]) << " node size: " << HDF5::value(&buf[2],4) << " record size: " << HDF5::value(&buf[6],2) << " depth: " << HDF5::value(&buf[8],2) << " split %: " << static_cast<int>(buf[10]) << " merge %: " << static_cast<int>(buf[11]) << endl;
 #endif
   fs.read(cbuf,sizes.offsets+2+sizes.lengths);
   if (fs.gcount() != static_cast<int>(sizes.offsets+2+sizes.lengths)) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read v2 tree root node data";
+    append(myerror, "unable to read v2 tree root node data", ", ");
     return false;
   }
 #ifdef __DEBUG
-  std::cerr << "root address: " << HDF5::value(buf,sizes.offsets) << " # recs in root node: " << HDF5::value(&buf[sizes.offsets],2) << " # recs in tree: " << HDF5::value(&buf[sizes.offsets+2],sizes.lengths) << std::endl;
+  cerr << "root address: " << HDF5::value(buf,sizes.offsets) << " # recs in root node: " << HDF5::value(&buf[sizes.offsets],2) << " # recs in tree: " << HDF5::value(&buf[sizes.offsets+2],sizes.lengths) << endl;
 #endif
   if (!decode_v2_Btree_node(HDF5::value(buf,sizes.offsets),HDF5::value(&buf[sizes.offsets],2),frhp_data)) {
     return false;
@@ -3431,51 +3292,37 @@ bool InputHDF5Stream::decode_v2_Btree_node(unsigned long long address,int num_re
   char *cbuf=reinterpret_cast<char *>(buf);
   fs.read(cbuf,4);
   if (fs.gcount() != 4) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to read v2 btree node signature";
+    append(myerror, "unable to read v2 btree node signature", ", ");
     return false;
   }
   auto signature=string(cbuf,4);
   if (signature == "BTLF") {
     fs.read(cbuf,2);
     if (fs.gcount() != 2) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="unable to read v2 btree version and type";
+      append(myerror, "unable to read v2 btree version and type", ", ");
       return false;
     }
     if (buf[0] != 0) {
-      if (!myerror.empty()) {
-        myerror+=", ";
-      }
-      myerror+="unable to decode v2 btree node version "+strutils::itos(static_cast<int>(buf[0]));
+      append(myerror, "unable to decode v2 btree node version " + to_string(
+          static_cast<int>(buf[0])), ", ");
       return false;
     }
     switch (buf[1]) {
-      case 5:
-      {
+      case 5: {
         for (n=0; n < num_records; ++n) {
           fs.read(cbuf,11);
           if (fs.gcount() != 11) {
-            if (!myerror.empty()) {
-              myerror+=", ";
-            }
-            myerror+="unable to read v2 btree record #"+strutils::itos(n);
+            append(myerror, "unable to read v2 btree record #" + to_string(n),
+                ", ");
             return false;
           }
           if ( (buf[4] & 0xc0) != 0) {
-            if (!myerror.empty()) {
-              myerror+=", ";
-            }
-            myerror+="unable to decode version "+strutils::itos(buf[4] & 0xc0)+" IDs";
+            append(myerror, "unable to decode version " + to_string(buf[4] &
+                0xc0) + " IDs", ", ");
             return false;
           }
           switch (buf[4] & 0x30) {
-            case 0:
-            {
+            case 0: {
               max_size= (frhp_data->max_dblock_size < frhp_data->max_managed_obj_size) ? frhp_data->max_dblock_size : frhp_data->max_managed_obj_size;
               len=1;
               while (max_size/256 > 0) {
@@ -3483,106 +3330,89 @@ bool InputHDF5Stream::decode_v2_Btree_node(unsigned long long address,int num_re
                 max_size/=256;
               }
 #ifdef __DEBUG
-              std::cerr << "BTLF rec #" << n << "  offset: " << HDF5::value(&buf[5],frhp_data->max_size/8) << "  length: " << HDF5::value(&buf[5+frhp_data->max_size/8],len) << std::endl;
+              cerr << "BTLF rec #" << n << "  offset: " << HDF5::value(&buf[5],frhp_data->max_size/8) << "  length: " << HDF5::value(&buf[5+frhp_data->max_size/8],len) << endl;
 #endif
               break;
             }
-            default:
-            {
-              if (!myerror.empty()) {
-                myerror+=", ";
-              }
-              myerror+="unable to decode type "+strutils::itos(buf[4] & 0x30)+" IDs";
+            default: {
+              append(myerror, "unable to decode type " + to_string(buf[4] &
+                  0x30) + " IDs", ", ");
               return false;
             }
           }
         }
         break;
       }
-      default:
-      {
-        if (!myerror.empty()) {
-          myerror+=", ";
-        }
-        myerror+="unable to decode v2 btree node type "+strutils::itos(static_cast<int>(buf[1]));
+      default: {
+        append(myerror, "unable to decode v2 btree node type " + to_string(
+            static_cast<int>(buf[1])), ", ");
         return false;
       }
     }
     return true;
-  }
-  else if (signature == "BTIN") {
+  } else if (signature == "BTIN") {
 #ifdef __DEBUG
-    std::cerr << "BTIN decode not defined!" << std::endl;
+    cerr << "BTIN decode not defined!" << endl;
 #endif
     return true;
-  }
-  else {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="unable to decode v2 btree node with signature '"+string(cbuf,4)+"'";
+  } else {
+    append(myerror, "unable to decode v2 btree node with signature '" + string(
+        cbuf, 4) + "'", ", ");
     return false;
   }
 }
 
-void InputHDF5Stream::print_data(Dataset& dataset)
-{
+void InputHDF5Stream::print_data(Dataset& dataset) {
   unsigned long long curr_off;
   unsigned char *buf;
   DataValue value;
 
   if (dataset.data.address == undef_addr) {
-    if (!myerror.empty()) {
-      myerror+=", ";
-    }
-    myerror+="Data not defined";
+    append(myerror, "Data not defined", ", ");
     return;
   }
-  curr_off=fs.tellg();
-  fs.seekg(dataset.data.address,std::ios_base::beg);
+  curr_off = fs.tellg();
+  fs.seekg(dataset.data.address, std::ios_base::beg);
   char test[4];
-  fs.read(test,4);
+  fs.read(test, 4);
   if (fs.gcount() != 4) {
-    std::cout << "Data read error";
-  }
-  else {
+    cout << "Data read error";
+  } else {
     if (string(test,4) == "TREE") {
-// chunked data
+
+      // chunked data
 #ifdef __DEBUG
-      std::cerr << "CHUNKED DATA! " << dataset.data.chunks.size() << std::endl;
+      cerr << "CHUNKED DATA! " << dataset.data.chunks.size() << endl;
       for (size_t n=0; n < dataset.data.sizes.size(); ++n) {
-        std::cerr << n << " " << dataset.data.sizes[n] << std::endl;
+        cerr << n << " " << dataset.data.sizes[n] << endl;
       }
       for (size_t n=0; n < dataset.data.chunks.size(); ++n) {
-        std::cerr << n << " " << dataset.datatype.class_ << std::endl;
+        cerr << n << " " << dataset.datatype.class_ << endl;
         dump(dataset.data.chunks[n].buffer.get(),dataset.data.chunks[n].length);
         for (size_t m=0; m < dataset.data.chunks[n].length; m+=dataset.data.size_of_element) {
           value.set(fs,&dataset.data.chunks[n].buffer[m],sizes.offsets,sizes.lengths,dataset.datatype,dataset.dataspace);
-          value.print(std::cerr,ref_table);
-          std::cerr << std::endl;
+          value.print(cerr,ref_table);
+          cerr << endl;
         }
       }
 #endif
-    }
-    else {
+    } else {
 // contiguous data
 #ifdef __DEBUG
-      std::cerr << "CONTIGUOUS DATA!" << std::endl;
+      cerr << "CONTIGUOUS DATA!" << endl;
 #endif
       if (dataset.dataspace.dimensionality == 0) {
         buf=new unsigned char[dataset.data.sizes[0]];
-        std::copy(test,test+4,buf);
+        copy(test,test+4,buf);
         fs.read(reinterpret_cast<char *>(buf),dataset.data.sizes[0]-4);
         if (fs.gcount() != static_cast<int>(dataset.data.sizes[0]-4)) {
-          std::cout << "Data read error";
-        }
-        else {
+          cout << "Data read error";
+        } else {
           HDF5::print_data_value(dataset.datatype,buf);
         }
         delete[] buf;
-      }
-      else {
-        std::cout << "Unable to read dimensional contiguous data";
+      } else {
+        cout << "Unable to read dimensional contiguous data";
       }
     }
   }
@@ -3633,7 +3463,7 @@ void InputHDF5Stream::print_a_group_tree(Group& group) {
       if (e.p_ds->datatype.class_ < 0) {
         cout << "  Group: " << e.key << endl;
       } else {
-        cout << "  Dataset: " << e.key << std::endl;
+        cout << "  Dataset: " << e.key << endl;
         cout << indent << "    Datatype: " << HDF5::datatype_class_to_string(e.
             p_ds->datatype) << endl;
       }
