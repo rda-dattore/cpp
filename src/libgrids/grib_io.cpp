@@ -4,6 +4,7 @@
 
 using std::runtime_error;
 using std::string;
+using std::to_string;
 
 int InputGRIBStream::peek() {
   unsigned char buffer[16];
@@ -18,8 +19,7 @@ int InputGRIBStream::peek() {
       if (n > 0) {
         len += n;
       }
-    }
-    else {
+    } else {
       fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
       len += fs.gcount();
     }
@@ -109,7 +109,7 @@ int InputGRIBStream::peek() {
           fs.read(reinterpret_cast<char *>(buffer), 4);
         }
         if (string(reinterpret_cast<char *>(buffer), 4) != "7777") {
-          len =- 9;
+          len = -9;
           if (is3s != nullptr) {
             is3s->seek(curr_offset + 4);
           } else {
@@ -136,30 +136,50 @@ int InputGRIBStream::peek() {
 }
 
 int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
-std::unique_ptr<unsigned char[]> b(buffer);
-buffer = b.release();
-  int bytes_read = 0;
+  int bytes_read = 0; // return value
   int len = -9;
   while (len == -9) {
     bytes_read = find_grib(buffer);
     if (bytes_read < 0) {
       return bytes_read;
     }
-    fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
-    bytes_read += fs.gcount();
-    if (bytes_read != 16) {
-      if (fs.eof()) {
-        return bfstream::eof;
+    if (is3s != nullptr) {
+      auto byts = is3s->read(&buffer[4], 12);
+      if (byts > 0) {
+        bytes_read += byts;
+        if (bytes_read != 16) {
+          return bfstream::error;
+        }
       } else {
-        return bfstream::error;
+        return byts;
+      }
+    } else {
+      fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
+      bytes_read += fs.gcount();
+      if (bytes_read != 16) {
+        if (fs.eof()) {
+          return bfstream::eof;
+        } else {
+          return bfstream::error;
+        }
       }
     }
     switch (static_cast<int>(buffer[7])) {
       case 0: {
-        fs.read(reinterpret_cast<char *>(&buffer[16]), 15);
-        bytes_read += fs.gcount();
-        if (bytes_read != 31) {
-          return bfstream::eof;
+        if (is3s != nullptr) {
+          auto byts = is3s->read(&buffer[16], 15);
+          if (byts > 0) {
+            bytes_read += byts;
+          }
+          if (byts < 0 || bytes_read != 31) {
+            return bfstream::eof;
+          }
+        } else {
+          fs.read(reinterpret_cast<char *>(&buffer[16]), 15);
+          bytes_read += fs.gcount();
+          if (bytes_read != 31) {
+            return bfstream::eof;
+          }
         }
         len = 28;
         while (buffer[bytes_read-3] != '7' && buffer[bytes_read-2] != '7' &&
@@ -173,18 +193,32 @@ buffer = b.release();
           if (len > static_cast<int>(buffer_length)) {
             throw my::BufferOverflow_Error("input buffer too small.");
           }
-          fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), llen);
-          bytes_read += fs.gcount();
-          if (bytes_read != len+3) {
-            if (fs.eof()) {
-              return bfstream::eof;
+          if (is3s != nullptr) {
+            auto byts = is3s->read(&buffer[bytes_read], llen);
+            if (byts > 0) {
+              bytes_read += byts;
             } else {
-              return bfstream::error;
+              return byts;
+            }
+          } else {
+            fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), llen);
+            bytes_read += fs.gcount();
+            if (bytes_read != len+3) {
+              if (fs.eof()) {
+                return bfstream::eof;
+              } else {
+                return bfstream::error;
+              }
             }
           }
         }
-        fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), 1);
-        bytes_read += fs.gcount();
+        if (is3s != nullptr) {
+          auto byts = is3s->read(&buffer[bytes_read], 1);
+          bytes_read += byts;
+        } else {
+          fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), 1);
+          bytes_read += fs.gcount();
+        }
         break;
       }
       case 1: {
@@ -192,13 +226,25 @@ buffer = b.release();
         if (len > static_cast<int>(buffer_length)) {
           throw my::BufferOverflow_Error("input buffer too small.");
         }
-        fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
-        bytes_read += fs.gcount();
-        if (bytes_read != len) {
-          if (fs.eof()) {
-            return bfstream::eof;
+        if (is3s != nullptr) {
+          auto byts = is3s->read(&buffer[16], len - 16);
+          if (byts > 0) {
+            bytes_read += byts;
           } else {
+            return byts;
+          }
+          if (bytes_read != len) {
             return bfstream::error;
+          }
+        } else {
+          fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
+          bytes_read += fs.gcount();
+          if (bytes_read != len) {
+            if (fs.eof()) {
+              return bfstream::eof;
+            } else {
+              return bfstream::error;
+            }
           }
         }
 
@@ -233,14 +279,19 @@ buffer = b.release();
             if (len > static_cast<int>(buffer_length)) {
               throw my::BufferOverflow_Error("input buffer too small.");
             }
-            fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), len -
-                bytes_read);
-            bytes_read += fs.gcount();
+            if (is3s != nullptr) {
+              auto byts = is3s->read(&buffer[bytes_read], len - bytes_read);
+              bytes_read += byts;
+            } else {
+              fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), len -
+                  bytes_read);
+              bytes_read += fs.gcount();
+            }
           }
         }
         if (string(reinterpret_cast<char *>(&buffer[len-4]), 4) !=
             "7777") {
-          len =- 9;
+          len = -9;
           fs.seekg(curr_offset + 4, std::ios_base::beg);
         }
         break;
@@ -250,17 +301,30 @@ buffer = b.release();
         if (len > static_cast<int>(buffer_length)) {
           throw my::BufferOverflow_Error("input buffer too small.");
         }
-        fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
-        bytes_read += fs.gcount();
-        if (bytes_read != len) {
-          if (fs.eof()) {
-            return bfstream::eof;
+        if (is3s != nullptr) {
+          auto byts = is3s->read(&buffer[16], len - 16);
+          if (byts > 0) {
+            bytes_read += byts;
           } else {
+            return byts;
+          }
+          if (bytes_read != len) {
             return bfstream::error;
+          }
+        } else {
+          fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
+          bytes_read += fs.gcount();
+          if (bytes_read != len) {
+            if (fs.eof()) {
+              return bfstream::eof;
+            } else {
+              return bfstream::error;
+            }
           }
         }
         if (string(reinterpret_cast<char *>(buffer) + len - 4, 4) != "7777") {
-          throw my::NotFound_Error("unable to find GRIB END section.");
+          throw my::NotFound_Error("unable to find GRIB END section where "
+              "expected.");
         }
         break;
       }
