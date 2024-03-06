@@ -62,15 +62,13 @@ public:
       row_specification, const std::string& on_conflict = "");
   int insert(const std::string& absolute_table, const std::string& column_list,
       const std::string& value_list, const std::string& on_conflict);
+  std::vector<std::string> schema_names();
   int update(std::string absolute_table, std::string column_name_value_pair,
     std::string where_conditions);
   int update(std::string absolute_table, std::vector<std::string>&
     column_name_value_pairs, std::string where_conditions);
 
 private:
-  std::pair<std::string, std::string> split_tablename(std::string
-      absolute_table_name);
-
   struct PGconn_deleter {
     void operator()(PGconn *conn) {
       if (conn != nullptr) {
@@ -102,7 +100,7 @@ private:
 class Query {
 public:
   Query() : query(), m_error(), column_list(), server_conn(nullptr) { }
-  Query(const Query& source) = delete;
+  Query(const Query& source) : Query() { }
   Query(std::string columns, std::string absolute_table, std::string
       where_conditions = "") :
       Query() { set(columns, absolute_table, where_conditions); }
@@ -136,7 +134,7 @@ class LocalQuery : public Query {
 public:
   LocalQuery() : result(nullptr), m_num_rows(0), m_num_fields(0), curr_row(
       0) { }
-  LocalQuery(const LocalQuery& source) = delete;
+//  LocalQuery(const LocalQuery& source) = delete;
   LocalQuery(std::string columns, std::string absolute_table, std::string
       where_conditions = "") :
       LocalQuery() { set(columns, absolute_table, where_conditions); }
@@ -149,6 +147,7 @@ public:
   int submit(Server& server);
 
   // local methods
+  size_t num_columns() const { return m_num_fields; }
   size_t num_rows() const { return m_num_rows; }
   void rewind() { curr_row = 0; }
 
@@ -157,27 +156,50 @@ private:
   size_t m_num_rows, m_num_fields, curr_row;
 };
 
+class PreparedStatement;
+class PreparedStatementIterator {
+public:
+  PreparedStatementIterator(PreparedStatement& pstmt, bool is_end) : m_pstmt(
+      pstmt), m_is_end(is_end), row() { }
+  bool operator !=(const PreparedStatementIterator& source) {
+    return (m_is_end != source.m_is_end);
+  }
+  const PreparedStatementIterator& operator++();
+  Row& operator*();
+
+private:
+  PreparedStatement &m_pstmt;
+  bool m_is_end;
+  Row row;
+};
+
 class PreparedStatement {
 public:
   PreparedStatement() : m_name(), m_error(), result(nullptr), param_values(
-      nullptr), nparams(0), m_num_rows(0), m_num_fields(0), is_ready(false) { }
+      nullptr), nparams(0), m_num_rows(0), m_num_fields(0), curr_row(0),
+      is_ready(false) { }
   PreparedStatement(const PreparedStatement& source) = delete;
   PreparedStatement operator=(const PreparedStatement& source) = delete;
   operator bool() const { return is_ready; }
   bool bind_parameter(size_t parameter_index, std::string parameter_value, bool
       is_null = false);
   std::string error() const { return m_error; }
+  bool fetch_row(Row& row);
   std::string name() const { return m_name; }
   size_t num_fields() const { return m_num_fields; }
   size_t num_rows() const { return m_num_rows; }
   void set(PGconn *conn, std::string query_specification, size_t num_params);
   int submit(Server& server);
 
+  // range-based support
+  PreparedStatementIterator begin();
+  PreparedStatementIterator end();
+
 private:
   std::string m_name, m_error;
   std::unique_ptr<PGresult, PGresult_deleter> result;
   std::unique_ptr<char *[]> param_values;
-  size_t nparams, m_num_rows, m_num_fields;
+  size_t nparams, m_num_rows, m_num_fields, curr_row;
   bool is_ready;
 };
 
@@ -199,12 +221,19 @@ private:
   bool is_started;
 };
 
+std::string postgres_ready(std::string source);
+
 bool table_exists(Server& server, std::string absolute_table);
 bool field_exists(Server& server, std::string absolute_table, std::string
     field);
 
 std::vector<std::string> table_names(Server& server, std::string database, std::
     string like_expr, std::string& error);
+std::vector<std::pair<std::string, char>> unique_constraints(Server& server,
+    std::string absolute_table, std::string& error);
+
+std::pair<std::string, std::string> split_tablename(std::string
+      absolute_table_name);
 
 } // end namespace PostgreSQL
 
