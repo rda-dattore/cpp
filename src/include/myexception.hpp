@@ -1,5 +1,5 @@
 #ifndef MYEXCEPTION_H
-#define   MYEXCPTION_H
+#define   MYEXCEPTION_H
 
 #define IMPLEMENTED private: \
                       void implemented() { }
