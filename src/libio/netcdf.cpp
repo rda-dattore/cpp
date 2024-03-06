@@ -945,13 +945,17 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 break;
               }
               case DataType::INT: {
-                auto data=new int;
-                auto tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
-                fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::INT)]);
-                bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
-                std::cout << "  " << *(reinterpret_cast<int *>(data)) << std::endl;
-                delete[] tmpbuf;
-                delete data;
+                auto i = new int;
+                auto b = new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
+                fs.read(reinterpret_cast<char *>(b),data_type_bytes[static_cast<int>(DataType::INT)]);
+                bits::get(b,*(reinterpret_cast<int *>(i)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
+                std::cout << "  " << *i;
+                if (!time_unit.empty() && *i >= 0.) {
+                  std::cout << " : " << base.fadded(time_unit, *i).to_string();
+                }
+                std::cout << std::endl;
+                delete[] b;
+                delete i;
                 break;
               }
               case DataType::FLOAT: {
@@ -963,10 +967,9 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                         data_type_bytes[static_cast<int>(DataType::FLOAT)] * 8);
                 std::cout << "  " << *f;
                 if (!time_unit.empty() && *f >= 0.) {
-                  std::cout << " : " << base.fadded(time_unit, *f)
-                            .to_string();
+                  std::cout << " : " << base.fadded(time_unit, *f).to_string();
                 }
-                    std::cout << std::endl;
+                std::cout << std::endl;
                 delete[] b;
                 delete f;
                 break;
