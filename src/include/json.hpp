@@ -1,3 +1,6 @@
+#ifndef JSON_HPP
+#define  JSON_HPP
+
 #include <fstream>
 #include <unordered_map>
 #include <vector>
@@ -139,3 +142,5 @@ extern void find_csv_ends(const std::string& json, std::vector<size_t>&
     csv_ends);
 
 } // end namespace JSONUtils
+
+#endif
