@@ -129,11 +129,12 @@ bool is_leap_year(size_t year, string calendar) {
       calendar == "proleptic_gregorian") {
     if ( (year % 4) == 0 && ( (year % 100 != 0) || (year % 400) == 0)) {
       return true;
-    } else {
-      return false;
     }
-  }
-  if (calendar == "366_day" || calendar == "all_leap") {
+  } else if (calendar == "julian") {
+    if ( (year % 4) == 0) {
+      return true;
+    }
+  } else if (calendar == "366_day" || calendar == "all_leap") {
     return true;
   }
   return false;
