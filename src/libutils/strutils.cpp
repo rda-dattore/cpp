@@ -11,23 +11,31 @@
 #include <cstring>
 #include <cmath>
 #include <strutils.hpp>
+#include <utils.hpp>
 
+using std::deque;
+using std::regex;
+using std::regex_search;
 using std::string;
 using std::stringstream;
+using std::to_string;
 using std::vector;
+using strutils::replace_all;
 
 namespace htmlutils {
 
-string unicode_escape_to_html(string u)
-{
-  auto ue=std::regex("(\\\\u([0-9a-fA-F]){4})");
+string unicode_escape_to_html(string u) {
+  auto ue = regex("(\\\\u([0-9a-fA-F]){4})");
   std::smatch parts;
-  while (std::regex_search(u,parts,ue) && parts.ready()) {
-    auto x=parts[1].str().substr(2);
+  while (regex_search(u, parts, ue) && parts.ready()) {
+    auto oval = parts[1].str();
+    auto x = oval.substr(2);
     while (x[0] == '0') {
-        x.erase(0,1);
+      x.erase(0, 1);
     }
-    strutils::replace_all(u,parts[1],"&#x"+x+";");
+    auto rval = "&#" + to_string(xtox::htoi(x)) + ";";
+    replace_all(u, "\\" + oval, rval);
+    replace_all(u, oval, rval);
   }
   return u;
 }
@@ -216,15 +224,14 @@ void strput(char *string,int numeric,int num_chars,char fill,bool is_signed)
   }
 }
 
-void trim_back(string& s)
-{
-  int beg,end;
-
+void trim_back(string& s) {
   if (s.empty()) {
     return;
   }
-  beg=end=s.length()-1;
-  while (beg >= 0 && (s[beg] == ' ' || s[beg] == 0x9 || s[beg] == 0xa || s[beg] == 0xd)) {
+  int beg = s.length() - 1;
+  auto end = beg;
+  while (beg >= 0 && (s[beg] == ' ' || s[beg] == 0x0 || s[beg] == 0x9 || s[beg]
+      == 0xa || s[beg] == 0xd)) {
     --beg;
   }
   if (beg != end) {
@@ -360,48 +367,43 @@ string join(const vector<string>& strings, const string& separator) {
   return s;
 }
 
-std::deque<string> split(const string& s,const string& separator)
-{
-  std::deque<string> parts;
+std::deque<string> split(const string& s, const string& separator) {
+  deque<string> parts;
   if (s.empty()) {
     return parts;
   }
-  int check_len=s.length()-separator.length()+1;
+  int check_len = s.length() - separator.length() + 1;
   if (check_len < 1) {
     parts.emplace_back(s);
     return parts;
   }
-  size_t start=0,end=0;
-  auto in_white_space=false;
+  size_t start = 0, end = 0;
+  auto in_white_space = false;
   while (static_cast<int>(end) < check_len) {
     if (separator.empty()) {
       if (s[end] == ' ') {
         if (!in_white_space) {
-          parts.emplace_back(s.substr(start,end-start));
-          in_white_space=true;
+          parts.emplace_back(s.substr(start, end - start));
+          in_white_space = true;
         }
-      }
-      else if (in_white_space) {
-        start=end;
-        in_white_space=false;
+      } else if (in_white_space) {
+        start = end;
+        in_white_space = false;
       }
       ++end;
-    }
-    else {
-      if (strncmp(&s[end],separator.c_str(),separator.length()) == 0) {
-        parts.emplace_back(s.substr(start,end-start));
-        end+=separator.length();
-        start=end;
-      }
-      else {
+    } else {
+      if (strncmp(&s[end], separator.c_str(), separator.length()) == 0) {
+        parts.emplace_back(s.substr(start, end - start));
+        end += separator.length();
+        start = end;
+      } else {
         ++end;
       }
     }
   }
   if (start < s.length()) {
     parts.emplace_back(s.substr(start));
-  }
-  else {
+  } else {
     parts.emplace_back("");
   }
   return parts;
@@ -531,7 +533,7 @@ string dtos(double val,size_t max_d)
   ss << val;
   s=ss.str();
   if (contains(s,".")) {
-    while (std::regex_search(s,std::regex("0$"))) {
+    while (regex_search(s,regex("0$"))) {
       chop(s,1);
     }
   }
@@ -683,9 +685,8 @@ string soundex(const string& s)
   return head+tail;
 }
 
-string sql_ready(string s)
-{
-  replace_all(s,"'","\\'");
+string sql_ready(string s) {
+  replace_all(s, "'", "''");
   return s;
 }
 
