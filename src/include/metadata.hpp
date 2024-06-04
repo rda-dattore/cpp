@@ -220,6 +220,12 @@ struct TimeBounds {
   bool changed;
 };
 
+struct TimeBounds2 {
+  TimeBounds2() : t1(0.), t2(0.), diff(0) { }
+
+  double t1, t2, diff;
+};
+
 struct TimeData {
   TimeData() : reference(), units(), calendar() { }
 
@@ -236,11 +242,23 @@ struct TimeRangeEntry {
   TimeRange instantaneous, bounded;
 };
 
+struct TimeRangeEntry2 {
+  TimeRangeEntry2() : key(), unit(-1), num_steps(0), instantaneous(), bounded(),
+      time_bounds() { }
+
+  size_t key;
+  int unit, num_steps;
+  TimeRange instantaneous, bounded;
+  TimeBounds2 time_bounds;
+};
+
 DateTime actual_date_time(double time, const TimeData& time_data, std::string&
     error);
 DateTime reference_date_time(std::string units_attribute_value);
 
 std::string gridded_netcdf_time_range_description(const TimeRangeEntry& tre,
+    const TimeData& time_data, std::string method, std::string& error);
+std::string gridded_netcdf_time_range_description2(const TimeRangeEntry2& tre2,
     const TimeData& time_data, std::string method, std::string& error);
 std::string time_method_from_cell_methods(std::string cell_methods, std::string
     timeid);
