@@ -5,12 +5,14 @@
 
 #include <stdio.h>
 #include <stdlib.h> // provides size_t
+#include <string>
 #include <list>
 #include <math.h>
 
 namespace sockutils {
 
 extern int authenticate_ncar_user(const char *username,const char *password);
+extern int connect(std::string server_name, size_t port);
 extern int validate_ncar_user(const char *username);
 
 namespace linkchecker {
