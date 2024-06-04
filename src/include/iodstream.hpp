@@ -5,7 +5,9 @@
 
 #include <iostream>
 #include <bfstream.hpp>
+#ifdef __WITH_S3
 #include <s3.hpp>
+#endif
 
 class iods {
 public:
@@ -41,14 +43,21 @@ private:
 
 class idstream : public iods {
 public:
-  idstream() : ics(nullptr), irs(nullptr), if77s(nullptr), ivs(nullptr), is3s(
-      nullptr), num_read(0) { }
+  idstream() : ics(nullptr), irs(nullptr), if77s(nullptr), ivs(nullptr),
+#ifdef __WITH_S3
+      is3s(nullptr),
+#endif
+      num_read(0) { }
 
 // pure virtual functions from iods
   virtual ~idstream() { close(); }
   virtual bool is_open() const {
     return (fs.is_open() || ics != nullptr || irs != nullptr || if77s != nullptr
-        || ivs != nullptr || is3s != nullptr);
+        || ivs != nullptr
+#ifdef __WITH_S3
+        || is3s != nullptr
+#endif
+        );
   }
 
 // pure virtual functions making idstream an abstract class
@@ -73,7 +82,9 @@ protected:
   std::unique_ptr<irstream> irs;
   std::unique_ptr<if77stream> if77s;
   std::unique_ptr<ivbsstream> ivs;
+#ifdef __WITH_S3
   std::unique_ptr<is3stream> is3s;
+#endif
   size_t num_read;
 };
 
