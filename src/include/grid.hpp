@@ -8,7 +8,7 @@
 #include <list>
 #include <deque>
 #include <unordered_set>
-#ifdef __JASPER
+#ifdef __WITH_JASPER
 #include <jasper/jasper.h>
 #endif
 #include <iodstream.hpp>
@@ -323,7 +323,7 @@ protected:
 class GRIB2Grid;
 class GRIB2Message : public GRIBMessage {
 public:
-#ifdef __JASPER
+#ifdef __WITH_JASPER
   struct JasMatrix {
     JasMatrix() : height(0), width(0), data(nullptr) { }
     JasMatrix(const JasMatrix& source) = delete;
@@ -339,7 +339,7 @@ public:
   };
 #endif
 
-#ifdef __JASPER
+#ifdef __WITH_JASPER
   GRIB2Message() : lus_len(0), jas_matrix() { }
 #else
   GRIB2Message() : lus_len(0) { }
@@ -366,7 +366,7 @@ protected:
   void pack_ds(unsigned char *output_buffer, off_t& offset, Grid *grid) const;
 
   int lus_len;
-#ifdef __JASPER
+#ifdef __WITH_JASPER
   JasMatrix jas_matrix;
 #endif
 };
@@ -598,7 +598,7 @@ public:
       grib2.local_table = local_table_version; }
   void operator+=(const GRIB2Grid& source);
 
-#ifdef __JASPER
+#ifdef __WITH_JASPER
   friend void decode_jpeg2000(const unsigned char *jpc_bitstream, size_t
       jpc_bitstream_length, GRIB2Message::JasMatrix& jas_matrix, GRIB2Grid *g2,
       double D, double E);
@@ -1410,7 +1410,7 @@ extern int print_ascii(std::string input_filename, Grid::Format format, size_t
 
 } // end namespace grid_print
 
-#ifdef __JASPER
+#ifdef __WITH_JASPER
 extern int encode_jpeg2000(unsigned char *cin, int *pwidth, int *pheight, int
     *pnbits, int *ltype, int *ratio, int *retry, char *outjpc, int *jpclen);
 #endif
