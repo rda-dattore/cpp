@@ -33,7 +33,10 @@ extern std::deque<std::string> split(const std::string& s,const std::string& sep
 extern std::vector<std::pair<std::string,size_t>> split_index(const std::string& s,const std::string& separator = "");
 
 extern std::string btos(bool b);
-extern std::string capitalize(const std::string& s,size_t start_word = 0,size_t num_words = 0xffffffff);
+extern std::string capitalize(const std::string& s, size_t start_word = 0,
+    size_t num_words = 0xffffffff);
+extern std::string converted_dsid(std::string dsid, bool forward_conversion =
+    true);
 extern std::string dtos(double val,size_t max_d = 0);
 extern std::string dtos(double val,size_t w,size_t d,char fill = ' ');
 extern std::string ftos(float val,size_t max_d = 0);
