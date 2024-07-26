@@ -10,6 +10,21 @@
 #include <gridutils.hpp>
 
 using namespace PostgreSQL;
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::stod;
+using std::stof;
+using std::stoi;
+using std::stoll;
+using std::string;
+using std::to_string;
+using std::unordered_set;
+using std::vector;
+using strutils::ftos;
+using strutils::split;
+using strutils::substitute;
+using strutils::trim;
 
 namespace metadataExport {
 
@@ -27,9 +42,9 @@ bool compare_references(XMLElement& left,XMLElement& right)
   }
 }
 
-std::string resolution_key(double res,std::string units)
+string resolution_key(double res,string units)
 {
-  std::string s;
+  string s;
   if (units == "degrees") {
     if (res < 0.09) {
 	s="0";
@@ -97,7 +112,7 @@ std::string resolution_key(double res,std::string units)
   return (s+"<!>"+units);
 }
 
-void add_to_resolution_table(double lon_res,double lat_res,std::string units,my::map<Entry>& resolution_table)
+void add_to_resolution_table(double lon_res,double lat_res,string units,my::map<Entry>& resolution_table)
 {
   Entry e;
   e.key=resolution_key(lon_res,units);
@@ -126,37 +141,37 @@ void add_to_resolution_table(double lon_res,double lat_res,std::string units,my:
   }
 }
 
-std::string primary_size(std::string dsnum,Server& server)
+string primary_size(string dsnum,Server& server)
 {
   const char *vunits[]={"bytes","Kbytes","Mbytes","Gbytes","Tbytes","Pbytes"};
   LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
+    cout << "Content-type: text/plain" << endl << endl;
+    cout << "Database error: " << query.error() << endl;
     exit(1);
   }
-  std::string psize;
+  string psize;
   auto n=0;
   Row row;
   if (query.fetch_row(row)) {
     if (!row[0].empty()) {
-	double vsize=std::stoll(row[0]);
+	double vsize=stoll(row[0]);
 	while (vsize > 999.999999) {
 	  vsize/=1000.;
 	  ++n;
 	}
-	psize=strutils::ftos(vsize,7,3,' ');
-	strutils::trim(psize);
+	psize=ftos(vsize,7,3,' ');
+	trim(psize);
     }
   }
-  psize+=std::string(" ")+vunits[n];
+  psize+=string(" ")+vunits[n];
   return psize;
 }
 
-void convert_box_data(const std::string& row,const std::string& col,double& comp_lat,double& comp_lon,std::string comp_type)
+void convert_box_data(const string& row,const string& col,double& comp_lat,double& comp_lon,string comp_type)
 {
   double lat,lon;
-  geoutils::convert_box_to_center_lat_lon(1,std::stoi(row),std::stoi(col),lat,lon);
+  geoutils::convert_box_to_center_lat_lon(1,stoi(row),stoi(col),lat,lon);
   if (comp_type == "min") {
     if (lat >= -89.5) {
 	lat-=0.5;
@@ -183,7 +198,7 @@ void convert_box_data(const std::string& row,const std::string& col,double& comp
   }
 }
 
-void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& dataset_overview,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::vector<HorizontalResolutionEntry> *hres_list,my::map<Entry> *unique_places_table)
+void fill_geographic_extent_data(Server& server,string dsnum,XMLDocument& dataset_overview,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,vector<HorizontalResolutionEntry> *hres_list,my::map<Entry> *unique_places_table)
 {
   min_west_lon=min_south_lat=9999.;
   max_east_lon=max_north_lat=-9999.;
@@ -192,7 +207,7 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
   query.submit(server);
   if (query.num_rows() > 0) {
     is_grid=true;
-    std::unordered_set<std::string> unique_hres_set;
+    unordered_set<string> unique_hres_set;
     Row row;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
@@ -209,15 +224,15 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
 	  if (north_lat > max_north_lat) {
 	    max_north_lat=north_lat;
 	  }
-	  auto parts=strutils::split(row[1],":");
+	  auto parts=split(row[1],":");
 	  HorizontalResolutionEntry hre;
 	  if (row[0] == "polarStereographic" || row[0] == "lambertConformal") {
-	    hre.resolution=std::stod(parts[7])*1000;
+	    hre.resolution=stod(parts[7])*1000;
 	    hre.uom="m";
 	    hre.key=parts[7]+hre.uom;
 	  }
 	  else {
-	    hre.resolution=std::stod(parts[6]);
+	    hre.resolution=stod(parts[6]);
 	    hre.uom="degree";
 	    hre.key=parts[6]+hre.uom;
 	  }
@@ -234,14 +249,14 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
 	is_grid=true;
 	for (const auto& element : elist) {
 	  auto gdef=element.attribute_value("definition");
-	  std::string def_params;
+	  string def_params;
 	  if (gdef == "latLon" || gdef == "gaussLatLon") {
 	    def_params=element.attribute_value("numX")+":"+element.attribute_value("numY")+":"+element.attribute_value("startLat")+":"+element.attribute_value("startLon")+":"+element.attribute_value("endLat")+":"+element.attribute_value("endLon")+":"+element.attribute_value("xRes")+":";
 	    if (gdef == "latLon") {
 		def_params+=element.attribute_value("yRes");
 	    }
 	    else {
-		def_params+=strutils::itos(std::stoi(element.attribute_value("numY"))/2);
+		def_params+=to_string(stoi(element.attribute_value("numY"))/2);
 	    }
 	  }
 	  else if (gdef == "polarStereographic") {
@@ -300,28 +315,28 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
 	}
     });
   }
-  if (table_exists(server,"WObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
-    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from WObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
+  if (table_exists(server,"WObML.ds"+substitute(dsnum,".","")+"_geobounds")) {
+    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from WObML.ds"+substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
     if (query.submit(server) == 0) {
 	Row row;
 	while (query.fetch_row(row)) {
 	  if (row[0].empty() || row[1].empty() || row[2].empty() || row[3].empty()) {
-	    std::cerr << "oai warning: " << dsnum << " geobounds: '" << row[0] << "','" << row[1] << "','" << row[2] << "','" << row[3] << "'" << std::endl;
+	    cerr << "oai warning: " << dsnum << " geobounds: '" << row[0] << "','" << row[1] << "','" << row[2] << "','" << row[3] << "'" << endl;
 	  }
 	  else {
-	    auto f=std::stof(row[0])/10000.;
+	    auto f=stof(row[0])/10000.;
 	    if (f < min_south_lat) {
 		min_south_lat=f;
 	    }
-	    f=std::stof(row[1])/10000.;
+	    f=stof(row[1])/10000.;
 	    if (f < min_west_lon) {
 		min_west_lon=f;
 	    }
-	    f=std::stof(row[2])/10000.;
+	    f=stof(row[2])/10000.;
 	    if (f > max_north_lat) {
 		max_north_lat=f;
 	    }
-	    f=std::stof(row[3])/10000.;
+	    f=stof(row[3])/10000.;
 	    if (f > max_east_lon) {
 		max_east_lon=f;
 	    }
@@ -348,7 +363,7 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
     }
     else {
 	auto elist=dataset_overview.element_list("dsOverview/contentMetadata/geospatialCoverage/location");
-	std::string where_conditions="";
+	string where_conditions="";
 	for (const auto& element : elist) {
 	  if (!where_conditions.empty()) {
 	    where_conditions+=" or ";
@@ -370,7 +385,7 @@ void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& d
   }
 }
 
-void add_replace_from_element_content(XMLDocument& xdoc,std::string xpath,std::string replace_token,TokenDocument& token_doc,std::string if_key)
+void add_replace_from_element_content(XMLDocument& xdoc,string xpath,string replace_token,TokenDocument& token_doc,string if_key)
 {
   auto e=xdoc.element(xpath);
   if (!e.name().empty()) {
