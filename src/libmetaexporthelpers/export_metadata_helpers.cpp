@@ -1,12 +1,15 @@
 #include <iostream>
 #include <unordered_set>
 #include <algorithm>
+#include <PostgreSQL.hpp>
 #include <xml.hpp>
 #include <mymap.hpp>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <gridutils.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
@@ -123,10 +126,10 @@ void add_to_resolution_table(double lon_res,double lat_res,std::string units,my:
   }
 }
 
-std::string primary_size(std::string dsnum,MySQL::Server& server)
+std::string primary_size(std::string dsnum,Server& server)
 {
   const char *vunits[]={"bytes","Kbytes","Mbytes","Gbytes","Tbytes","Pbytes"};
-  MySQL::LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+  LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -134,7 +137,7 @@ std::string primary_size(std::string dsnum,MySQL::Server& server)
   }
   std::string psize;
   auto n=0;
-  MySQL::Row row;
+  Row row;
   if (query.fetch_row(row)) {
     if (!row[0].empty()) {
 	double vsize=std::stoll(row[0]);
@@ -180,17 +183,17 @@ void convert_box_data(const std::string& row,const std::string& col,double& comp
   }
 }
 
-void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocument& dataset_overview,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::vector<HorizontalResolutionEntry> *hres_list,my::map<Entry> *unique_places_table)
+void fill_geographic_extent_data(Server& server,std::string dsnum,XMLDocument& dataset_overview,double& min_west_lon,double& min_south_lat,double& max_east_lon,double& max_north_lat,bool& is_grid,std::vector<HorizontalResolutionEntry> *hres_list,my::map<Entry> *unique_places_table)
 {
   min_west_lon=min_south_lat=9999.;
   max_east_lon=max_north_lat=-9999.;
   is_grid=false;
-  MySQL::LocalQuery query("select definition,defParams from (select distinct gridDefinition_code from GrML.summary where dsid = '"+dsnum+"') as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code");
+  LocalQuery query("select definition,defParams from (select distinct gridDefinition_code from GrML.summary where dsid = '"+dsnum+"') as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code");
   query.submit(server);
   if (query.num_rows() > 0) {
     is_grid=true;
     std::unordered_set<std::string> unique_hres_set;
-    MySQL::Row row;
+    Row row;
     while (query.fetch_row(row)) {
 	double west_lon,south_lat,east_lon,north_lat;
 	if (gridutils::fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
@@ -297,10 +300,10 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
 	}
     });
   }
-  if (MySQL::table_exists(server,"ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
-    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from ObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
+  if (table_exists(server,"WObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds")) {
+    query.set("select min(min_lat),min(min_lon),max(max_lat),max(max_lon) from WObML.ds"+strutils::substitute(dsnum,".","")+"_geobounds where min_lat >= -900000 and min_lon >= -1800000 and max_lat <= 900000 and max_lon <= 1800000");
     if (query.submit(server) == 0) {
-	MySQL::Row row;
+	Row row;
 	while (query.fetch_row(row)) {
 	  if (row[0].empty() || row[1].empty() || row[2].empty() || row[3].empty()) {
 	    std::cerr << "oai warning: " << dsnum << " geobounds: '" << row[0] << "','" << row[1] << "','" << row[2] << "','" << row[3] << "'" << std::endl;
@@ -330,7 +333,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
     query.set("select l.keyword,d.box1d_row,d.box1d_bitmap_min,d.box1d_bitmap_max from search.locations as l left join search.location_data as d on d.keyword = l.keyword and d.vocabulary = l.vocabulary where l.dsid = '"+dsnum+"' and d.box1d_row >= 0");
     query.submit(server);
     if (query.num_rows() > 0) {
-	MySQL::Row row;
+	Row row;
 	while (query.fetch_row(row)) {
 	  Entry entry;
 	  if (unique_places_table != nullptr && !unique_places_table->found(row[0],entry)) {
@@ -355,7 +358,7 @@ void fill_geographic_extent_data(MySQL::Server& server,std::string dsnum,XMLDocu
 	query.set("select keyword,min(box1d_row),min(box1d_bitmap_min),max(box1d_row),max(box1d_bitmap_max) from search.location_data where "+where_conditions+" and box1d_row >= 0 group by keyword");
 	query.submit(server);
 	if (query.num_rows() > 0) {
-	  MySQL::Row row;
+	  Row row;
 	  while (query.fetch_row(row)) {
 	    if (row[2] != "0" || row[4] != "359") {
 		convert_box_data(row[1],row[2],min_south_lat,min_west_lon,"min");
