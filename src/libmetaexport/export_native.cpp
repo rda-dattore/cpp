@@ -1,14 +1,16 @@
 #include <fstream>
 #include <regex>
 #include <sys/stat.h>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <metahelpers.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <tempfile.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
@@ -43,7 +45,7 @@ void add_frequency(my::map<Entry>& frequency_table,size_t frequency,std::string 
 extern "C" void *run_query(void *ts)
 {
   PThreadStruct *t=(PThreadStruct *)ts;
-  MySQL::Server tserver(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  Server tserver(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
   t->query.submit(tserver);
   tserver.disconnect();
   return NULL;
@@ -54,7 +56,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   std::string dsnum2=strutils::substitute(dsnum,".","");
   TempDir temp_dir;
   temp_dir.create("/tmp");
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
   std::string indent(indent_length,' ');
   XMLElement e=xdoc.element("dsOverview");
   ofs << indent << "<dsOverview xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -63,8 +65,8 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   ofs << indent << "            ID=\"" << e.attribute_value("ID") << "\" type=\"" << e.attribute_value("type") << "\">" << std::endl;
   e=xdoc.element("dsOverview/timeStamp");
   ofs << indent << "  " << e.to_string() << std::endl;
-  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
-  MySQL::Row row;
+  LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and end_date is null");
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "  <doi>" << row[0] << "</doi>" << std::endl;
   }
@@ -170,7 +172,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   auto cmd_databases=metautils::cmd_databases("unknown","unknown");
   auto found_content_metadata=false;
   for (const auto& database : cmd_databases) {
-    if (MySQL::table_exists(server,std::get<0>(database)+".ds"+dsnum2+"_primaries2")) {
+    if (table_exists(server,std::get<0>(database)+".ds"+dsnum2+"_primaries2")) {
 	found_content_metadata=true;
     }
   }
@@ -192,7 +194,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
     ofmts.query.set("select distinct f.format from ObML.ds"+dsnum2+"_primaries2 as p left join ObML.formats as f on f.code = p.format_code");
     pthread_create(&ofmts.tid,NULL,run_query,reinterpret_cast<void *>(&ofmts));
     PThreadStruct dts;
-    dts.query.set("select distinct d.definition,d.defParams from GrML.summary as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code where s.dsid = '"+dsnum+"'");
+    dts.query.set("select distinct d.definition, d.def_params from \"WGrML\".summary as s left join \"WGrML\".grid_definitions as d on d.code = s.grid_definition_code where s.dsid = '"+dsnum+"'");
     pthread_create(&dts.tid,NULL,run_query,reinterpret_cast<void *>(&dts));
     pthread_join(pts.tid,NULL);
     pthread_join(gfts.tid,NULL);

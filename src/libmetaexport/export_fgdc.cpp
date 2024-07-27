@@ -1,18 +1,20 @@
 #include <fstream>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
-#include <citation.hpp>
+#include <citation_pg.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <myerror.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
 bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
   std::string indent(indent_length,' ');
   ofs << indent << "<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
   ofs << indent << "            xsi:schemaLocation=\"http://www.fgdc.gov/schemas/metadata" << std::endl;
@@ -24,13 +26,13 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   auto e=xdoc.element("dsOverview/publicationDate");
   auto pub_date=e.content();
   if (pub_date.empty()) {
-    MySQL::LocalQuery query("pub_date","search.datasets","dsid = '"+dsnum+"'");
+    LocalQuery query("pub_date","search.datasets","dsid = '"+dsnum+"'");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;
 	exit(1);
     }
-    MySQL::Row row;
+    Row row;
     if (query.fetch_row(row)) {
 	pub_date=row[0];
     }
@@ -43,8 +45,8 @@ bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t
   ofs << indent << "          <publish>Research Data Archive at the National Center for Atmospheric Research, Computational and Information Systems Laboratory</publish>" << std::endl;
   ofs << indent << "        </pubinfo>" << std::endl;
   ofs << indent << "        <onlink>https://rda.ucar.edu/datasets/ds" << dsnum << "/</onlink>" << std::endl;
-  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
-  MySQL::Row row;
+  LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and end_date is null");
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "      <onlink>https://doi.org/" << row[0] << "</onlink>" << std::endl;
   }

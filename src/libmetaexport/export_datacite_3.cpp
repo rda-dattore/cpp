@@ -1,13 +1,14 @@
 #include <fstream>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <metahelpers.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <myerror.hpp>
 
+using namespace PostgreSQL;
 using std::endl;
 using std::string;
 using strutils::capitalize;
@@ -19,17 +20,17 @@ namespace metadataExport {
 
 bool export_to_datacite_3(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     size_t indent_length) {
-  MySQL::Server server(metautils::directives.database_server, metautils::
-      directives.metadb_username, metautils::directives.metadb_password, "");
+  Server server(metautils::directives.database_server, metautils::directives.
+      metadb_username, metautils::directives.metadb_password, "rdadb");
   string indent(indent_length, ' ');
   ofs << indent << "<resource xmlns=\"http://datacite.org/schema/kernel-3\" "
       "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:"
       "schemaLocation=\"http://datacite.org/schema/kernel-3 http://schema."
       "datacite.org/meta/kernel-3/metadata.xsd\">" << endl;
   ofs << indent << "  <identifier identifierType=\"DOI\">";
-  MySQL::LocalQuery query("doi", "dssdb.dsvrsn", "dsid = 'ds" + dsnum + "' and "
+  LocalQuery query("doi", "dssdb.dsvrsn", "dsid = 'ds" + dsnum + "' and "
       "end_date is null");
-  MySQL::Row row;
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << row[0];
   }

@@ -1,18 +1,20 @@
 #include <fstream>
 #include <regex>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
 bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
 {
   std::string indent(indent_length,' ');
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
   ofs << indent << "<catalog xmlns=\"http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0\"" << std::endl;
   ofs << indent << "         xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
   ofs << indent << "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
@@ -20,13 +22,13 @@ bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
   ofs << indent << "                             http://www.unidata.ucar.edu/schemas/thredds/InvCatalog.1.0.xsd\"" << std::endl;
   ofs << indent << "         name=";
   if (ident.length() == 5 && ident[3] == '.' && strutils::is_numeric(strutils::substitute(ident,".",""))) {
-    MySQL::LocalQuery query("select title,summary from search.datasets where dsid = '"+ident+"'");
+    LocalQuery query("select title,summary from search.datasets where dsid = '"+ident+"'");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;
 	exit(1);
     }
-    MySQL::Row row;
+    Row row;
     query.fetch_row(row);
     auto title=strutils::substitute(row[0],"\"","&quot;");
     ofs << "\"" << title << " (ds" << ident << ")\">" << std::endl;
@@ -44,13 +46,13 @@ bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
     ofs << indent << "  </dataset>" << std::endl;
   }
   else if (strutils::has_beginning(ident,"range")) {
-    MySQL::LocalQuery query("select * from dssdb.dsranges where min = '"+ident.substr(5)+"'");
+    LocalQuery query("select * from dssdb.dsranges where min = '"+ident.substr(5)+"'");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;
 	exit(1);
     }
-    MySQL::Row row;
+    Row row;
     query.fetch_row(row);
     ofs << "\"Datasets "+row[1]+".0-"+row[2]+".9: "+row[0]+"\">" << std::endl;
     ofs << indent << "  <dataset name=\"Datasets "+row[1]+".0-"+row[2]+".9: "+row[0]+"\" ID=\"ucar.scd.dss.range"+row[1]+"\">" << std::endl;
@@ -83,7 +85,7 @@ bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,siz
     ofs << indent << "      The Data Support Section (DSS) manages a large archive of meteorological, oceanographic, and related research data that have been assembled from various and numerous sources from around the world." << std::endl;
     ofs << indent << "    </documentation>" << std::endl;
     ofs << indent << "    <documentation xlink:href=\"https://rda.ucar.edu/\" xlink:title=\"RDA Home Page\" xlink:show=\"new\" />" << std::endl;
-    MySQL::LocalQuery query("select * from dssdb.dsranges");
+    LocalQuery query("select * from dssdb.dsranges");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;

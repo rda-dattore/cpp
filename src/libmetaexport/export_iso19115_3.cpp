@@ -1,9 +1,11 @@
 #include <fstream>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
@@ -14,10 +16,10 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
-  MySQL::LocalQuery query;
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  LocalQuery query;
   query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
-  MySQL::Row row;
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     if (row[0] > mdate) {
 	mdate=row[0];
@@ -38,7 +40,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
     token_doc->add_if("__HAS_PUBLICATION_DATE__");
     token_doc->add_replacement("__PUBLICATION_DATE__",pub_date);
   }
-  query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
+  query.set("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and end_date is null");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     token_doc->add_if("__HAS_DOI__");
     token_doc->add_replacement("__DOI__",row[0]);

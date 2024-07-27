@@ -1,12 +1,14 @@
 #include <fstream>
 #include <regex>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <myerror.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
@@ -17,9 +19,9 @@ bool export_to_json_ld(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,siz
   ofs << "    \"@context\": \"http://schema.org\"," << std::endl;
   ofs << "    \"@type\": \"Dataset\"," << std::endl;
   ofs << "    \"@id\": \"";
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
-  MySQL::LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and isnull(end_date)");
-  MySQL::Row row;
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  LocalQuery query("doi","dssdb.dsvrsn","dsid = 'ds"+dsnum+"' and end_date is null");
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << "https://doi.org/" << row[0];
   }

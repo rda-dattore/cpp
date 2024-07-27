@@ -1,15 +1,17 @@
 #include <fstream>
 #include <sys/stat.h>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metadata.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <mymap.hpp>
 #include <tempfile.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <gridutils.hpp>
 #include <bsort.hpp>
+
+using namespace PostgreSQL;
 
 namespace metadataExport {
 
@@ -36,7 +38,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     std::cout << "Error creating temporary directory" << std::endl;
     exit(1);
   }
-  MySQL::Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"");
+  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
   std::string indent(indent_length,' ');
   auto e=xdoc.element("dsOverview/creator@vocabulary=GCMD");
   auto dss_centername=e.attribute_value("name");
@@ -65,13 +67,13 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     auto idx=contact_name.find(" ");
     auto fname=contact_name.substr(0,idx);
     auto lname=contact_name.substr(idx+1);
-    MySQL::LocalQuery query("logname,phoneno","dssdb.dssgrp","fstname = '"+fname+"' and lstname = '"+lname+"'");
+    LocalQuery query("logname,phoneno","dssdb.dssgrp","fstname = '"+fname+"' and lstname = '"+lname+"'");
     if (query.submit(server) < 0) {
         std::cout << "Content-type: text/plain" << std::endl << std::endl;
         std::cout << "Database error: " << query.error() << std::endl;
         exit(1);
     }
-    MySQL::Row row;
+    Row row;
     query.fetch_row(row);
     ofs << indent << "    <First_Name>" << fname << "</First_Name>" << std::endl;
     ofs << indent << "    <Last_Name>" << lname << "</Last_Name>" << std::endl;
@@ -106,7 +108,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "      <Country>U.S.A.</Country>" << std::endl;
   ofs << indent << "    </Contact_Address>" << std::endl;
   ofs << indent << "  </Personnel>" << std::endl;
-  MySQL::LocalQuery query("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  LocalQuery query("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -157,7 +159,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     exit(1);
   }
   if (query.num_rows() > 0) {
-    MySQL::Row row;
+    Row row;
     query.fetch_row(row);
     ofs << indent << "  <Temporal_Coverage>" << std::endl;
     ofs << indent << "    <Start_Date>" << row[0] << "</Start_Date>" << std::endl;
@@ -171,7 +173,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   else {
     ofs << indent << "  <Data_Set_Progress>In Work</Data_Set_Progress>" << std::endl;
   }
-  query.set("select definition,defParams from (select distinct gridDefinition_code from GrML.summary where dsid = '"+dsnum+"') as s left join GrML.gridDefinitions as d on d.code = s.gridDefinition_code");
+  query.set("select definition, def_params from (select distinct grid_definition_code from \"WGrML\".summary where dsid = '"+dsnum+"') as s left join \"WGrML\".grid_definitions as d on d.code = s.grid_definition_code");
   query.submit(server);
   if (query.num_rows() > 0) {
     double min_west_lon=9999.,min_south_lat=9999.,max_east_lon=-9999.,max_north_lat=-9999.;
