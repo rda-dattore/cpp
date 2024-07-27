@@ -145,30 +145,31 @@ void add_to_resolution_table(double lon_res,double lat_res,string units,my::map<
   }
 }
 
-string primary_size(string dsnum,Server& server)
-{
-  const char *vunits[]={"bytes","Kbytes","Mbytes","Gbytes","Tbytes","Pbytes"};
-  LocalQuery query("primary_size","dssdb.dataset","dsid = 'ds"+dsnum+"'");
+string primary_size(string ds_set, Server& server) {
+  const char *VUNITS[] = {
+      "bytes", "Kbytes", "Mbytes", "Gbytes", "Tbytes", "Pbytes"
+  };
+  LocalQuery query("primary_size", "dssdb.dataset", "dsid in " + ds_set);
   if (query.submit(server) < 0) {
     cout << "Content-type: text/plain" << endl << endl;
     cout << "Database error: " << query.error() << endl;
     exit(1);
   }
   string psize;
-  auto n=0;
+  auto n = 0;
   Row row;
   if (query.fetch_row(row)) {
     if (!row[0].empty()) {
-      double vsize=stoll(row[0]);
+      double vsize = stoll(row[0]);
       while (vsize > 999.999999) {
-        vsize/=1000.;
+        vsize /= 1000.;
         ++n;
       }
-      psize=ftos(vsize,7,3,' ');
+      psize = ftos(vsize, 7, 3, ' ');
       trim(psize);
     }
   }
-  psize+=string(" ")+vunits[n];
+  psize += string(" ") + VUNITS[n];
   return psize;
 }
 
