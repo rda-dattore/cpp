@@ -1,14 +1,15 @@
 #include <fstream>
-#include <metadata_export.hpp>
+#include <metadata_export_pg.hpp>
 #include <metahelpers.hpp>
 #include <xml.hpp>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <metadata.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <bitmap.hpp>
 #include <myerror.hpp>
 
+using namespace PostgreSQL;
 using std::endl;
 using std::min;
 using std::max;
@@ -25,27 +26,20 @@ namespace metadataExport {
 
 string indent;
 
-bool added_identifier(MySQL::Server& server, std::ostream& ofs,
-    string dsnum) {
+bool added_identifier(Server& server, std::ostream& ofs, string dsnum) {
   ofs << indent << "  <identifier identifierType=\"DOI\">";
-  MySQL::LocalQuery query("doi", "dssdb.dsvrsn", "dsid = 'ds" + dsnum + "' and "
+  LocalQuery query("doi", "dssdb.dsvrsn", "dsid = 'ds" + dsnum + "' and "
       "end_date is null");
-  MySQL::Row row;
-  if (query.submit(server) < 0) {
-    myerror = "Unable to retrieve DOI - error: '" + server.error() + "'.";
-    return false;
+  Row row;
+  if (query.submit(server) == 0 && query.fetch_row(row)) {
+    ofs << row[0];
   }
-  if (!query.fetch_row(row)) {
-    myerror = "Unable to retrieve DOI - error: '" + query.error() + "'.";
-    return false;
-  }
-  ofs << row[0];
   ofs << "</identifier>" << endl;
   return true;
 }
 
-bool added_creators(MySQL::Server& server, std::ostream& ofs,
-    XMLDocument& xdoc, string dsnum) {
+bool added_creators(Server& server, std::ostream& ofs, XMLDocument& xdoc, string
+    dsnum) {
   ofs << indent << "  <creators>" << endl;
   auto elist = xdoc.element_list("dsOverview/author");
   if (!elist.empty()) {
@@ -73,9 +67,9 @@ bool added_creators(MySQL::Server& server, std::ostream& ofs,
       ofs << indent << "    </creator>" << endl;
     }
   } else {
-    MySQL::LocalQuery query("select g.path, c.contact from search."
-        "contributors_new as c left join search.gcmd_providers as g on g.uuid "
-        "= c.keyword where c.dsid = '" + dsnum + "' and c.vocabulary = 'GCMD'");
+    LocalQuery query("select g.path, c.contact from search.contributors_new as "
+        "c left join search.gcmd_providers as g on g.uuid = c.keyword where c."
+        "dsid = '" + dsnum + "' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
       myerror = "Unable to retrieve contributors -  error: '" + server.error() +
           "'.";
@@ -132,19 +126,18 @@ bool added_publisher(std::ostream& ofs) {
   return true;
 }
 
-bool added_publication_year(MySQL::Server& server, std::ostream& ofs,
-    XMLDocument& xdoc, string dsnum) {
+bool added_publication_year(Server& server, std::ostream& ofs, XMLDocument&
+    xdoc, string dsnum) {
   auto e = xdoc.element("dsOverview/publicationDate");
   auto pub_date = e.content();
   if (pub_date.empty()) {
-    MySQL::LocalQuery query("pub_date", "search.datasets", "dsid = '" + dsnum +
-        "'");
+    LocalQuery query("pub_date", "search.datasets", "dsid = '" + dsnum + "'");
     if (query.submit(server) < 0) {
       myerror = "Unable to retrieve publication date - error: '" + server.
           error() + "'.";
       return false;
     }
-    MySQL::Row row;
+    Row row;
     if (!query.fetch_row(row)) {
       myerror = "Unable to retrieve publication date - error: '" + query.error()
           + "'.";
@@ -164,8 +157,8 @@ bool added_resource_type(std::ostream& ofs, XMLDocument& xdoc) {
   return true;
 }
 
-bool added_mandatory_fields(MySQL::Server& server, std::ostream& ofs,
-    XMLDocument& xdoc, string dsnum) {
+bool added_mandatory_fields(Server& server, std::ostream& ofs, XMLDocument&
+    xdoc, string dsnum) {
   if (!added_identifier(server, ofs, dsnum)) {
     return false;
   }
@@ -187,10 +180,10 @@ bool added_mandatory_fields(MySQL::Server& server, std::ostream& ofs,
   return true;
 }
 
-void add_subjects(MySQL::Server& server, std::ostream& ofs, string dsnum) {
-  MySQL::LocalQuery query("select g.path, g.uuid from search.variables as v "
-      "left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where "
-      "v.dsid = '" + dsnum + "' and v.vocabulary = 'GCMD'");
+void add_subjects(Server& server, std::ostream& ofs, string dsnum) {
+  LocalQuery query("select g.path, g.uuid from search.variables as v left join "
+      "search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"
+      + dsnum + "' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     ofs << indent << "  <subjects>" << endl;
     for (const auto& row : query) {
@@ -213,13 +206,13 @@ void add_contributors(std::ostream& ofs) {
   ofs << indent << "  </contributors>" << endl;
 }
 
-void add_date(MySQL::Server& server, std::ostream& ofs, string dsnum) {
-  MySQL::LocalQuery query("select min(concat(date_start, ' ', time_start)), "
-      "min(start_flag), max(concat(date_end, ' ', time_end)), min(end_flag), "
+void add_date(Server& server, std::ostream& ofs, string dsnum) {
+  LocalQuery query("select min(concat(date_start, ' ', time_start)), min("
+      "start_flag), max(concat(date_end, ' ', time_end)), min(end_flag), "
       "any_value(time_zone) from dssdb.dsperiod where dsid = 'ds" + dsnum +
       "' and date_start > '0001-01-01' and date_start < '3000-01-01' and "
       "date_end > '0001-01-01' and date_end < '3000-01-01'");
-  MySQL::Row row;
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << indent << "  <dates>" << endl;
     ofs << indent << "    <date dateType=\"Valid\">" << metatranslations::
@@ -229,16 +222,35 @@ void add_date(MySQL::Server& server, std::ostream& ofs, string dsnum) {
   }
 }
 
-void add_related_identifier(std::ostream& ofs, XMLDocument& xdoc) {
+void add_related_identifier(Server& server, XMLDocument& xdoc, string dsnum,
+    stringstream& rids_ss) {
   auto elist = xdoc.element_list("dsOverview/relatedDOI");
   if (!elist.empty()) {
-    ofs << indent << "  <relatedIdentifiers>" << endl;
     for (const auto& doi : elist) {
-      ofs << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\" "
-          "relationType=\"" << doi.attribute_value("relationType") << "\">" <<
-          doi.content() << "</relatedIdentifier>" << endl;
+      rids_ss << indent << "    <relatedIdentifier relatedIdentifierType=\""
+          "DOI\" relationType=\"" << doi.attribute_value("relationType") <<
+          "\">" << doi.content() << "</relatedIdentifier>" << endl;
     }
-    ofs << indent << "  </relatedIdentifiers>" << endl;
+  }
+  LocalQuery q("select c.doi_work, w.type, count(a.last_name) from citation."
+      "data_citations as c left join (select distinct doi from dssdb.dsvrsn "
+      "where dsid = 'ds" + dsnum + "') as v on v.doi = c.doi_data left join "
+      "citation.works_authors as a on a.id = c.doi_work left join citation."
+      "works as w on w.doi = c.doi_work where v.doi is not null group by c."
+      "doi_work, w.type having count(a.last_name) > 0");
+  if (q.submit(server) == 0) {
+    for (const auto& r : q) {
+      rids_ss << indent << "    <relatedIdentifier relatedIdentifierType=\""
+          "DOI\" relationType=\"IsCitedBy\"";
+      if (r[1] == "J") {
+        rids_ss << " resourceTypeGeneral=\"JournalArticle\"";
+      } else if (r[1] == "C") {
+        rids_ss << " resourceTypeGeneral=\"BookChapter\"";
+      } else if (r[1] == "P") {
+        rids_ss << " resourceTypeGeneral=\"ConferenceProceeding\"";
+      }
+      rids_ss << ">" << r[0] << "</relatedIdentifier>" << endl;
+    }
   }
 }
 
@@ -308,20 +320,19 @@ void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
   }
 }
 
-void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
-    string dsnum) {
+void add_geolocation_from_database(Server& server, std::ostream& ofs, string
+    dsnum) {
   auto d2 = substitute(dsnum, ".", "");
   double mnlon = 999., mnlat = 999., mxlon = -999., mxlat = -999.;
-  MySQL::LocalQuery q("distinct grid_definition_codes", "WGrML.ds" + d2 +
-      "_agrids2");
+  LocalQuery q("distinct grid_definition_codes", "WGrML.ds" + d2 + "_agrids2");
   if (q.submit(server) == 0) {
     for (const auto& r : q) {
       vector<size_t> v;
       bitmap::uncompress_values(r[0], v);
       for (const auto& e : v) {
-        MySQL::LocalQuery q2("definition, def_params", "WGrML.grid_definitions",
+        LocalQuery q2("definition, def_params", "WGrML.grid_definitions",
             "code = " + to_string(e));
-        MySQL::Row r2;
+        Row r2;
         if (q2.submit(server) == 0 && q2.fetch_row(r2)) {
           double wlon, slat, elon, nlat;
           gridutils::fill_spatial_domain_from_grid_definition(r2[0] + "<!>" +
@@ -372,8 +383,8 @@ void add_geolocation_from_database(MySQL::Server& server, std::ostream& ofs,
   }
 }
 
-void add_geolocation(MySQL::Server& server, std::ostream& ofs, XMLDocument&
-    xdoc, string dsnum) {
+void add_geolocation(Server& server, std::ostream& ofs, XMLDocument& xdoc,
+    string dsnum) {
   auto e = xdoc.element("dsOverview/contentMetadata/geospatialCoverage");
   if (e.name() == "geospatialCoverage") {
     add_geolocation_from_xml(ofs, e);
@@ -382,12 +393,12 @@ void add_geolocation(MySQL::Server& server, std::ostream& ofs, XMLDocument&
   }
 }
 
-void add_recommended_fields(MySQL::Server& server, std::ostream& ofs,
-    XMLDocument& xdoc, string dsnum) {
+void add_recommended_fields(Server& server, XMLDocument& xdoc, string dsnum,
+    std::ostream& ofs, stringstream& rids_ss) {
   add_subjects(server, ofs, dsnum);
   add_contributors(ofs);
   add_date(server, ofs, dsnum);
-  add_related_identifier(ofs, xdoc);
+  add_related_identifier(server, xdoc, dsnum, rids_ss);
   add_description(ofs, xdoc);
   add_geolocation(server, ofs, xdoc, dsnum);
 }
@@ -406,7 +417,7 @@ void add_alternate_identifier(std::ostream& ofs, string dsnum) {
   ofs << indent << "  </alternateIdentifiers>" << endl;
 }
 
-void add_size(MySQL::Server& server, std::ostream& ofs, string dsnum) {
+void add_size(Server& server, std::ostream& ofs, string dsnum) {
   auto size = primary_size(dsnum, server);
   if (!size.empty()) {
     ofs << indent << "  <sizes>" << endl;
@@ -415,9 +426,9 @@ void add_size(MySQL::Server& server, std::ostream& ofs, string dsnum) {
   }
 }
 
-void add_format(MySQL::Server& server, std::ostream& ofs, string dsnum) {
-  MySQL::LocalQuery query("distinct keyword", "search.formats", "dsid = '" +
-      dsnum + "'");
+void add_format(Server& server, std::ostream& ofs, string dsnum) {
+  LocalQuery query("distinct keyword", "search.formats", "dsid = '" + dsnum +
+      "'");
   if (query.submit(server) == 0 && query.num_rows() > 0) {
     ofs << indent << "  <formats>" << endl;
     for (const auto& row : query) {
@@ -431,15 +442,14 @@ void add_format(MySQL::Server& server, std::ostream& ofs, string dsnum) {
 void add_version() {
 }
 
-void add_rights(MySQL::Server& server, std::ostream& ofs, XMLDocument& xdoc) {
+void add_rights(Server& server, std::ostream& ofs, XMLDocument& xdoc) {
   auto e = xdoc.element("dsOverview/dataLicense");
   auto id = e.content();
   if (id.empty()) {
     id = "CC-BY-4.0";
   }
-  MySQL::LocalQuery q("url, name", "wagtail.home_datalicense", "id = '" + id +
-      "'");
-  MySQL::Row row;
+  LocalQuery q("url, name", "wagtail.home_datalicense", "id = '" + id + "'");
+  Row row;
   if (q.submit(server) == 0 && q.fetch_row(row)) {
     ofs << indent << "  <rightsList>" << endl;
     ofs << indent << "    <rights rightsIdentifier=\"" << id << "\" rightsURI="
@@ -594,9 +604,10 @@ void add_report(const XMLElement& e, stringstream& rss, stringstream& rids) {
   }
 }
 
-void add_related_item(std::ostream& ofs, XMLDocument& xdoc) {
+void add_related_item(XMLDocument& xdoc, std::ostream& ofs, stringstream&
+    rids_ss) {
   auto elist = xdoc.element_list("dsOverview/reference");
-  stringstream rss, rids;
+  stringstream rss;
   for (const auto& e : elist) {
     auto doi = e.element("doi").content();
     auto ds_relation = e.attribute_value("ds_relation");
@@ -604,20 +615,20 @@ void add_related_item(std::ostream& ofs, XMLDocument& xdoc) {
       rss << indent << "    <relatedItem relationType=\"" << ds_relation <<
           "\"";
     } else {
-      rids << indent << "    <relatedIdentifier relatedIdentifierType=\"DOI\""
-          " relationType=\"" << ds_relation << "\"";
+      rids_ss << indent << "    <relatedIdentifier relatedIdentifierType=\""
+          "DOI\" relationType=\"" << ds_relation << "\"";
     }
     auto type = e.attribute_value("type");
     if (type == "book") {
-      add_book(e, rss, rids);
+      add_book(e, rss, rids_ss);
     } else if (type == "book_chapter") {
-      add_book_chapter(e, rss, rids);
+      add_book_chapter(e, rss, rids_ss);
     } else if (type == "journal") {
-      add_journal_article(e, rss, rids);
+      add_journal_article(e, rss, rids_ss);
     } else if (type == "preprint") {
-      add_conference_proceeding(e, rss, rids);
+      add_conference_proceeding(e, rss, rids_ss);
     } else if (type == "technical_report") {
-      add_report(e, rss, rids);
+      add_report(e, rss, rids_ss);
     }
   }
   if (!rss.str().empty()) {
@@ -625,30 +636,25 @@ void add_related_item(std::ostream& ofs, XMLDocument& xdoc) {
     ofs << rss.str();
     ofs << indent << "  </relatedItems>" << endl;
   }
-  if (!rids.str().empty()) {
-    ofs << indent << "  <relatedIdentifiers>" << endl;
-    ofs << rids.str();
-    ofs << indent << "  </relatedIdentifiers>" << endl;
-  }
 }
 
-void add_optional_fields(MySQL::Server& server, std::ostream& ofs,
-    XMLDocument& xdoc, string dsnum) {
+void add_optional_fields(Server& server, XMLDocument& xdoc, string dsnum, std::
+    ostream& ofs, stringstream& rids_ss) {
   add_language(ofs);
   add_alternate_identifier(ofs, dsnum);
+  add_related_item(xdoc, ofs, rids_ss);
   add_size(server, ofs, dsnum);
   add_format(server, ofs, dsnum);
   add_version();
   add_rights(server, ofs, xdoc);
   add_funding_reference();
-  add_related_item(ofs, xdoc);
 }
 
 bool export_to_datacite_4(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     size_t indent_length) {
   indent = string(indent_length, ' ');
-  MySQL::Server server(metautils::directives.database_server, metautils::
-      directives.metadb_username, metautils::directives.metadb_password, "");
+  Server server(metautils::directives.database_server, metautils::directives.
+      metadb_username, metautils::directives.metadb_password, "rdadb");
   if (!server) {
     myerror = "Unable to connect to database.";
     return false;
@@ -660,8 +666,14 @@ bool export_to_datacite_4(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
   if (!added_mandatory_fields(server, ofs, xdoc, dsnum)) {
     return false;
   }
-  add_recommended_fields(server, ofs, xdoc, dsnum);
-  add_optional_fields(server, ofs, xdoc, dsnum);
+  stringstream rids_ss;
+  add_recommended_fields(server, xdoc, dsnum, ofs, rids_ss);
+  add_optional_fields(server, xdoc, dsnum, ofs, rids_ss);
+  if (!rids_ss.str().empty()) {
+    ofs << indent << "  <relatedIdentifiers>" << endl;
+    ofs << indent << rids_ss.str();
+    ofs << indent << "  </relatedIdentifiers>" << endl;
+  }
   ofs << indent << "</resource>" << endl;
   return true;
 }
