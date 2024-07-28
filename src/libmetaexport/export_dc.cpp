@@ -27,47 +27,47 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   auto elist=xdoc.element_list("dsOverview/author");
   if (elist.size() > 0) {
     for (const auto& author : elist) {
-	ofs << "<meta name=\"DC.creator\" content=\"";
-	auto author_type=author.attribute_value("xsi:type");
-	if (author_type == "authorPerson" || author_type.empty()) {
-	  ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
-	}
-	else {
-	  ofs << author.attribute_value("name");
-	}
-	ofs << "\" />" << std::endl;
+      ofs << "<meta name=\"DC.creator\" content=\"";
+      auto author_type=author.attribute_value("xsi:type");
+      if (author_type == "authorPerson" || author_type.empty()) {
+        ofs << author.attribute_value("lname") << ", " << author.attribute_value("fname");
+      }
+      else {
+        ofs << author.attribute_value("name");
+      }
+      ofs << "\" />" << std::endl;
     }
   }
   else {
     query.set("select g.path,c.contact from search.contributors_new as c left join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"+dsnum+"' and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
-	myerror="database error: "+server.error();
-	return false;
+      myerror="database error: "+server.error();
+      return false;
     }
     if (query.num_rows() == 0) {
-	myerror="no contributors were found for ds"+dsnum;
-	return false;
+      myerror="no contributors were found for ds"+dsnum;
+      return false;
     }
     auto num_contributors=0;
     while (query.fetch_row(row)) {
-	if (!row[0].empty()) {
-	  auto name_parts=strutils::split(row[0]," > ");
-	  if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
-	    auto contact_parts=strutils::split(row[1],",");
-	    if (contact_parts.size() > 0) {
-		ofs << "<meta name=\"DC.creator\" content\"" << contact_parts.front() << "\" />" << std::endl;
-		++num_contributors;
-	    }
-	  }
-	  else {
-	    ofs << "<meta name=\"DC.creator\" content=\"" << strutils::substitute(name_parts.back(),", ","/") << "\" />" << std::endl;
-	    ++num_contributors;
-	  }
-	}
+      if (!row[0].empty()) {
+        auto name_parts=strutils::split(row[0]," > ");
+        if (name_parts.back() == "UNAFFILIATED INDIVIDUAL") {
+          auto contact_parts=strutils::split(row[1],",");
+          if (contact_parts.size() > 0) {
+            ofs << "<meta name=\"DC.creator\" content\"" << contact_parts.front() << "\" />" << std::endl;
+            ++num_contributors;
+          }
+        }
+        else {
+          ofs << "<meta name=\"DC.creator\" content=\"" << strutils::substitute(name_parts.back(),", ","/") << "\" />" << std::endl;
+          ++num_contributors;
+        }
+      }
     }
     if (num_contributors == 0) {
-	myerror="no useable contributors were found for ds"+dsnum;
-	return false;
+      myerror="no useable contributors were found for ds"+dsnum;
+      return false;
     }
   }
   ofs << "<meta name=\"DC.title\" content=\"" << strutils::substitute(xdoc.element("dsOverview/title").content(),"\"","\\\"") << "\" />" << std::endl;
@@ -79,7 +79,7 @@ bool export_to_dc_meta_tags(std::ostream& ofs,std::string dsnum,XMLDocument& xdo
   query.set("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     while (query.fetch_row(row)) {
-	ofs << "<meta name=\"DC.subject\" content=\"" << row[0] << "\" />" << std::endl;
+      ofs << "<meta name=\"DC.subject\" content=\"" << row[0] << "\" />" << std::endl;
     }
   }
   return true;
