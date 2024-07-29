@@ -14,14 +14,16 @@ using std::endl;
 using std::stoi;
 using std::string;
 using strutils::chop;
+using strutils::ds_aliases;
 using strutils::replace_all;
 using strutils::split;
 using strutils::substitute;
+using strutils::to_sql_tuple_string;
 
 namespace metadataExport {
 
-bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
-    size_t indent_length) {
+bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
+    indent_length) {
   ofs << "<script type=\"application/ld+json\">" << endl;
   ofs << "  {" << endl;
   ofs << "    \"@context\": \"http://schema.org\"," << endl;
@@ -29,13 +31,14 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
   ofs << "    \"@id\": \"";
   Server server(metautils::directives.database_server, metautils::directives.
       metadb_username, metautils::directives.metadb_password, "rdadb");
-  LocalQuery query("doi", "dssdb.dsvrsn", "dsid = 'ds" + dsnum + "' and "
-      "end_date is null");
+  auto ds_set = to_sql_tuple_string(ds_aliases(dsid));
+  LocalQuery query("doi", "dssdb.dsvrsn", "dsid in " + ds_set + " and end_date "
+      "is null");
   Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << "https://doi.org/" << row[0];
   } else {
-    ofs << "https://rda.ucar.edu/datasets/ds" << dsnum << "/";
+    ofs << "https://rda.ucar.edu/datasets/" << dsid << "/";
   }
   ofs << "\"," << endl;
   ofs << "    \"name\": \"" << substitute(xdoc.element("dsOverview/title").
@@ -85,14 +88,14 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     ofs << "," << endl;
   } else {
     query.set("select g.path, c.contact from search.contributors_new as c left "
-        "join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid = '"
-        + dsnum + "' and c.vocabulary = 'GCMD'");
+        "join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid in "
+        + ds_set + " and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
       myerror = "database error: " + server.error();
       return false;
     }
     if (query.num_rows() == 0) {
-      myerror = "no contributors were found for ds" + dsnum;
+      myerror = "no contributors were found for " + dsid;
       return false;
     }
     string local_indent = "";
@@ -138,7 +141,7 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
       ++num_rows;
     }
     if (num_contributors == 0) {
-      myerror = "no useable contributors were found for ds" + dsnum;
+      myerror = "no useable contributors were found for " + dsid;
       return false;
     }
     if (query.num_rows() > 1) {
@@ -148,8 +151,8 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     ofs << "," << endl;
   }
   query.set("select g.path from search.variables as v left join search."
-      "gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '" + dsnum
-      + "' and v.vocabulary = 'GCMD'");
+      "gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid in " +
+      ds_set + " and v.vocabulary = 'GCMD'");
   if (query.submit(server) == 0) {
     ofs << "    \"keywords\": ";
     if (query.num_rows() == 1) {
@@ -171,7 +174,7 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
   }
   query.set("select min(date_start), min(time_start), max(date_end), max("
       "time_end), min(start_flag), min(time_zone) from dssdb.dsperiod where "
-      "dsid = 'ds" + dsnum + "' and date_start < '9998-01-01' and date_end < "
+      "dsid in " + ds_set + " and date_start < '9998-01-01' and date_end < "
       "'9998-01-01' group by dsid");
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     auto num_parts = stoi(row[4]);
@@ -194,7 +197,7 @@ bool export_to_json_ld(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
   double min_west_lon, min_south_lat, max_east_lon, max_north_lat;
   bool is_grid;
   my::map<Entry> unique_places_table;
-  fill_geographic_extent_data(server, dsnum, xdoc, min_west_lon, min_south_lat,
+  fill_geographic_extent_data(server, dsid, xdoc, min_west_lon, min_south_lat,
       max_east_lon, max_north_lat, is_grid, nullptr, &unique_places_table);
   if (is_grid) {
     ofs << "    \"spatialCoverage\": {" << endl;
