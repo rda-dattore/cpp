@@ -64,7 +64,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   DateTime d3;
   query.set("max(concat(date_created, ' ', time_created))", "dssdb.wfile",
       "dsid in " + ds_set);
-  if (query.submit(server) == 0 && query.fetch_row(row)) {
+  if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
     sp = split(row[0]);
     auto dp = split(sp[0], "-");
     auto tp = split(sp[1], ":");
@@ -73,7 +73,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     d3.add_hours(7);
   }
   token_doc->add_replacement("__MDATE__", std::max({d1, d2, d3}).to_string(
-      "%Y-%m-%dT%H:%MM:%SS+0000"));
+      "%Y-%m-%dT%H:%MM:%SSZ"));
   auto e = xdoc.element("dsOverview/title");
   token_doc->add_replacement("__TITLE__", e.content());
   e = xdoc.element("dsOverview/publicationDate");
@@ -361,9 +361,27 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   }
   e = xdoc.element("dsOverview/restrictions/usage");
   if (!e.name().empty()) {
-    token_doc->add_if("__HAS_USAGE_RESTRICTIONS__");
     token_doc->add_replacement("__USAGE_RESTRICTIONS__", htmlutils::
         convert_html_summary_to_ascii(e.to_string(), 32768, 0));
+  } else {
+    string license = "";
+    e = xdoc.element("dsOverview/dataLicense");
+    if (!e.name().empty()) {
+      Server srv(metautils::directives.database_server, metautils::directives.
+          wagtail_username, metautils::directives.wagtail_password, "rdadb");
+      LocalQuery q("name", "wagtail.home_datalicense", "id = '" + e.content() +
+          "'");
+      Row r;
+      if (q.submit(srv) == 0 && q.fetch_row(r)) {
+        license = r[0];
+      }
+    }
+    if (!license.empty()) {
+      token_doc->add_replacement("__USAGE_RESTRICTIONS__", license);
+    } else {
+      token_doc->add_replacement("__USAGE_RESTRICTIONS__", "Creative Commons "
+          "Attribution 4.0 International License");
+    }
   }
   e = xdoc.element("dsOverview/restrictions/access");
   if (!e.name().empty()) {
