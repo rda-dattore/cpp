@@ -595,6 +595,31 @@ size_t cast_data_values(const DataValue& data_value, void **array_values,
       }
       break;
     }
+    case 9: {
+      switch (data_value.vlen.class_) {
+        case 3: {
+          if (*array_values == nullptr) {
+            *array_values = new string[num_array_values];
+            type = DataArray::Type::STRING;
+          }
+          auto boff = 0;
+          for (size_t n = 0; n < num_to_cast; ++n) {
+            size_t len;
+            bits::get(&data_value.vlen.buffer[boff], len, 0, 32);
+            boff += 4;
+            (reinterpret_cast<string *>(*array_values))[start_array_index++].
+                assign(reinterpret_cast<char *>(&data_value.vlen.buffer[boff]),
+                len);
+            boff += len;
+          }
+          break;
+        }
+        default: {
+          num_to_cast = 0;
+        }
+      }
+      break;
+    }
     default: {
       num_to_cast = 0;
     }
@@ -695,6 +720,10 @@ bool DataArray::fill(InputHDF5Stream& istream, Dataset& dataset, size_t
   if (fs->gcount() != 4) {
     cout << "Data read error";
   } else {
+    dimensions.resize(dataset.dataspace.sizes.size(), 0);
+    for (size_t n = 0; n < dataset.dataspace.sizes.size(); ++n) {
+      dimensions[n] = dataset.dataspace.sizes[n];
+    }
     CompoundDatatype cdtype;
     if (dataset.datatype.class_ == 6) {
       decode_compound_datatype(dataset.datatype, cdtype);
@@ -711,10 +740,6 @@ bool DataArray::fill(InputHDF5Stream& istream, Dataset& dataset, size_t
             exit(1);
           }
         }
-      }
-      dimensions.resize(dataset.dataspace.sizes.size(), 0);
-      for (size_t n = 0; n < dataset.dataspace.sizes.size(); ++n) {
-        dimensions[n] = dataset.dataspace.sizes[n];
       }
       num_values = 1;
       for (size_t n = 0; n < dataset.dataspace.sizes.size(); ++n) {
@@ -786,9 +811,10 @@ v.print(cerr, nullptr);
 cerr << endl;
                   if (!cast_value(v, idx + nval, &values, num_values, type,
                       cdtype.members[compound_member_index].datatype.size)) {
-                    append(myerror, "unable to get data for class " + to_string(
-                        cdtype.members[compound_member_index].datatype.class_) +
-                        " and precision " + to_string(v.precision_), ", ");
+                    append(myerror, "unable to get data value for class " +
+                        to_string(cdtype.members[compound_member_index].
+                        datatype.class_) + " and precision " + to_string(v.
+                        precision_), ", ");
                     return false;
                   }
                   ++nval;
@@ -841,9 +867,9 @@ cerr << endl;
         auto nvals = cast_data_values(v, &values, start_array_index, num_values,
             type, dataset.data.size_of_element);
         if (nvals == 0) {
-          append(myerror, "unable to get data for class " + to_string(dataset.
-              datatype.class_) + " and precision " + to_string(v.precision_),
-              ", ");
+          append(myerror, "unable to get data values for class " + to_string(
+              dataset.datatype.class_) + " and precision " + to_string(v.
+              precision_), ", ");
           return false;
         }
         n += nvals;
