@@ -161,19 +161,19 @@ void GPCPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     def.elongitude=-def.elongitude;
   }
   if (std::regex_search(header,std::regex("lon/lat 1st_box_center"))) {
-    def.type=Grid::latitudeLongitudeType;
+    def.type=Grid::Type::latitudeLongitude;
   }
   idx=header.find("year=");
   auto yr=std::stoi(header.substr(idx+5,4));
   if (std::regex_search(header,std::regex("days="))) {
     idx=header.find("month=");
     auto mo=std::stoi(header.substr(idx+6,2));
-    reference_date_time_.set(yr,mo,rec_num,0);
-    valid_date_time_=reference_date_time_.days_added(1);
+    m_reference_date_time.set(yr,mo,rec_num,0);
+    m_valid_date_time=m_reference_date_time.days_added(1);
   }
   else {
-    reference_date_time_.set(yr,rec_num,1,0);
-    valid_date_time_=reference_date_time_.months_added(1);
+    m_reference_date_time.set(yr,rec_num,1,0);
+    m_valid_date_time=m_reference_date_time.months_added(1);
   }
   idx=header.find("variable=");
   param_name=header.substr(idx+9,header.substr(idx+9).find(" technique="));
@@ -188,25 +188,25 @@ void GPCPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   };
   idum=new int[dim.size];
   if (x_capacity < dim.x || y_capacity < dim.y) {
-    if (gridpoints_ != nullptr) {
+    if (m_gridpoints != nullptr) {
 	for (int n=0; n < y_capacity; ++n) {
-	  delete[] gridpoints_[n];
+	  delete[] m_gridpoints[n];
 	}
-	delete[] gridpoints_;
+	delete[] m_gridpoints;
     }
     x_capacity=dim.x;
     y_capacity=dim.y;
-    gridpoints_=new double *[y_capacity];
+    m_gridpoints=new double *[y_capacity];
     for (int n=0; n < y_capacity; ++n) {
-	gridpoints_[n]=new double[x_capacity];
+	m_gridpoints[n]=new double[x_capacity];
     }
   }
   bits::get(stream_buffer,&idum[0],hdr_size*8,32,0,dim.size);
   size_t cnt=0;
   for (int n=0; n < dim.y; ++n) {
     for (int m=0; m < dim.x; ++m) {
-	gridpoints_[n][m]=fdum[cnt++];
-	if (is_empty && !floatutils::myequalf(gridpoints_[n][m],-99999.)) {
+	m_gridpoints[n][m]=fdum[cnt++];
+	if (is_empty && !floatutils::myequalf(m_gridpoints[n][m],-99999.)) {
 	  is_empty=false;
 	}
     }

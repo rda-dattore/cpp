@@ -20,8 +20,8 @@ int InputDiamondSLPGridStream::read(unsigned char *buffer,size_t buffer_length)
   }
 
 // read a grid from the stream
-  if (icosstream != nullptr) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
+  if (ics != nullptr) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0) {
 	return bytes_read;
     }
   }
@@ -67,31 +67,31 @@ DiamondSLPGrid& DiamondSLPGrid::operator=(const DiamondSLPGrid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
   dim=source.dim;
   def=source.def;
   grid=source.grid;
-  stats.min_val=Grid::missing_value;
-  stats.max_val=-Grid::missing_value;
+  stats.min_val=Grid::MISSING_VALUE;
+  stats.max_val=-Grid::MISSING_VALUE;
   stats.avg_val=0.;
   if (source.grid.filled) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=source.gridpoints_[n][m];
-	  if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	  m_gridpoints[n][m]=source.m_gridpoints[n][m];
+	  if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++cnt;
 	  }
 	}
@@ -109,11 +109,11 @@ size_t DiamondSLPGrid::copy_to_buffer(unsigned char *output_buffer,const size_t 
     return 0;
   }
   bits::set(output_buffer,grid.grid_type,0,6);
-  bits::set(output_buffer,reference_date_time_.year(),6,11);
-  bits::set(output_buffer,reference_date_time_.month(),17,4);
-  bits::set(output_buffer,reference_date_time_.day(),21,5);
-  auto hr=reference_date_time_.time()/10000;
-  if ( (reference_date_time_.time() % 10000) >= 3000) {
+  bits::set(output_buffer,m_reference_date_time.year(),6,11);
+  bits::set(output_buffer,m_reference_date_time.month(),17,4);
+  bits::set(output_buffer,m_reference_date_time.day(),21,5);
+  auto hr=m_reference_date_time.time()/10000;
+  if ( (m_reference_date_time.time() % 10000) >= 3000) {
     ++hr;
   }
   bits::set(output_buffer,hr,26,5);
@@ -122,7 +122,7 @@ size_t DiamondSLPGrid::copy_to_buffer(unsigned char *output_buffer,const size_t 
   bits::set(output_buffer,grid.param,41,9);
   bits::set(output_buffer,grid.src,50,6);
   bits::set(output_buffer,1,56,4);
-  if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+  if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
     bits::set(output_buffer,static_cast<int>(grid.pole*10.),60,15);
   }
   else {
@@ -133,8 +133,8 @@ size_t DiamondSLPGrid::copy_to_buffer(unsigned char *output_buffer,const size_t 
   auto cnt=0;
   for (short n=0; n < dim.y; ++n) {
     for (short m=0; m < dim.x; ++m) {
-	if (gridpoints_[n][m] > 0.) {
-	  packed[cnt]=lround(gridpoints_[n][m]*10.);
+	if (m_gridpoints[n][m] > 0.) {
+	  packed[cnt]=lround(m_gridpoints[n][m]*10.);
 	}
 	else {
 	  packed[cnt]=0;
@@ -169,7 +169,7 @@ void DiamondSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_on
   bits::get(stream_buffer,mo,17,4);
   bits::get(stream_buffer,dy,21,5);
   bits::get(stream_buffer,time,26,5);
-  reference_date_time_.set(yr,mo,dy,time*10000);
+  m_reference_date_time.set(yr,mo,dy,time*10000);
   size_t level1;
   bits::get(stream_buffer,level1,31,10);
   grid.level1=level1;
@@ -181,7 +181,7 @@ void DiamondSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_on
     grid.pole=ipole;
   }
   else {
-    grid.pole=Grid::missing_value;
+    grid.pole=Grid::MISSING_VALUE;
   }
   bits::get(stream_buffer,grid.nmean,75,6);
   if (grid.nmean == 0 && dy == 0) {
@@ -191,16 +191,16 @@ void DiamondSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_on
 // unpack the SLP grid gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (short n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     auto pval=new int[dim.size];
     bits::get(stream_buffer,pval,120,15,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     auto cnt=0,avg_cnt=0;
     for (short n=0; n < dim.y; ++n) {
@@ -209,22 +209,22 @@ void DiamondSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_on
 	    pval[cnt]-=16384;
 	  }
 	  if (pval[cnt] > 0) {
-	    gridpoints_[n][m]=pval[cnt];
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=pval[cnt];
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++avg_cnt;
 	  }
 	  else
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	}
     }
     stats.avg_val/=static_cast<float>(avg_cnt);
@@ -237,27 +237,27 @@ void DiamondSLPGrid::operator+=(const DiamondSLPGrid& source)
 {
   int n,m;
 
-  if (gridpoints_ == nullptr) {
+  if (m_gridpoints == nullptr) {
     *this=source;
-    reference_date_time_.set_day(0);
+    m_reference_date_time.set_day(0);
     grid.nmean=1;
   }
   else {
-    if (reference_date_time_.time() != 310000) {
-	if (reference_date_time_.time() != source.reference_date_time_.time()) {
-	  reference_date_time_.set_time(310000);
+    if (m_reference_date_time.time() != 310000) {
+	if (m_reference_date_time.time() != source.m_reference_date_time.time()) {
+	  m_reference_date_time.set_time(310000);
 	}
     }
-    if (floatutils::myequalf(grid.pole,Grid::missing_value) || floatutils::myequalf(source.grid.pole,Grid::missing_value)) {
+    if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE) || floatutils::myequalf(source.grid.pole,Grid::MISSING_VALUE)) {
 	std::cerr << "Warning: pole value contains missing data" << std::endl;
     }
     grid.pole+=source.grid.pole;
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) || floatutils::myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
-	    std::cerr << "Warning: gridpoint at " << n+1 << "," << m+1 << "contains " << "missing data - Grid: " << source.reference_date_time_.to_string() << std::endl;
+	  if (floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE) || floatutils::myequalf(source.m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+	    std::cerr << "Warning: gridpoint at " << n+1 << "," << m+1 << "contains " << "missing data - Grid: " << source.m_reference_date_time.to_string() << std::endl;
 	  }
-	  gridpoints_[n][m]+=source.gridpoints_[n][m];
+	  m_gridpoints[n][m]+=source.m_gridpoints[n][m];
 	}
     }
     ++grid.nmean;
@@ -277,7 +277,7 @@ DiamondSLPGrid& DiamondSLPGrid::operator=(const GRIBGrid& source)
     return *this;
   }
   grid.grid_type=10;
-  reference_date_time_=source.reference_date_time();
+  m_reference_date_time=source.reference_date_time();
   grid.level1=1013.;
   grid.param=6;
   grid.src=28;
@@ -293,21 +293,21 @@ DiamondSLPGrid& DiamondSLPGrid::operator=(const GRIBGrid& source)
   else {
     grid.nmean=0;
   }
-  if (gridpoints_ == nullptr) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == nullptr) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; ++n) {
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     }
   }
 // SLP grid goes from 15N to 85N
   for (n=6,j=0; n < 36; n+=2,++j) {
 // SLP grid goes from 0E to 355E
     for (m=0,i=0; m < 144; m+=2,++i) {
-	if (floatutils::myequalf(source.gridpoint(m,n),Grid::missing_value)) {
-	  gridpoints_[j][i]=0.;
+	if (floatutils::myequalf(source.gridpoint(m,n),Grid::MISSING_VALUE)) {
+	  m_gridpoints[j][i]=0.;
 	}
 	else {
-	  gridpoints_[j][i]=source.gridpoint(m,n)*0.01;
+	  m_gridpoints[j][i]=source.gridpoint(m,n)*0.01;
 	}
     }
   }
@@ -337,11 +337,11 @@ void DiamondSLPGrid::print(std::ostream& outs) const
 	for (m=15; m >= 0; m--) {
 	  outs << std::setw(3) << (m*5)+10 << "N |";
 	  for (l=start; l < stop; ++l) {
-	    if (floatutils::myequalf(gridpoints_[m][l],Grid::missing_value)) {
+	    if (floatutils::myequalf(m_gridpoints[m][l],Grid::MISSING_VALUE)) {
 		outs << "        ";
 	    }
 	    else {
-		outs << std::setw(8) << gridpoints_[m][l];
+		outs << std::setw(8) << m_gridpoints[m][l];
 	    }
 	  }
 	  outs << std::endl;
@@ -434,7 +434,7 @@ void DiamondSLPGrid::print(std::ostream& outs,float bottom_latitude,float top_la
 	  outs << std::setw(3) << (m*5)+15 << "N |";
 	  if (m == 15) {
 	    for (l=start; l <= stop; l+=nn) {
-		if (floatutils::myequalf(grid.pole,Grid::missing_value)) {
+		if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 		  outs << "        ";
 		}
 		else {
@@ -447,11 +447,11 @@ void DiamondSLPGrid::print(std::ostream& outs,float bottom_latitude,float top_la
 		if (ll >= 72) {
 		  ll-=72;
 		}
-		if (floatutils::myequalf(gridpoints_[m][ll],Grid::missing_value)) {
+		if (floatutils::myequalf(m_gridpoints[m][ll],Grid::MISSING_VALUE)) {
 		  outs << "        ";
 		}
 		else {
-		  outs << std::setw(8) << gridpoints_[m][ll];
+		  outs << std::setw(8) << m_gridpoints[m][ll];
 		}
 	    }
 	  }
@@ -472,15 +472,15 @@ void DiamondSLPGrid::v_print_header(std::ostream& outs,bool verbose,std::string 
   outs.precision(1);
 
   if (verbose) {
-    if (reference_date_time_.day() > 0) {
-	outs << " DAILY GRID -- Date: " << reference_date_time_.to_string() << std::endl;
+    if (m_reference_date_time.day() > 0) {
+	outs << " DAILY GRID -- Date: " << m_reference_date_time.to_string() << std::endl;
 	outs << "   Format: NCAR Diamond Sea-Level Pressure  Level: " << std::setw(4) << grid.level1 << "mb  Parameter: Sea-Level Pressure  Source: " << std::setw(2) << grid.src << "  Pole: ";
     }
     else {
-	outs << " MONTHLY GRID -- Date: " << reference_date_time_.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
+	outs << " MONTHLY GRID -- Date: " << m_reference_date_time.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
 	outs << "   Format: NCAR Sea-Level Pressure  Level: " << std::setw(4) << grid.level1 << "mb  Parameter: Sea-Level Pressure  Source: " << std::setw(2) << grid.src << "  Pole: ";
     }
-    if (floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "    N/A" << std::endl;
     }
     else {
@@ -488,8 +488,8 @@ void DiamondSLPGrid::v_print_header(std::ostream& outs,bool verbose,std::string 
     }
   }
   else {
-    outs << " Type=" << grid.grid_type << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param << " Level=" << grid.level1 << " Pole=";
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    outs << " Type=" << grid.grid_type << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param << " Level=" << grid.level1 << " Pole=";
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << grid.pole;
     }
     else {
