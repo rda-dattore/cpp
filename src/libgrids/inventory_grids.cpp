@@ -18,8 +18,7 @@ struct QueueEntry {
   size_t key[NUM_KEYS];
 };
 
-int inventory_grids(std::string input_filename,size_t format)
-{
+int inventory_grids(std::string input_filename,Grid::Format format) {
   idstream *grid_stream;
   Grid *source_grid;
   size_t num_grids=0;
@@ -37,58 +36,50 @@ int inventory_grids(std::string input_filename,size_t format)
   unsigned char buffer[MAX_LEN];
 
   switch (format) {
-    case Grid::gribFormat:
-    {
+    case Grid::Format::grib: {
 	grid_stream=new InputGRIBStream;
 	source_grid=new GRIBGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF GRIB GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    case Grid::octagonalFormat:
-    {
+    case Grid::Format::octagonal: {
 	grid_stream=new InputOctagonalGridStream;
 	source_grid=new OctagonalGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF DSS OCTAGONAL GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    case Grid::tropicalFormat:
-    {
+    case Grid::Format::tropical: {
 	grid_stream=new InputTropicalGridStream;
 	source_grid=new TropicalGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF DSS TROPICAL GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    case Grid::latlonFormat:
-    {
+    case Grid::Format::latlon: {
 	grid_stream=new InputLatLonGridStream;
 	source_grid=new LatLonGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF DSS 5-DEGREE LAT/LON GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    case Grid::navyFormat:
-    {
+    case Grid::Format::navy: {
 	grid_stream=new InputNavyGridStream;
 	source_grid=new NavyGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF DSS NAVY GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    case Grid::slpFormat:
-    {
+    case Grid::Format::slp: {
 	grid_stream=new InputSLPGridStream;
 	source_grid=new SLPGrid;
 // print a header for the inventory
 	std::cout << " INVENTORY OF DSS SEA-LEVEL PRESSURE GRID FILE " << input_filename << std::endl << std::endl;
 	break;
     }
-    default:
-    {
-	std::cerr << "Error: unable to create inventory for format " << format <<
-        std::endl;
+    default: {
+	std::cerr << "Error: unable to create inventory for format " << static_cast<int>(format) << std::endl;
 	return 1;
     }
   }
@@ -104,7 +95,7 @@ int inventory_grids(std::string input_filename,size_t format)
   while (1) {
 // get grid headers
     if ( (bytes_read=grid_stream->read(buffer,MAX_LEN)) > 0)
-	source_grid->fill(buffer,Grid::header_only);
+	source_grid->fill(buffer, Grid::HEADER_ONLY);
 
     if (bytes_read == bfstream::error) {
 	std::cerr << "Error reading grid " << grid_stream->number_read() << std::endl;
@@ -131,42 +122,38 @@ int inventory_grids(std::string input_filename,size_t format)
 	if (source_grid->is_averaged_grid()) {
 	  std::cout << " +-----------+" << std::endl;
 	  switch (format) {
-	    case Grid::octagonalFormat:
-	    case Grid::tropicalFormat:
-	    case Grid::latlonFormat:
-	    case Grid::navyFormat:
-	    {
+	    case Grid::Format::octagonal:
+	    case Grid::Format::tropical:
+	    case Grid::Format::latlon:
+	    case Grid::Format::navy: {
 		std::cout << " | Year " << std::setw(4) << last_year << " |" << std::endl;
 		break;
 	    }
-	    default:
-	    {
+	    default: {
 		std::cout << " | Year " << std::setw(4) << last_year << " |" << std::endl;
 	    }
 	  }
 	  std::cout << " +-----------+" << std::endl;
 	  switch (format) {
-	    case Grid::gribFormat:
-	    {
+	    case Grid::Format::grib: {
 		std::cout << " Grid  Reference  Fcst  Level                 Param  Source   Time   ------------------------ MONTHS OF THE YEAR -------------------------" << std::endl;
 		std::cout << " Type     Time     Hr    Type  Level1 Level2   Code   Code   Range   JAN   FEB   MAR   APR   MAY   JUN   JUL   AUG   SEP   OCT   NOV   DEC" << std::endl;
 		break;
 	    }
-	    case Grid::octagonalFormat:
-	    case Grid::tropicalFormat:
-	    case Grid::latlonFormat:
-	    case Grid::navyFormat:
-	    {
+	    case Grid::Format::octagonal:
+	    case Grid::Format::tropical:
+	    case Grid::Format::latlon:
+	    case Grid::Format::navy: {
 		std::cout << " Grid  Analysis  Fcst     Levels     Param  Source  ------------------------ MONTHS OF THE YEAR -------------------------" << std::endl;
 		std::cout << " Type    Time     Hr     Top Bottom   Code   Code   JAN   FEB   MAR   APR   MAY   JUN   JUL   AUG   SEP   OCT   NOV   DEC" << std::endl;
 		break;
 	    }
-	    case Grid::slpFormat:
-	    {
+	    case Grid::Format::slp: {
 		std::cout << " Grid  Analysis  Fcst         Param  Source  ------------------------ MONTHS OF THE YEAR -------------------------" << std::endl;
 		std::cout << " Type    Time     Hr   Level   Code   Code   JAN   FEB   MAR   APR   MAY   JUN   JUL   AUG   SEP   OCT   NOV   DEC" << std::endl;
 		break;
 	    }
+	    default: { }
 	  }
 	}
 	else {
@@ -175,27 +162,25 @@ int inventory_grids(std::string input_filename,size_t format)
 	  std::cout << " +---------------------+" << std::endl;
 
 	  switch (format) {
-	    case Grid::gribFormat:
-	    {
+	    case Grid::Format::grib: {
 		std::cout << " Grid  Reference  Fcst  Level                 Param   Time   ------------------------------------ DAYS OF THE MONTH ------------------------------------" << std::endl;
 		std::cout << " Type     Time     Hr    Type  Level1 Level2   Code  Range   1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31" << std::endl;
 		break;
 	    }
-	    case Grid::octagonalFormat:
-	    case Grid::tropicalFormat:
-	    case Grid::latlonFormat:
-	    case Grid::navyFormat:
-	    {
+	    case Grid::Format::octagonal:
+	    case Grid::Format::tropical:
+	    case Grid::Format::latlon:
+	    case Grid::Format::navy: {
 		std::cout << " Grid  Analysis  Fcst     Levels     Param   ----------------------------------- DAYS OF THE MONTH -------------------------------------" << std::endl;
 		std::cout << " Type    Time     Hr     Top Bottom   Code   1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31" << std::endl;
 		break;
 	    }
-	    case Grid::slpFormat:
-	    {
+	    case Grid::Format::slp: {
 		std::cout << " Grid  Analysis  Fcst         Param   ------------------------------------ DAYS OF THE MONTH ------------------------------------" << std::endl;
 		std::cout << " Type    Time     Hr   Level   Code   1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31" << std::endl;
 		break;
 	    }
+	    default: { }
 	  }
 	}
 // de-queue the search keys and print out their corresponding inventory lines
@@ -218,8 +203,7 @@ int inventory_grids(std::string input_filename,size_t format)
 	    return 1;
 	  }
 	  switch (format) {
-	    case Grid::gribFormat:
-	    {
+	    case Grid::Format::grib: {
 		std::cout << std::setw(5) << inv_line.grid_type << "     " << std::setfill('0') << std::setw(4) << inv_line.time << std::setfill(' ') << "    " << std::setw(3) << inv_line.fcst_hr << "    " << std::setw(4) << inv_line.level_type << "  " << std::setw(6) << inv_line.level1 << " " << std::setw(6) << inv_line.level2 << "   " << std::setw(4) << inv_line.param;
 		if (source_grid->is_averaged_grid()) {
 		  std::cout << "  " << std::setw(5) << inv_line.source;
@@ -227,25 +211,24 @@ int inventory_grids(std::string input_filename,size_t format)
 		std::cout << "  " << std::setw(5) << inv_line.t_range;
 		break;
 	    }
-	    case Grid::octagonalFormat:
-	    case Grid::tropicalFormat:
-	    case Grid::latlonFormat:
-	    case Grid::navyFormat:
-	    {
+	    case Grid::Format::octagonal:
+	    case Grid::Format::tropical:
+	    case Grid::Format::latlon:
+	    case Grid::Format::navy: {
 		std::cout << std::setw(5) << inv_line.grid_type << "     " << std::setfill('0') << std::setw(2) << inv_line.time*0.01 << std::setfill(' ') << "Z     " << std::setw(2) << inv_line.fcst_hr << "  " << std::setw(6) << inv_line.level1 << " " << std::setw(6) << inv_line.level2 << "   " << std::setw(4) << inv_line.param;
 		if (source_grid->is_averaged_grid()) {
 		  std::cout << "   " << std::setw(4) << inv_line.source;
 		}
 		break;
 	    }
-	    case Grid::slpFormat:
-	    {
+	    case Grid::Format::slp: {
 		std::cout << std::setw(5) << inv_line.grid_type << "     " << std::setfill('0') << std::setw(2) << inv_line.time*0.01 << std::setfill(' ') << "Z     " << std::setw(2) << inv_line.fcst_hr << "  " << std::setw(6) << inv_line.level1 << "   " << std::setw(4) << inv_line.param;
 		if (source_grid->is_averaged_grid()) {
 		  std::cout << "   " << std::setw(4) << inv_line.source;
 		}
 		break;
 	    }
+	    default: { }
 	  }
 	  if (source_grid->is_averaged_grid()) {
 	    for (size_t n=1; n < 13; ++n) {
@@ -296,7 +279,7 @@ int inventory_grids(std::string input_filename,size_t format)
 	bits::set(search_keys,source_grid->source(),52,8);
     }
     num_keys=2;
-    if (format == Grid::gribFormat) {
+    if (format == Grid::Format::grib) {
 	bits::set(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->first_level_type(),60,8);
 	bits::set(search_keys,(reinterpret_cast<GRIBGrid *>(source_grid))->time_range(),68,8);
 	num_keys=3;
@@ -322,7 +305,7 @@ int inventory_grids(std::string input_filename,size_t format)
 	inv_line.grid_type=source_grid->type();
 	inv_line.time=source_grid->reference_date_time().time()/100;
 	inv_line.fcst_hr=source_grid->forecast_time()/10000;
-	if (format == Grid::gribFormat) {
+	if (format == Grid::Format::grib) {
 	  inv_line.level_type=(reinterpret_cast<GRIBGrid *>(source_grid))->first_level_type();
 	  inv_line.t_range=(reinterpret_cast<GRIBGrid *>(source_grid))->time_range();
 	}
@@ -347,7 +330,7 @@ int inventory_grids(std::string input_filename,size_t format)
   std::cout << "\n\n SUMMARY:" << std::endl;
   std::cout << "   Grids read from input file: " << std::setw(8) << num_grids << std::endl;
   std::cout << "   File size (bytes):         " << std::setw(9) << file_size << std::endl;
-  if (format == Grid::gribFormat) {
+  if (format == Grid::Format::grib) {
     delete reinterpret_cast<GRIBGrid *>(source_grid);
   }
   return 0;
