@@ -3,7 +3,7 @@
 
 namespace gridConversions {
 
-int convert_grid_to_oct(const Grid *source_grid,size_t format,odstream *ostream,size_t grid_number)
+int convert_grid_to_oct(const Grid *source_grid, Grid::Format format,odstream *ostream,size_t grid_number)
 {
   static LatLonGrid ucomp;
   OctagonalGrid oct_grid;
@@ -12,42 +12,39 @@ int convert_grid_to_oct(const Grid *source_grid,size_t format,odstream *ostream,
   unsigned char output_buffer[BUF_LEN];
 
   switch (format) {
-    case Grid::octagonalFormat:
-    {
+    case Grid::Format::octagonal: {
 	oct_grid=*(reinterpret_cast<OctagonalGrid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
-    case Grid::latlonFormat:
-    {
+    case Grid::Format::latlon: {
 	if (source_grid->parameter() != 30 && source_grid->parameter() != 31) {
 	  oct_grid=*(reinterpret_cast<LatLonGrid *>(const_cast<Grid *>(source_grid)));
 	}
 	break;
     }
-    case Grid::slpFormat:
-    {
+    case Grid::Format::slp: {
 std::cerr << "Error: unable to convert Sea-Level Pressure grids to Octagonal format"
   << std::endl;
 return -1;
     }
-    case Grid::gribFormat:
-    {
+    case Grid::Format::grib: {
 std::cerr << "Error: unable to convert GRIB grids to Octagonal format" << std::endl;
 return -1;
     }
-    case Grid::cgcm1Format:
-    {
+    case Grid::Format::cgcm1: {
 std::cerr << "Error: unable to convert CGCM1 grids to Octagonal format" << std::endl;
 return -1;
     }
-    case Grid::navyFormat:
-    {
+    case Grid::Format::navy: {
 	oct_grid=*(reinterpret_cast<NavyGrid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
+    default: {
+	return -1;
+    }
   }
 
-  if (format != Grid::latlonFormat || (format == Grid::latlonFormat && source_grid->parameter() != 30 && source_grid->parameter() != 31)) {
+  if (format != Grid::Format::latlon || (format == Grid::Format::latlon && source_grid->parameter() != 30 && source_grid->parameter() != 31)) {
     num_bytes=oct_grid.copy_to_buffer(output_buffer,BUF_LEN);
     if (num_bytes > 0) {
 	if (ostream->write(output_buffer,num_bytes) != num_bytes) {

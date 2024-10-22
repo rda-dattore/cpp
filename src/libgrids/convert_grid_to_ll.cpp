@@ -3,48 +3,45 @@
 
 namespace gridConversions {
 
-int convert_grid_to_ll(const Grid *source_grid,size_t format,odstream *ostream,size_t grid_number,float resolution)
+int convert_grid_to_ll(const Grid *source_grid, Grid::Format format,odstream *ostream,size_t grid_number,float resolution)
 {
   static LatLonGrid ucomp(resolution);
   LatLonGrid ll_grid(resolution);
   switch (format) {
-    case Grid::gribFormat:
-    {
+    case Grid::Format::grib: {
 	ll_grid=*(reinterpret_cast<GRIBGrid *>(const_cast<Grid *>(source_grid)));
       break;
     }
-    case Grid::octagonalFormat:
-    {
+    case Grid::Format::octagonal: {
 	ll_grid=*(reinterpret_cast<OctagonalGrid *>(const_cast<Grid *>(source_grid)));
       break;
     }
-    case Grid::latlonFormat:
-    {
+    case Grid::Format::latlon: {
 	ll_grid=*(reinterpret_cast<LatLonGrid *>(const_cast<Grid *>(source_grid)));
       break;
     }
-    case Grid::slpFormat:
-    {
+    case Grid::Format::slp: {
 std::cerr << "Error: unable to convert Sea-Level Pressure grids to LatLon format" <<
   std::endl;
 return -1;
     }
-    case Grid::on84Format:
-    {
+    case Grid::Format::on84: {
 	ll_grid=*(reinterpret_cast<ON84Grid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
-    case Grid::cgcm1Format:
-    {
+    case Grid::Format::cgcm1: {
 std::cerr << "Error: unable to convert CGCM1 grids to LatLon format" << std::endl;
 return -1;
+    }
+    default: {
+	return -1;
     }
   }
   static std::unique_ptr<unsigned char []> output_buffer;
   const size_t BUF_LEN=15000;
   output_buffer.reset(new unsigned char[BUF_LEN]);
   auto num_bytes=0;
-  if (format != Grid::octagonalFormat || (format == Grid::octagonalFormat && ll_grid.parameter() != 30 && ll_grid.parameter() != 31)) {
+  if (format != Grid::Format::octagonal || (format == Grid::Format::octagonal && ll_grid.parameter() != 30 && ll_grid.parameter() != 31)) {
     num_bytes=ll_grid.copy_to_buffer(output_buffer.get(),BUF_LEN);
     if (num_bytes > 0) {
 	if (ostream->write(output_buffer.get(),num_bytes) != num_bytes) {

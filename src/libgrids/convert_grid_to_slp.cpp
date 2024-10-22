@@ -3,44 +3,40 @@
 
 namespace gridConversions {
 
-int convert_grid_to_slp(const Grid *source_grid,size_t format,odstream *ostream,size_t grid_number)
+int convert_grid_to_slp(const Grid *source_grid, Grid::Format format,odstream *ostream,size_t grid_number)
 {
   SLPGrid slp_grid;
   switch (format) {
-    case Grid::cgcm1Format:
-    {
+    case Grid::Format::cgcm1: {
 std::cerr << "Error: unable to convert CGCM1 grids to SLP format" << std::endl;
 return -1;
     }
-    case Grid::gribFormat:
-    {
+    case Grid::Format::grib: {
 	slp_grid=*(reinterpret_cast<GRIBGrid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
-    case Grid::grib2Format:
-    {
+    case Grid::Format::grib2: {
 	slp_grid=*(reinterpret_cast<GRIB2Grid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
-    case Grid::latlonFormat:
-    {
+    case Grid::Format::latlon: {
 std::cerr << "Error: unable to convert Latitude/Longitude grids to SLP format" << std::endl;
 return -1;
     }
-    case Grid::octagonalFormat:
-    {
+    case Grid::Format::octagonal: {
 std::cerr << "Error: unable to convert Octagonal grids to SLP format" << std::endl;
 return -1;
     }
-    case Grid::slpFormat:
-    {
+    case Grid::Format::slp: {
 	slp_grid=*(reinterpret_cast<SLPGrid *>(const_cast<Grid *>(source_grid)));
 	break;
     }
-    case Grid::ukslpFormat:
-    {
+    case Grid::Format::ukslp: {
 	slp_grid=*(reinterpret_cast<UKSLPGrid *>(const_cast<Grid *>(source_grid)));
 	break;
+    }
+    default: {
+	return -1;
     }
   }
   static std::unique_ptr<unsigned char []> output_buffer;
