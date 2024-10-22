@@ -14,10 +14,10 @@ int InputUSSRSLPGridStream::read(unsigned char *buffer,size_t buffer_length)
     std::cerr << "Error: buffer overflow" << std::endl;
     exit(1);
   }
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
     if (ptr_to_lrec == 2316) {
 	int status;
-	while ( (status=icosstream->read(block,2316)) == craystream::eof);
+	while ( (status=ics->read(block,2316)) == craystream::eof);
 	if (status == craystream::eod) {
 	  return bfstream::eof;
 	}
@@ -47,7 +47,7 @@ USSRSLPGrid::USSRSLPGrid()
   dim.x=36;
   dim.y=16;
   dim.size=576;
-  def.type=Grid::latitudeLongitudeType;
+  def.type=Grid::Type::latitudeLongitude;
   def.slatitude=90.;
   def.elatitude=15.;
   def.laincrement=5.;
@@ -77,54 +77,54 @@ void USSRSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   bits::get(stream_buffer,mo,16,16);
   bits::get(stream_buffer,dy,32,16);
   if (yr < 1973) {
-    reference_date_time_.set(yr,mo,dy,120000);
+    m_reference_date_time.set(yr,mo,dy,120000);
   }
   else {
-    reference_date_time_.set(yr,mo,dy,0);
+    m_reference_date_time.set(yr,mo,dy,0);
   }
   grid.filled=false;
-  valid_date_time_=reference_date_time_;
+  m_valid_date_time=m_reference_date_time;
 // unpack the gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     pval=new int[dim.size];
     bits::get(stream_buffer,pval,48,16,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     for (n=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++,cnt++) {
 	  if (pval[cnt] > 0x7fff)
 	    pval[cnt]-=0x10000;
 	  if (pval[cnt] != 0x7fff) {
-	    gridpoints_[n][m]=(pval[cnt]+10000)*0.1;
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=(pval[cnt]+10000)*0.1;
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    avg_cnt++;
 	  }
 	  else
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	}
     }
 
     if (avg_cnt > 0)
 	stats.avg_val/=static_cast<float>(avg_cnt);
     else {
-	stats.avg_val=Grid::missing_value;
+	stats.avg_val=Grid::MISSING_VALUE;
 	stats.max_val=-stats.max_val;
     }
     grid.filled=true;
@@ -151,11 +151,11 @@ void USSRSLPGrid::print(std::ostream& outs) const
       for (m=0; m < 15; m++) {
         outs << std::setw(3) << 90-(m*5) << "N |";
         for (l=start; l < stop; l++) {
-          if (floatutils::myequalf(gridpoints_[m][l],Grid::missing_value)) {
+          if (floatutils::myequalf(m_gridpoints[m][l],Grid::MISSING_VALUE)) {
             outs << "        ";
 	  }
           else {
-            outs << std::setw(8) << gridpoints_[m][l];
+            outs << std::setw(8) << m_gridpoints[m][l];
 	  }
         }
         outs << std::endl;
@@ -176,9 +176,9 @@ void USSRSLPGrid::print_ascii(std::ostream& outs) const
 void USSRSLPGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
 {
   if (verbose) {
-    outs << " Date: " << reference_date_time_.to_string() << std::endl;
+    outs << " Date: " << m_reference_date_time.to_string() << std::endl;
   }
   else {
-    outs << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << std::endl;
+    outs << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << std::endl;
   }
 }

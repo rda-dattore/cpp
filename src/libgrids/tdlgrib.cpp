@@ -16,12 +16,12 @@ int InputTDLGRIBGridStream::read(unsigned char *buffer,size_t buffer_length)
   size_t reclen,bytes_read;
 
 // read a grid from the stream
-  if (icosstream != NULL) {
+  if (ics != NULL) {
 std::cerr << "Error: unable to read cos-blocked TDLGRIBGridStream" << std::endl;
 exit(1);
   }
-  else if (if77_stream != NULL) {
-    if ( (bytes_read=if77_stream->read(buffer,buffer_length)) <= 0)
+  else if (if77s != NULL) {
+    if ( (bytes_read=if77s->read(buffer,buffer_length)) <= 0)
 	return bytes_read;
     if (bytes_read == buffer_length) {
 	std::cerr << "Error: buffer overflow" << std::endl;
@@ -73,8 +73,8 @@ void TDLGRIBMessage::unpack_is(const unsigned char *stream_buffer)
     exit(1);
   }
   bits::get(stream_buffer,mlength,96,24);
-  bits::get(stream_buffer,edition_,120,8);
-  lengths_.is=8;
+  bits::get(stream_buffer,m_edition,120,8);
+  m_lengths.is=8;
   curr_off=16;
 }
 
@@ -87,19 +87,19 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   TDLGRIBGrid *t;
 
   t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
-  bits::get(stream_buffer,lengths_.pds,off,8);
+  bits::get(stream_buffer,m_lengths.pds,off,8);
   bits::get(stream_buffer,flag,off+8,8);
   if ( (flag & 0x2) == 0x2)
     bms_included=true;
   else {
     bms_included=false;
-    lengths_.bms=0;
+    m_lengths.bms=0;
   }
   if ( (flag & 0x1) == 0x1)
     gds_included=true;
   else {
     gds_included=false;
-    lengths_.gds=0;
+    m_lengths.gds=0;
   }
   bits::get(stream_buffer,mins,off+56,8);
   bits::get(stream_buffer,dum,off+64,32);
@@ -111,7 +111,7 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   mo=dum % 100;
   dum/=100;
   yr=dum;
-  t->reference_date_time_.set(yr,mo,dy,time*100);
+  t->m_reference_date_time.set(yr,mo,dy,time*100);
   t->grid.nmean=0;
   bits::get(stream_buffer,dum,off+96,32);
   t->grib.process=dum % 100;
@@ -148,7 +148,7 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
 	std::cerr << "Error: unable to process O = " << t->tdl.O << std::endl;
 	exit(1);
   }
-  t->valid_date_time_=t->reference_date_time_.time_added(t->grid.fcst_time);
+  t->m_valid_date_time=t->m_reference_date_time.time_added(t->grid.fcst_time);
   bits::get(stream_buffer,t->tdl.seq,off+256,8);
   bits::get(stream_buffer,t->grib.D,off+264,8);
   if (t->grib.D > 0x80)
@@ -157,18 +157,18 @@ void TDLGRIBMessage::unpack_pds(const unsigned char *stream_buffer)
   if (t->tdl.E > 0x80)
     t->tdl.E=0x80-t->tdl.E;
 // unpack PDS supplement, if it exists
-  bits::get(stream_buffer,lengths_.pds_supp,off+304,8);
-  if (lengths_.pds_supp > 0) {
-    pds_supp.reset(new unsigned char[lengths_.pds_supp]);
+  bits::get(stream_buffer,m_lengths.pds_supp,off+304,8);
+  if (m_lengths.pds_supp > 0) {
+    pds_supp.reset(new unsigned char[m_lengths.pds_supp]);
     soff=38;
-    std::copy(&stream_buffer[curr_off+soff],&stream_buffer[curr_off+soff]+lengths_.pds_supp,pds_supp.get());
+    std::copy(&stream_buffer[curr_off+soff],&stream_buffer[curr_off+soff]+m_lengths.pds_supp,pds_supp.get());
   }
   else {
     pds_supp.reset(nullptr);
   }
 // copy the 39 PDS bytes into a special location for use when converting to GRIB
   std::copy(&stream_buffer[curr_off],&stream_buffer[curr_off]+39,t->tdl.pds39_a);
-  curr_off+=lengths_.pds;
+  curr_off+=m_lengths.pds;
 }
 
 void TDLGRIBMessage::unpack_gds(const unsigned char *stream_buffer)
@@ -178,12 +178,12 @@ void TDLGRIBMessage::unpack_gds(const unsigned char *stream_buffer)
   TDLGRIBGrid *t;
 
   t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
-  bits::get(stream_buffer,lengths_.gds,off,8);
+  bits::get(stream_buffer,m_lengths.gds,off,8);
   bits::get(stream_buffer,t->grid.grid_type,off+8,8);
   switch (t->grid.grid_type) {
 // N. Hemisphere Polar Stereographic
     case 5:
-	t->def.type=Grid::polarStereographicType;
+	t->def.type=Grid::Type::polarStereographic;
 	t->def.projection_flag=0;
 	bits::get(stream_buffer,t->dim.x,off+16,16);
 	bits::get(stream_buffer,t->dim.y,off+32,16);
@@ -215,7 +215,7 @@ void TDLGRIBMessage::unpack_gds(const unsigned char *stream_buffer)
 	std::cerr << "Error: unknown grid type " << t->grid.grid_type << std::endl;
 	exit(1);
   }
-  curr_off+=lengths_.gds;
+  curr_off+=m_lengths.gds;
 }
 
 void TDLGRIBMessage::unpack_bms(const unsigned char *input_buffer)
@@ -238,7 +238,7 @@ void TDLGRIBMessage::unpack_bds(const unsigned char *stream_buffer,bool fill_hea
   TDLGRIBGrid *t;
 
   t=reinterpret_cast<TDLGRIBGrid *>(grids.back().get());
-  bits::get(stream_buffer,lengths_.bds,off,24);
+  bits::get(stream_buffer,m_lengths.bds,off,24);
   bits::get(stream_buffer,flag,off+24,8);
   if ((flag & 0x10) != 0) {
     std::cerr << "Error: not gridpoint data" << std::endl;
@@ -322,23 +322,23 @@ exit(1);
 	  delete[] grp_mins;
 	  delete[] grp_bits;
 	  delete[] nvals;
-	  if (t->gridpoints_ != NULL && t->dim.size > t->grib.capacity.points) {
+	  if (t->m_gridpoints != NULL && t->dim.size > t->grib.capacity.points) {
 	    for (n=0; n < t->dim.y; ++n) {
-		delete[] t->gridpoints_[n];
+		delete[] t->m_gridpoints[n];
 	    }
-	    delete[] t->gridpoints_;
-	    t->gridpoints_=NULL;
+	    delete[] t->m_gridpoints;
+	    t->m_gridpoints=NULL;
 	  }
-	  if (t->gridpoints_ == NULL) {
-	    t->gridpoints_=new double *[t->dim.y];
+	  if (t->m_gridpoints == NULL) {
+	    t->m_gridpoints=new double *[t->dim.y];
 	    for (n=0; n < t->dim.y; ++n) {
-		t->gridpoints_[n]=new double[t->dim.x];
+		t->m_gridpoints[n]=new double[t->dim.x];
 	    }
 	    t->grib.capacity.points=t->dim.size;
 	  }
 	  cnt= (second_order) ? 2 : 0;
-	  t->stats.min_val=Grid::missing_value;
-	  t->stats.max_val=-Grid::missing_value;
+	  t->stats.min_val=Grid::MISSING_VALUE;
+	  t->stats.max_val=-Grid::MISSING_VALUE;
 	  t->stats.avg_val=0.;
 	  for (n=0; n < t->dim.y; ++n) {
 	    if ( (n % 2) == 0) {
@@ -353,32 +353,32 @@ exit(1);
 		if (second_order) {
 		  if (n == 0 && l < 2) {
 		    if (l == 0) {
-			t->gridpoints_[n][l]=t->tdl.first_val*e*d;
+			t->m_gridpoints[n][l]=t->tdl.first_val*e*d;
 		    }
 		    else if (l == 1) {
 			sum=t->tdl.first_diff;
-			t->gridpoints_[n][l]=(t->tdl.first_val+sum)*e*d;
+			t->m_gridpoints[n][l]=(t->tdl.first_val+sum)*e*d;
 			t->tdl.first_val+=sum;
 		    }
 		  }
 		  else {
 		    sum+=(omin+pval[cnt++]);
-		    t->gridpoints_[n][m]=(t->tdl.first_val+sum)*e*d;
+		    t->m_gridpoints[n][m]=(t->tdl.first_val+sum)*e*d;
 		    t->tdl.first_val+=sum;
 		  }
 		}
 		else {
-		  t->gridpoints_[n][m]=(omin+pval[cnt++])*e*d;
+		  t->m_gridpoints[n][m]=(omin+pval[cnt++])*e*d;
 		}
-		t->stats.avg_val+=t->gridpoints_[n][m];
+		t->stats.avg_val+=t->m_gridpoints[n][m];
 		++avg_cnt;
-		if (t->gridpoints_[n][m] < t->stats.min_val) {
-		  t->stats.min_val=t->gridpoints_[n][m];
+		if (t->m_gridpoints[n][m] < t->stats.min_val) {
+		  t->stats.min_val=t->m_gridpoints[n][m];
 		  t->stats.min_i=m+1;
 		  t->stats.min_j=n+1;
 		}
-		if (t->gridpoints_[n][m] > t->stats.max_val) {
-		  t->stats.max_val=t->gridpoints_[n][m];
+		if (t->m_gridpoints[n][m] > t->stats.max_val) {
+		  t->stats.max_val=t->m_gridpoints[n][m];
 		  t->stats.max_i=m+1;
 		  t->stats.max_j=n+1;
 		}
@@ -422,10 +422,10 @@ void TDLGRIBMessage::fill(const unsigned char *stream_buffer,bool fill_header_on
 void TDLGRIBMessage::print_header(std::ostream& outs,bool verbose) const
 {
   if (verbose) {
-    outs << " TDLP Ed " << edition_ << "  Lengths: " << mlength << std::endl;
-    if (lengths_.pds_supp > 0) {
+    outs << " TDLP Ed " << m_edition << "  Lengths: " << mlength << std::endl;
+    if (m_lengths.pds_supp > 0) {
         outs << "\n  Supplement to the PDS:";
-        for (int n=0; n < lengths_.pds_supp; ++n) {
+        for (int n=0; n < m_lengths.pds_supp; ++n) {
           if (pds_supp[n] < 32 || pds_supp[n] > 127) {
             outs << " \\" << std::setw(3) << std::setfill('0') << std::oct << static_cast<int>(pds_supp[n]) << std::setfill(' ') << std::dec;
 	  }
@@ -437,7 +437,7 @@ void TDLGRIBMessage::print_header(std::ostream& outs,bool verbose) const
     (reinterpret_cast<TDLGRIBGrid *>(grids.back().get()))->print_header(outs,verbose);
   }
   else {
-    outs << " Ed=" << edition_;
+    outs << " Ed=" << m_edition;
     (reinterpret_cast<TDLGRIBGrid *>(grids.back().get()))->print_header(outs,verbose);
   }
 }
@@ -447,8 +447,8 @@ TDLGRIBGrid& TDLGRIBGrid::operator=(const TDLGRIBGrid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
-  valid_date_time_=source.valid_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
+  m_valid_date_time=source.m_valid_date_time;
   dim=source.dim;
   def=source.def;
   stats=source.stats;
@@ -497,19 +497,19 @@ void TDLGRIBGrid::print(std::ostream& outs) const
 	    for (j=dim.y-1; j >= 0; --j) {
 		outs << std::setw(3) << j+1 << " | ";
 		for (k=i; k < max_i; ++k) {
-		  if (floatutils::myequalf(gridpoints_[j][k],Grid::missing_value)) {
+		  if (floatutils::myequalf(m_gridpoints[j][k],Grid::MISSING_VALUE)) {
 		    outs << "         ";
 		  }
 		  else {
 		    if (scientific) {
 			outs.unsetf(std::ios::fixed);
 			outs.setf(std::ios::scientific);
-			outs << std::setw(9) << gridpoints_[j][k];
+			outs << std::setw(9) << m_gridpoints[j][k];
 			outs.unsetf(std::ios::scientific);
 			outs.setf(std::ios::fixed);
 		    }
 		    else {
-			outs << std::setw(9) << gridpoints_[j][k];
+			outs << std::setw(9) << m_gridpoints[j][k];
 		    }
 		  }
 		}
@@ -545,7 +545,7 @@ void TDLGRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string pat
     scientific=true;
   }
   if (verbose) {
-    outs << "  Model: " << std::setw(3) << grib.process << "  Sequence: " << std::setw(3) << tdl.seq << "  RefTime: " << reference_date_time_.to_string() << "  ValidTime: " << valid_date_time_.to_string() << "  NumAvg: " << std::setw(3) << grid.nmean << "  Param: " << std::setw(6) << tdl.param;
+    outs << "  Model: " << std::setw(3) << grib.process << "  Sequence: " << std::setw(3) << tdl.seq << "  RefTime: " << m_reference_date_time.to_string() << "  ValidTime: " << m_valid_date_time.to_string() << "  NumAvg: " << std::setw(3) << grid.nmean << "  Param: " << std::setw(6) << tdl.param;
     if (floatutils::myequalf(grid.level2,0.)) {
 	outs << "  Level: " << std::setw(4) << grid.level1;
     }
@@ -580,7 +580,7 @@ void TDLGRIBGrid::v_print_header(std::ostream& outs,bool verbose,std::string pat
     outs << std::endl;
   }
   else {
-    outs << " Model=" << grib.process << " Seq=" << tdl.seq << " RefTime=" << reference_date_time_.to_string("%Y%m%d%H%M") << " NAvg=" << grid.nmean << " ValidTime=" << valid_date_time_.to_string("%Y%m%d%H%M") << " Param=" << std::setfill('0') << std::setw(6) << tdl.param << std::setfill(' ');
+    outs << " Model=" << grib.process << " Seq=" << tdl.seq << " RefTime=" << m_reference_date_time.to_string("%Y%m%d%H%M") << " NAvg=" << grid.nmean << " ValidTime=" << m_valid_date_time.to_string("%Y%m%d%H%M") << " Param=" << std::setfill('0') << std::setw(6) << tdl.param << std::setfill(' ');
     if (floatutils::myequalf(grid.level2,0.)) {
 	outs << " Level=" << grid.level1;
     }
