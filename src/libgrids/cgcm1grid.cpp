@@ -16,7 +16,7 @@ int InputCGCM1GridStream::read(unsigned char *buffer,size_t buffer_length)
   int bytes_read,len,idum;
   size_t num_x,num_y,pack_dens;
 
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
 std::cerr << "Error: unable to read a COS-blocked CGCM1Grid stream" << std::endl;
 exit(1);
   }
@@ -88,7 +88,7 @@ exit(1);
 
 CGCM1Grid::CGCM1Grid() : cgcm1()
 {
-  def.type=Grid::gaussianLatitudeLongitudeType;
+  def.type=Grid::Type::gaussianLatitudeLongitude;
   def.slatitude=87.159;
   def.slongitude=0.;
   def.elatitude=-87.159;
@@ -129,17 +129,17 @@ void CGCM1Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     bits::get(stream_buffer,idum,672,32);
     stats.max_val=fdum;
     if (!fill_header_only) {
-	if (gridpoints_ != nullptr && dim.size > cgcm1.capacity) {
+	if (m_gridpoints != nullptr && dim.size > cgcm1.capacity) {
 	  for (short n=0; n < dim.y; ++n) {
-	    delete[] gridpoints_[n];
+	    delete[] m_gridpoints[n];
 	  }
-	  delete[] gridpoints_;
-	  gridpoints_=nullptr;
+	  delete[] m_gridpoints;
+	  m_gridpoints=nullptr;
 	}
-	if (gridpoints_ == nullptr) {
-	  gridpoints_=new double *[dim.y];
+	if (m_gridpoints == nullptr) {
+	  m_gridpoints=new double *[dim.y];
 	  for (short n=0; n < dim.y; ++n) {
-	    gridpoints_[n]=new double[dim.x];
+	    m_gridpoints[n]=new double[dim.x];
 	  }
 	  cgcm1.capacity=dim.size;
 	}
@@ -161,8 +161,8 @@ void CGCM1Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 	auto cnt=0;
 	for (short n=0; n < dim.y; ++n) {
 	  for (short m=0; m < dim.x; ++m) {
-	    gridpoints_[n][m]=pval[cnt]*scale+stats.min_val;
-	    stats.avg_val+=gridpoints_[n][m];
+	    m_gridpoints[n][m]=pval[cnt]*scale+stats.min_val;
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++avg_cnt;
 	    ++cnt;
 	  }
@@ -179,16 +179,16 @@ void CGCM1Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     if (cbuf[5] == ' ') {
 	strutils::strget(&cbuf[9],yr,4);
 	strutils::strget(&cbuf[13],mo,2);
-	reference_date_time_.set(yr,mo,0,0);
+	m_reference_date_time.set(yr,mo,0,0);
     }
     else {
 	strutils::strget(&cbuf[5],yr,4);
 	strutils::strget(&cbuf[9],mo,2);
 	strutils::strget(&cbuf[11],dy,2);
 	strutils::strget(&cbuf[13],hr,2);
-	reference_date_time_.set(yr,mo,dy,hr*10000);
+	m_reference_date_time.set(yr,mo,dy,hr*10000);
     }
-    valid_date_time_=reference_date_time_;
+    m_valid_date_time=m_reference_date_time;
     std::copy(&cbuf[16],&cbuf[20],cgcm1.var_name);
     cgcm1.var_name[4]='\0';
     strutils::strget(&cbuf[20],idum,10);
@@ -202,23 +202,23 @@ void CGCM1Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     strutils::strget(&cbuf[60],cgcm1.pack_dens,10);
     dim.size=dim.x*dim.y;
     if (!fill_header_only) {
-	if (gridpoints_ != nullptr && dim.size > cgcm1.capacity) {
+	if (m_gridpoints != nullptr && dim.size > cgcm1.capacity) {
 	  for (short n=0; n < dim.y; ++n) {
-	    delete[] gridpoints_[n];
+	    delete[] m_gridpoints[n];
 	  }
-	  delete[] gridpoints_;
-	  gridpoints_=nullptr;
+	  delete[] m_gridpoints;
+	  m_gridpoints=nullptr;
 	}
-	if (gridpoints_ == nullptr) {
-	  gridpoints_=new double *[dim.y];
+	if (m_gridpoints == nullptr) {
+	  m_gridpoints=new double *[dim.y];
 	  for (short n=0; n < dim.y; ++n) {
-	    gridpoints_[n]=new double[dim.x];
+	    m_gridpoints[n]=new double[dim.x];
 	  }
 	  cgcm1.capacity=dim.size;
 	}
 	auto next=71;
-	stats.min_val=Grid::missing_value;
-	stats.max_val=-Grid::missing_value;
+	stats.min_val=Grid::MISSING_VALUE;
+	stats.max_val=-Grid::MISSING_VALUE;
 	auto avg_cnt=0;
 	stats.avg_val=0.;
 	for (short n=0; n < dim.y; ++n) {
@@ -226,14 +226,14 @@ void CGCM1Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 	    if (cbuf[next] == 0xa) {
 		++next;
 	    }
-	    strutils::strget(&cbuf[next],gridpoints_[n][m],12);
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    strutils::strget(&cbuf[next],m_gridpoints[n][m],12);
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++avg_cnt;
 	    next+=12;
 	  }
@@ -271,7 +271,7 @@ void CGCM1Grid::print(std::ostream& outs) const
 	for (short n=dim.y-1; n >= 0; --n) {
 	  outs << n+1;
 	  for (short l=start-1; l < stop; l++) {
-	    if (floatutils::myequalf(gridpoints_[n][l],Grid::missing_value)) {
+	    if (floatutils::myequalf(m_gridpoints[n][l],Grid::MISSING_VALUE)) {
 		outs << "         ";
 	    }
 	    else {
@@ -283,7 +283,7 @@ void CGCM1Grid::print(std::ostream& outs) const
 		else {
 		  outs.precision(2);
 		}
-		outs << std::setw(10) << gridpoints_[n][l];
+		outs << std::setw(10) << m_gridpoints[n][l];
 	    }
 	  }
 	  outs << std::endl;
@@ -312,7 +312,7 @@ void CGCM1Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
     scientific=true;
   }
   if (verbose) {
-    outs << "  Date: " << reference_date_time_.to_string() << "  Level: " << std::setw(5) << grid.level1 << "  Variable " << cgcm1.var_name << std::endl;
+    outs << "  Date: " << m_reference_date_time.to_string() << "  Level: " << std::setw(5) << grid.level1 << "  Variable " << cgcm1.var_name << std::endl;
     outs << "  Grid Type: " << std::setw(2) << grid.grid_type << "  Grid Dimensions: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  Points: " << std::setw(4) << dim.size;
     if (grid.filled) {
 	if (scientific) {
@@ -328,7 +328,7 @@ void CGCM1Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_
 	outs << std::endl;
   }
   else {
-    outs << " Time=" << reference_date_time_.to_string("%Y%m%d%H") << " Level=" << grid.level1 << " VarName=" << cgcm1.var_name << " Type=" << grid.grid_type << " NumX=" << dim.x << " NumY=" << dim.y << " NumPoints=" << dim.size;
+    outs << " Time=" << m_reference_date_time.to_string("%Y%m%d%H") << " Level=" << grid.level1 << " VarName=" << cgcm1.var_name << " Type=" << grid.grid_type << " NumX=" << dim.x << " NumY=" << dim.y << " NumPoints=" << dim.size;
     if (grid.filled) {
 	if (scientific) {
 	  outs.precision(3);
