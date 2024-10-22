@@ -14,15 +14,19 @@ int InputGRIBStream::peek() {
     if (len < 0) {
       return len;
     }
+#ifdef __WITH_S3
     if (is3s != nullptr) {
       auto n = is3s->read(&buffer[4], 12);
       if (n > 0) {
         len += n;
       }
     } else {
+#endif
       fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
       len += fs.gcount();
+#ifdef __WITH_S3
     }
+#endif
     if (len != 16) {
       return bfstream::error;
     }
@@ -97,24 +101,36 @@ int InputGRIBStream::peek() {
             fs.seekg(sec_len - 3, std::ios_base::cur);
           }
         } else {
+#ifdef __WITH_S3
           if (is3s != nullptr) {
             is3s->seek(is3s->tell() + len - 20);
           } else {
+#endif
             fs.seekg(len - 20, std::ios_base::cur);
+#ifdef __WITH_S3
           }
+#endif
         }
+#ifdef __WITH_S3
         if (is3s != nullptr) {
           is3s->read(buffer, 4);
         } else {
+#endif
           fs.read(reinterpret_cast<char *>(buffer), 4);
+#ifdef __WITH_S3
         }
+#endif
         if (string(reinterpret_cast<char *>(buffer), 4) != "7777") {
           len = -9;
+#ifdef __WITH_S3
           if (is3s != nullptr) {
             is3s->seek(curr_offset + 4);
           } else {
+#endif
             fs.seekg(curr_offset + 4, std::ios_base::beg);
+#ifdef __WITH_S3
           }
+#endif
         }
         break;
       }
@@ -127,11 +143,15 @@ int InputGRIBStream::peek() {
       }
     }
   }
+#ifdef __WITH_S3
   if (is3s != nullptr) {
     is3s->seek(curr_offset);
   } else {
+#endif
     fs.seekg(curr_offset, std::ios_base::beg);
+#ifdef __WITH_S3
   }
+#endif
   return len;
 }
 
@@ -143,6 +163,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
     if (bytes_read < 0) {
       return bytes_read;
     }
+#ifdef __WITH_S3
     if (is3s != nullptr) {
       auto byts = is3s->read(&buffer[4], 12);
       if (byts > 0) {
@@ -154,6 +175,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
         return byts;
       }
     } else {
+#endif
       fs.read(reinterpret_cast<char *>(&buffer[4]), 12);
       bytes_read += fs.gcount();
       if (bytes_read != 16) {
@@ -163,9 +185,12 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
           return bfstream::error;
         }
       }
+#ifdef __WITH_S3
     }
+#endif
     switch (static_cast<int>(buffer[7])) {
       case 0: {
+#ifdef __WITH_S3
         if (is3s != nullptr) {
           auto byts = is3s->read(&buffer[16], 15);
           if (byts > 0) {
@@ -175,12 +200,15 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
             return bfstream::eof;
           }
         } else {
+#endif
           fs.read(reinterpret_cast<char *>(&buffer[16]), 15);
           bytes_read += fs.gcount();
           if (bytes_read != 31) {
             return bfstream::eof;
           }
+#ifdef __WITH_S3
         }
+#endif
         len = 28;
         while (buffer[bytes_read-3] != '7' && buffer[bytes_read-2] != '7' &&
             buffer[bytes_read-1] != '7') {
@@ -193,6 +221,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
           if (len > static_cast<int>(buffer_length)) {
             throw my::BufferOverflow_Error("input buffer too small.");
           }
+#ifdef __WITH_S3
           if (is3s != nullptr) {
             auto byts = is3s->read(&buffer[bytes_read], llen);
             if (byts > 0) {
@@ -201,6 +230,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
               return byts;
             }
           } else {
+#endif
             fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), llen);
             bytes_read += fs.gcount();
             if (bytes_read != len+3) {
@@ -210,15 +240,21 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
                 return bfstream::error;
               }
             }
+#ifdef __WITH_S3
           }
+#endif
         }
+#ifdef __WITH_S3
         if (is3s != nullptr) {
           auto byts = is3s->read(&buffer[bytes_read], 1);
           bytes_read += byts;
         } else {
+#endif
           fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), 1);
           bytes_read += fs.gcount();
+#ifdef __WITH_S3
         }
+#endif
         break;
       }
       case 1: {
@@ -226,6 +262,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
         if (len > static_cast<int>(buffer_length)) {
           throw my::BufferOverflow_Error("input buffer too small.");
         }
+#ifdef __WITH_S3
         if (is3s != nullptr) {
           auto byts = is3s->read(&buffer[16], len - 16);
           if (byts > 0) {
@@ -237,6 +274,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
             return bfstream::error;
           }
         } else {
+#endif
           fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
           bytes_read += fs.gcount();
           if (bytes_read != len) {
@@ -246,7 +284,9 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
               return bfstream::error;
             }
           }
+#ifdef __WITH_S3
         }
+#endif
 
         // check for ECMWF large-file
         if (len >= 0x800000) {
@@ -279,14 +319,18 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
             if (len > static_cast<int>(buffer_length)) {
               throw my::BufferOverflow_Error("input buffer too small.");
             }
+#ifdef __WITH_S3
             if (is3s != nullptr) {
               auto byts = is3s->read(&buffer[bytes_read], len - bytes_read);
               bytes_read += byts;
             } else {
+#endif
               fs.read(reinterpret_cast<char *>(&buffer[bytes_read]), len -
                   bytes_read);
               bytes_read += fs.gcount();
+#ifdef __WITH_S3
             }
+#endif
           }
         }
         if (string(reinterpret_cast<char *>(&buffer[len-4]), 4) !=
@@ -301,6 +345,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
         if (len > static_cast<int>(buffer_length)) {
           throw my::BufferOverflow_Error("input buffer too small.");
         }
+#ifdef __WITH_S3
         if (is3s != nullptr) {
           auto byts = is3s->read(&buffer[16], len - 16);
           if (byts > 0) {
@@ -312,6 +357,7 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
             return bfstream::error;
           }
         } else {
+#endif
           fs.read(reinterpret_cast<char *>(&buffer[16]), len - 16);
           bytes_read += fs.gcount();
           if (bytes_read != len) {
@@ -321,7 +367,9 @@ int InputGRIBStream::read(unsigned char *buffer, size_t buffer_length) {
               return bfstream::error;
             }
           }
+#ifdef __WITH_S3
         }
+#endif
         if (string(reinterpret_cast<char *>(buffer) + len - 4, 4) != "7777") {
           throw my::NotFound_Error("unable to find GRIB END section where "
               "expected.");
@@ -351,13 +399,18 @@ bool InputGRIBStream::open(string filename) {
 int InputGRIBStream::find_grib(unsigned char *buffer) {
   auto b = reinterpret_cast<char *>(buffer);
   b[0] = 'X';
+#ifdef __WITH_S3
   int stat = 0;
   if (is3s != nullptr) {
     stat = is3s->read(buffer, 4);
   } else {
+#endif
     fs.read(b, 4);
+#ifdef __WITH_S3
   }
+#endif
   while (b[0] != 'G' || b[1] != 'R' || b[2] != 'I' || b[3] != 'B') {
+#ifdef __WITH_S3
     if (is3s != nullptr) {
       if (stat == bfstream::eof || stat == bfstream::error) {
         if (num_read == 0) {
@@ -366,26 +419,37 @@ int InputGRIBStream::find_grib(unsigned char *buffer) {
         return stat;
       }
     } else {
+#endif
       if (fs.eof() || !fs.good()) {
         if (num_read == 0) {
           throw my::BadType_Error("file is not a GRIB file.");
         }
         return (fs.eof()) ? bfstream::eof : bfstream::error;
       }
+#ifdef __WITH_S3
     }
+#endif
     b[0] = b[1];
     b[1] = b[2];
     b[2] = b[3];
+#ifdef __WITH_S3
     if (is3s != nullptr) {
       is3s->read(&buffer[3], 1);
     } else {
+#endif
       fs.read(&b[3], 1);
+#ifdef __WITH_S3
     }
+#endif
   }
+#ifdef __WITH_S3
   if (is3s != nullptr) {
     curr_offset = is3s->tell() - 4;
   } else {
+#endif
     curr_offset = static_cast<off_t>(fs.tellg()) - 4;
+#ifdef __WITH_S3
   }
+#endif
   return 4;
 }
