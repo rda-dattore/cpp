@@ -5,7 +5,7 @@
 #include <utils.hpp>
 #include <bits.hpp>
 #include <myerror.hpp>
-#ifdef __JASPER
+#ifdef __WITH_JASPER
 #include <jasper/jasper.h>
 #endif
 
@@ -204,12 +204,12 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
               break;
             }
             default: {
-              myerror="no ensemble type mapping for "+strutils::itos(dum);
+              myerror="no ensemble type mapping for "+to_string(dum);
               exit(1);
             }
           }
           bits::get(stream_buffer,dum,off+280,8);
-          g2->ensdata.id=strutils::itos(dum);
+          g2->ensdata.id=to_string(dum);
           bits::get(stream_buffer,g2->ensdata.total_size,off+288,8);
           switch (g2->grib2.product_type) {
             case 61: {
@@ -232,7 +232,7 @@ void GRIB2Message::unpack_pds(const unsigned char *stream_buffer)
               g2->grib2.stat_period_end.set(yr,mo,dy,hr*10000+min*100+sec);
 bits::get(stream_buffer,dum,off+352,8);
 if (dum > 1) {
-myerror="error processing multiple ("+strutils::itos(dum)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
+myerror="error processing multiple ("+to_string(dum)+") statistical processes for product type "+to_string(g2->grib2.product_type);
 exit(1);
 }
               bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+360,32);
@@ -281,7 +281,7 @@ exit(1);
               break;
             }
             default: {
-              myerror="no ensemble type mapping for "+strutils::itos(dum);
+              myerror="no ensemble type mapping for "+to_string(dum);
               exit(1);
             }
           }
@@ -298,7 +298,7 @@ exit(1);
               g2->grib2.stat_period_end.set(yr,mo,dy,hr*10000+min*100+sec);
 bits::get(stream_buffer,dum,off+344,8);
 if (dum > 1) {
-myerror="error processing multiple ("+strutils::itos(dum)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
+myerror="error processing multiple ("+to_string(dum)+") statistical processes for product type "+to_string(g2->grib2.product_type);
 exit(1);
 }
               bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+352,32);
@@ -330,7 +330,7 @@ exit(1);
           bits::get(stream_buffer,g2->grib2.stat_process_nmissing,off+336,32);
 /*
 if (num_ranges > 1) {
-myerror="error processing multiple ("+strutils::itos(num_ranges)+") statistical processes for product type "+strutils::itos(g2->grib2.product_type);
+myerror="error processing multiple ("+to_string(num_ranges)+") statistical processes for product type "+to_string(g2->grib2.product_type);
 exit(1);
 }
 */
@@ -357,7 +357,7 @@ exit(1);
       break;
     }
     default: {
-      myerror="product template "+strutils::itos(g2->grib2.product_type)+" not recognized";
+      myerror="product template "+to_string(g2->grib2.product_type)+" not recognized";
       exit(1);
     }
   }
@@ -382,7 +382,7 @@ break;
       break;
     }
     default: {
-      myerror="unable to adjust valid time for time units "+strutils::itos(g2->grib.time_unit);
+      myerror="unable to adjust valid time for time units "+to_string(g2->grib.time_unit);
       exit(1);
     }
   }
@@ -639,7 +639,7 @@ exit(1);
       break;
     }
     default: {
-      myerror="no unpacking for grid type "+strutils::itos(g2->grid.grid_type);
+      myerror="no unpacking for grid type "+to_string(g2->grid.grid_type);
       exit(1);
     }
   }
@@ -788,7 +788,7 @@ exit(1);
       break;
     }
     default: {
-      myerror="grid template "+strutils::itos(dum)+" not recognized";
+      myerror="grid template "+to_string(dum)+" not recognized";
       exit(1);
     }
   }
@@ -873,7 +873,7 @@ sdum=llround(g2->def.laincrement*1000000.);
       break;
     }
     default: {
-      myerror="unable to pack GDS for template "+strutils::itos(g2->grid.grid_type);
+      myerror="unable to pack GDS for template "+to_string(g2->grid.grid_type);
       exit(1);
     }
   }
@@ -933,7 +933,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
           g2->grib2.complex_pack.grid_point.secondary_miss_sub=idum;
         }
         else {
-          myerror="unable to decode missing value substitutes for original value type of "+strutils::itos(g2->grib2.orig_val_type);
+          myerror="unable to decode missing value substitutes for original value type of "+to_string(g2->grib2.orig_val_type);
           exit(1);
         }
         bits::get(stream_buffer,g2->grib2.complex_pack.grid_point.num_groups,off+248,32);
@@ -951,7 +951,7 @@ void GRIB2Message::unpack_drs(const unsigned char *stream_buffer)
       break;
     }
     default: {
-      myerror="data template "+strutils::itos(g2->grib2.data_rep)+" is not understood";
+      myerror="data template "+to_string(g2->grib2.data_rep)+" is not understood";
       exit(1);
     }
   }
@@ -1014,7 +1014,7 @@ void GRIB2Message::pack_drs(unsigned char *output_buffer,off_t& offset,Grid *gri
       break;
     }
     default: {
-      myerror="unable to pack data template "+strutils::itos(g2->grib2.data_rep);
+      myerror="unable to pack data template "+to_string(g2->grib2.data_rep);
       exit(1);
     }
   }
@@ -1073,7 +1073,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
       }
       case 2: {
         if (g2->grib.scan_mode != 0) {
-          myerror="unable to decode ddef2 for scan mode "+strutils::itos(g2->grib.scan_mode);
+          myerror="unable to decode ddef2 for scan mode "+to_string(g2->grib.scan_mode);
           exit(1);
         }
         g2->galloc();
@@ -1190,7 +1190,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
       }
       case 3: {
         if (g2->grib.scan_mode != 0) {
-          myerror="unable to decode ddef3 for scan mode "+strutils::itos(g2->grib.scan_mode);
+          myerror="unable to decode ddef3 for scan mode "+to_string(g2->grib.scan_mode);
           exit(1);
         }
         g2->galloc();
@@ -1368,7 +1368,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
         g2->grid.filled=true;
         break;
       }
-#ifdef __JASPER
+#ifdef __WITH_JASPER
       case 40:
       case 40000: {
         auto len=m_lengths.ds-5;
@@ -1378,7 +1378,7 @@ void GRIB2Message::unpack_ds(const unsigned char *stream_buffer,bool fill_header
       }
 #endif
       default: {
-        myerror="unable to decode data section for data representation "+strutils::itos(g2->grib2.data_rep);
+        myerror="unable to decode data section for data representation "+to_string(g2->grib2.data_rep);
         exit(1);
       }
     }
@@ -1412,7 +1412,7 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer, off_t& offset, Grid
       delete[] pval;
       break;
     }
-#ifdef __JASPER
+#ifdef __WITH_JASPER
     case 40:
     case 40000: {
       int cps = (g2->grib.pack_width + 7) / 8;
@@ -1470,7 +1470,7 @@ void GRIB2Message::pack_ds(unsigned char *output_buffer, off_t& offset, Grid
 #endif
     default: {
       throw runtime_error("unable to encode data section for data "
-          "representation " + strutils::itos(g2->grib2.data_rep));
+          "representation " + to_string(g2->grib2.data_rep));
     }
   }
 }
@@ -1532,50 +1532,53 @@ off_t GRIB2Message::copy_to_buffer(unsigned char *output_buffer,const size_t buf
   return mlength;
 }
 
-void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only)
-{
-  int test,len;
-  short sec_num,last_sec_num=99;
-  GRIB2Grid *g2;
-
+void GRIB2Message::fill(const unsigned char *stream_buffer, bool
+    fill_header_only) {
   if (stream_buffer == nullptr) {
-    myerror="empty file stream";
+    myerror = "empty file stream";
     exit(1);
   }
   clear_grids();
   unpack_is(stream_buffer);
   if (m_edition != 2) {
-    myerror="can't decode edition "+strutils::itos(m_edition);
+    myerror = "can't decode edition " + to_string(m_edition);
     exit(1);
   }
-  bits::get(stream_buffer,test,curr_off*8,32);
+  short last_sec_num = 99;
+  int test;
+  bits::get(stream_buffer, test, curr_off*8, 32);
   while (test != 0x37373737) {
-// patch for bad END section
+
+    // patch for bad END section
     if ( (curr_off+4) == mlength) {
-      mywarning="bad END section repaired";
-      test=0x37373737;
+      mywarning = "bad END section repaired";
+      test = 0x37373737;
       break;
     }
-    bits::get(stream_buffer,len,curr_off*8,32);
-    bits::get(stream_buffer,sec_num,curr_off*8+32,8);
-// patch for bad grid
+    int len;
+    bits::get(stream_buffer, len, curr_off*8, 32);
+    short sec_num;
+    bits::get(stream_buffer, sec_num, curr_off*8+32, 8);
+
+    // patch for bad grid
     if (sec_num < 1 || sec_num > 7 || len > mlength) {
-      mywarning="bad grid ignored - offset: "+strutils::itos(curr_off)+", sec_num: "+strutils::itos(sec_num)+", len: "+strutils::itos(len)+", length: "+strutils::itos(mlength);
-      test=0x37373737;
+      mywarning = "bad grid ignored - offset: " + to_string(curr_off) + ", "
+          "sec_num: " + to_string(sec_num) + ", len: " + to_string(len) + ", "
+          "length: " + to_string(mlength);
+      test = 0x37373737;
       break;
-    }
-    else {
+    } else {
       if (sec_num < last_sec_num) {
-        g2=new GRIB2Grid;
-        if (grids.size() > 0) {
+        auto g2 = new GRIB2Grid;
+        if (!grids.empty()) {
           g2->quick_copy(*(reinterpret_cast<GRIB2Grid *>(grids.back().get())));
         }
-        bits::get(stream_buffer,discipline,48,8);
-        g2->grib2.discipline=discipline;
-        g2->grid.filled=false;
+        bits::get(stream_buffer, discipline, 48, 8);
+        g2->grib2.discipline = discipline;
+        g2->grid.filled = false;
         grids.emplace_back(g2);
       }
-      last_sec_num=sec_num;
+      last_sec_num = sec_num;
       switch (sec_num) {
         case 1: {
           unpack_ids(stream_buffer);
@@ -1607,7 +1610,7 @@ void GRIB2Message::fill(const unsigned char *stream_buffer,bool fill_header_only
         }
       }
     }
-    bits::get(stream_buffer,test,curr_off*8,32);
+    bits::get(stream_buffer, test, curr_off*8, 32);
   }
 }
 
@@ -1802,41 +1805,41 @@ string GRIB2Grid::build_level_search_key() const {
 
 string GRIB2Grid::first_level_description(xmlutils::LevelMapper& level_mapper) const
 {
-  return level_mapper.description("WMO_GRIB2",strutils::itos(grid.level1_type),build_level_search_key());
+  return level_mapper.description("WMO_GRIB2",to_string(grid.level1_type),build_level_search_key());
 }
 
 string GRIB2Grid::first_level_units(xmlutils::LevelMapper& level_mapper) const
 {
-  return level_mapper.units("WMO_GRIB2",strutils::itos(grid.level1_type),build_level_search_key());
+  return level_mapper.units("WMO_GRIB2",to_string(grid.level1_type),build_level_search_key());
 }
 
 string GRIB2Grid::build_parameter_search_key() const
 {
-  return strutils::itos(grid.src)+"-"+strutils::itos(grib.sub_center)+"."+strutils::itos(grib.table)+"-"+strutils::itos(grib2.local_table);
+  return to_string(grid.src)+"-"+to_string(grib.sub_center)+"."+to_string(grib.table)+"-"+to_string(grib2.local_table);
 }
 
 string GRIB2Grid::parameter_cf_keyword(xmlutils::ParameterMapper& parameter_mapper) const
 {
-  auto level_type=strutils::itos(grid.level1_type);
+  auto level_type=to_string(grid.level1_type);
   if (grid.level2_type > 0 && grid.level2_type < 255) {
-    level_type+="-"+strutils::itos(grid.level2_type);
+    level_type+="-"+to_string(grid.level2_type);
   }
-  return parameter_mapper.cf_keyword("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param),level_type);
+  return parameter_mapper.cf_keyword("WMO_GRIB2",build_parameter_search_key()+":"+to_string(grib2.discipline)+"."+to_string(grib2.param_cat)+"."+to_string(grid.param),level_type);
 }
 
 string GRIB2Grid::parameter_description(xmlutils::ParameterMapper& parameter_mapper) const
 {
-  return parameter_mapper.description("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param));
+  return parameter_mapper.description("WMO_GRIB2",build_parameter_search_key()+":"+to_string(grib2.discipline)+"."+to_string(grib2.param_cat)+"."+to_string(grid.param));
 }
 
 string GRIB2Grid::parameter_short_name(xmlutils::ParameterMapper& parameter_mapper) const
 {
-  return parameter_mapper.short_name("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param));
+  return parameter_mapper.short_name("WMO_GRIB2",build_parameter_search_key()+":"+to_string(grib2.discipline)+"."+to_string(grib2.param_cat)+"."+to_string(grid.param));
 }
 
 string GRIB2Grid::parameter_units(xmlutils::ParameterMapper& parameter_mapper) const
 {
-  return parameter_mapper.units("WMO_GRIB2",build_parameter_search_key()+":"+strutils::itos(grib2.discipline)+"."+strutils::itos(grib2.param_cat)+"."+strutils::itos(grid.param));
+  return parameter_mapper.units("WMO_GRIB2",build_parameter_search_key()+":"+to_string(grib2.discipline)+"."+to_string(grib2.param_cat)+"."+to_string(grid.param));
 }
 
 void GRIB2Grid::set_data_representation(unsigned short
@@ -1880,7 +1883,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
   }
   if (grib.scan_mode != 0x0) {
     throw runtime_error("can't create subset for scanning mode " +
-        strutils::itos(grib.scan_mode));
+        to_string(grib.scan_mode));
   }
   GRIB2Grid new_grid = *this; // return value
 /*
@@ -1948,10 +1951,10 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
         }
         case Grid::Type::gaussianLatitudeLongitude: {
           my::map<Grid::GLatEntry> gaus_lats;
-          if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,
+          if (!gridutils::filled_gaussian_latitudes(_path_to_gauslat_lists,
               gaus_lats, def.num_circles, (grib.scan_mode & 0x40) != 0x40)) {
             throw runtime_error("unable to get gaussian latitudes for " +
-                strutils::itos(def.num_circles) + " circles from '" +
+                to_string(def.num_circles) + " circles from '" +
                 _path_to_gauslat_lists + "'");
           }
           Grid::GLatEntry glat_entry;
@@ -2040,7 +2043,7 @@ GRIB2Grid GRIB2Grid::create_subset(double south_latitude, double north_latitude,
     }
     default: {
       throw runtime_error("GRIB2Grid::create_subset(): unable to create a "
-          "subset for grid type " + strutils::itos(static_cast<int>(def.type)));
+          "subset for grid type " + to_string(static_cast<int>(def.type)));
     }
   }
   return new_grid;
@@ -2356,7 +2359,7 @@ void GRIB2Grid::operator+=(const GRIB2Grid& source) {
   grib2.product_type = 8;
 }
 
-#ifdef __JASPER
+#ifdef __WITH_JASPER
 void decode_jpeg2000(const unsigned char *jpc_bitstream,size_t jpc_bitstream_length,GRIB2Message::JasMatrix& jas_matrix,GRIB2Grid *g2,double D,double E)
 {
   jas_image_t *jas_image=nullptr;
