@@ -1476,6 +1476,7 @@ void decode_positive_period_process(const GRIB2Grid::StatisticalProcessRange&
     case 1:
     case 2:
     case 3:
+    case 6:
     case 255: {
       switch (sprange.type) {
         case 0: {
@@ -1492,6 +1493,10 @@ void decode_positive_period_process(const GRIB2Grid::StatisticalProcessRange&
         }
         case 3: {
           p = "Minimum";
+          break;
+        }
+        case 6: {
+          p = "Standard Deviation";
           break;
         }
         case 255: {
