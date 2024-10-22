@@ -9,8 +9,8 @@ int InputLatLonGridStream::peek()
   unsigned char *buffer;
   int bytes_read;
 
-  if (icosstream != NULL) {
-    return icosstream->peek();
+  if (ics != NULL) {
+    return ics->peek();
   }
   else {
     if (floatutils::myequalf(res,2.5)) {
@@ -55,8 +55,8 @@ int InputLatLonGridStream::read(unsigned char *buffer,size_t buffer_length)
   }
 
 // read a grid from the stream
-  if (icosstream != NULL) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0)
+  if (ics != NULL) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0)
 	return bytes_read;
   }
   else {
@@ -78,7 +78,7 @@ int InputLatLonGridStream::read(unsigned char *buffer,size_t buffer_length)
 
 LatLonGrid::LatLonGrid(float resolution)
 {
-  def.type=Grid::latitudeLongitudeType;
+  def.type=Grid::Type::latitudeLongitude;
   def.laincrement=def.loincrement=resolution;
   def.slatitude=0.;
   def.elatitude=90.;
@@ -101,20 +101,20 @@ LatLonGrid& LatLonGrid::operator=(const LatLonGrid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
   dim=source.dim;
   def=source.def;
   stats=source.stats;
   grid=source.grid;
   if (source.grid.filled) {
-    if (gridpoints_ == NULL) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == NULL) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=source.gridpoints_[n][m];
+	  m_gridpoints[n][m]=source.m_gridpoints[n][m];
 	}
     }
     if (source.num_in_sum == NULL) {
@@ -165,17 +165,17 @@ void LatLonGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   bits::get(stream_buffer,mo,13,4);
   bits::get(stream_buffer,dy,17,5);
   bits::get(stream_buffer,time,22,5);
-  reference_date_time_.set(1900+yr,mo,dy,time*10000);
+  m_reference_date_time.set(1900+yr,mo,dy,time*10000);
   bits::get(stream_buffer,dum,27,10);
   grid.level1=1023.-dum;
   bits::get(stream_buffer,grid.param,37,9);
   bits::get(stream_buffer,grid.fcst_time,46,9);
   grid.fcst_time*=10000;
   if (grid.fcst_time > 0) {
-    valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+    m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
   }
   else {
-    valid_date_time_=reference_date_time_;
+    m_valid_date_time=m_reference_date_time;
   }
   bits::get(stream_buffer,dum,55,10);
   grid.level2=1023.-dum;
@@ -194,33 +194,33 @@ void LatLonGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 // unpack the octagonal grid gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == NULL) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == NULL) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     pval=new int[dim.size];
     bits::get(stream_buffer,pval,180,15,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     for (n=0,l=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++) {
 	  if (pval[l] == 0)
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	  else {
-	    gridpoints_[n][m]=base+(pval[l]-bias)*pow(2.,scale);
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=base+(pval[l]-bias)*pow(2.,scale);
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    avg_cnt++;
 	  }
 	  l++;
@@ -229,7 +229,7 @@ void LatLonGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     grid.filled=true;
 // use the pole value at 280E - agrees with pole value of Octagonal grid
 // oriented 280E
-    grid.pole=gridpoints_[dim.y-1][int(280./def.loincrement)];
+    grid.pole=m_gridpoints[dim.y-1][int(280./def.loincrement)];
     if (avg_cnt > 0) {
 	stats.avg_val/=static_cast<float>(avg_cnt);
     }
@@ -240,7 +240,7 @@ void LatLonGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     off*=15;
     bits::get(stream_buffer,dum,180+off,15);
     if (dum == 0) {
-	grid.pole=Grid::missing_value;
+	grid.pole=Grid::MISSING_VALUE;
     }
     else {
 	grid.pole=base+(dum-bias)*pow(2.,scale);
@@ -252,7 +252,7 @@ void LatLonGrid::operator+=(const LatLonGrid& source)
 {
   int n,m;
 
-  if (gridpoints_ == NULL) {
+  if (m_gridpoints == NULL) {
     *this=source;
     if (num_in_sum == NULL) {
 	num_in_sum=new size_t *[dim.y];
@@ -262,7 +262,7 @@ void LatLonGrid::operator+=(const LatLonGrid& source)
     }
     for (n=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++) {
-	  if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	  if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
 	    num_in_sum[n][m]=1;
 	  }
 	  else {
@@ -271,32 +271,32 @@ void LatLonGrid::operator+=(const LatLonGrid& source)
 	}
     }
     grid.num_in_pole_sum=0;
-    reference_date_time_.set_day(0);
+    m_reference_date_time.set_day(0);
     grid.nmean=1;
   }
   else {
-    if (reference_date_time_.time() != 310000) {
-	if (reference_date_time_.time() != source.reference_date_time_.time())
-	  reference_date_time_.set_time(310000);
+    if (m_reference_date_time.time() != 310000) {
+	if (m_reference_date_time.time() != source.m_reference_date_time.time())
+	  m_reference_date_time.set_time(310000);
     }
-    if (!floatutils::myequalf(source.grid.pole,Grid::missing_value)) {
+    if (!floatutils::myequalf(source.grid.pole,Grid::MISSING_VALUE)) {
 	grid.pole+=source.grid.pole;
 	grid.num_in_pole_sum++;
     }
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  if (!floatutils::myequalf(source.gridpoints_[n][m],Grid::missing_value)) {
-	    gridpoints_[n][m]+=source.gridpoints_[n][m];
+	  if (!floatutils::myequalf(source.m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+	    m_gridpoints[n][m]+=source.m_gridpoints[n][m];
 	    ++num_in_sum[n][m];
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    else if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    else if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
@@ -312,7 +312,7 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
   int n,m,l,latinc,loninc;
 
   grid.filled=false;
-  if (floatutils::myequalf(source.definition().laincrement,0.) || source.definition().type == Grid::gaussianLatitudeLongitudeType) {
+  if (floatutils::myequalf(source.definition().laincrement,0.) || source.definition().type == Grid::Type::gaussianLatitudeLongitude) {
     return *this;
   }
   switch (source.first_level_type()) {
@@ -325,10 +325,10 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
     default:
 	return *this;
   }
-  if (gridpoints_ == NULL) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == NULL) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; ++n) {
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     }
   }
   switch (source.parameter()) {
@@ -425,8 +425,8 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
 	return *this;
     }
   }
-  stats.max_val=-Grid::missing_value;
-  stats.min_val=Grid::missing_value;
+  stats.max_val=-Grid::MISSING_VALUE;
+  stats.min_val=Grid::MISSING_VALUE;
   latinc=lround(5./source.definition().laincrement);
   loninc=lround(5./source.definition().loincrement);
   switch (source.source()) {
@@ -438,21 +438,21 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
 	    grid.pole=source.gridpoint(0,0);
 	    for (n=18,l=0; n >= 0; n--,l++) {
 		for (m=0; m < 72; m++) {
-		  gridpoints_[n][m]=source.gridpoint(m*loninc,l*latinc);
-		  if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
+		  m_gridpoints[n][m]=source.gridpoint(m*loninc,l*latinc);
+		  if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
 		    if (grid.param == 5 || grid.param == 6) {
-			gridpoints_[n][m]*=0.01;
+			m_gridpoints[n][m]*=0.01;
 		    }
 		    else if (grid.param == 10 || grid.param == 11 || grid.param == 57) {
-			gridpoints_[n][m]-=273.15;
+			m_gridpoints[n][m]-=273.15;
 		    }
-		    if (gridpoints_[n][m] > stats.max_val) {
-			stats.max_val=gridpoints_[n][m];
+		    if (m_gridpoints[n][m] > stats.max_val) {
+			stats.max_val=m_gridpoints[n][m];
 			stats.max_i=m+1;
 			stats.max_j=n+1;
 		    }
-		    if (gridpoints_[n][m] < stats.min_val) {
-			stats.min_val=gridpoints_[n][m];
+		    if (m_gridpoints[n][m] < stats.min_val) {
+			stats.min_val=m_gridpoints[n][m];
 			stats.min_i=m+1;
 			stats.min_j=n+1;
 		    }
@@ -466,21 +466,21 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
 	    grid.pole=source.gridpoint(144,36);
 	    for (n=0; n < 19; n++) {
 		for (m=0; m < 72; m++) {
-		  gridpoints_[n][m]=source.gridpoint(m*loninc,n*latinc);
-		  if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
+		  m_gridpoints[n][m]=source.gridpoint(m*loninc,n*latinc);
+		  if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
 		    if (grid.param == 5 || grid.param == 6) {
-			gridpoints_[n][m]*=0.01;
+			m_gridpoints[n][m]*=0.01;
 		    }
 		    else if (grid.param == 10 || grid.param == 11 || grid.param == 57) {
-			gridpoints_[n][m]-=273.15;
+			m_gridpoints[n][m]-=273.15;
 		    }
-		    if (gridpoints_[n][m] > stats.max_val) {
-			stats.max_val=gridpoints_[n][m];
+		    if (m_gridpoints[n][m] > stats.max_val) {
+			stats.max_val=m_gridpoints[n][m];
 			stats.max_i=m+1;
 			stats.max_j=n+1;
 		    }
-		    if (gridpoints_[n][m] < stats.min_val) {
-			stats.min_val=gridpoints_[n][m];
+		    if (m_gridpoints[n][m] < stats.min_val) {
+			stats.min_val=m_gridpoints[n][m];
 			stats.min_i=m+1;
 			stats.min_j=n+1;
 		    }
@@ -504,8 +504,8 @@ LatLonGrid& LatLonGrid::operator=(const GRIBGrid& source)
     }
   }
   grid.grid_type=1;
-  reference_date_time_=source.reference_date_time();
-  valid_date_time_=source.valid_date_time();
+  m_reference_date_time=source.reference_date_time();
+  m_valid_date_time=source.valid_date_time();
   grid.fcst_time=source.forecast_time();
   grid.level2=source.second_level_value();
   grid.nmean=source.number_averaged();
@@ -522,8 +522,8 @@ LatLonGrid& LatLonGrid::operator=(const OctagonalGrid& source)
   GridDimensions gdim;
 
   grid.grid_type=source.type();
-  reference_date_time_=source.reference_date_time();
-  valid_date_time_=source.valid_date_time();
+  m_reference_date_time=source.reference_date_time();
+  m_valid_date_time=source.valid_date_time();
   grid.level1=source.first_level_value();
   grid.param=source.parameter();
   if (grid.param == 28) {
@@ -537,15 +537,15 @@ LatLonGrid& LatLonGrid::operator=(const OctagonalGrid& source)
   grid.src=source.source();
   grid.nmean=source.number_averaged();
   gdim=source.dimensions();
-  if (gridpoints_ == NULL) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == NULL) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; ++n) {
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     }
   }
   for (n=0; n < int(20./def.laincrement); n++) {
     for (m=0; m < dim.x; ++m) {
-	gridpoints_[n][m]=Grid::missing_value;
+	m_gridpoints[n][m]=Grid::MISSING_VALUE;
     }
   }
   if (source.number_missing() > 0) {
@@ -554,14 +554,14 @@ LatLonGrid& LatLonGrid::operator=(const OctagonalGrid& source)
 	ogp[n]=new double[gdim.x];
 	for (m=0; m < gdim.x; ++m) {
 	  ogp[n][m]=source.gridpoint(m,n);
-	  if (floatutils::myequalf(ogp[n][m],Grid::missing_value)) {
+	  if (floatutils::myequalf(ogp[n][m],Grid::MISSING_VALUE)) {
 	    ogp[n][m]=0.;
 	  }
 	}
     }
   }
-  stats.max_val=-Grid::missing_value;
-  stats.min_val=Grid::missing_value;
+  stats.max_val=-Grid::MISSING_VALUE;
+  stats.min_val=Grid::MISSING_VALUE;
   stats.avg_val=0.;
   for (n=int(20./def.laincrement); n < dim.y; n++) {
     lat=deg_rad*(n*def.laincrement);
@@ -605,24 +605,24 @@ LatLonGrid& LatLonGrid::operator=(const OctagonalGrid& source)
           source.gridpoint(x+1,y+2)+source.gridpoint(x-1,y+2)-
           source.gridpoint(x,y+2)));
 	}
-	gridpoints_[n][m]=b+dy*(c-b+dyy*(d-c+a-b));
+	m_gridpoints[n][m]=b+dy*(c-b+dyy*(d-c+a-b));
 	if (grid.param == 44) {
-	  if (gridpoints_[n][m] > 100.)
-	    gridpoints_[n][m]=100.;
-	  else if (gridpoints_[n][m] < 0.)
-	    gridpoints_[n][m]=0.;
+	  if (m_gridpoints[n][m] > 100.)
+	    m_gridpoints[n][m]=100.;
+	  else if (m_gridpoints[n][m] < 0.)
+	    m_gridpoints[n][m]=0.;
 	}
-	if (gridpoints_[n][m] > stats.max_val) {
-	  stats.max_val=gridpoints_[n][m];
+	if (m_gridpoints[n][m] > stats.max_val) {
+	  stats.max_val=m_gridpoints[n][m];
 	  stats.max_i=m+1;
 	  stats.max_j=n+1;
 	}
-	if (gridpoints_[n][m] < stats.min_val) {
-	  stats.min_val=gridpoints_[n][m];
+	if (m_gridpoints[n][m] < stats.min_val) {
+	  stats.min_val=m_gridpoints[n][m];
 	  stats.min_i=m+1;
 	  stats.min_j=n+1;
 	}
-	stats.avg_val+=gridpoints_[n][m];
+	stats.avg_val+=m_gridpoints[n][m];
 	avg_cnt++;
     }
   }
@@ -648,8 +648,8 @@ LatLonGrid& LatLonGrid::operator=(const ON84Grid& source)
   }
 
   grid.grid_type=1;
-  reference_date_time_=source.reference_date_time();
-  valid_date_time_=source.valid_date_time();
+  m_reference_date_time=source.reference_date_time();
+  m_valid_date_time=source.valid_date_time();
   grid.level1=source.first_level_value();
   grid.level2=source.second_level_value();
   switch (source.parameter()) {
@@ -724,34 +724,34 @@ LatLonGrid& LatLonGrid::operator=(const ON84Grid& source)
   grid.fcst_time=source.forecast_time();
   grid.src=1;
   grid.nmean=source.number_averaged();
-  if (gridpoints_ == NULL) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == NULL) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; ++n) {
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     }
   }
-  stats.max_val=-Grid::missing_value;
-  stats.min_val=Grid::missing_value;
+  stats.max_val=-Grid::MISSING_VALUE;
+  stats.min_val=Grid::MISSING_VALUE;
   stats.avg_val=0.;
   for (nn=0,n=0; nn < 37; ++nn) {
     if ( (nn % 2) == 0) {
 	for (mm=0,m=0; mm < 143; ++mm) {
 	  if ( (mm % 2) == 0) {
-	    gridpoints_[n][m]=source.gridpoint(mm,nn);
-	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value) && (grid.param == 10 || grid.param == 57)) {
-		gridpoints_[n][m]-=273.15;
+	    m_gridpoints[n][m]=source.gridpoint(mm,nn);
+	    if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE) && (grid.param == 10 || grid.param == 57)) {
+		m_gridpoints[n][m]-=273.15;
 	    }
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++avg_cnt;
 	    ++m;
 	  }
@@ -797,8 +797,8 @@ void LatLonGrid::print(std::ostream& outs) const
 	for (n=dim.y-1; n >= 0; --n) {
 	  outs << std::setw(4) << n*def.laincrement << "N |   ";
 	  for (m=l; m < l+18; ++m) {
-	    if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
-		outs << std::setw(8) << gridpoints_[n][m];
+	    if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+		outs << std::setw(8) << m_gridpoints[n][m];
 	    }
 	    else {
 		outs << "        ";
@@ -829,15 +829,15 @@ void LatLonGrid::print_ascii(std::ostream& outs) const
   precision= (precision > floatutils::precision(stats.max_val)) ? precision : floatutils::precision(stats.max_val);
   outs.precision(precision);
   width=7+precision;
-  outs << reference_date_time_.to_string("%Y%m%d%H") << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(3) << grid.nmean << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
+  outs << m_reference_date_time.to_string("%Y%m%d%H") << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(3) << grid.nmean << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
   for (n=0; n < dim.y; ++n) {
     for (m=0; m < dim.x; ++m) {
 	outs << std::setw(width);
-	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
 	  outs << -999.9;
 	}
 	else {
-	  outs << gridpoints_[n][m];
+	  outs << m_gridpoints[n][m];
 	}
     }
     outs << std::endl;
@@ -854,15 +854,15 @@ void LatLonGrid::v_print_header(std::ostream& outs,bool verbose,std::string path
     scientific=true;
   }
   if (verbose) {
-    if (reference_date_time_.day() > 0) {
-	outs << " DAILY GRID -- Date: " << reference_date_time_.to_string() << "  Valid: " << valid_date_time_.to_string() << std::endl;
+    if (m_reference_date_time.day() > 0) {
+	outs << " DAILY GRID -- Date: " << m_reference_date_time.to_string() << "  Valid: " << m_valid_date_time.to_string() << std::endl;
 	outs << "   Format: NCAR 5-degree Latitude/Longitude  Level: " << std::setw(6) << grid.level1 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src << "  Pole: ";
     }
     else {
-	outs << " MONTHLY GRID -- Date: " << reference_date_time_.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
+	outs << " MONTHLY GRID -- Date: " << m_reference_date_time.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
 	outs << "   Format: NCAR 5-degree Latitude/Longitude  Level: " << std::setw(6) << grid.level1 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << grid.src << "  Pole: ";
     }
-    if (floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "    N/A" << std::endl;
     }
     else {
@@ -880,12 +880,12 @@ void LatLonGrid::v_print_header(std::ostream& outs,bool verbose,std::string path
     outs << "   Grid Definition: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  LonRange: " << std::setw(5) << def.slongitude << " to " << std::setw(5) << def.elongitude << " by " << std::setw(4) << def.loincrement << "  LatRange: " << std::setw(5) << def.slatitude << " to " << std::setw(5) << def.elatitude << " by " << std::setw(4) << def.laincrement << std::endl;
   }
   else {
-    outs << " Type=" << grid.grid_type << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " Valid=" << valid_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
+    outs << " Type=" << grid.grid_type << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << " Valid=" << m_valid_date_time.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
     if (floatutils::myequalf(grid.level2,0.))
 	outs << " Level=" << grid.level1 << " Pole=";
     else
 	outs << " Levels=" << grid.level1 << "," << grid.level2 << " Pole=";
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	if (scientific) {
 	  outs.unsetf(std::ios::fixed);
 	  outs.setf(std::ios::scientific);
@@ -923,15 +923,15 @@ size_t LatLonGrid::copy_to_buffer(unsigned char *output_buffer,const size_t buff
   if (!grid.filled) {
     return 0;
   }
-  if (floatutils::myequalf(stats.max_val,-Grid::missing_value) || floatutils::myequalf(stats.min_val,Grid::missing_value)) {
+  if (floatutils::myequalf(stats.max_val,-Grid::MISSING_VALUE) || floatutils::myequalf(stats.min_val,Grid::MISSING_VALUE)) {
     return 0;
   }
   bits::set(output_buffer,grid.grid_type,0,6);
-  bits::set(output_buffer,reference_date_time_.year()-1900,6,7);
-  bits::set(output_buffer,reference_date_time_.month(),13,4);
-  bits::set(output_buffer,reference_date_time_.day(),17,5);
-  hr=reference_date_time_.time()/10000;
-  if ( (reference_date_time_.time() % 10000) >= 3000)
+  bits::set(output_buffer,m_reference_date_time.year()-1900,6,7);
+  bits::set(output_buffer,m_reference_date_time.month(),13,4);
+  bits::set(output_buffer,m_reference_date_time.day(),17,5);
+  hr=m_reference_date_time.time()/10000;
+  if ( (m_reference_date_time.time() % 10000) >= 3000)
     hr++;
   bits::set(output_buffer,hr,22,5);
   dum=1023.-grid.level1;
@@ -959,8 +959,8 @@ size_t LatLonGrid::copy_to_buffer(unsigned char *output_buffer,const size_t buff
   packed=new int[dim.size];
   for (n=0; n < dim.y; ++n) {
     for (m=0; m < dim.x; ++m) {
-	if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
-	  packed[cnt++]=lround((gridpoints_[n][m]-dbase)*pow(2.,-scale))+bias;
+	if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+	  packed[cnt++]=lround((m_gridpoints[n][m]-dbase)*pow(2.,-scale))+bias;
 	}
 	else {
 	  packed[cnt++]=0;
@@ -988,30 +988,30 @@ void convert_ij_wind_to_xy(LatLonGrid& ucomp,LatLonGrid& vcomp)
   if (ucomp.dim.x != 72 || ucomp.dim.y != 19 || vcomp.dim.x != 72 || vcomp.dim.y != 19 || !ucomp.grid.filled || !vcomp.grid.filled) {
     return;
   }
-  ucomp.stats.max_val=vcomp.stats.max_val=-Grid::missing_value;
-  ucomp.stats.min_val=vcomp.stats.min_val=Grid::missing_value;
+  ucomp.stats.max_val=vcomp.stats.max_val=-Grid::MISSING_VALUE;
+  ucomp.stats.min_val=vcomp.stats.min_val=Grid::MISSING_VALUE;
   ucomp.stats.avg_val=vcomp.stats.avg_val=0.;
   for (m=0; m < 72; ++m) {
     ang=deg_rad*(m*5.-10.);
     for (n=0; n < 19; ++n) {
-	if (!floatutils::myequalf(ucomp.gridpoints_[n][m],ucomp.Grid::missing_value) && !floatutils::myequalf(vcomp.gridpoints_[n][m],vcomp.Grid::missing_value)) {
-	  temp=vcomp.gridpoints_[n][m];
-	  vcomp.gridpoints_[n][m]=-temp*sin(ang)-ucomp.gridpoints_[n][m]*cos(ang);
-	  if (vcomp.gridpoints_[n][m] > vcomp.stats.max_val) {
-	    vcomp.stats.max_val=vcomp.gridpoints_[n][m];
+	if (!floatutils::myequalf(ucomp.m_gridpoints[n][m],ucomp.Grid::MISSING_VALUE) && !floatutils::myequalf(vcomp.m_gridpoints[n][m],vcomp.Grid::MISSING_VALUE)) {
+	  temp=vcomp.m_gridpoints[n][m];
+	  vcomp.m_gridpoints[n][m]=-temp*sin(ang)-ucomp.m_gridpoints[n][m]*cos(ang);
+	  if (vcomp.m_gridpoints[n][m] > vcomp.stats.max_val) {
+	    vcomp.stats.max_val=vcomp.m_gridpoints[n][m];
 	  }
-	  if (vcomp.gridpoints_[n][m] < vcomp.stats.min_val) {
-	    vcomp.stats.min_val=vcomp.gridpoints_[n][m];
+	  if (vcomp.m_gridpoints[n][m] < vcomp.stats.min_val) {
+	    vcomp.stats.min_val=vcomp.m_gridpoints[n][m];
 	  }
-	  vcomp.stats.avg_val+=vcomp.gridpoints_[n][m];
-	  ucomp.gridpoints_[n][m]=temp*cos(ang)-ucomp.gridpoints_[n][m]*sin(ang);
-	  if (ucomp.gridpoints_[n][m] > ucomp.stats.max_val) {
-	    ucomp.stats.max_val=ucomp.gridpoints_[n][m];
+	  vcomp.stats.avg_val+=vcomp.m_gridpoints[n][m];
+	  ucomp.m_gridpoints[n][m]=temp*cos(ang)-ucomp.m_gridpoints[n][m]*sin(ang);
+	  if (ucomp.m_gridpoints[n][m] > ucomp.stats.max_val) {
+	    ucomp.stats.max_val=ucomp.m_gridpoints[n][m];
 	  }
-	  if (ucomp.gridpoints_[n][m] < ucomp.stats.min_val) {
-	    ucomp.stats.min_val=ucomp.gridpoints_[n][m];
+	  if (ucomp.m_gridpoints[n][m] < ucomp.stats.min_val) {
+	    ucomp.stats.min_val=ucomp.m_gridpoints[n][m];
 	  }
-	  ucomp.stats.avg_val+=ucomp.gridpoints_[n][m];
+	  ucomp.stats.avg_val+=ucomp.m_gridpoints[n][m];
 	  ++cnt;
 	}
     }
@@ -1030,32 +1030,32 @@ void convert_xy_wind_to_ij(LatLonGrid& ucomp,LatLonGrid& vcomp)
   if (ucomp.dim.x != 72 || ucomp.dim.y != 19 || vcomp.dim.x != 72 || vcomp.dim.y != 19 || !ucomp.grid.filled || !vcomp.grid.filled) {
     return;
   }
-  ucomp.stats.max_val=vcomp.stats.max_val=-Grid::missing_value;
-  ucomp.stats.min_val=vcomp.stats.min_val=Grid::missing_value;
+  ucomp.stats.max_val=vcomp.stats.max_val=-Grid::MISSING_VALUE;
+  ucomp.stats.min_val=vcomp.stats.min_val=Grid::MISSING_VALUE;
   ucomp.stats.avg_val=vcomp.stats.avg_val=0.;
   for (m=0; m < 72; ++m) {
     ang=deg_rad*(m*5.-10.);
     for (n=0; n < 19; ++n) {
-	if (!floatutils::myequalf(ucomp.gridpoints_[n][m],ucomp.Grid::missing_value) && !floatutils::myequalf(vcomp.gridpoints_[n][m],vcomp.Grid::missing_value)) {
-	  temp=vcomp.gridpoints_[n][m];
-	  vcomp.gridpoints_[n][m]=(-temp*sin(ang)+ucomp.gridpoints_[n][m]*cos(ang))/
+	if (!floatutils::myequalf(ucomp.m_gridpoints[n][m],ucomp.Grid::MISSING_VALUE) && !floatutils::myequalf(vcomp.m_gridpoints[n][m],vcomp.Grid::MISSING_VALUE)) {
+	  temp=vcomp.m_gridpoints[n][m];
+	  vcomp.m_gridpoints[n][m]=(-temp*sin(ang)+ucomp.m_gridpoints[n][m]*cos(ang))/
           (cos(ang)*cos(ang)+sin(ang)*sin(ang));
-	  if (vcomp.gridpoints_[n][m] > vcomp.stats.max_val) {
-	    vcomp.stats.max_val=vcomp.gridpoints_[n][m];
+	  if (vcomp.m_gridpoints[n][m] > vcomp.stats.max_val) {
+	    vcomp.stats.max_val=vcomp.m_gridpoints[n][m];
 	  }
-	  if (vcomp.gridpoints_[n][m] < vcomp.stats.min_val) {
-	    vcomp.stats.min_val=vcomp.gridpoints_[n][m];
+	  if (vcomp.m_gridpoints[n][m] < vcomp.stats.min_val) {
+	    vcomp.stats.min_val=vcomp.m_gridpoints[n][m];
 	  }
-	  vcomp.stats.avg_val+=vcomp.gridpoints_[n][m];
-	  ucomp.gridpoints_[n][m]=(-temp*cos(ang)-ucomp.gridpoints_[n][m]*sin(ang))/
+	  vcomp.stats.avg_val+=vcomp.m_gridpoints[n][m];
+	  ucomp.m_gridpoints[n][m]=(-temp*cos(ang)-ucomp.m_gridpoints[n][m]*sin(ang))/
           (cos(ang)*cos(ang)+sin(ang)*sin(ang));
-	  if (ucomp.gridpoints_[n][m] > ucomp.stats.max_val) {
-	    ucomp.stats.max_val=ucomp.gridpoints_[n][m];
+	  if (ucomp.m_gridpoints[n][m] > ucomp.stats.max_val) {
+	    ucomp.stats.max_val=ucomp.m_gridpoints[n][m];
 	  }
-	  if (ucomp.gridpoints_[n][m] < ucomp.stats.min_val) {
-	    ucomp.stats.min_val=ucomp.gridpoints_[n][m];
+	  if (ucomp.m_gridpoints[n][m] < ucomp.stats.min_val) {
+	    ucomp.stats.min_val=ucomp.m_gridpoints[n][m];
 	  }
-	  ucomp.stats.avg_val+=ucomp.gridpoints_[n][m];
+	  ucomp.stats.avg_val+=ucomp.m_gridpoints[n][m];
 	  ++cnt;
 	}
     }

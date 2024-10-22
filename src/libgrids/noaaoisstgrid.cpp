@@ -3,7 +3,7 @@
 #include <strutils.hpp>
 #include <utils.hpp>
 
-const unsigned char NOAAOI2SSTGrid::mask[180][360]={
+const unsigned char NOAAOI2SSTGrid::MASK[180][360] = {
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -256,20 +256,20 @@ void NOAAOI2SSTGrid::fill(const unsigned char *stream_buffer,bool fill_header_on
   strutils::strget(&buffer[0],yr,5);
   strutils::strget(&buffer[5],mo,5);
   strutils::strget(&buffer[10],dy,5);
-  valid_date_time_.set(yr,mo,dy);
+  m_valid_date_time.set(yr,mo,dy);
   strutils::strget(&buffer[30],grid.nmean,5);
-  strutils::strget(&buffer[35],version_,10);
+  strutils::strget(&buffer[35],m_version,10);
   if (!fill_header_only) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     off=45;
     for (n=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++) {
-	  strutils::strget(&buffer[off],gridpoints_[n][m],4);
-	  gridpoints_[n][m]/=10.;
+	  strutils::strget(&buffer[off],m_gridpoints[n][m],4);
+	  m_gridpoints[n][m]/=10.;
 	  off+=4;
 	}
     }
@@ -303,11 +303,11 @@ void NOAAOI2SSTGrid::print(std::ostream& outs) const
 	for (n=dim.y-1; n >= 0; --n) {
 	  outs << std::setw(7) << def.slatitude+n*def.laincrement << " |";
 	  for (i=m; i < m+cnt; ++i) {
-	    if (mask[n][i] == 0) {
-		outs << "(" << std::setw(5) << gridpoints_[n][i] << ")";
+	    if (MASK[n][i] == 0) {
+		outs << "(" << std::setw(5) << m_gridpoints[n][i] << ")";
 	    }
 	    else {
-		outs << std::setw(7) << gridpoints_[n][i];
+		outs << std::setw(7) << m_gridpoints[n][i];
 	    }
 	  }
 	  outs << std::endl;
@@ -329,6 +329,6 @@ void NOAAOI2SSTGrid::v_print_header(std::ostream& outs,bool verbose,std::string 
   outs.setf(std::ios::fixed);
   outs.precision(1);
 
-  outs << "  Valid Time: " << valid_date_time_.to_string() << "  Num Averaged: " << grid.nmean << std::endl;
+  outs << "  Valid Time: " << m_valid_date_time.to_string() << "  Num Averaged: " << grid.nmean << std::endl;
   outs << "    Dimensions: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  LonRange: " << std::setw(6) << def.slongitude << " to " << std::setw(6) << def.elongitude << " by " << std::setw(4) << def.loincrement << "  LatRange: " << std::setw(6) << def.slatitude << " to " << std::setw(6) << def.elatitude << " by " << std::setw(4) << def.laincrement << std::endl;
 }

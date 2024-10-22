@@ -5,8 +5,8 @@
 
 int InputNavyGridStream::peek()
 {
-  if (icosstream != nullptr)
-    return icosstream->peek();
+  if (ics != nullptr)
+    return ics->peek();
   else {
     return bfstream::error;
   }
@@ -20,8 +20,8 @@ int InputNavyGridStream::read(unsigned char *buffer,size_t buffer_length)
   }
   int bytes_read;
 // read a grid from the stream
-  if (icosstream != nullptr) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0)
+  if (ics != nullptr) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0)
       return bytes_read;
   }
   else {
@@ -67,7 +67,7 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     case 3:
     case 4:
 	dim.x=dim.y=63;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.dx=def.dy=381.;
 	if (grid.grid_type == 3) {
 	  def.slatitude=-19.116;
@@ -93,13 +93,13 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   bits::get(stream_buffer,mo,13,4);
   bits::get(stream_buffer,dy,17,5);
   bits::get(stream_buffer,hr,22,5);
-  reference_date_time_.set(1900+yr,mo,dy,hr*10000);
+  m_reference_date_time.set(1900+yr,mo,dy,hr*10000);
   bits::get(stream_buffer,dum,27,10);
   grid.level1=1023.-dum;
   bits::get(stream_buffer,grid.param,37,9);
   bits::get(stream_buffer,grid.fcst_time,46,9);
   grid.fcst_time*=10000;
-  valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+  m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
   bits::get(stream_buffer,grid.src,67,6);
   bits::get(stream_buffer,status,73,5);
   if (dy > 0) {
@@ -112,7 +112,7 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 // check the checksum for the grid
   num_words=(dim.size*16+59)/60+4;
   if (checksum(stream_buffer,num_words,60,sum) != 0) {
-    std::cerr << "Warning: checksum error - Date: " << reference_date_time_.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
+    std::cerr << "Warning: checksum error - Date: " << m_reference_date_time.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
   }
   bits::get(stream_buffer,bias,78,16);
   bits::get(stream_buffer,scale,94,16);
@@ -120,43 +120,43 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   auto base=floatutils::cdcconv(stream_buffer,120,1);
   if (!fill_header_only) {
 // allocate gridpoint memory, if necessary
-    if (gridpoints_ != nullptr && dim.size > old_dim.size) {
+    if (m_gridpoints != nullptr && dim.size > old_dim.size) {
 	for (n=0; n < old_dim.y; n++)
-	  delete[] gridpoints_[n];
-	delete[] gridpoints_;
-	gridpoints_=nullptr;
+	  delete[] m_gridpoints[n];
+	delete[] m_gridpoints;
+	m_gridpoints=nullptr;
     }
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     pval=new int[dim.size];
     bits::get(stream_buffer,pval,180,16,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     grid.num_missing=0;
     for (n=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++) {
 	  if (pval[cnt] > 0) {
-	    gridpoints_[n][m]=base+(pval[cnt]-bias)*pow(2.,scale);
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=base+(pval[cnt]-bias)*pow(2.,scale);
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    avg_cnt++;
 	  }
 	  else {
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	    grid.num_missing++;
 	  }
 	  cnt++;
@@ -167,10 +167,10 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     switch (grid.grid_type) {
 	case 10:
 	case 11:
-	  grid.pole=Grid::missing_value;
+	  grid.pole=Grid::MISSING_VALUE;
 	  break;
 	default:
-	  grid.pole=gridpoints_[dim.y/2][dim.x/2];
+	  grid.pole=m_gridpoints[dim.y/2][dim.x/2];
     }
     grid.filled=true;
     delete[] pval;
@@ -179,7 +179,7 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     switch (grid.grid_type) {
 	case 10:
 	case 11:
-	  grid.pole=Grid::missing_value;
+	  grid.pole=Grid::MISSING_VALUE;
 	  break;
 	default:
 	  pval=new int[1];
@@ -189,7 +189,7 @@ void NavyGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 	    grid.pole=base+(pval[0]-bias)*pow(2.,scale);
 	  }
 	  else {
-	    grid.pole=Grid::missing_value;
+	    grid.pole=Grid::MISSING_VALUE;
 	  }
 	  delete[] pval;
     }
@@ -226,11 +226,11 @@ void NavyGrid::print(std::ostream& outs) const
 	for (n=dim.y-1; n >= 0; --n) {
 	  outs << std::setw(3) << n+1 << " | ";
 	  for (l=m; l < max_m; ++l) {
-	    if (floatutils::myequalf(gridpoints_[n][l],Grid::missing_value)) {
+	    if (floatutils::myequalf(m_gridpoints[n][l],Grid::MISSING_VALUE)) {
 		outs << "        ";
 	    }
 	    else {
-		outs << std::setw(8) << gridpoints_[n][l];
+		outs << std::setw(8) << m_gridpoints[n][l];
 	    }
 	  }
 	  outs << std::endl;
@@ -255,14 +255,14 @@ void NavyGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
   outs.precision(1);
 
   if (verbose) {
-    if (reference_date_time_.day() > 0) {
-	outs << " DAILY GRID -- Time: " << reference_date_time_.to_string() << "  Valid Time: " << valid_date_time_.to_string() << std::endl;
+    if (m_reference_date_time.day() > 0) {
+	outs << " DAILY GRID -- Time: " << m_reference_date_time.to_string() << "  Valid Time: " << m_valid_date_time.to_string() << std::endl;
     }
     else {
-	outs << " MONTHLY GRID -- Time: " << reference_date_time_.to_string() << "  Valid Time: " << valid_date_time_.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
+	outs << " MONTHLY GRID -- Time: " << m_reference_date_time.to_string() << "  Valid Time: " << m_valid_date_time.to_string() << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
     }
     outs << "  Format: NCAR Navy  Level: " << std::setw(6) << grid.level1 << "mb  Parameter: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "  Pole: " << std::setw(8) << grid.pole << std::endl;
     }
     else {
@@ -274,8 +274,8 @@ void NavyGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
     }
   }
   else {
-    outs << " Time=" << reference_date_time_.to_string("%Y%m%d%H") << " ValidTime=" << valid_date_time_.to_string("%Y%m%d%H") << " Param=" << grid.param << " Level=" << grid.level1 << " Pole=";
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    outs << " Time=" << m_reference_date_time.to_string("%Y%m%d%H") << " ValidTime=" << m_valid_date_time.to_string("%Y%m%d%H") << " Param=" << grid.param << " Level=" << grid.level1 << " Pole=";
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << grid.pole;
     }
     else {

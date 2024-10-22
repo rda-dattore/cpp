@@ -7,8 +7,8 @@
 
 int InputOctagonalGridStream::peek()
 {
-  if (icosstream != nullptr) {
-    return icosstream->peek();
+  if (ics != nullptr) {
+    return ics->peek();
   }
   else {
     unsigned char buffer[3000];
@@ -29,8 +29,8 @@ int InputOctagonalGridStream::read(unsigned char *buffer,size_t buffer_length)
   }
   int bytes_read;
 // read a grid from the stream
-  if (icosstream != nullptr) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
+  if (ics != nullptr) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0) {
 	return bytes_read;
     }
   }
@@ -58,7 +58,7 @@ OctagonalGrid::OctagonalGrid()
   dim.y=51;
   dim.x=47;
   dim.size=2397;
-  def.type=Grid::polarStereographicType;
+  def.type=Grid::Type::polarStereographic;
   def.slatitude=-4.86;
   def.slongitude=-122.61;
   def.llatitude=60.;
@@ -91,22 +91,22 @@ OctagonalGrid& OctagonalGrid::operator=(const OctagonalGrid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
-  valid_date_time_=source.valid_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
+  m_valid_date_time=source.m_valid_date_time;
   dim=source.dim;
   def=source.def;
   stats=source.stats;
   grid=source.grid;
   if (source.grid.filled) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=source.gridpoints_[n][m];
+	  m_gridpoints[n][m]=source.m_gridpoints[n][m];
 	}
     }
   }
@@ -124,18 +124,18 @@ size_t OctagonalGrid::copy_to_buffer(unsigned char *output_buffer,const size_t b
 
   if (!grid.filled)
     return 0;
-  if (floatutils::myequalf(stats.max_val,-Grid::missing_value) || floatutils::myequalf(stats.min_val,Grid::missing_value)) {
+  if (floatutils::myequalf(stats.max_val,-Grid::MISSING_VALUE) || floatutils::myequalf(stats.min_val,Grid::MISSING_VALUE)) {
     return 0;
   }
   for (n=0; n < 27; ++n) {
     output_buffer[n]=0;
   }
   bits::set(output_buffer,grid.grid_type,0,6);
-  bits::set(output_buffer,reference_date_time_.year()-1900,6,7);
-  bits::set(output_buffer,reference_date_time_.month(),13,4);
-  bits::set(output_buffer,reference_date_time_.day(),17,5);
-  hr=reference_date_time_.time()/10000;
-  if ( (reference_date_time_.time() % 10000) >= 3000) {
+  bits::set(output_buffer,m_reference_date_time.year()-1900,6,7);
+  bits::set(output_buffer,m_reference_date_time.month(),13,4);
+  bits::set(output_buffer,m_reference_date_time.day(),17,5);
+  hr=m_reference_date_time.time()/10000;
+  if ( (m_reference_date_time.time() % 10000) >= 3000) {
     ++hr;
   }
   bits::set(output_buffer,hr,22,5);
@@ -158,13 +158,13 @@ size_t OctagonalGrid::copy_to_buffer(unsigned char *output_buffer,const size_t b
   dbase=(stats.max_val+stats.min_val)*0.5;
   auto base=floatutils::cdcconv(dbase,1);
   bits::set(output_buffer,base,120,60);
-// pack the gridpoints_
+// pack the m_gridpoints
   packed=new int[1977];
   for (n=0; n < 51; ++n) {
     for (m=0; m < 47; ++m) {
 	if (m >= start[n] && m <= end[n]) {
-	  if (!floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
-	    packed[cnt++]=lround((gridpoints_[n][m]-dbase)*pow(2.,-scale))+bias;
+	  if (!floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
+	    packed[cnt++]=lround((m_gridpoints[n][m]-dbase)*pow(2.,-scale))+bias;
 	  }
 	  else {
 	    packed[cnt++]=0;
@@ -189,8 +189,8 @@ OctagonalGrid& OctagonalGrid::operator=(const LatLonGrid& source)
   int n;
 
   grid.grid_type=source.type();
-  reference_date_time_=source.reference_date_time();
-  valid_date_time_=source.valid_date_time();
+  m_reference_date_time=source.reference_date_time();
+  m_valid_date_time=source.valid_date_time();
   grid.level1=source.first_level_value();
   grid.param=source.parameter();
   switch (grid.param) {
@@ -207,14 +207,14 @@ OctagonalGrid& OctagonalGrid::operator=(const LatLonGrid& source)
   grid.level2=source.second_level_value();
   grid.src=source.source();
   grid.nmean=source.number_averaged();
-  if (gridpoints_ == nullptr) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == nullptr) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; ++n) {
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     }
   }
   bessel_interpolation(reinterpret_cast<Grid *>(const_cast<LatLonGrid *>(&source)));
-  grid.pole=gridpoints_[25][23];
+  grid.pole=m_gridpoints[25][23];
   grid.filled=true;
   return *this;
 }
@@ -228,8 +228,8 @@ OctagonalGrid& OctagonalGrid::operator=(const NavyGrid& source)
     exit(1);
   }
   grid.grid_type=1;
-  reference_date_time_=source.reference_date_time();
-  valid_date_time_=source.valid_date_time();
+  m_reference_date_time=source.reference_date_time();
+  m_valid_date_time=source.valid_date_time();
   grid.level1=source.first_level_value();
   grid.param=source.parameter();
   switch (grid.param) {
@@ -247,36 +247,36 @@ OctagonalGrid& OctagonalGrid::operator=(const NavyGrid& source)
   grid.src=source.source();
   grid.nmean=source.number_averaged();
 
-  if (gridpoints_ == nullptr) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == nullptr) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; n++)
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
   }
-  stats.max_val=-Grid::missing_value;
-  stats.min_val=Grid::missing_value;
+  stats.max_val=-Grid::MISSING_VALUE;
+  stats.min_val=Grid::MISSING_VALUE;
   stats.avg_val=0.;
   for (nn=6,n=0; nn < 57; nn++,n++) {
     for (mm=8,m=0; mm < 55; mm++,m++) {
-	gridpoints_[n][m]=source.gridpoint(mm,nn);
+	m_gridpoints[n][m]=source.gridpoint(mm,nn);
 	if (m >= start[n] && m <= end[n]) {
-	  if (gridpoints_[n][m] > stats.max_val) {
-	    stats.max_val=gridpoints_[n][m];
+	  if (m_gridpoints[n][m] > stats.max_val) {
+	    stats.max_val=m_gridpoints[n][m];
 	    stats.max_i=m+1;
 	    stats.max_j=n+1;
 	  }
-	  if (gridpoints_[n][m] < stats.min_val) {
-	    stats.min_val=gridpoints_[n][m];
+	  if (m_gridpoints[n][m] < stats.min_val) {
+	    stats.min_val=m_gridpoints[n][m];
 	    stats.min_i=m+1;
 	    stats.min_j=n+1;
 	  }
-	  stats.avg_val+=gridpoints_[n][m];
+	  stats.avg_val+=m_gridpoints[n][m];
 	  avg_cnt++;
 	}
     }
   }
   if (avg_cnt > 0)
     stats.avg_val/=static_cast<float>(avg_cnt);
-  grid.pole=gridpoints_[25][23];
+  grid.pole=m_gridpoints[25][23];
   grid.filled=true;
   return *this;
 }
@@ -298,13 +298,13 @@ void OctagonalGrid::fill(const unsigned char *stream_buffer,bool fill_header_onl
   bits::get(stream_buffer,mo,13,4);
   bits::get(stream_buffer,dy,17,5);
   bits::get(stream_buffer,time,22,5);
-  reference_date_time_.set(1900+yr,mo,dy,time*10000);
+  m_reference_date_time.set(1900+yr,mo,dy,time*10000);
   bits::get(stream_buffer,dum,27,10);
   grid.level1=1023.-dum;
   bits::get(stream_buffer,grid.param,37,9);
   bits::get(stream_buffer,grid.fcst_time,46,9);
   grid.fcst_time*=10000;
-  valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+  m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
   bits::get(stream_buffer,dum,55,10);
   grid.level2=1023.-dum;
   bits::get(stream_buffer,grid.src,65,6);
@@ -317,7 +317,7 @@ void OctagonalGrid::fill(const unsigned char *stream_buffer,bool fill_header_onl
   grid.filled=false;
 // check the checksum for the grid
   if (checksum(stream_buffer,400,60,sum) != 0) {
-    std::cerr << "Warning: checksum error - Date: " << reference_date_time_.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
+    std::cerr << "Warning: checksum error - Date: " << m_reference_date_time.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
   }
   bits::get(stream_buffer,bias,76,12);
   bits::get(stream_buffer,scale,88,12);
@@ -326,46 +326,46 @@ void OctagonalGrid::fill(const unsigned char *stream_buffer,bool fill_header_onl
 // unpack the octagonal grid gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     pval=new int[dim.size];
     bits::get(stream_buffer,pval,216,12,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     grid.num_missing=0;
     for (n=0,l=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
 	  if (m >= start[n] && m <= end[n]) {
 	    if (pval[l] > 0) {
-		gridpoints_[n][m]=base+(pval[l]-bias)*pow(2.,scale);
-		if (gridpoints_[n][m] > stats.max_val) {
-		  stats.max_val=gridpoints_[n][m];
+		m_gridpoints[n][m]=base+(pval[l]-bias)*pow(2.,scale);
+		if (m_gridpoints[n][m] > stats.max_val) {
+		  stats.max_val=m_gridpoints[n][m];
 		  stats.max_i=m+1;
 		  stats.max_j=n+1;
 		}
-		if (gridpoints_[n][m] < stats.min_val) {
-		  stats.min_val=gridpoints_[n][m];
+		if (m_gridpoints[n][m] < stats.min_val) {
+		  stats.min_val=m_gridpoints[n][m];
 		  stats.min_i=m+1;
 		  stats.min_j=n+1;
 		}
-		stats.avg_val+=gridpoints_[n][m];
+		stats.avg_val+=m_gridpoints[n][m];
 		avg_cnt++;
 	    }
 	    else {
-		gridpoints_[n][m]=Grid::missing_value;
+		m_gridpoints[n][m]=Grid::MISSING_VALUE;
 		grid.num_missing++;
 	    }
 	    ++l;
 	  }
 	  else
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	}
     }
-    grid.pole=gridpoints_[25][23];
+    grid.pole=m_gridpoints[25][23];
     if (avg_cnt > 0) {
 	stats.avg_val/=static_cast<float>(avg_cnt);
     }
@@ -375,7 +375,7 @@ void OctagonalGrid::fill(const unsigned char *stream_buffer,bool fill_header_onl
   else {
     bits::get(stream_buffer,dum,12072,12);
     if (dum == 0) {
-	grid.pole=Grid::missing_value;
+	grid.pole=Grid::MISSING_VALUE;
     }
     else {
 	grid.pole=base+(dum-bias)*pow(2.,scale);
@@ -411,11 +411,11 @@ void OctagonalGrid::print(std::ostream& outs) const
 	for (n=dim.y-1; n >= 0; n--) {
 	  outs << std::setw(3) << n+1 << " | ";
 	  for (l=m; l < max_m; ++l) {
-	    if (floatutils::myequalf(gridpoints_[n][l],Grid::missing_value)) {
+	    if (floatutils::myequalf(m_gridpoints[n][l],Grid::MISSING_VALUE)) {
 		outs << "        ";
 	    }
 	    else {
-		outs << std::setw(8) << gridpoints_[n][l];
+		outs << std::setw(8) << m_gridpoints[n][l];
 	    }
 	  }
 	  outs << std::endl;
@@ -440,15 +440,15 @@ void OctagonalGrid::print_ascii(std::ostream& outs) const
   precision= (precision > floatutils::precision(stats.max_val)) ? precision : floatutils::precision(stats.max_val);
   outs.precision(precision);
   auto width=7+precision;
-  outs << reference_date_time_.to_string() << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(3) << grid.nmean << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
+  outs << m_reference_date_time.to_string() << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(3) << grid.nmean << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
   for (short n=0; n < dim.y; ++n) {
     for (short m=0; m < dim.x; ++m) {
 	outs << std::setw(width);
-	if (floatutils::myequalf(gridpoints_[n][m],Grid::missing_value)) {
+	if (floatutils::myequalf(m_gridpoints[n][m],Grid::MISSING_VALUE)) {
 	  outs << -999.9;
 	}
 	else {
-	  outs << gridpoints_[n][m];
+	  outs << m_gridpoints[n][m];
 	}
     }
     outs << std::endl;
@@ -461,28 +461,28 @@ void OctagonalGrid::v_print_header(std::ostream& outs,bool verbose,std::string p
   outs.precision(1);
 
   if (verbose) {
-    if (reference_date_time_.day() > 0) {
-	outs << " DAILY GRID -- Date: " << reference_date_time_.to_string();
+    if (m_reference_date_time.day() > 0) {
+	outs << " DAILY GRID -- Date: " << m_reference_date_time.to_string();
 	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid" << std::endl;
 	}
 	else {
-	  outs << "  Valid Time: " << valid_date_time_.to_string() << std::endl;
+	  outs << "  Valid Time: " << m_valid_date_time.to_string() << std::endl;
 	}
       outs << "   Format: NCAR Octagonal  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
     }
     else {
-	outs << " MONTHLY GRID -- Date: " << reference_date_time_.to_string();
+	outs << " MONTHLY GRID -- Date: " << m_reference_date_time.to_string();
 	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid";
 	}
 	else {
-	  outs << "  Valid Time: " << valid_date_time_.to_string();
+	  outs << "  Valid Time: " << m_valid_date_time.to_string();
 	}
 	outs << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
       outs << "   Format: NCAR Octagonal  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
     }
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "  Pole: " << std::setw(8) << grid.pole << std::endl;
     }
     else {
@@ -493,14 +493,14 @@ void OctagonalGrid::v_print_header(std::ostream& outs,bool verbose,std::string p
     }
   }
   else {
-    outs << "  Type=" << grid.grid_type << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " Valid=" << valid_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
+    outs << "  Type=" << grid.grid_type << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << " Valid=" << m_valid_date_time.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
     if (floatutils::myequalf(grid.level2,0.)) {
 	outs << " Level=" << grid.level1 << " Pole=";
     }
     else {
 	outs << " Levels=" << grid.level1 << "," << grid.level2 << " Pole=";
     }
-    if (!floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (!floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << grid.pole;
     }
     else {
@@ -523,8 +523,8 @@ void OctagonalGrid::bessel_interpolation(Grid *source)
   double x,y,r2,lat,lon,dx,dy,dxx,dyy;
   double val[4][4],a,b,c,d;
 
-  stats.max_val=-Grid::missing_value;
-  stats.min_val=Grid::missing_value;
+  stats.max_val=-Grid::MISSING_VALUE;
+  stats.min_val=Grid::MISSING_VALUE;
   stats.avg_val=0.;
   for (n=0; n < dim.y; ++n) {
     for (m=0; m < dim.x; ++m) {
@@ -596,22 +596,22 @@ void OctagonalGrid::bessel_interpolation(Grid *source)
 	  b=val[2][1]+dx*(val[2][2]-val[2][1]+dxx*(val[2][3]-val[2][2]+val[2][0]-val[2][1]));
 	  c=val[1][1]+dx*(val[1][2]-val[1][1]+dxx*(val[1][3]-val[1][2]+val[1][0]-val[1][1]));
 	  d=val[0][1]+dx*(val[0][2]-val[0][1]+dxx*(val[0][3]-val[0][2]+val[0][0]-val[0][1]));
-	  gridpoints_[n][m]=b+dy*(c-b+dyy*(d-c+a-b));
-	  if (gridpoints_[n][m] > stats.max_val) {
-	    stats.max_val=gridpoints_[n][m];
+	  m_gridpoints[n][m]=b+dy*(c-b+dyy*(d-c+a-b));
+	  if (m_gridpoints[n][m] > stats.max_val) {
+	    stats.max_val=m_gridpoints[n][m];
 	    stats.max_i=m+1;
 	    stats.max_j=n+1;
 	  }
-	  if (gridpoints_[n][m] < stats.min_val) {
-	    stats.min_val=gridpoints_[n][m];
+	  if (m_gridpoints[n][m] < stats.min_val) {
+	    stats.min_val=m_gridpoints[n][m];
 	    stats.min_i=m+1;
 	    stats.min_j=n+1;
 	  }
-	  stats.avg_val+=gridpoints_[n][m];
+	  stats.avg_val+=m_gridpoints[n][m];
 	  avg_cnt++;
 	}
 	else {
-	  gridpoints_[n][m]=Grid::missing_value;
+	  m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	}
     }
   }
