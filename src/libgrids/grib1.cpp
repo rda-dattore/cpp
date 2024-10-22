@@ -2191,7 +2191,7 @@ void GRIBGrid::fill_from_grib_data(const GRIBData& source)
       myerror="path to gaussian latitude data was not specified";
       exit(0);
     }
-    else if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
+    else if (!gridutils::filled_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
       myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
       exit(0);
     }
@@ -5911,7 +5911,7 @@ void GRIBGrid::print(std::ostream& outs) const
       scientific=true;
     }
     if (def.type == Grid::Type::gaussianLatitudeLongitude) {
-      if (!gridutils::fill_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
+      if (!gridutils::filled_gaussian_latitudes(_path_to_gauslat_lists,gaus_lats,def.num_circles,(grib.scan_mode&0x40) != 0x40)) {
         myerror="unable to get gaussian latitudes for "+strutils::itos(def.num_circles)+" circles from '"+_path_to_gauslat_lists+"'";
         exit(0);
       }
@@ -6530,7 +6530,7 @@ GRIBGrid interpolate_gaussian_to_lat_lon(const GRIBGrid& source,std::string path
 
   if (source.def.type != Grid::Type::gaussianLatitudeLongitude)
     return source;
-  if (!gridutils::fill_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,source.def.num_circles,(source.grib.scan_mode&0x40) != 0x40)) {
+  if (!gridutils::filled_gaussian_latitudes(path_to_gauslat_lists,gaus_lats,source.def.num_circles,(source.grib.scan_mode&0x40) != 0x40)) {
     myerror="unable to get gaussian latitudes for "+strutils::itos(source.def.num_circles)+" circles from '"+path_to_gauslat_lists+"'";
     exit(0);
   }
@@ -6781,7 +6781,7 @@ GRIBGrid create_subset_grid(const GRIBGrid& source, float bottom_latitude, float
     if (source.path_to_gaussian_latitude_data().empty()) {
       throw runtime_error("path to gaussian latitude data was not specified");
     }
-    else if (!gridutils::fill_gaussian_latitudes(
+    else if (!gridutils::filled_gaussian_latitudes(
         source.path_to_gaussian_latitude_data(), gaus_lats,
         subset_grid.def.num_circles, (subset_grid.grib.scan_mode & 0x40) !=
         0x40)) {
