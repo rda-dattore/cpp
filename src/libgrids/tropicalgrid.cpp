@@ -8,8 +8,8 @@
 
 int InputTropicalGridStream::peek()
 {
-  if (icosstream != nullptr) {
-    return icosstream->peek();
+  if (ics != nullptr) {
+    return ics->peek();
   }
   else {
     unsigned char buffer[2560];
@@ -31,8 +31,8 @@ int InputTropicalGridStream::read(unsigned char *buffer,size_t buffer_length)
   }
   int bytes_read;
 // read a grid from the stream
-  if (icosstream != nullptr) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
+  if (ics != nullptr) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0) {
 	return bytes_read;
     }
   }
@@ -57,7 +57,7 @@ TropicalGrid::TropicalGrid()
   dim.x=73;
   dim.y=23;
   dim.size=1679;
-  def.type=Grid::mercatorType;
+  def.type=Grid::Type::mercator;
   def.slatitude=-48.09;
   def.slongitude=0.;
   def.elatitude=48.09;
@@ -78,21 +78,21 @@ TropicalGrid& TropicalGrid::operator=(const TropicalGrid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
-  valid_date_time_=source.valid_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
+  m_valid_date_time=source.m_valid_date_time;
   dim=source.dim;
   def=source.def;
   stats=source.stats;
   grid=source.grid;
   if (source.grid.filled) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     for (n=0; n < dim.y; n++) {
 	for (m=0; m < dim.x; m++)
-	  gridpoints_[n][m]=source.gridpoints_[n][m];
+	  m_gridpoints[n][m]=source.m_gridpoints[n][m];
     }
   }
   return *this;
@@ -116,14 +116,14 @@ void TropicalGrid::fill(const unsigned char *stream_buffer,bool fill_header_only
   bits::get(stream_buffer,mo,13,4);
   bits::get(stream_buffer,dy,17,5);
   bits::get(stream_buffer,time,22,5);
-  reference_date_time_.set(1900+yr,mo,dy,time*10000);
+  m_reference_date_time.set(1900+yr,mo,dy,time*10000);
   int lvl1;
   bits::get(stream_buffer,lvl1,27,10);
   grid.level1=1023.-lvl1;
   bits::get(stream_buffer,grid.param,37,9);
   bits::get(stream_buffer,grid.fcst_time,46,9);
   grid.fcst_time*=10000;
-  valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+  m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
   int lvl2;
   bits::get(stream_buffer,lvl2,55,10);
   grid.level2=1023.-lvl2;
@@ -139,7 +139,7 @@ void TropicalGrid::fill(const unsigned char *stream_buffer,bool fill_header_only
 // check the checksum for the grid
   long long sum;
   if (checksum(stream_buffer,341,60,sum) != 0) {
-    std::cerr << "Warning: checksum error - Date: " << reference_date_time_.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
+    std::cerr << "Warning: checksum error - Date: " << m_reference_date_time.to_string() << "  Level: " << grid.level1 << "  Parameter: " << grid.param << std::endl;
   }
   int bias;
   bits::get(stream_buffer,bias,76,12);
@@ -150,38 +150,38 @@ void TropicalGrid::fill(const unsigned char *stream_buffer,bool fill_header_only
 // unpack the tropical grid gridpoints
   if (!fill_header_only) {
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (int n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     auto pval=new int[dim.size];
     bits::get(stream_buffer,pval,216,12,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     grid.num_missing=0;
     size_t avg_cnt=0;
     for (int n=0,l=0; n < dim.y; ++n) {
 	for (int m=0; m < dim.x; ++m) {
 	  if (m >= start[n] && m <= end[n]) {
-	    gridpoints_[n][m]=base+(pval[l]-bias)*std::pow(2.,scale);
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=base+(pval[l]-bias)*std::pow(2.,scale);
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    ++avg_cnt;
 	  }
 	  else {
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	    grid.num_missing++;
 	  }
 	  ++l;
@@ -226,7 +226,7 @@ void TropicalGrid::print_ascii(std::ostream& outs) const
   outs.precision(precision);
   width=7+precision;
 
-  outs << reference_date_time_.to_string() << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
+  outs << m_reference_date_time.to_string() << " " << std::setw(2) << grid.param << " " << std::setw(6) << grid.level1 << " " << std::setw(6) << grid.level2 << " " << std::setw(3) << dim.x << " " << std::setw(3) << dim.y << " " << std::setw(2) << width << " " << std::setw(2) << precision << std::endl;
 }
 
 void TropicalGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_to_parameter_map) const
@@ -235,23 +235,23 @@ void TropicalGrid::v_print_header(std::ostream& outs,bool verbose,std::string pa
   outs.precision(1);
 
   if (verbose) {
-    if (reference_date_time_.day() > 0) {
-	outs << " DAILY GRID -- Date: " << reference_date_time_.to_string();
+    if (m_reference_date_time.day() > 0) {
+	outs << " DAILY GRID -- Date: " << m_reference_date_time.to_string();
 	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid" << std::endl;
 	}
 	else {
-	  outs << "  Valid Time: " << valid_date_time_.to_string() << std::endl;
+	  outs << "  Valid Time: " << m_valid_date_time.to_string() << std::endl;
 	}
       outs << "   Format: NCAR Tropical  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
     }
     else {
-	outs << " MONTHLY GRID -- Date: " << reference_date_time_.to_string();
+	outs << " MONTHLY GRID -- Date: " << m_reference_date_time.to_string();
 	if (grid.fcst_time == 0) {
 	  outs << "  Analysis Grid";
 	}
 	else {
-	  outs << "  Valid Time: " << valid_date_time_.to_string();
+	  outs << "  Valid Time: " << m_valid_date_time.to_string();
 	}
 	outs << "  Grids in Average: " << std::setw(3) << grid.nmean << std::endl;
       outs << "   Format: NCAR Tropical  Levels: " << std::setw(6) << grid.level1 << "mb " << std::setw(6) << grid.level2 << "mb  Parameter Code: " << std::setw(2) << grid.param << "  Source: " << std::setw(2) << grid.src;
@@ -261,7 +261,7 @@ void TropicalGrid::v_print_header(std::ostream& outs,bool verbose,std::string pa
     }
   }
   else {
-    outs << "  Type=" << grid.grid_type << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " Valid=" << valid_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
+    outs << "  Type=" << grid.grid_type << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << " Valid=" << m_valid_date_time.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " Src=" << grid.src << " Param=" << grid.param;
     if (floatutils::myequalf(grid.level2,0.)) {
 	outs << " Level=" << grid.level1;
     }

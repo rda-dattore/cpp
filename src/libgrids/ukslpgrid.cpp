@@ -12,8 +12,8 @@ int InputUKSLPGridStream::read(unsigned char *buffer,size_t buffer_length)
 {
   int bytes_read;
 
-  if (icosstream != nullptr) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0)
+  if (ics != nullptr) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0)
 	return bytes_read;
   }
   else {
@@ -30,7 +30,7 @@ UKSLPGrid::UKSLPGrid()
   dim.x=36;
   dim.y=15;
   dim.size=540;
-  def.type=Grid::latitudeLongitudeType;
+  def.type=Grid::Type::latitudeLongitude;
   def.slatitude=85.;
   def.elatitude=15.;
   def.laincrement=5.;
@@ -69,7 +69,7 @@ void UKSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   mo/=10;
   bits::get(stream_buffer,yr,64,16);
   yr/=10;
-  reference_date_time_.set(1900+yr,mo,dy,310000);
+  m_reference_date_time.set(1900+yr,mo,dy,310000);
   grid.filled=false;
 
 // unpack the gridpoints
@@ -82,16 +82,16 @@ void UKSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     if (pval[0] != 32768)
 	grid.pole=1000.+(pval[0]/10.);
     else
-	grid.pole=Grid::missing_value;
+	grid.pole=Grid::MISSING_VALUE;
 // if memory has not yet been allocated for the gridpoints, do it now
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
     }
     bits::get(stream_buffer,pval,256,16,0,dim.size+dim.x);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
     for (l=0; l < dim.x; l++) {
 	m=pval[cnt++];
@@ -103,22 +103,22 @@ void UKSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 	  if (pval[cnt] > 0x7fff)
 	    pval[cnt]-=0x10000;
 	  if (pval[cnt] != -32768) {
-	    gridpoints_[n][m]=1000.+(pval[cnt]/10.);
-	    if (gridpoints_[n][m] > stats.max_val) {
-		stats.max_val=gridpoints_[n][m];
+	    m_gridpoints[n][m]=1000.+(pval[cnt]/10.);
+	    if (m_gridpoints[n][m] > stats.max_val) {
+		stats.max_val=m_gridpoints[n][m];
 		stats.max_i=m+1;
 		stats.max_j=n+1;
 	    }
-	    if (gridpoints_[n][m] < stats.min_val) {
-		stats.min_val=gridpoints_[n][m];
+	    if (m_gridpoints[n][m] < stats.min_val) {
+		stats.min_val=m_gridpoints[n][m];
 		stats.min_i=m+1;
 		stats.min_j=n+1;
 	    }
-	    stats.avg_val+=gridpoints_[n][m];
+	    stats.avg_val+=m_gridpoints[n][m];
 	    avg_cnt++;
 	  }
 	  else
-	    gridpoints_[n][m]=Grid::missing_value;
+	    m_gridpoints[n][m]=Grid::MISSING_VALUE;
 	  cnt++;
 	}
     }
@@ -126,7 +126,7 @@ void UKSLPGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
     if (avg_cnt > 0)
 	stats.avg_val/=static_cast<float>(avg_cnt);
     else {
-	stats.avg_val=Grid::missing_value;
+	stats.avg_val=Grid::MISSING_VALUE;
 	stats.max_val=-stats.max_val;
     }
     delete[] pval;
@@ -155,11 +155,11 @@ void UKSLPGrid::print(std::ostream& outs) const
       for (n=14; n >= 0; n--) {
         outs << std::setw(3) << 85-(n*5) << "N |";
         for (l=start; l < stop; l++) {
-          if (floatutils::myequalf(gridpoints_[n][l],Grid::missing_value)) {
+          if (floatutils::myequalf(m_gridpoints[n][l],Grid::MISSING_VALUE)) {
             outs << "        ";
 	  }
           else {
-            outs << std::setw(8) << gridpoints_[n][l];
+            outs << std::setw(8) << m_gridpoints[n][l];
 	  }
         }
         outs << std::endl;
@@ -183,9 +183,9 @@ void UKSLPGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_
   outs.precision(1);
 
   if (verbose) {
-    outs << " Date: " << reference_date_time_.to_string() << std::endl;
+    outs << " Date: " << m_reference_date_time.to_string() << std::endl;
     outs << "  Format: U.K. Sea-Level Pressure  Level: " << grid.level1 << "mb  Parameter: Sea-Level Pressure  Pole: ";
-    if (floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "    N/A" << std::endl;
     }
     else {
@@ -193,8 +193,8 @@ void UKSLPGrid::v_print_header(std::ostream& outs,bool verbose,std::string path_
     }
   }
   else {
-    outs << " Date=" << reference_date_time_.to_string("%Y%m%d%H") << " Pole=";
-    if (floatutils::myequalf(grid.pole,Grid::missing_value)) {
+    outs << " Date=" << m_reference_date_time.to_string("%Y%m%d%H") << " Pole=";
+    if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE)) {
 	outs << "    N/A";
     }
     else {

@@ -7,15 +7,15 @@ bool InputCMORPH025GridStream::open(std::string filename)
 {
   size_t idx;
   if ( (idx=filename.find("_3hr-025deg_cpc+comb")) != std::string::npos) {
-    date_time_.set(std::stoll(filename.substr(idx-8,8))*1000000);
+    m_date_time.set(std::stoll(filename.substr(idx-8,8))*1000000);
     type=1;
   }
   else if ( (idx=filename.find("CMORPH+MWCOMB_3HRLY-025DEG_")) != std::string::npos) {
-    date_time_.set(std::stoll(filename.substr(idx+27,8))*1000000);
+    m_date_time.set(std::stoll(filename.substr(idx+27,8))*1000000);
     type=1;
   }
   else if ( (idx=filename.find("_RAW_0.25deg-3HLY_")) != std::string::npos || (idx=filename.find("_ADJ_0.25deg-3HLY_")) != std::string::npos) {
-    date_time_.set(std::stoll(filename.substr(idx+18,8))*1000000);
+    m_date_time.set(std::stoll(filename.substr(idx+18,8))*1000000);
     type=2;
   }
   else {
@@ -33,7 +33,7 @@ int InputCMORPH025GridStream::peek()
     fs.seekg(-bytes_read,std::ios_base::cur);
     --num_read;
   }
-  delete buffer;
+  delete[] buffer;
   return bytes_read;
 }
 
@@ -53,7 +53,7 @@ int InputCMORPH025GridStream::read(unsigned char *buffer,size_t buffer_length)
     switch (type) {
 	case 1:
 	{
-	  date_time_.set_time((num_read/2)*30000);
+	  m_date_time.set_time((num_read/2)*30000);
 	  if ( (num_read % 2) == 0) {
 	    parameter.code="MMP";
 	    parameter.description="Merged microwave precipitation rate";
@@ -70,7 +70,7 @@ int InputCMORPH025GridStream::read(unsigned char *buffer,size_t buffer_length)
 	}
 	case 2:
 	{
-	  date_time_.set_time(num_read*30000);
+	  m_date_time.set_time(num_read*30000);
 	  parameter.code="CMORPHA";
 	  parameter.description="CMORPH accumulated precipitation estimate";
 	  parameter.units="mm";
@@ -95,7 +95,7 @@ CMORPH025Grid::CMORPH025Grid()
   dim.x=1440;
   dim.y=480;
   dim.size=dim.x*dim.y;
-  def.type=Grid::latitudeLongitudeType;
+  def.type=Grid::Type::latitudeLongitude;
   def.slatitude=def.elatitude=0.;
   def.laincrement=0.25;
   def.slongitude=0.125;
@@ -115,17 +115,17 @@ void CMORPH025Grid::fill(const unsigned char *stream_buffer,bool fill_header_onl
     exit(1);
   }
   if (!fill_header_only) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (short n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     auto l=0;
     float *f=reinterpret_cast<float *>(const_cast<unsigned char *>(stream_buffer));
     for (short n=0; n < dim.y; ++n) {
 	for (short m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=f[l++];
+	  m_gridpoints[n][m]=f[l++];
 	}
     }
   }
@@ -153,7 +153,7 @@ void CMORPH025Grid::v_print_header(std::ostream& outs,bool verbose,std::string p
   if (verbose) {
   }
   else {
-    outs << "|VTime=" << valid_date_time_.to_string("%Y%m%d%H%MM") << std::endl;
+    outs << "|VTime=" << m_valid_date_time.to_string("%Y%m%d%H%MM") << std::endl;
   }
 }
 
@@ -169,7 +169,7 @@ bool InputCMORPH8kmGridStream::open(std::string filename)
 {
   size_t idx;
   if ( (idx=filename.find("_8km-30min_")) != std::string::npos) {
-    date_time_.set(std::stoll(filename.substr(idx+11,10))*10000);
+    m_date_time.set(std::stoll(filename.substr(idx+11,10))*10000);
   }
   else {
     myerror="filename '"+filename+"' is not recognized";
@@ -212,9 +212,9 @@ int InputCMORPH8kmGridStream::read(unsigned char *buffer,size_t buffer_length)
   if (bytes_read == static_cast<int>(RECORD_SIZE)) {
     ++num_read;
     if ( (num_read % 2) == 0) {
-	date_time_.add_minutes(30);
+	m_date_time.add_minutes(30);
     }
-    auto date_str=date_time_.to_string("%Y%m%d%H%MM");
+    auto date_str=m_date_time.to_string("%Y%m%d%H%MM");
     std::copy(date_str.begin(),date_str.end(),buffer);
     return bytes_read+12;
   }
@@ -231,7 +231,7 @@ CMORPH8kmGrid::CMORPH8kmGrid()
   dim.x=4948;
   dim.y=1649;
   dim.size=dim.x*dim.y;
-  def.type=Grid::latitudeLongitudeType;
+  def.type=Grid::Type::latitudeLongitude;
   def.slatitude=-59.963614;
   def.elatitude=59.963614;
   def.laincrement=(def.elatitude-def.slatitude)/(dim.y-1);
@@ -248,20 +248,20 @@ return 0;
 
 void CMORPH8kmGrid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 {
-  reference_date_time_.set(std::stoll(std::string(reinterpret_cast<const char *>(stream_buffer),12))*100);
-  valid_date_time_=reference_date_time_.minutes_added(30);
+  m_reference_date_time.set(std::stoll(std::string(reinterpret_cast<const char *>(stream_buffer),12))*100);
+  m_valid_date_time=m_reference_date_time.minutes_added(30);
   if (!fill_header_only) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (short n=0; n < dim.y; n++) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
     }
     auto l=0;
     float *f=reinterpret_cast<float *>(const_cast<unsigned char *>(stream_buffer));
     for (short n=0; n < dim.y; ++n) {
 	for (short m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=f[l++];
+	  m_gridpoints[n][m]=f[l++];
 	}
     }
   }
@@ -289,6 +289,6 @@ void CMORPH8kmGrid::v_print_header(std::ostream& outs,bool verbose,std::string p
   if (verbose) {
   }
   else {
-    outs << "|Rtime=" << reference_date_time_.to_string("%Y%m%d%H%MM") << "|VTime=" << valid_date_time_.to_string("%Y%m%d%H%MM") << std::endl;
+    outs << "|Rtime=" << m_reference_date_time.to_string("%Y%m%d%H%MM") << "|VTime=" << m_valid_date_time.to_string("%Y%m%d%H%MM") << std::endl;
   }
 }
