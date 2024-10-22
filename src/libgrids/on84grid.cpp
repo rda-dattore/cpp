@@ -5,7 +5,7 @@
 #include <utils.hpp>
 #include <bits.hpp>
 
-const char *ON84Grid::parameter_short_name[ON84Grid::PARAMETER_SIZE]={
+const char *ON84Grid::PARAMETER_SHORT_NAME[ON84Grid::PARAMETER_SIZE]={
 "","-HGT--","-P-ALT","","","",
 "-DIST-","-DEPTH","-PRES-","-PTEND","","","","","","","-TMP--","-DPT--",
 "-DEPR-","-POT--","-T-MAX","-T-MIN","-TSOIL","","","","","","","","","","","",
@@ -39,7 +39,7 @@ const char *ON84Grid::parameter_short_name[ON84Grid::PARAMETER_SIZE]={
 "-DIRPW","-PERSW","-DIRSW","-WCAPS","","","","","","U*","V*","H","LE","Ts","w","snow","LFDS","LFUS","OLR","OSL","SFUS","SFDS","CLFH","CLFM","CLFL","CHTB","CMTB","CLTB","TMPH","TMPM","TMPL","RAIN","CVPR","GFLX","U10","V10","T2","q2","Ps",
 "","","","","","","","","","","","","","","","","","","","","","","RAIN","","",
 "","","T2","q2",""};
-const char *ON84Grid::parameter_description[ON84Grid::PARAMETER_SIZE]={
+const char *ON84Grid::PARAMETER_DESCRIPTION[ON84Grid::PARAMETER_SIZE]={
 "","Geopotential",
 "Pressure altitude","","","","Geometric distance above",
 "Geometric distance below","Atmospheric pressure","Pressure tendency","","","",
@@ -143,7 +143,7 @@ const char *ON84Grid::parameter_description[ON84Grid::PARAMETER_SIZE]={
 "","","","","","","","","","","","","","","","","","","","","","",
 "6-hour accumulated rain amount","","","","","2-meter temperature",
 "2-meter specific humidity",""};
-const char *ON84Grid::parameter_units[ON84Grid::PARAMETER_SIZE]={"","gpm","gpm","","","","m","m","mbars",
+const char *ON84Grid::PARAMETER_UNITS[ON84Grid::PARAMETER_SIZE]={"","gpm","gpm","","","","m","m","mbars",
 "mbars/sec","","","","","","","degK","degK","degK","degK","degK","degK","degK",
 "","","","","","","","","","","","","","","","","","mbars/sec","mbars","m/sec",
 "m/sec","m/sec","","","","m/sec","m/sec","m/sec","m/sec","1/sec","m/sec",
@@ -178,11 +178,11 @@ const char *ON84Grid::parameter_units[ON84Grid::PARAMETER_SIZE]={"","gpm","gpm",
 
 int InputON84GridStream::peek()
 {
-  if (icosstream != nullptr) {
-    return icosstream->peek();
+  if (ics != nullptr) {
+    return ics->peek();
   }
-  else if (ivstream != nullptr) {
-    return ivstream->peek();
+  else if (ivs != nullptr) {
+    return ivs->peek();
   }
   else {
     unsigned char buffer[32];
@@ -206,9 +206,9 @@ int InputON84GridStream::read(unsigned char *buffer,size_t buffer_length)
   bool got_a_good_record=false;
 
 // read a grid from the stream
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
     while (!got_a_good_record) {
-	if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
+	if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0) {
 	  return bytes_read;
 	}
 //	if (static_cast<size_t>(bytes_read) == buffer_length) {
@@ -232,9 +232,9 @@ if (static_cast<size_t>(bytes_read) > buffer_length) {
 	}
     }
   }
-  else if (ivstream != nullptr) {
+  else if (ivs != nullptr) {
     while (!got_a_good_record) {
-	if ( (bytes_read=ivstream->read(buffer,buffer_length)) <= 0) {
+	if ( (bytes_read=ivs->read(buffer,buffer_length)) <= 0) {
 	  return bytes_read;
 	}
 //	if (static_cast<size_t>(bytes_read) == buffer_length) {
@@ -281,30 +281,30 @@ ON84Grid& ON84Grid::operator=(const ON84Grid& source)
   if (this == &source) {
     return *this;
   }
-  reference_date_time_=source.reference_date_time_;
-  valid_date_time_=source.valid_date_time_;
+  m_reference_date_time=source.m_reference_date_time;
+  m_valid_date_time=source.m_valid_date_time;
   dim=source.dim;
   def=source.def;
   stats=source.stats;
   grid=source.grid;
-  if (gridpoints_ != nullptr && on84.capacity < source.on84.capacity) {
+  if (m_gridpoints != nullptr && on84.capacity < source.on84.capacity) {
     for (n=0; n < dim.y; ++n) {
-	delete[] gridpoints_[n];
+	delete[] m_gridpoints[n];
     }
-    delete[] gridpoints_;
-    gridpoints_=nullptr;
+    delete[] m_gridpoints;
+    m_gridpoints=nullptr;
   }
   if (source.grid.filled) {
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; ++n) {
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	}
 	on84.capacity=dim.size;
     }
     for (n=0; n < dim.y; ++n) {
 	for (m=0; m < dim.x; ++m) {
-	  gridpoints_[n][m]=source.gridpoints_[n][m];
+	  m_gridpoints[n][m]=source.m_gridpoints[n][m];
 	}
     }
   }
@@ -325,12 +325,12 @@ void ON84Grid::create_global_grid(const ON84Grid& NHGrid,const ON84Grid& SHGrid)
     std::cerr << "Error: bad grid type(s) -- NH: " << NHGrid.grid.grid_type << "  SH: " << SHGrid.grid.grid_type << std::endl;
     exit(1);
   }
-  if (NHGrid.reference_date_time_ != SHGrid.reference_date_time_) {
-    std::cerr << "Error: bad date match -- NH: " << NHGrid.reference_date_time_.to_string() << "  SH: " << SHGrid.reference_date_time_.to_string() << std::endl;
+  if (NHGrid.m_reference_date_time != SHGrid.m_reference_date_time) {
+    std::cerr << "Error: bad date match -- NH: " << NHGrid.m_reference_date_time.to_string() << "  SH: " << SHGrid.m_reference_date_time.to_string() << std::endl;
     exit(1);
   }
 
-  reference_date_time_=NHGrid.reference_date_time_;
+  m_reference_date_time=NHGrid.m_reference_date_time;
   dim.x=NHGrid.dim.x;
   dim.y=NHGrid.dim.x+NHGrid.dim.y;
   dim.size=NHGrid.dim.size+SHGrid.dim.size;
@@ -342,16 +342,16 @@ void ON84Grid::create_global_grid(const ON84Grid& NHGrid,const ON84Grid& SHGrid)
   def.loincrement=NHGrid.def.loincrement;
   on84=NHGrid.on84;
 
-  if (gridpoints_ != nullptr && on84.capacity < dim.size) {
+  if (m_gridpoints != nullptr && on84.capacity < dim.size) {
     for (n=0; n < dim.y; n++)
-	delete[] gridpoints_[n];
-    delete[] gridpoints_;
-    gridpoints_=nullptr;
+	delete[] m_gridpoints[n];
+    delete[] m_gridpoints;
+    m_gridpoints=nullptr;
   }
-  if (gridpoints_ == nullptr) {
-    gridpoints_=new double *[dim.y];
+  if (m_gridpoints == nullptr) {
+    m_gridpoints=new double *[dim.y];
     for (n=0; n < dim.y; n++)
-	gridpoints_[n]=new double[dim.x];
+	m_gridpoints[n]=new double[dim.x];
     on84.capacity=dim.size;
   }
 
@@ -386,18 +386,17 @@ void ON84Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
   grid.level2=c*pow(10.,exp);
   bits::get(stream_buffer,grid.grid_type,152,8);
   bits::get(stream_buffer,dim.size,240,16);
-  if (gridpoints_ != nullptr && dim.size != on84.capacity) {
+  if (m_gridpoints != nullptr && dim.size != on84.capacity) {
     for (n=0; n < dim.y; n++)
-	delete[] gridpoints_[n];
-    delete[] gridpoints_;
-    gridpoints_=nullptr;
+	delete[] m_gridpoints[n];
+    delete[] m_gridpoints;
+    m_gridpoints=nullptr;
   }
   switch (grid.grid_type) {
-    case 0:
-    {
+    case 0: {
 	dim.x=47;
 	dim.y=51;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=-4.86;
 	def.slongitude=-122.61;
 	def.dx=def.dy=381.;
@@ -406,11 +405,10 @@ void ON84Grid::fill(const unsigned char *stream_buffer,bool fill_header_only)
 fill_header_only=true;
 	break;
     }
-    case 1:
-    {
+    case 1: {
 	dim.x=73;
 	dim.y=23;
-	def.type=Grid::mercatorType;
+	def.type=Grid::Type::mercator;
 	def.slatitude=-48.09;
 	def.slongitude=0.;
 	def.elatitude=48.09;
@@ -418,11 +416,10 @@ fill_header_only=true;
 	def.loincrement=5.;
 	break;
     }
-    case 5:
-    {
+    case 5: {
 	dim.x=53;
 	dim.y=57;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=27.046;
 	def.slongitude=-147.879;
 	def.llatitude=60.;
@@ -431,11 +428,10 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 26:
-    {
+    case 26: {
 	dim.x=53;
 	dim.y=45;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=7.647;
 	def.slongitude=-133.443;
 	def.olongitude=-105.;
@@ -444,10 +440,9 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 27:
-    {
+    case 27: {
 	dim.x=dim.y=65;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=-20.83;
 	def.slongitude=-125.0;
 	def.olongitude=-80.;
@@ -456,10 +451,9 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 28:
-    {
+    case 28: {
 	dim.x=dim.y=65;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=20.83;
 	def.slongitude=145.0;
 	def.olongitude=100.;
@@ -468,11 +462,10 @@ fill_header_only=true;
 	def.projection_flag=1;
 	break;
     }
-    case 29:
-    {
+    case 29: {
 	dim.x=145;
 	dim.y=37;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=0.;
 	def.elatitude=90.;
 	def.laincrement=2.5;
@@ -481,11 +474,10 @@ fill_header_only=true;
 	def.loincrement=2.5;
 	break;
     }
-    case 30:
-    {
+    case 30: {
 	dim.x=145;
 	dim.y=37;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=-90.;
 	def.elatitude=0.;
 	def.laincrement=2.5;
@@ -494,11 +486,10 @@ fill_header_only=true;
 	def.loincrement=2.5;
 	break;
     }
-    case 32:
-    {
+    case 32: {
 	dim.x=31;
 	dim.y=24;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=21.215;
 	def.slongitude=-121.314;
 	def.olongitude=-105.;
@@ -507,11 +498,10 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 33:
-    {
+    case 33: {
 	dim.x=181;
 	dim.y=46;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=0.;
 	def.elatitude=90.;
 	def.laincrement=2.;
@@ -520,11 +510,10 @@ fill_header_only=true;
 	def.loincrement=2.;
 	break;
     }
-    case 34:
-    {
+    case 34: {
 	dim.x=181;
 	dim.y=46;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=-90.;
 	def.elatitude=0.;
 	def.laincrement=2.;
@@ -533,11 +522,10 @@ fill_header_only=true;
 	def.loincrement=2.;
 	break;
     }
-    case 36:
-    {
+    case 36: {
 	dim.x=41;
 	dim.y=38;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=18.682;
 	def.slongitude=-128.702;
 	def.olongitude=-105.;
@@ -546,11 +534,10 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 37:
-    {
+    case 37: {
 	dim.x=145;
 	dim.y=37;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=1.25;
 	def.elatitude=91.25;
 	def.laincrement=2.5;
@@ -559,11 +546,10 @@ fill_header_only=true;
 	def.loincrement=2.5;
 	break;
     }
-    case 38:
-    {
+    case 38: {
 	dim.x=145;
 	dim.y=37;
-	def.type=Grid::latitudeLongitudeType;
+	def.type=Grid::Type::latitudeLongitude;
 	def.slatitude=-91.25;
 	def.elatitude=-1.25;
 	def.laincrement=2.5;
@@ -572,11 +558,10 @@ fill_header_only=true;
 	def.loincrement=2.5;
 	break;
     }
-    case 47:
-    {
+    case 47: {
 	dim.x=113;
 	dim.y=89;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=23.097;
 	def.slongitude=-119.036;
 	def.olongitude=-105.;
@@ -585,12 +570,11 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 90:
-    {
+    case 90: {
 // this is a patch; the grid is really a rotated lat/lon grid
 	dim.x=92;
 	dim.y=141;
-	def.type=Grid::staggeredLatitudeLongitudeType;
+	def.type=Grid::Type::staggeredLatitudeLongitude;
 	def.slatitude=15.;
 	def.elatitude=75.;
 	def.laincrement=0.53846;
@@ -599,11 +583,10 @@ fill_header_only=true;
 	def.loincrement=0.57692;
 	break;
     }
-    case 101:
-    {
+    case 101: {
 	dim.x=113;
 	dim.y=91;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=10.528;
 	def.slongitude=-137.146;
 	def.olongitude=-105.;
@@ -612,11 +595,10 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    case 104:
-    {
+    case 104: {
 	dim.x=147;
 	dim.y=110;
-	def.type=Grid::polarStereographicType;
+	def.type=Grid::Type::polarStereographic;
 	def.slatitude=-0.269;
 	def.slongitude=-139.475;
 	def.olongitude=-105.;
@@ -625,8 +607,7 @@ fill_header_only=true;
 	def.projection_flag=0;
 	break;
     }
-    default:
-    {
+    default: {
 	std::cerr << "Error: unknown grid type " << grid.grid_type << std::endl;
 	exit(1);
     }
@@ -639,46 +620,41 @@ fill_header_only=true;
   bits::get(stream_buffer,mo,200,8);
   bits::get(stream_buffer,dy,208,8);
   bits::get(stream_buffer,time,216,8);
-  reference_date_time_.set(yr,mo,dy,time*10000);
+  m_reference_date_time.set(yr,mo,dy,time*10000);
   bits::get(stream_buffer,on84.time_mark,32,4);
   grid.fcst_time=0;
   switch (on84.time_mark) {
-    case 0:
-    {
+    case 0: {
 	bits::get(stream_buffer,on84.f1,24,8);
 	grid.fcst_time=on84.f1*10000;
-	valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+	m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
 	on84.f2=0;
 	grid.nmean=0;
 	break;
     }
-    case 2:
-    {
+    case 2: {
 	bits::get(stream_buffer,on84.f1,24,8);
 	bits::get(stream_buffer,on84.f2,88,8);
-	valid_date_time_=reference_date_time_.time_added(on84.f2);
+	m_valid_date_time=m_reference_date_time.time_added(on84.f2);
 	grid.fcst_time=on84.f1*10000;
 	break;
     }
-    case 3:
-    {
+    case 3: {
 	bits::get(stream_buffer,on84.f1,24,8);
 	bits::get(stream_buffer,on84.f2,88,8);
 	grid.fcst_time=on84.f2*10000;
-	valid_date_time_=reference_date_time_.time_added(grid.fcst_time);
+	m_valid_date_time=m_reference_date_time.time_added(grid.fcst_time);
 	grid.nmean=0;
 	break;
     }
-    case 4:
-    {
+    case 4: {
 	bits::get(stream_buffer,on84.f1,24,8);
 	bits::get(stream_buffer,on84.f2,88,8);
 	grid.nmean= (on84.f1 != 0) ? on84.f1 : on84.f2;
-	valid_date_time_=reference_date_time_;
+	m_valid_date_time=m_reference_date_time;
 	break;
     }
-    default:
-    {
+    default: {
 	std::cerr << "Error: time marker " << on84.time_mark << " not recognized" << std::endl;
 	exit(1);
     }
@@ -692,93 +668,100 @@ fill_header_only=true;
     if (scale >= 0x8000) scale-=0x10000;
     scale-=15;
     packed=new int[dim.size];
-    if (gridpoints_ == nullptr) {
-	gridpoints_=new double *[dim.y];
+    if (m_gridpoints == nullptr) {
+	m_gridpoints=new double *[dim.y];
 	for (n=0; n < dim.y; n++)
-	  gridpoints_[n]=new double[dim.x];
+	  m_gridpoints[n]=new double[dim.x];
 	on84.capacity=dim.size;
     }
     bits::get(stream_buffer,packed,384,16,0,dim.size);
-    stats.max_val=-Grid::missing_value;
-    stats.min_val=Grid::missing_value;
+    stats.max_val=-Grid::MISSING_VALUE;
+    stats.min_val=Grid::MISSING_VALUE;
     stats.avg_val=0.;
 
     switch (grid.grid_type) {
 	case 32:
-	case 36:
+	case 36: {
 	  for (m=0; m < dim.x; m++) {
 	    for (n=0; n < dim.y; n++) {
 		if (packed[cnt] >= 0x8000) packed[cnt]-=0x10000;
-		gridpoints_[n][m]=packed[cnt]*pow(2.,scale)+base;
-		if (gridpoints_[n][m] > stats.max_val) {
-		  stats.max_val=gridpoints_[n][m];
+		m_gridpoints[n][m]=packed[cnt]*pow(2.,scale)+base;
+		if (m_gridpoints[n][m] > stats.max_val) {
+		  stats.max_val=m_gridpoints[n][m];
 		  stats.max_i=m+1;
 		  stats.max_j=n+1;
 		}
-		if (gridpoints_[n][m] < stats.min_val) {
-		  stats.min_val=gridpoints_[n][m];
+		if (m_gridpoints[n][m] < stats.min_val) {
+		  stats.min_val=m_gridpoints[n][m];
 		  stats.min_i=m+1;
 		  stats.min_j=n+1;
 		}
-		stats.avg_val+=gridpoints_[n][m];
+		stats.avg_val+=m_gridpoints[n][m];
 		avg_cnt++;
 		cnt++;
 	    }
 	  }
 	  break;
-	default:
+	}
+	default: {
 	  for (n=0; n < dim.y; n++) {
-	    if (def.type == Grid::staggeredLatitudeLongitudeType)
+	    if (def.type == Grid::Type::staggeredLatitudeLongitude)
 		end= ( (n % 2) == 0) ? dim.x : dim.x-1;
 	    else
 		end=dim.x;
 	    for (m=0; m < end; m++) {
 		if (packed[cnt] >= 0x8000)
 		  packed[cnt]-=0x10000;
-		gridpoints_[n][m]=packed[cnt]*pow(2.,scale)+base;
-		if (gridpoints_[n][m] > stats.max_val) {
-		  stats.max_val=gridpoints_[n][m];
+		m_gridpoints[n][m]=packed[cnt]*pow(2.,scale)+base;
+		if (m_gridpoints[n][m] > stats.max_val) {
+		  stats.max_val=m_gridpoints[n][m];
 		  stats.max_i=m+1;
 		  stats.max_j=n+1;
 		}
-		if (gridpoints_[n][m] < stats.min_val) {
-		  stats.min_val=gridpoints_[n][m];
+		if (m_gridpoints[n][m] < stats.min_val) {
+		  stats.min_val=m_gridpoints[n][m];
 		  stats.min_i=m+1;
 		  stats.min_j=n+1;
 		}
-		stats.avg_val+=gridpoints_[n][m];
+		stats.avg_val+=m_gridpoints[n][m];
 		avg_cnt++;
 		cnt++;
 	    }
-	    if (def.type == Grid::staggeredLatitudeLongitudeType && (n % 2) != 0)
-		gridpoints_[n][end]=Grid::missing_value;
+	    if (def.type == Grid::Type::staggeredLatitudeLongitude && (n % 2) != 0)
+		m_gridpoints[n][end]=Grid::MISSING_VALUE;
 	  }
+	}
     }
 
     if (avg_cnt > 0)
 	stats.avg_val/=static_cast<float>(avg_cnt);
     switch (grid.grid_type) {
 	case 27:
-	case 28:
-	  grid.pole=gridpoints_[32][32];
+	case 28: {
+	  grid.pole=m_gridpoints[32][32];
 	  break;
-	case 29:
-	  grid.pole=gridpoints_[36][112];
+	}
+	case 29: {
+	  grid.pole=m_gridpoints[36][112];
 	  break;
-	case 30:
-	  grid.pole=gridpoints_[0][112];
+	}
+	case 30: {
+	  grid.pole=m_gridpoints[0][112];
 	  break;
-	case 33:
-	  grid.pole=gridpoints_[45][140];
+	}
+	case 33: {
+	  grid.pole=m_gridpoints[45][140];
 	  break;
-	case 34:
-	  grid.pole=gridpoints_[0][140];
+	}
+	case 34: {
+	  grid.pole=m_gridpoints[0][140];
 	  break;
-	default:
-	  grid.pole=Grid::missing_value;
+	}
+	default: {
+	  grid.pole=Grid::MISSING_VALUE;
+	}
     }
     grid.filled=true;
-
     delete[] packed;
   }
 }
@@ -792,14 +775,17 @@ bool ON84Grid::is_averaged_grid() const
     case 3:
     case 5:
     case 7:
-    case 10:
+    case 10: {
 	return false;
+    }
     case 4:
-    case 6:
+    case 6: {
 	return true;
-    default:
+    }
+    default: {
 	std::cerr << "Error: time marker " << on84.time_mark << " not recognized - unable to determine whether or not grid is an average" << std::endl;
 	exit(1);
+    }
   }
 
   return false;
@@ -815,8 +801,7 @@ void ON84Grid::print(std::ostream& outs) const
   }
   switch (grid.grid_type) {
     case 29:
-    case 30:
-    {
+    case 30: {
 	for (n=0; n < dim.x; n+=15) {
 	  stop=n+15;
 	  if (stop > dim.x) {
@@ -835,7 +820,7 @@ void ON84Grid::print(std::ostream& outs) const
 	    outs << std::setw(6) << def.slatitude+m*def.laincrement << " | ";
 	    outs.precision(2);
 	    for (l=n; l < stop; ++l) {
-		if (floatutils::myequalf(gridpoints_[m][l],Grid::missing_value)) {
+		if (floatutils::myequalf(m_gridpoints[m][l],Grid::MISSING_VALUE)) {
 		  outs << "         ";
 		}
 		else {
@@ -843,7 +828,7 @@ void ON84Grid::print(std::ostream& outs) const
 		    outs.unsetf(std::ios::fixed);
 		    outs.setf(std::ios::scientific);
 		  }
-		  outs << std::setw(9) << gridpoints_[m][l];
+		  outs << std::setw(9) << m_gridpoints[m][l];
 		  if (scientific) {
 		    outs.unsetf(std::ios::scientific);
 		    outs.setf(std::ios::fixed);
@@ -859,8 +844,7 @@ void ON84Grid::print(std::ostream& outs) const
     case 27:
     case 28:
     case 36:
-    case 47:
-    {
+    case 47: {
 	for (n=0; n < dim.x; n+=15) {
 	  stop=n+15;
 	  if (stop > dim.x) {
@@ -879,7 +863,7 @@ void ON84Grid::print(std::ostream& outs) const
 	    outs << std::setw(3) << m+1 << " | ";
 	    outs.precision(2);
 	    for (l=n; l < stop; ++l) {
-		if (floatutils::myequalf(gridpoints_[m][l],Grid::missing_value)) {
+		if (floatutils::myequalf(m_gridpoints[m][l],Grid::MISSING_VALUE)) {
 		  outs << "         ";
 		}
 		else {
@@ -887,7 +871,7 @@ void ON84Grid::print(std::ostream& outs) const
 		    outs.unsetf(std::ios::fixed);
 		    outs.setf(std::ios::scientific);
 		  }
-		  outs << std::setw(9) << gridpoints_[m][l];
+		  outs << std::setw(9) << m_gridpoints[m][l];
 		  if (scientific) {
 		    outs.unsetf(std::ios::scientific);
 		    outs.setf(std::ios::fixed);
@@ -900,8 +884,7 @@ void ON84Grid::print(std::ostream& outs) const
 	}
 	break;
     }
-    default:
-    {
+    default: {
 	std::cerr << "Error: unknown grid type " << grid.grid_type << std::endl;
 	exit(1);
     }
@@ -926,26 +909,26 @@ void ON84Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
   outs.setf(std::ios::fixed);
   outs.precision(1);
   if (verbose) {
-    outs << "  Time: " << reference_date_time_.to_string() << "  Valid Time: " << valid_date_time_.to_string() << "  NumAvg: " << std::setw(3) << grid.nmean << "  TMarker: " << std::setw(2) << on84.time_mark << "  F1: " << std::setw(4) << on84.f1 << "  F2: " << std::setw(4) << on84.f2 << "  Param: " << std::setw(3) << grid.param << " Name: ";
+    outs << "  Time: " << m_reference_date_time.to_string() << "  Valid Time: " << m_valid_date_time.to_string() << "  NumAvg: " << std::setw(3) << grid.nmean << "  TMarker: " << std::setw(2) << on84.time_mark << "  F1: " << std::setw(4) << on84.f1 << "  F2: " << std::setw(4) << on84.f2 << "  Param: " << std::setw(3) << grid.param << " Name: ";
     if (static_cast<size_t>(grid.param) < ON84Grid::PARAMETER_SIZE) {
-	outs << parameter_short_name[grid.param];
+	outs << PARAMETER_SHORT_NAME[grid.param];
     }
     else {
 	outs << grid.param;
     }
     if (floatutils::myequalf(grid.level2,0.)) {
 	if (floatutils::myequalf(grid.level1,0.))
-	  outs << "  Level: " << parameter_units[grid.level1_type];
+	  outs << "  Level: " << PARAMETER_UNITS[grid.level1_type];
 	else {
 	  outs.precision(3);
-	  outs << "  Level: " << std::setw(8) << grid.level1 << parameter_units[grid.level1_type];
+	  outs << "  Level: " << std::setw(8) << grid.level1 << PARAMETER_UNITS[grid.level1_type];
 	  outs.precision(1);
 	}
     }
     else {
 	outs << "  Levels: ";
 	outs.precision(3);
-	outs << std::setw(8) << first_level_value() << parameter_units[grid.level1_type] << ", " << std::setw(8) << second_level_value() << parameter_units[grid.level2_type];
+	outs << std::setw(8) << first_level_value() << PARAMETER_UNITS[grid.level1_type] << ", " << std::setw(8) << second_level_value() << PARAMETER_UNITS[grid.level2_type];
 	outs.precision(1);
     }
     outs << "\n  Grid: " << std::setw(3) << dim.x << " x " << std::setw(3) << dim.y << "  NumPoints: " << std::setw(5) << dim.size << "  Type: " << std::setw(3) << grid.grid_type;
@@ -953,14 +936,16 @@ void ON84Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	case 29:
 	case 30:
 	case 33:
-	case 34:
+	case 34: {
 	  outs << "  LonRange: " << std::setw(6) << def.slongitude << " to " << std::setw(6) << def.elongitude << " by " << std::setw(4) << def.loincrement << "  LatRange: " << std::setw(5) << def.slatitude << " to " << std::setw(5) << def.elatitude << " by " << std::setw(4) << def.laincrement;
 	  break;
+	}
 	case 27:
 	case 28:
-	case 36:
+	case 36: {
 	  outs << "  Lat1: " << std::setw(5) << def.slatitude << "  Lon1: " << std::setw(6) << def.slongitude << "  Orient: " << std::setw(6) << def.olongitude << "  Lengths - Dx: " << std::setw(6) << def.dx << " Dy: " << std::setw(6) << def.dy << " at " << std::setw(5) << def.llatitude;
 	  break;
+	}
     }
     outs << "  RMarker: " << std::setw(2) << on84.run_mark << "  GenProg: " << std::setw(2) << on84.gen_prog << std::endl;
     if (grid.filled) {
@@ -972,7 +957,7 @@ void ON84Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	else
 	  outs.precision(2);
 	outs << "  MinVal: " << stats.min_val << " (" << stats.min_i << "," << stats.min_j << ")  MaxVal: " << stats.max_val << " (" << stats.max_i << "," << stats.max_j << ")  AvgVal: " << stats.avg_val << "  Pole: ";
-	if (floatutils::myequalf(grid.pole,Grid::missing_value))
+	if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE))
 	  outs << "N/A" << std::endl;
 	else
 	  outs << grid.pole << std::endl;
@@ -984,23 +969,23 @@ void ON84Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
     }
   }
   else {
-    outs << " Type=" << grid.grid_type << " Time=" << reference_date_time_.to_string("%Y%m%d%H") << " ValidTime=" << valid_date_time_.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " TMark=" << on84.time_mark << " F1=" << on84.f1 << " F2=" << on84.f2 << " Param=" << grid.param << " Name=";
+    outs << " Type=" << grid.grid_type << " Time=" << m_reference_date_time.to_string("%Y%m%d%H") << " ValidTime=" << m_valid_date_time.to_string("%Y%m%d%H") << " NAvg=" << grid.nmean << " TMark=" << on84.time_mark << " F1=" << on84.f1 << " F2=" << on84.f2 << " Param=" << grid.param << " Name=";
     if (static_cast<size_t>(grid.param) < ON84Grid::PARAMETER_SIZE) {
-	outs << parameter_short_name[grid.param];
+	outs << PARAMETER_SHORT_NAME[grid.param];
     }
     if (floatutils::myequalf(grid.level2,0.)) {
 	if (floatutils::myequalf(grid.level1,0.))
-	  outs << " Level=" << parameter_short_name[grid.level1_type];
+	  outs << " Level=" << PARAMETER_SHORT_NAME[grid.level1_type];
 	else {
 	  outs.precision(3);
-	  outs << " Level=" << grid.level1 << parameter_units[grid.level1_type];
+	  outs << " Level=" << grid.level1 << PARAMETER_UNITS[grid.level1_type];
 	  outs.precision(1);
 	}
     }
     else {
 	outs << " Levels=";
 	outs.precision(3);
-	outs << grid.level1 << parameter_units[grid.level1_type] << "," << grid.level2 << parameter_units[grid.level2_type];
+	outs << grid.level1 << PARAMETER_UNITS[grid.level1_type] << "," << grid.level2 << PARAMETER_UNITS[grid.level2_type];
 	outs.precision(1);
     }
     outs << " RMark=" << on84.run_mark << " GenProg=" << on84.gen_prog;
@@ -1013,7 +998,7 @@ void ON84Grid::v_print_header(std::ostream& outs,bool verbose,std::string path_t
 	else
 	  outs.precision(2);
 	outs << " Min=" << stats.min_val << " Max=" << stats.max_val << " Avg=" << stats.avg_val << " Pole=";
-	if (floatutils::myequalf(grid.pole,Grid::missing_value))
+	if (floatutils::myequalf(grid.pole,Grid::MISSING_VALUE))
 	  outs << "N/A";
 	else
 	  outs << grid.pole;
@@ -1032,17 +1017,17 @@ int InputQuasiON84GridStream::read(unsigned char *buffer,size_t buffer_length)
   int nb;
 
 // read a grid from the stream
-  if (icosstream != nullptr) {
+  if (ics != nullptr) {
 // eof
-    if (icosstream->peek() == bfstream::eof) {
+    if (ics->peek() == bfstream::eof) {
 	return bfstream::eof;
     }
 // new header
-    if ( (nb=icosstream->peek()) == 32) {
+    if ( (nb=ics->peek()) == 32) {
 	unsigned char header[32];
-	icosstream->read(header,32);
-	if ( (nb=icosstream->peek()) == 24) {
-	  icosstream->read(header,24);
+	ics->read(header,32);
+	if ( (nb=ics->peek()) == 24) {
+	  ics->read(header,24);
 	  union {
 	    int idum;
 	    float fdum;
@@ -1062,9 +1047,9 @@ std::cerr << fcst_hr << " " << yr << " " << mo << " " << dy << " " << hr << std:
     }
 // on84 record
     int b1;
-    if ( (nb=icosstream->read(buffer,buffer_length)) > 0) {
+    if ( (nb=ics->read(buffer,buffer_length)) > 0) {
 	b1=nb;
-	if ( (nb=icosstream->read(&buffer[nb],buffer_length-nb)) > 0) {
+	if ( (nb=ics->read(&buffer[nb],buffer_length-nb)) > 0) {
 	  nb+=b1;;
 std::cerr << "on84 " << nb << " " << rec_num << std::endl;
 	  ++rec_num;
@@ -1078,14 +1063,12 @@ std::cerr << "on84 " << nb << " " << rec_num << std::endl;
 	    case 8:
 	    case 9:
 	    case 12:
-	    case 13:
-	    {
+	    case 13: {
 		bits::set(buffer,410+rec_num,0,12);
 		bits::set(buffer,129,12,12);
 		break;
 	    }
-	    case 6:
-	    {
+	    case 6: {
 		bits::set(buffer,410+rec_num,0,12);
 		bits::set(buffer,7,12,12);
 		bits::set(buffer,0,36,20);
@@ -1094,58 +1077,47 @@ std::cerr << "on84 " << nb << " " << rec_num << std::endl;
 		break;
 	    }
 	    case 10:
-	    case 11:
-	    {
+	    case 11: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 14:
-	    {
+	    case 14: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 15:
-	    {
+	    case 15: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 16:
-	    {
+	    case 16: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 17:
-	    {
+	    case 17: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 18:
-	    {
+	    case 18: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 19:
-	    {
+	    case 19: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 20:
-	    {
+	    case 20: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 21:
-	    {
+	    case 21: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 22:
-	    {
+	    case 22: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 23:
-	    {
+	    case 23: {
 		if (fcst_hr < 7.) {
 		  bits::set(buffer,410+rec_num,0,12);
 		}
@@ -1155,29 +1127,24 @@ std::cerr << "on84 " << nb << " " << rec_num << std::endl;
 		bits::set(buffer,129,12,12);
 		break;
 	    }
-	    case 24:
-	    {
+	    case 24: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 25:
-	    {
+	    case 25: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 26:
-	    {
+	    case 26: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
-	    case 27:
-	    {
+	    case 27: {
 		bits::set(buffer,410+rec_num,0,12);
 		break;
 	    }
 	    case 28:
-	    case 29:
-	    {
+	    case 29: {
 		if (yr < 90 || (yr == 90 && (mo < 5 || (mo == 5 && dy < 31)))) {
 		  bits::set(buffer,410+rec_num,0,12);
 		}
@@ -1186,8 +1153,7 @@ std::cerr << "on84 " << nb << " " << rec_num << std::endl;
 		}
 		break;
 	    }
-	    case 30:
-	    {
+	    case 30: {
 		bits::set(buffer,410+rec_num,0,12);
 		bits::set(buffer,129,12,12);
 		break;
