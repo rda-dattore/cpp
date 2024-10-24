@@ -52,11 +52,11 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
     myerror = "unable to locate decs root directory on " + directives.host;
     return false;
   }
-  if (stat("/local/decs/bin/cmd_util", &buf) == 0) {
+  if (stat("/local/decs/bin/cmd_util_pg", &buf) == 0) {
     directives.local_root = "/local/decs";
-  } else if (stat("/usr/local/decs/bin/cmd_util", &buf) == 0) {
+  } else if (stat("/usr/local/decs/bin/cmd_util_pg", &buf) == 0) {
     directives.local_root = "/usr/local/decs";
-  } else if (stat("/ncar/rda/setuid/bin/cmd_util", &buf) == 0) {
+  } else if (stat("/ncar/rda/setuid/bin/cmd_util_pg", &buf) == 0) {
     directives.local_root = "/ncar/rda/setuid";
   } else if (is_singularity) {
     directives.local_root = "/usr/local";
@@ -67,12 +67,12 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
   }
   std::ifstream ifs;
   if (stat(LOCAL_CONFIG_HOME.c_str(), &buf) == 0) {
-    ifs.open((LOCAL_CONFIG_HOME + "/metautils.conf").c_str());
+    ifs.open((LOCAL_CONFIG_HOME + "/metautils_pg.conf").c_str());
   } else if (stat(GLOBAL_CONFIG_HOME.c_str(), &buf) == 0) {
-    ifs.open((GLOBAL_CONFIG_HOME + "/metautils.conf").c_str());
+    ifs.open((GLOBAL_CONFIG_HOME + "/metautils_pg.conf").c_str());
   }
   if (!ifs.is_open()) {
-    throw my::NotFound_Error("unable to open metautils.conf");
+    throw my::NotFound_Error("unable to open metautils_pg.conf");
   }
   unordered_map<string, string> bin_map;
   char line[256];
@@ -99,32 +99,42 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.web_server=conf_parts[1];
+        directives.web_server = conf_parts[1];
       } else if (conf_parts[0] == "databaseServer") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.database_server=conf_parts[1];
+        directives.database_server = conf_parts[1];
       } else if (conf_parts[0] == "rdadbUsername") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.rdadb_username=conf_parts[1];
+        directives.rdadb_username = conf_parts[1];
       } else if (conf_parts[0] == "rdadbPassword") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.rdadb_password=conf_parts[1];
+        directives.rdadb_password = conf_parts[1];
       } else if (conf_parts[0] == "metadbUsername") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.metadb_username=conf_parts[1];
+        directives.metadb_username = conf_parts[1];
       } else if (conf_parts[0] == "metadbPassword") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
         directives.metadb_password = conf_parts[1];
+      } else if (conf_parts[0] == "wagtailUsername") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.wagtail_username = conf_parts[1];
+      } else if (conf_parts[0] == "wagtailPassword") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.wagtail_password = conf_parts[1];
       } else if (conf_parts[0] == "tempPath") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
@@ -143,7 +153,7 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.hpss_root=conf_parts[1];
+        directives.hpss_root = conf_parts[1];
       } else if (conf_parts[0] == "metadataManager") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
