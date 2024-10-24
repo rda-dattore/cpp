@@ -62,8 +62,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
         tp[1]) * 100 + stoi(tp[2]), 0);
   }
   DateTime d3;
-  query.set("max(concat(date_created, ' ', time_created))", "dssdb.wfile",
-      "dsid in " + ds_set);
+  query.set("max(concat(date_created, ' ', time_created))", "dssdb.wfile_" +
+      dsid);
   if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
     sp = split(row[0]);
     auto dp = split(sp[0], "-");
