@@ -13,6 +13,8 @@ using namespace PostgreSQL;
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::max;
+using std::min;
 using std::stod;
 using std::stof;
 using std::stoi;
@@ -222,20 +224,12 @@ void fill_geographic_extent_data(Server& server, string dsid, XMLDocument&
     unordered_set<string> unique_hres_set;
     for (const auto& row : query) {
       double west_lon, south_lat, east_lon, north_lat;
-      if (gridutils::fill_spatial_domain_from_grid_definition(row[0] + "<!>" +
+      if (gridutils::filled_spatial_domain_from_grid_definition(row[0] + "<!>" +
           row[1], "primeMeridian", west_lon, south_lat, east_lon, north_lat)) {
-        if (west_lon < min_west_lon) {
-          min_west_lon = west_lon;
-        }
-        if (east_lon > max_east_lon) {
-          max_east_lon = east_lon;
-        }
-        if (south_lat < min_south_lat) {
-          min_south_lat = south_lat;
-        }
-        if (north_lat > max_north_lat) {
-          max_north_lat = north_lat;
-        }
+        min_west_lon = min(west_lon, min_west_lon);
+        max_east_lon = max(east_lon, max_east_lon);
+        min_south_lat = min(south_lat, min_south_lat);
+        max_north_lat = max(north_lat, max_north_lat);;
         auto parts = split(row[1], ":");
         HorizontalResolutionEntry hre;
         if (row[0] == "polarStereographic" || row[0] == "lambertConformal") {
@@ -302,27 +296,19 @@ void fill_geographic_extent_data(Server& server, string dsid, XMLDocument&
           gdef += "Cell";
         }
         double west_lon, south_lat, east_lon, north_lat;
-        if (gridutils::fill_spatial_domain_from_grid_definition(gdef + "<!>" +
+        if (gridutils::filled_spatial_domain_from_grid_definition(gdef + "<!>" +
             def_params, "primeMeridian", west_lon, south_lat, east_lon,
             north_lat)) {
-          if (west_lon < min_west_lon) {
-            min_west_lon = west_lon;
-          }
+          min_west_lon = min(west_lon, min_west_lon);
           if (east_lon < 0. && east_lon < west_lon) {
             east_lon += 360.;
           }
-          if (east_lon > max_east_lon) {
-            max_east_lon = east_lon;
-          }
+          max_east_lon = max(east_lon, max_east_lon);
           if (max_east_lon > 180.) {
             max_east_lon -= 360.;
           }
-          if (south_lat < min_south_lat) {
-            min_south_lat = south_lat;
-          }
-          if (north_lat > max_north_lat) {
-            max_north_lat = north_lat;
-          }
+          min_south_lat = min(south_lat, min_south_lat);
+          max_north_lat = max(north_lat, max_north_lat);
         }
       }
     }
