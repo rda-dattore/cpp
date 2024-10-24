@@ -15,7 +15,7 @@ using namespace PostgreSQL;
 
 namespace metadataExport {
 
-bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
+bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t indent_length)
 {
   const char *res_keywords[]={
   "1 km - &lt; 10 km or approximately .01 degree - &lt; .09 degree",
@@ -49,7 +49,8 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "     xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
   ofs << indent << "     xsi:schemaLocation=\"http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/" << std::endl;
   ofs << indent << "                         http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/dif_v9.7.1.xsd\">" << std::endl;
-  ofs << indent << "  <Entry_ID>NCAR_DS" << dsnum << "</Entry_ID>" << std::endl;
+  ofs << indent << "  <Entry_ID>NCAR_GDEX_" << dsid << "</Entry_ID>" << std::
+      endl;
   e=xdoc.element("dsOverview/title");
   auto dstitle=e.content();
   ofs << indent << "  <Entry_Title>" << dstitle << "</Entry_Title>" << std::endl;
@@ -57,7 +58,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "    <Dataset_Creator>" << dss_centername << "</Dataset_Creator>" << std::endl;
   ofs << indent << "    <Dataset_Title>" << dstitle << "</Dataset_Title>" << std::endl;
   ofs << indent << "    <Dataset_Publisher>" << dss_centername << "</Dataset_Publisher>" << std::endl;
-  ofs << indent << "    <Online_Resource>https://rda.ucar.edu/datasets/ds" << dsnum << "/</Online_Resource>" << std::endl;
+  ofs << indent << "    <Online_Resource>https://rda.ucar.edu/datasets/" << dsid << "/</Online_Resource>" << std::endl;
   ofs << indent << "  </Data_Set_Citation>" << std::endl;
   auto elist=xdoc.element_list("dsOverview/contact");
   for (const auto& element : elist) {
@@ -108,7 +109,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "      <Country>U.S.A.</Country>" << std::endl;
   ofs << indent << "    </Contact_Address>" << std::endl;
   ofs << indent << "  </Personnel>" << std::endl;
-  LocalQuery query("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsnum+"' and v.vocabulary = 'GCMD'");
+  LocalQuery query("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsid+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -134,7 +135,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   }
   e=xdoc.element("dsOverview/topic@vocabulary=ISO");
   ofs << indent << "  <ISO_Topic_Category>" << e.content() << "</ISO_Topic_Category>" << std::endl;
-  query.set("select g.path from search.platforms_new as p left join search.gcmd_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsnum+"' and p.vocabulary = 'GCMD'");
+  query.set("select g.path from search.platforms_new as p left join search.gcmd_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsid+"' and p.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -152,7 +153,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     }
     ofs << indent << "  </Source_Name>" << std::endl;
   }
-  query.set("min(date_start),max(date_end)","dssdb.dsperiod","dsid = 'ds"+dsnum+"' and date_start < '9998-01-01' and date_end < '9998-01-01'");
+  query.set("min(date_start),max(date_end)","dssdb.dsperiod","dsid = '"+dsid+"' and date_start < '9998-01-01' and date_end < '9998-01-01'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -173,14 +174,14 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   else {
     ofs << indent << "  <Data_Set_Progress>In Work</Data_Set_Progress>" << std::endl;
   }
-  query.set("select definition, def_params from (select distinct grid_definition_code from \"WGrML\".summary where dsid = '"+dsnum+"') as s left join \"WGrML\".grid_definitions as d on d.code = s.grid_definition_code");
+  query.set("select definition, def_params from (select distinct grid_definition_code from \"WGrML\".summary where dsid = '"+dsid+"') as s left join \"WGrML\".grid_definitions as d on d.code = s.grid_definition_code");
   query.submit(server);
   if (query.num_rows() > 0) {
     double min_west_lon=9999.,min_south_lat=9999.,max_east_lon=-9999.,max_north_lat=-9999.;
     my::map<Entry> resolution_table;
     for (const auto& row : query) {
 	double west_lon,south_lat,east_lon,north_lat;
-	if (gridutils::fill_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
+	if (gridutils::filled_spatial_domain_from_grid_definition(row[0]+"<!>"+row[1],"primeMeridian",west_lon,south_lat,east_lon,north_lat)) {
 	  if (west_lon < min_west_lon) {
 	    min_west_lon=west_lon;
 	  }
@@ -263,7 +264,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     }
   }
 /*
-    query.set("keyword","search.time_resolutions","dsid = '"+dsnum+"' and vocabulary = 'GCMD'");
+    query.set("keyword","search.time_resolutions","dsid = '"+dsid+"' and vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
 	std::cout << "Content-type: text/plain" << std::endl << std::endl;
 	std::cout << "Database error: " << query.error() << std::endl;
@@ -309,7 +310,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "      <Long_Name>" << dss_centername.substr(dss_centername.find(" > ")+3) << "</Long_Name>" << std::endl;
   ofs << indent << "    </Data_Center_Name>" << std::endl;
   ofs << indent << "    <Data_Center_URL>https://rda.ucar.edu/</Data_Center_URL>" << std::endl;
-  ofs << indent << "    <Data_Set_ID>" << dsnum << "</Data_Set_ID>" << std::endl;
+  ofs << indent << "    <Data_Set_ID>" << dsid << "</Data_Set_ID>" << std::endl;
   ofs << indent << "    <Personnel>" << std::endl;
   ofs << indent << "      <Role>DATA CENTER CONTACT</Role>" << std::endl;
   ofs << indent << "      <Last_Name>DSS Help Desk</Last_Name>" << std::endl;
@@ -327,13 +328,13 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
   ofs << indent << "      </Contact_Address>" << std::endl;
   ofs << indent << "    </Personnel>" << std::endl;
   ofs << indent << "  </Data_Center>" << std::endl;
-  auto distribution_size=primary_size(dsnum,server);
+  auto distribution_size=primary_size("('" + dsid + "')", server);
   if (!distribution_size.empty()) {
     ofs << indent << "  <Distribution>" << std::endl;
     ofs << indent << "    <Distribution_Size>" << distribution_size << "</Distribution_Size>" << std::endl;
     ofs << indent << "  </Distribution>" << std::endl;
   }
-  query.set("keyword","search.formats","dsid = '"+dsnum+"'");
+  query.set("keyword","search.formats","dsid = '"+dsid+"'");
   if (query.submit(server) < 0) {
     std::cout << "Content-type: text/plain" << std::endl << std::endl;
     std::cout << "Database error: " << query.error() << std::endl;
@@ -422,7 +423,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t 
     ofs << indent << "    <URL_Content_Type>" << std::endl;
     ofs << indent << "      <Type>VIEW RELATED INFORMATION</Type>" << std::endl;
     ofs << indent << "    </URL_Content_Type>" << std::endl;
-    ofs << indent << "    <URL>https://rda.ucar.edu/datasets/ds" << element.attribute_value("ID") << "/</URL>" << std::endl;
+    ofs << indent << "    <URL>https://rda.ucar.edu/datasets/" << element.attribute_value("ID") << "/</URL>" << std::endl;
     ofs << indent << "  </Related_URL>" << std::endl;
   }
   elist=xdoc.element_list("dsOverview/relatedResource");
