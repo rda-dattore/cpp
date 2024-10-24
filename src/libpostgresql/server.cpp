@@ -55,6 +55,9 @@ void Server::connect(string host, string user, string password, string db, int
       " dbname=" + db +
       " connect_timeout=" + to_string(timeout);
   conn.reset(PQconnectdb(conninfo.c_str()));
+  if (PQstatus(conn.get()) != CONNECTION_OK) {
+    m_error = PQerrorMessage(conn.get());
+  }
   PQsetNoticeReceiver(conn.get(), custom_receiver, nullptr);
 }
 
@@ -205,21 +208,28 @@ vector<string> Server::get_index_names(string absolute_table) {
 
 int Server::insert(const string& absolute_table, const string&
     row_specification, const string& on_conflict) {
-  auto p = split_tablename(absolute_table);
-  auto s = "insert into " + postgres_ready(p.first) + "." + p.second +
-      " values (" + row_specification + ")";
-  if (!on_conflict.empty()) {
-    s += " on conflict " + on_conflict;
-  }
-  s += ";";
-  return command(s);
+  return insert(absolute_table, "", row_specification, on_conflict);
 }
 
 int Server::insert(const string& absolute_table, const string& column_list,
     const string& value_list, const string& on_conflict) {
   auto p = split_tablename(absolute_table);
-  auto s = "insert into " + postgres_ready(p.first) + "." + p.second + " (" +
-      column_list + ") values (" + value_list + ")";
+
+  // if absolute_table is a view, get the underlying table name so that the
+  //   'on conflict' clause will work
+  LocalQuery q("select table_schema, table_name from information_schema."
+      "view_table_usage where view_schema = '" + p.first + "' and view_name = '"
+      + p.second + "'");
+  if (q.submit(*this) == 0 && q.num_rows() == 1) {
+    Row row;
+    q.fetch_row(row);
+    p = std::make_pair(row[0], row[1]);
+  }
+  auto s = "insert into " + postgres_ready(p.first) + "." + p.second;
+  if (!column_list.empty()) {
+    s += " (" + column_list + ")";
+  }
+  s += " values (" + value_list + ")";
   if (!on_conflict.empty()) {
     s += " on conflict " + on_conflict;
   }
