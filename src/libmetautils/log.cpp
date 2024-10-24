@@ -64,7 +64,7 @@ void log_error2(string error, string reporter, string caller, string user, bool
   // set s = 1 for logging
   // set s = 2 for no logging ("^Terminating" error)
   auto s = 2;
-  if (args.dsnum != "999.9" && args.dsnum != "test" && !regex_search(error,
+  if (args.dsid < "d999000" && args.dsid != "test" && !regex_search(error,
       regex("^Terminating"))) {
     log_info(reporter + ": " + error, caller, user);
     s = 1;
