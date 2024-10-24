@@ -93,14 +93,14 @@ void obs_per(string obs_type, size_t num_obs, DateTime start, DateTime end,
 }
 
 string web_home() {
-  return "/glade/collections/rda/data/ds" + args.dsnum;
+  return "/glade/collections/rda/data/" + args.dsid;
 }
 
 string relative_web_filename(string url) {
   replace_all(url, "https://rda.ucar.edu", "");
   replace_all(url, "http://rda.ucar.edu", "");
   replace_all(url, "http://dss.ucar.edu", "");
-  return substitute(url, directives.data_root_alias + "/ds" + args.dsnum + "/",
+  return substitute(url, directives.data_root_alias + "/" + args.dsid + "/",
       "");
 }
 
