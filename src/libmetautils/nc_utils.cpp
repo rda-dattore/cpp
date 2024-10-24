@@ -134,8 +134,19 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
   if (static_cast<int>(tre.key) < 0) {
     if (!time_method.empty()) {
       auto l = to_lower(time_method);
-      if (l.find("monthly") != string::npos) {
+      if (l.find("monthly") != string::npos || (tre.bounded.
+          first_valid_datetime.day() == tre.bounded.last_valid_datetime.day() &&
+          tre.bounded.last_valid_datetime.months_since(tre.bounded.
+          first_valid_datetime) == tre.num_steps)) {
         s = "Monthly ";
+      } else if (time_data.units == "minutes") {
+        auto n = tre.bounded.last_valid_datetime.minutes_since(tre.bounded.
+            first_valid_datetime) / tre.num_steps;
+        if (n == 1440) {
+          s = "Daily ";
+        } else {
+          s = itos(n) + "-minute ";
+        }
       } else if (time_data.units == "hours") {
         if (tre.bounded.first_valid_datetime.year() > 0) {
           auto n = tre.instantaneous.first_valid_datetime.hours_since(tre.
@@ -244,6 +255,18 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
   return s;
 }
 
+string gridded_netcdf_time_range_description2(const TimeRangeEntry2& tre2, const
+    TimeData& time_data, string time_method, string& error) {
+  TimeRangeEntry tre;
+  tre.key = tre2.key;
+  tre.unit = tre2.unit;
+  tre.num_steps = tre2.num_steps;
+  tre.instantaneous = tre2.instantaneous;
+  tre.bounded = tre2.bounded;
+  return gridded_netcdf_time_range_description(tre, time_data, time_method,
+      error);
+}
+
 string time_method_from_cell_methods(string cell_methods, string timeid) {
   static unique_ptr<unordered_set<string>> cmset(nullptr);
   while (cell_methods.find("  ") != string::npos) {
@@ -308,7 +331,7 @@ string write_level_map(const vector<LevelInfo>& level_info) {
     f = "netCDF";
   }
   string x = unixutils::remote_web_file("https://rda.ucar.edu/metadata/"
-      "LevelTables/" + f + ".ds" + args.dsnum + ".xml", directives.temp_path);
+      "LevelTables/" + f + "." + args.dsid + ".xml", directives.temp_path);
   LevelMap lmap;
   vector<string> v;
   if (lmap.fill(x)) {
@@ -326,9 +349,9 @@ string write_level_map(const vector<LevelInfo>& level_info) {
   if (!t.create(directives.temp_path)) {
     return "can't create temporary directory for writing netCDF levels";
   }
-  std::ofstream ofs((t.name() + "/" + f + ".ds" + args.dsnum + ".xml").c_str());
+  std::ofstream ofs((t.name() + "/" + f + "." + args.dsid + ".xml").c_str());
   if (!ofs.is_open()) {
-    return "can't open " + t.name() + "/" + f + ".ds" + args.dsnum + ".xml "
+    return "can't open " + t.name() + "/" + f + "." + args.dsid + ".xml "
         "file for writing netCDF levels";
   }
   if (v.size() > 0) {
@@ -356,7 +379,7 @@ string write_level_map(const vector<LevelInfo>& level_info) {
     return e;
   }
   stringstream oss, ess;
-  unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + ".ds" + args.dsnum +
+  unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
       ".xml " + directives.rdadata_home + "/share/metadata/LevelTables/", oss,
       ess);
   return ess.str();
@@ -395,7 +418,7 @@ string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
     } else {
       f="netCDF";
     }
-    std::ofstream ofs((t.name() + "/" + f + ".ds" + args.dsnum + ".xml").
+    std::ofstream ofs((t.name() + "/" + f + "." + args.dsid + ".xml").
         c_str());
     if (!ofs.is_open()) {
       return "can't open parameter map file for output";
@@ -410,6 +433,8 @@ string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
           auto sp = split(e, "\"");
           if (var_changes_table.find(sp[1]) != var_changes_table.end()) {
             b = true;
+          } else {
+            var_changes_table.emplace(sp[1]);
           }
         }
         if (!b) {
@@ -456,7 +481,7 @@ string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
       warning = "parameter map was not synced - error(s): '" + e + "'";
     }
     stringstream oss;
-    unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + ".ds" + args.dsnum +
+    unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
         ".xml " + directives.rdadata_home + "/share/metadata/ParameterTables/",
         oss, ess);
   }
