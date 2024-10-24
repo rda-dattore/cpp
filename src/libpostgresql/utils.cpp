@@ -29,13 +29,20 @@ bool table_exists(Server& server, string absolute_table) {
   auto schema = absolute_table.substr(0, idx);
   replace_all(schema, "\"", "");
   auto tbl = absolute_table.substr(idx + 1);
-  LocalQuery q("select tablename from pg_catalog.pg_tables where schemaname = '"
-      + schema + "' and tablename like '" + tbl + "'");
-  if (q.submit(server) < 0) {
-    return false;
-  }
-  if (q.num_rows() > 0) {
-    return true;
+  vector<string> queries{
+      "select tablename from pg_catalog.pg_tables where schemaname = '"
+          + schema + "' and tablename like '" + tbl + "'",
+      "select viewname from pg_catalog.pg_views where schemaname = '" + schema
+          + "' and viewname like '" + tbl + "'"
+  };
+  for (const auto& query : queries) {
+    LocalQuery q(query);
+    if (q.submit(server) < 0) {
+      return false;
+    }
+    if (q.num_rows() > 0) {
+      return true;
+    }
   }
   return false;
 }
