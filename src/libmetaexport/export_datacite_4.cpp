@@ -17,6 +17,7 @@ using std::string;
 using std::stringstream;
 using std::to_string;
 using std::vector;
+using strutils::append;
 using strutils::ds_aliases;
 using strutils::ng_gdex_id;
 using strutils::split;
@@ -66,7 +67,8 @@ bool added_creators(Server& server, std::ostream& ofs, XMLDocument& xdoc) {
         }
       } else {
         ofs << g_indent << "      <creatorName nameType=\"Organizational\">" <<
-            author.attribute_value("name") << "</creatorName>" << endl;
+            substitute(author.attribute_value("name"), "&", "&amp;") <<
+            "</creatorName>" << endl;
       }
       ofs << g_indent << "    </creator>" << endl;
     }
@@ -103,7 +105,8 @@ bool added_creators(Server& server, std::ostream& ofs, XMLDocument& xdoc) {
       } else {
         ofs << g_indent << "    <creator>" << endl;
         ofs << g_indent << "      <creatorName nameType=\"Organizational\">" <<
-            substitute(sp.back(), ", ", "/") << "</creatorName>" << endl;
+            substitute(substitute(sp.back(), ", ", "/"), "&", "&amp;") <<
+            "</creatorName>" << endl;
         ofs << g_indent << "    </creator>" << endl;
         found_contributor = true;
       }
@@ -217,7 +220,7 @@ void add_date(Server& server, std::ostream& ofs) {
       "date_start > '0001-01-01' and date_start < '3000-01-01' and date_end > "
       "'0001-01-01' and date_end < '3000-01-01'");
   Row row;
-  if (query.submit(server) == 0 && query.fetch_row(row)) {
+  if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
     auto tz = row[4].substr(0, row[4].find(","));
     ofs << g_indent << "  <dates>" << endl;
     ofs << g_indent << "    <date dateType=\"Valid\">" << metatranslations::
@@ -231,10 +234,18 @@ void add_related_identifier(Server& server, XMLDocument& xdoc, stringstream&
     rids_ss) {
   auto elist = xdoc.element_list("dsOverview/relatedDOI");
   if (!elist.empty()) {
+    auto doi_cnt = 0;
     for (const auto& doi : elist) {
-      rids_ss << g_indent << "    <relatedIdentifier relatedIdentifierType=\""
-          "DOI\" relationType=\"" << doi.attribute_value("relationType") <<
-          "\">" << doi.content() << "</relatedIdentifier>" << endl;
+      auto doi_relation = doi.attribute_value("relationType");
+      if (!doi_relation.empty()) {
+        rids_ss << g_indent << "    <relatedIdentifier relatedIdentifierType=\""
+            "DOI\" relationType=\"" << doi_relation << "\">" << doi.content() <<
+            "</relatedIdentifier>" << endl;
+      } else {
+        append(myerror, "Related DOI #" + to_string(doi_cnt) + " is missing "
+            "the relation type", "\n");
+      }
+      ++doi_cnt;
     }
   }
   LocalQuery q("select c.doi_work, w.type, count(a.last_name) from citation."
@@ -300,7 +311,7 @@ void add_geolocation_from_xml(std::ostream& ofs, XMLElement& ele) {
           "stdParallel2");
     }
     double wlon, slat, elon, nlat;
-    gridutils::fill_spatial_domain_from_grid_definition(d, "primeMeridian",
+    gridutils::filled_spatial_domain_from_grid_definition(d, "primeMeridian",
         wlon, slat, elon, nlat);
     mnlon = min(mnlon, wlon);          
     mnlat = min(mnlat, slat);
@@ -339,7 +350,7 @@ void add_geolocation_from_database(Server& server, std::ostream& ofs) {
         Row r2;
         if (q2.submit(server) == 0 && q2.fetch_row(r2)) {
           double wlon, slat, elon, nlat;
-          gridutils::fill_spatial_domain_from_grid_definition(r2[0] + "<!>" +
+          gridutils::filled_spatial_domain_from_grid_definition(r2[0] + "<!>" +
               r2[1], "primeMeridian", wlon, slat, elon, nlat);
           mnlon = min(mnlon, wlon);          
           mnlat = min(mnlat, slat);
@@ -613,28 +624,35 @@ void add_related_item(XMLDocument& xdoc, std::ostream& ofs, stringstream&
     rids_ss) {
   auto elist = xdoc.element_list("dsOverview/reference");
   stringstream rss;
+  auto ref_cnt = 0;
   for (const auto& e : elist) {
     auto doi = e.element("doi").content();
     auto ds_relation = e.attribute_value("ds_relation");
-    if (doi.empty()) {
-      rss << g_indent << "    <relatedItem relationType=\"" << ds_relation <<
-          "\"";
+    if (!ds_relation.empty()) {
+      if (doi.empty()) {
+        rss << g_indent << "    <relatedItem relationType=\"" << ds_relation <<
+            "\"";
+      } else {
+        rids_ss << g_indent << "    <relatedIdentifier relatedIdentifierType=\""
+            "DOI\" relationType=\"" << ds_relation << "\"";
+      }
+      auto type = e.attribute_value("type");
+      if (type == "book") {
+        add_book(e, rss, rids_ss);
+      } else if (type == "book_chapter") {
+        add_book_chapter(e, rss, rids_ss);
+      } else if (type == "journal") {
+        add_journal_article(e, rss, rids_ss);
+      } else if (type == "preprint") {
+        add_conference_proceeding(e, rss, rids_ss);
+      } else if (type == "technical_report") {
+        add_report(e, rss, rids_ss);
+      }
     } else {
-      rids_ss << g_indent << "    <relatedIdentifier relatedIdentifierType=\""
-          "DOI\" relationType=\"" << ds_relation << "\"";
+      append(myerror, "Reference #" + to_string(ref_cnt) + " is missing the "
+          "relation type", "\n");
     }
-    auto type = e.attribute_value("type");
-    if (type == "book") {
-      add_book(e, rss, rids_ss);
-    } else if (type == "book_chapter") {
-      add_book_chapter(e, rss, rids_ss);
-    } else if (type == "journal") {
-      add_journal_article(e, rss, rids_ss);
-    } else if (type == "preprint") {
-      add_conference_proceeding(e, rss, rids_ss);
-    } else if (type == "technical_report") {
-      add_report(e, rss, rids_ss);
-    }
+    ++ref_cnt;
   }
   if (!rss.str().empty()) {
     ofs << g_indent << "  <relatedItems>" << endl;
