@@ -4,59 +4,56 @@
 #include <xml.hpp>
 #include <xmlutils.hpp>
 
+using std::string;
+
 namespace metatranslations {
 
-std::string date_time(std::string database_date_time,std::string database_flag,std::string time_zone,std::string time_delimiter)
-{
-  auto dt=database_date_time;
-  auto flag=std::stoi(database_flag);
+string date_time(string database_date_time, string database_flag, string
+    time_zone, string time_delimiter) {
+  auto dt = database_date_time;
+  auto yrlen = dt.find("-");
+  auto flag = stoi(database_flag);
   switch (flag) {
-    case 1:
-    {
-	dt=dt.substr(0,4);
-	break;
+    case 1: {
+      dt = dt.substr(0, yrlen);
+      break;
     }
-    case 2:
-    {
-	dt=dt.substr(0,7);
-	break;
+    case 2: {
+      dt = dt.substr(0, (yrlen + 3));
+      break;
     }
-    case 3:
-    {
-	dt=dt.substr(0,10);
-	break;
+    case 3: {
+      dt = dt.substr(0, (yrlen + 6));
+      break;
     }
-    case 4:
-    {
-	if (!time_delimiter.empty()) {
-	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11,2);
-	}
-	else {
-	  dt=dt.substr(0,13);
-	}
-	dt+=" "+time_zone;
-	break;
+    case 4: {
+      if (!time_delimiter.empty()) {
+        dt = dt.substr(0, (yrlen + 6)) + time_delimiter + dt.substr((yrlen + 7),
+            2);
+      } else {
+        dt = dt.substr(0, (yrlen + 9));
+      }
+      dt += " " + time_zone;
+      break;
     }
-    case 5:
-    {
-	if (!time_delimiter.empty()) {
-	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11,5);
-	}
-	else {
-	  dt=dt.substr(0,16);
-	}
-	dt+=" "+time_zone;
-	break;
+    case 5: {
+      if (!time_delimiter.empty()) {
+        dt = dt.substr(0, (yrlen + 6)) + time_delimiter + dt.substr((yrlen + 7),
+            5);
+      } else {
+        dt = dt.substr(0, (yrlen + 12));
+      }
+      dt += " " + time_zone;
+      break;
     }
-    case 6:
-    {
-	if (!time_delimiter.empty()) {
-	  dt=dt.substr(0,10)+time_delimiter+dt.substr(11);
-	}
-	else {
-	  dt+=" "+time_zone;
-	}
-	break;
+    case 6: {
+      if (!time_delimiter.empty()) {
+        dt = dt.substr(0, (yrlen + 6)) + time_delimiter + dt.substr((yrlen +
+            7));
+      } else {
+        dt += " " + time_zone;
+      }
+      break;
     }
   }
   return dt;
@@ -73,7 +70,7 @@ std::string detailed_datatype(xmlutils::DataTypeMapper& data_type_mapper,const s
   if (vars.size() > 0) {
     detailed_datatype+=" (may include one or more of the following)<ul>";
     for (auto& var : vars) {
-	detailed_datatype+="<li>"+var+"</li>";
+      detailed_datatype+="<li>"+var+"</li>";
     }
     detailed_datatype+="</ul>";
   }
@@ -101,13 +98,13 @@ std::string detailed_level(xmlutils::LevelMapper& level_mapper,const std::string
   }
   if (strutils::contains(value,",")) {
     if (value != "0,0") {
-	auto idx=value.find(",");
-	detailed_level+=": Bottom="+value.substr(0,idx)+" "+units_b+", Top="+value.substr(idx+1)+" "+units_t;
+      auto idx=value.find(",");
+      detailed_level+=": Bottom="+value.substr(0,idx)+" "+units_b+", Top="+value.substr(idx+1)+" "+units_t;
     }
   }
   else {
     if (value != "0" || !units_b.empty()) {
-	detailed_level+=": "+value+" "+units_b;
+      detailed_level+=": "+value+" "+units_b;
     }
   }
   return detailed_level;
