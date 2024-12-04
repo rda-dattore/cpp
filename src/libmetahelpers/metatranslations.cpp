@@ -12,6 +12,9 @@ string date_time(string database_date_time, string database_flag, string
     time_zone, string time_delimiter) {
   auto dt = database_date_time;
   auto yrlen = dt.find("-");
+  if (yrlen == string::npos) {
+    yrlen = dt.length();
+  }
   auto flag = stoi(database_flag);
   switch (flag) {
     case 1: {
