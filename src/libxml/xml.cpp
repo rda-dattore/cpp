@@ -513,6 +513,14 @@ bool XMLDocument::open(const std::string& filename)
     n+=(idx+2);
   }
   sline=sline.substr(n);
+  idx = sline.find("<!DOCTYPE");
+  if (idx != std::string::npos && sline.substr(idx+9).find("[") > 0) {
+    auto idx2 = sline.find("]>");
+    if (idx2 != std::string::npos && idx2 > idx) {
+      sline = sline.substr(0, idx) + sline.substr(idx2+2);
+    }
+  }
+  strutils::trim(sline);
   parse(sline);
   if (parse_error_.empty()) {
     parsed=true;
