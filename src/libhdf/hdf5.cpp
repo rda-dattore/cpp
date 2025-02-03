@@ -551,8 +551,8 @@ size_t cast_data_values(const DataValue& data_value, void **array_values,
             type = DataArray::Type::LONG_LONG;
           }
           for (size_t n = 0; n < num_to_cast; ++n) {
-            (reinterpret_cast<int *>(*array_values))[start_array_index++] =
-                (reinterpret_cast<long long *>(data_value.array))[n];
+            (reinterpret_cast<long long *>(*array_values))[start_array_index++]
+                = (reinterpret_cast<long long *>(data_value.array))[n];
           }
           break;
         }
