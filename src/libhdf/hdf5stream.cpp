@@ -78,7 +78,7 @@ void InputHDF5Stream::Chunk::allocate() {
 bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
   auto curr_off = fs.tellg();
   fs.seekg(address, std::ios_base::beg);
-  if (dataset.filters.size() == 0) {
+  if (dataset.filters.empty()) {
     allocate();
     fs.read(reinterpret_cast<char *>(buffer.get()), length);
     if (fs.gcount() != static_cast<int>(length)) {
@@ -101,7 +101,11 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
 
           // gzip
           allocate();
-          uncompress(buffer.get(), &length, buf, size);
+          auto status = uncompress(buffer.get(), &length, buf, size);
+          if (status != 0) {
+            append(myerror, "gunzip error: " + to_string(status), ", ");
+            exit(1);
+          }
 /*
 #ifdef __DEBUG
           cerr << "--GUNZIPPED-------" << endl;
@@ -119,6 +123,10 @@ bool InputHDF5Stream::Chunk::fill(std::fstream& fs, const Dataset& dataset) {
                 length) + " and data element size of " + to_string(dataset.data.
                 size_of_element), ", ");
             return false;
+          }
+          if (buffer == nullptr) {
+            allocate();
+            copy(buf, buf + size, buffer.get());
           }
           unsigned char *cbuf = new unsigned char[length];
           copy(buffer.get(), buffer.get() + length, cbuf);
@@ -1147,7 +1155,7 @@ void InputHDF5Stream::Dataset::free()
 }
 
 shared_ptr<InputHDF5Stream::Dataset> InputHDF5Stream::dataset(string xpath) {
-  auto g=&root_group;
+  auto g = &root_group;
   auto sp = split(xpath,"/");
   for (size_t n = 1; n < sp.size() - 1; ++n) {
     auto it = find_if(g->groups.begin(), g->groups.end(), FindGroup(sp[n]));
@@ -1924,7 +1932,7 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
   auto signature=string(buf, 4);
   if (signature == "FHDB") {
 #ifdef __DEBUG
-    cerr << "fractal heap direct block" << endl;
+    cerr << "fractal heap direct block at address " << address << endl;
 #endif 
     if (buf[4] != 0) {
       append(myerror, "unable to decode fractal heap direct block version " +
@@ -1975,7 +1983,9 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
       case 6: {
         auto local_off = 0;
         bool is_subgroup = false;
-        while (buf2[local_off] == 1 && local_off < size_to_read) {
+//        while (buf2[local_off] == 1 && local_off < size_to_read) {
+size_to_read -= 6;
+while(local_off < size_to_read) {
           local_off += decode_header_message("", 0, 6, 0, 0, &buf2[local_off],
               &root_group, *(frhp_data.dse), is_subgroup);
         }
@@ -1983,6 +1993,11 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
       }
       case 12: {
         auto local_off = 0;
+
+        // need enough space at end of block for an attribute name (1
+        //   byte), attribute datatype (at least 8 bytes), and attribute
+        //   dataspace (at least 8 bytes)
+        size_to_read -= 17;
         while (local_off < size_to_read) {
           auto it = free_space_manager.space_map.find(local_off);
           if (it != free_space_manager.space_map.end()) {
@@ -1991,6 +2006,9 @@ bool InputHDF5Stream::decode_fractal_heap_block(unsigned long long address, int
                 "offset " << local_off << endl;
 #endif
             local_off += it->second;
+            if (local_off >= size_to_read) {
+              break;
+            }
           }
           Attribute attr;
           int n;
@@ -2316,9 +2334,11 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
             } else {
               dse.p_ds->fillvalue.bytes = nullptr;
             }
+/*
           } else {
             append(myerror, "fill value undefined", ", ");
             exit(1);
+*/
           }
           break;
         }
@@ -2350,6 +2370,9 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
     case 0x0006: {
 
       // Link message
+#ifdef __DEBUG
+      cerr << "Link message: version: " << static_cast<int>(buffer[0]) << " flags: " << static_cast<int>(buffer[1]) << std::endl;
+#endif
       int link_type;
       curr_off = 2;
       link_type = 0;
@@ -2388,31 +2411,38 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
         length_of_link_name = HDF5::value(&buffer[curr_off], 8);
         curr_off += 8;
       }
-      auto ste = new SymbolTableEntry;
-      ste->linkname.assign(reinterpret_cast<char *>(&buffer[curr_off]),
-          length_of_link_name);
-#ifdef __DEBUG
-      cerr << "Link name: '" << ste->linkname << "', type: " << link_type <<
-          endl;
-#endif
-      curr_off += length_of_link_name;
-      if (link_type == 0) {
-        ste->objhdr_addr = HDF5::value(&buffer[curr_off], sizes.offsets);
-#ifdef __DEBUG
-        cerr << "Address of link object header: " << ste->objhdr_addr << endl;
-#endif
-        if (!decode_object_header(*ste, &root_group)) {
-          exit(1);
+      if (length_of_link_name > 0) {
+        auto ste = new SymbolTableEntry;
+        ste->linkname.assign(reinterpret_cast<char *>(&buffer[curr_off]),
+            length_of_link_name);
+  #ifdef __DEBUG
+        cerr << "Link name: '" << ste->linkname << "', type: " << link_type <<
+            endl;
+  #endif
+        curr_off += length_of_link_name;
+        if (link_type == 0) {
+          ste->objhdr_addr = HDF5::value(&buffer[curr_off], sizes.offsets);
+  #ifdef __DEBUG
+          cerr << "Address of link object header: " << ste->objhdr_addr << endl;
+  #endif
+          if (!decode_object_header(*ste, &root_group)) {
+            exit(1);
+          }
+          curr_off += sizes.offsets;
+          if (buffer[0] == 1) {
+            if (ref_table == nullptr) {
+              ref_table.reset(new unordered_map<size_t, string>);
+            }
+            if (ref_table->find(ste->objhdr_addr) == ref_table->end()) {
+              ref_table->emplace(ste->objhdr_addr, ste->linkname);
+            }
+          }
         }
-        curr_off += sizes.offsets;
-        if (ref_table == nullptr) {
-          ref_table.reset(new unordered_map<size_t, string>);
-        }
-        if (ref_table->find(ste->objhdr_addr) == ref_table->end()) {
-          ref_table->emplace(ste->objhdr_addr, ste->linkname);
-        }
+        delete ste;
       }
-      delete ste;
+#ifdef __DEBUG
+      cerr << "message length: " << curr_off << std::endl;
+#endif
       return curr_off;
       break;
     }
@@ -3200,6 +3230,7 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
   auto boff=0;
   for (size_t n=0; n < num_children; ++n) {
     size_t chunk_size=HDF5::value(&buf[boff],4);
+    auto fmask = HDF5::value(&buf[boff+4], 4);
     boff+=8;
 #ifdef __DEBUG
     cerr << "chunk size: " << chunk_size;
@@ -3238,7 +3269,7 @@ bool InputHDF5Stream::decode_v1_Btree(unsigned long long address,Dataset& datase
     }
     if (string(cbuf, 4) == "TREE") {
 */
-if (node_level == 1) {
+    if (node_level > 0) {
 #ifdef __DEBUG
       cerr << "ANOTHER TREE" << endl;
 #endif
@@ -3397,7 +3428,8 @@ void InputHDF5Stream::print_data(Dataset& dataset) {
       }
 #endif
     } else {
-// contiguous data
+
+      // contiguous data
 #ifdef __DEBUG
       cerr << "CONTIGUOUS DATA!" << endl;
 #endif
