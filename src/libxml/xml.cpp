@@ -10,6 +10,7 @@
 using std::cout;
 using std::endl;
 using std::string;
+using strutils::append;
 using strutils::replace_all;
 using strutils::split;
 
@@ -145,7 +146,7 @@ void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_star
 }
 
 void XMLSnippet::parse(string& xml_element) {
-  int len,n;
+  int len;
   int tagname_start=0,last_space=0,attribute_value_start=0,content_end=0;
   std::list<string> tagnames;
   std::list<int> content_starts;
@@ -349,13 +350,8 @@ void XMLSnippet::parse(string& xml_element) {
   }
   if (!tagnames.empty()) {
     parse_error_="End tag missing somewhere - "+strutils::itos(tagnames.size())+" tags still remaining: ";
-    n=0;
     for (auto& tagname : tagnames) {
-      if (n > 0) {
-        parse_error_+=", ";
-      }
-      parse_error_+=tagname;
-      ++n;
+      append(parse_error_, tagname, ", ");
     }
   } else if (!content_starts.empty()) {
     parse_error_="Content not closed somewhere";
