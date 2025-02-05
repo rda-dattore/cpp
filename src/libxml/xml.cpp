@@ -36,8 +36,7 @@ XMLElement XMLElement::element(const std::string& xpath) const
   auto elist=element_list(xpath);
   if (elist.size() > 0) {
     return elist.front();
-  }
-  else {
+  } else {
     return XMLElement();
   }
 }
@@ -64,15 +63,13 @@ std::string XMLElement::to_string() const
       s+=">";
       if (!content_s.empty()) {
         s+=content_s;
-      }
-      else {
+      } else {
         for (const auto& addr : element_address_list) {
           s+=addr.p->to_string();
         }
       }
       s+="</"+name_+">";
-    }
-    else {
+    } else {
       s+=" />";
     }
   }
@@ -142,8 +139,7 @@ void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname
   tagnames.emplace_back(s);
   if (root_element_.name_.empty()) {
     eaddr.p=&root_element_;
-  }
-  else {
+  } else {
     if (parent_elements.size() == 0 || eaddr.p != parent_elements.back()) {
       parent_elements.emplace_back(eaddr.p);
     }
@@ -194,35 +190,30 @@ void XMLSnippet::parse(std::string& xml_element)
           }
           in_comment=true;
           off+=2;
-        }
-        else if (xml_element.substr(off+1,8) == "![CDATA[") {
+        } else if (xml_element.substr(off+1,8) == "![CDATA[") {
           if (in_cdata) {
             parse_error_="Previous CDATA was not closed";
             return;
           }
           in_cdata=true;
           off+=7;
-        }
-        else if (xml_element[off+1] == '/') {
+        } else if (xml_element[off+1] == '/') {
           if (!in_tagname_close) {
             in_tagname_close=true;
             tagname_start=off+2;
             content_end=off;
             off++;
-          }
-          else {
+          } else {
             parse_error_="Bad tag close specification at offset: "+strutils::itos(off);
             return;
           }
-        }
-        else {
+        } else {
           in_tag=true;
           in_tagname_open=true;
           tagname_start=off+1;
         }
       }
-    }
-    else if (xml_element[off] == ' ') {
+    } else if (xml_element[off] == ' ') {
       if (!in_attribute) {
         if (in_tagname_open) {
           process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
@@ -230,43 +221,39 @@ void XMLSnippet::parse(std::string& xml_element)
         }
       }
       last_space=off;
-    }
-    else if (xml_element[off] == '=') {
+    } else if (xml_element[off] == '=') {
       if (!in_attribute) {
         if (xml_element[off+1] == '"' || xml_element[off+1] == '\'') {
           attr.name=xml_element.substr(last_space+1,off-1-last_space);
           strutils::trim(attr.name);
           in_attribute=true;
-          if (xml_element[off+1] == '"')
+          if (xml_element[off+1] == '"') {
             in_double_quotes=true;
-          else
+          } else {
             in_single_quotes=true;
+          }
           attribute_value_start=off+2;
           off++;
-        }
-        else if (in_tagname_open) {
+        } else if (in_tagname_open) {
           parse_error_="Bad attribute specification at offset: "+strutils::itos(off);
           return;
         }
       }
-    }
-    else if (xml_element[off] == '"') {
+    } else if (xml_element[off] == '"') {
       if (in_attribute && !in_single_quotes) {
         attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
         eaddr.p->attr_list.emplace_back(attr);
         in_attribute=false;
         in_double_quotes=false;
       }
-    }
-    else if (xml_element[off] == '\'') {
+    } else if (xml_element[off] == '\'') {
       if (in_attribute && !in_double_quotes) {
         attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
         eaddr.p->attr_list.emplace_back(attr);
         in_attribute=false;
         in_single_quotes=false;
       }
-    }
-    else if (xml_element[off] == '-') {
+    } else if (xml_element[off] == '-') {
       if (!in_attribute) {
         if (xml_element.substr(off,3) == "-->") {
           if (!in_comment) {
@@ -277,8 +264,7 @@ void XMLSnippet::parse(std::string& xml_element)
           off+=2;
         }
       }
-    }
-    else if (xml_element[off] == ']') {
+    } else if (xml_element[off] == ']') {
       if (!in_attribute) {
         if (xml_element.substr(off,3) == "]]>") {
           if (!in_cdata) {
@@ -289,8 +275,7 @@ void XMLSnippet::parse(std::string& xml_element)
           off+=2;
         }
       }
-    }
-    else if (xml_element[off] == '/') {
+    } else if (xml_element[off] == '/') {
       if (!in_attribute) {
         if (in_tag && xml_element[off+1] == '>') {
           tagnames.pop_back();
@@ -301,32 +286,27 @@ void XMLSnippet::parse(std::string& xml_element)
             }
             if (parent_elements.size() > 0) {
               eaddr.p=parent_elements.back();
-            }
-            else {
+            } else {
               eaddr.p=&root_element_;
             }
-          }
-          else {
+          } else {
             eaddr.p=&root_element_;
           }
           ++off;
         }
       }
-    }
-    else if (xml_element[off] == '>') {
+    } else if (xml_element[off] == '>') {
       if (!in_attribute) {
         if (in_tagname_open) {
           process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
           in_tagname_open=false;
-        }
-        else if (in_tagname_close) {
+        } else if (in_tagname_close) {
           sdum=xml_element.substr(tagname_start,off-tagname_start);
           strutils::trim(sdum);
           if (tagnames.size() == 0) {
             parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
             return;
-          }
-          else {
+          } else {
             if (sdum == tagnames.back()) {
               in_tagname_close=false;
               if (content_end > content_starts.back()) {
@@ -340,16 +320,13 @@ void XMLSnippet::parse(std::string& xml_element)
                 }
                 if (parent_elements.size() > 0) {
                   eaddr.p=parent_elements.back();
-                }
-                else {
+                } else {
                   eaddr.p=&root_element_;
                 }
-              }
-              else {
+              } else {
                 eaddr.p=&root_element_;
               }
-            }
-            else {
+            } else {
               parse_error_="End of element '"+sdum+"' does not match beginning of element '"+tagnames.back()+"'";
               return;
             }
@@ -366,8 +343,7 @@ void XMLSnippet::parse(std::string& xml_element)
       if (last_untag_off < 0) {
         last_untag_off=off;
       }
-    }
-    else if (last_untag_off >= 0) {
+    } else if (last_untag_off >= 0) {
       len=untag_off-last_untag_off+1;
       std::copy(&xml_element[last_untag_off],&xml_element[last_untag_off+len],&untag_buffer[untag_buffer_off]);
       untag_buffer_off+=len;
@@ -385,11 +361,9 @@ void XMLSnippet::parse(std::string& xml_element)
       parse_error_+=tagname;
       ++n;
     }
-  }
-  else if (content_starts.size() > 0) {
+  } else if (content_starts.size() > 0) {
     parse_error_="Content not closed somewhere";
-  }
-  else if (parent_elements.size() > 0) {
+  } else if (parent_elements.size() > 0) {
     parse_error_="Element not closed somewhere; size = "+strutils::itos(parent_elements.size())+"; "+parent_elements.front()->name();
   }
 }
@@ -416,8 +390,7 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
     outs << std::endl;
     for (auto address : element.element_address_list)
       printElement(outs,*address.p,false,indent+2);
-  }
-  else
+  } else
     outs << element.content_s;
   if (element.element_address_list.size() > 0) {
     for (size_t n=0; n < indent; ++n) {
@@ -443,8 +416,7 @@ size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::uniq
       zs=nullptr;
       return 0;
     }
-  }
-  else {
+  } else {
     inflateReset2(zs,MAX_WBITS+32);
   }
   zbuf.allocate(compressed_length);
@@ -525,8 +497,7 @@ bool XMLDocument::open(const std::string& filename)
   if (parse_error_.empty()) {
     parsed=true;
     return true;
-  }
-  else {
+  } else {
     return false;
   }
 }
@@ -576,20 +547,17 @@ void check(const XMLElement& root,const std::deque<std::string>& comps,size_t th
         if (this_comp < comps.size()-1) {
           for (auto& address : root.element_address_list)
             check(*address.p,comps,this_comp+1,element_list);
-        }
-        else
+        } else
           element_list.emplace_back(root);
       }
     }
-  }
-  else {
+  } else {
     if (root.name_ == tc) {
       if (this_comp < comps.size()-1) {
         for (auto& address : root.element_address_list) {
           check(*address.p,comps,this_comp+1,element_list);
         }
-      }
-      else {
+      } else {
         element_list.emplace_back(root);
       }
     }
