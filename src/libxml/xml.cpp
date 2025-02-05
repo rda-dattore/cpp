@@ -37,7 +37,7 @@ string XMLElement::attribute_value(string attribute_name) const {
 
 XMLElement XMLElement::element(const string& xpath) const {
   auto elist=element_list(xpath);
-  if (elist.size() > 0) {
+  if (!elist.size().empty()) {
     return elist.front();
   } else {
     return XMLElement();
@@ -60,7 +60,7 @@ string XMLElement::to_string() const {
     for (const auto& attr : attr_list) {
       s+=" "+attr.name+"=\""+attr.value+"\"";
     }
-    if (element_address_list.size() > 0 || !content_s.empty()) {
+    if (!element_address_list.size().empty() || !content_s.empty()) {
       s+=">";
       if (!content_s.empty()) {
         s+=content_s;
@@ -95,7 +95,7 @@ void XMLSnippet::fill(string string) {
 XMLElement XMLSnippet::element(const string& xpath) {
   if (parsed) {
     auto elist=element_list(xpath);
-    if (elist.size() > 0) {
+    if (!elist.size().empty()) {
       return elist.front();
     }
   }
@@ -134,7 +134,7 @@ void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_star
   if (root_element_.name_.empty()) {
     eaddr.p=&root_element_;
   } else {
-    if (parent_elements.size() == 0 || eaddr.p != parent_elements.back()) {
+    if (parent_elements.size().empty() || eaddr.p != parent_elements.back()) {
       parent_elements.emplace_back(eaddr.p);
     }
     eaddr.p=new XMLElement;
@@ -145,14 +145,13 @@ void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_star
 }
 
 void XMLSnippet::parse(string& xml_element) {
-  int off=0,len,n;
+  int len,n;
   int tagname_start=0,last_space=0,attribute_value_start=0,content_end=0;
   std::list<string> tagnames;
   std::list<int> content_starts;
   std::list<XMLElement> elements;
   string sdum;
   XMLAttribute attr;
-  XMLElementAddress eaddr;
   std::list<XMLElement *> parent_elements;
   int last_untag_off=-1,untag_off=0;
   bool in_tag=false;
@@ -162,18 +161,22 @@ void XMLSnippet::parse(string& xml_element) {
   bool in_single_quotes=false;
   bool in_double_quotes=false;
 
-  eaddr.p=NULL;
-  untag_buffer.allocate(xml_element.length()+1);
-  untag_buffer_off=0;
-// strip any leading extraneous characters - xml_element should begin with '<'
-  while (off < static_cast<int>(xml_element.length()) && xml_element[off] != '<') {
+  XMLElementAddress eaddr;
+  eaddr.p = NULL;
+  untag_buffer.allocate(xml_element.length() + 1);
+  untag_buffer_off = 0;
+
+  size_t off = 0;
+  while (off < xml_element.length() && xml_element[off] != '<') {
+    // strip any leading extraneous characters - xml_element should begin with
+    //   '<'
     ++off;
   }
-  if (off == static_cast<int>(xml_element.length())) {
-    parse_error_="Not an XML element";
+  if (off == xml_element.length()) {
+    parse_error_ = "Not an XML element";
     return;
   }
-  while (off < static_cast<int>(xml_element.length())) {
+  while (off < xml_element.length()) {
     if (xml_element[off] == '<') {
       if (!in_attribute) {
         if (xml_element.substr(off+1,3) == "!--") {
@@ -273,11 +276,11 @@ void XMLSnippet::parse(string& xml_element) {
         if (in_tag && xml_element[off+1] == '>') {
           tagnames.pop_back();
           in_tag=false;
-          if (parent_elements.size() > 0) {
+          if (!parent_elements.size().empty()) {
             if (parent_elements.back() == eaddr.p) {
               parent_elements.pop_back();
             }
-            if (parent_elements.size() > 0) {
+            if (!parent_elements.size().empty()) {
               eaddr.p=parent_elements.back();
             } else {
               eaddr.p=&root_element_;
@@ -296,7 +299,7 @@ void XMLSnippet::parse(string& xml_element) {
         } else if (in_tagname_close) {
           sdum=xml_element.substr(tagname_start,off-tagname_start);
           strutils::trim(sdum);
-          if (tagnames.size() == 0) {
+          if (tagnames.size().empty()) {
             parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
             return;
           } else {
@@ -307,11 +310,11 @@ void XMLSnippet::parse(string& xml_element) {
               }
               tagnames.pop_back();
               content_starts.pop_back();
-              if (parent_elements.size() > 0) {
+              if (!parent_elements.size().empty()) {
                 if (parent_elements.back() == eaddr.p) {
                   parent_elements.pop_back();
                 }
-                if (parent_elements.size() > 0) {
+                if (!parent_elements.size().empty()) {
                   eaddr.p=parent_elements.back();
                 } else {
                   eaddr.p=&root_element_;
@@ -344,7 +347,7 @@ void XMLSnippet::parse(string& xml_element) {
     }
     ++off;
   }
-  if (tagnames.size() > 0) {
+  if (!tagnames.size().empty()) {
     parse_error_="End tag missing somewhere - "+strutils::itos(tagnames.size())+" tags still remaining: ";
     n=0;
     for (auto& tagname : tagnames) {
@@ -354,9 +357,9 @@ void XMLSnippet::parse(string& xml_element) {
       parse_error_+=tagname;
       ++n;
     }
-  } else if (content_starts.size() > 0) {
+  } else if (!content_starts.size().empty()) {
     parse_error_="Content not closed somewhere";
-  } else if (parent_elements.size() > 0) {
+  } else if (!parent_elements.size().empty()) {
     parse_error_="Element not closed somewhere; size = "+strutils::itos(parent_elements.size())+"; "+parent_elements.front()->name();
   }
 }
@@ -378,13 +381,13 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
     is_first=false;
   }
   outs << ">";
-  if (element.element_address_list.size() > 0) {
+  if (!element.element_address_list.size().empty()) {
     outs << endl;
     for (auto address : element.element_address_list)
       printElement(outs,*address.p,false,indent+2);
   } else
     outs << element.content_s;
-  if (element.element_address_list.size() > 0) {
+  if (!element.element_address_list.size().empty()) {
     for (size_t n=0; n < indent; ++n) {
       outs << " ";
     }
