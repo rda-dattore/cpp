@@ -418,7 +418,39 @@ bool GridMap::fill(const std::string& xml_file)
 	gme.key=elem.p->attribute_value("code");
 	for (const auto& g_elem : elem.p->element_addresses()) {
 	  if (g_elem.p->name() == "type") {
-	    gme.def.type=std::stoi(g_elem.p->content());
+	    switch(std::stoi(g_elem.p->content())) {
+		case 1: {
+		  gme.def.type = Grid::Type::latitudeLongitude;
+		  break;
+		}
+		case 2: {
+		  gme.def.type = Grid::Type::gaussianLatitudeLongitude;
+		  break;
+		}
+		case 3: {
+		  gme.def.type = Grid::Type::polarStereographic;
+		  break;
+		}
+		case 4: {
+		  gme.def.type = Grid::Type::mercator;
+		  break;
+		}
+		case 5: {
+		  gme.def.type = Grid::Type::lambertConformal;
+		  break;
+		}
+		case 6: {
+		  gme.def.type = Grid::Type::sphericalHarmonics;
+		  break;
+		}
+		case 7: {
+		  gme.def.type = Grid::Type::staggeredLatitudeLongitude;
+		  break;
+		}
+		default: {
+		  gme.def.type = Grid::Type::not_set;
+		}
+	    }
 	  }
 	  else if (g_elem.p->name() == "numX") {
 	    gme.dim.x=std::stoi(g_elem.p->content());
@@ -469,7 +501,7 @@ Grid::GridDefinition GridMap::grid_definition(const std::string& grid_code)
     return gme.def;
   }
   else {
-    def.type=-1;
+    def.type = Grid::Type::not_set;
     return def;
   }
 }
@@ -590,6 +622,13 @@ std::string ParameterMapper::description(std::string data_format,std::string par
   std::string format_specialization;
   clean_parameter_code(parameter_code,format_specialization);
   return entry(data_format,format_specialization).p->description(parameter_code);
+}
+
+std::string ParameterMapper::gcmd_keyword(std::string data_format,std::string parameter_code,std::string level_type)
+{
+  std::string format_specialization;
+  clean_parameter_code(parameter_code,format_specialization);
+  return entry(data_format,format_specialization).p->gcmd_keyword(parameter_code,level_type);
 }
 
 std::string ParameterMapper::title(std::string data_format,std::string format_specialization)
