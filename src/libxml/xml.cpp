@@ -7,8 +7,13 @@
 #include <xml.hpp>
 #include <strutils.hpp>
 
-XMLElement& XMLElement::operator=(const XMLElement& e)
-{
+using std::cout;
+using std::endl;
+using std::string;
+using strutils::replace_all;
+using strutils::split;
+
+XMLElement& XMLElement::operator=(const XMLElement& e) {
   if (this == &e) {
     return *this;
   }
@@ -21,8 +26,7 @@ XMLElement& XMLElement::operator=(const XMLElement& e)
   return *this;
 }
 
-std::string XMLElement::attribute_value(std::string attribute_name) const
-{
+string XMLElement::attribute_value(string attribute_name) const {
   for (const auto& attr : attr_list) {
     if (attr.name == attribute_name) {
       return attr.value;
@@ -31,8 +35,7 @@ std::string XMLElement::attribute_value(std::string attribute_name) const
   return "";
 }
 
-XMLElement XMLElement::element(const std::string& xpath) const
-{
+XMLElement XMLElement::element(const string& xpath) const {
   auto elist=element_list(xpath);
   if (elist.size() > 0) {
     return elist.front();
@@ -41,19 +44,17 @@ XMLElement XMLElement::element(const std::string& xpath) const
   }
 }
 
-std::list<XMLElement> XMLElement::element_list(const std::string& xpath) const
-{
-  std::string s=this->name_+"/"+xpath;
-  strutils::replace_all(s,"\\/","$SLASH$");
-  auto sp=strutils::split(s,"/");
+std::list<XMLElement> XMLElement::element_list(const string& xpath) const {
+  string s=this->name_+"/"+xpath;
+  replace_all(s,"\\/","$SLASH$");
+  auto sp=split(s,"/");
   std::list<XMLElement> element_list;
   check(*this,sp,0,element_list);
   return element_list;
 }
 
-std::string XMLElement::to_string() const
-{
-  std::string s;
+string XMLElement::to_string() const {
+  string s;
   if (!name_.empty()) {
     s+="<"+name_;
     for (const auto& attr : attr_list) {
@@ -76,8 +77,7 @@ std::string XMLElement::to_string() const
   return s;
 }
 
-void XMLSnippet::fill(std::string string)
-{
+void XMLSnippet::fill(string string) {
   root_element_.name_="";
   root_element_.element_address_list.clear();
   root_element_.attr_list.clear();
@@ -92,8 +92,7 @@ void XMLSnippet::fill(std::string string)
   }
 }
 
-XMLElement XMLSnippet::element(const std::string& xpath)
-{
+XMLElement XMLSnippet::element(const string& xpath) {
   if (parsed) {
     auto elist=element_list(xpath);
     if (elist.size() > 0) {
@@ -103,37 +102,32 @@ XMLElement XMLSnippet::element(const std::string& xpath)
   return XMLElement();
 }
 
-std::list<XMLElement> XMLSnippet::element_list(const std::string& xpath)
-{
+std::list<XMLElement> XMLSnippet::element_list(const string& xpath) {
   std::list<XMLElement> element_list;
   if (parsed) {
     auto s=xpath;
-    strutils::replace_all(s,"\\/","$SLASH$");
-    auto sp=strutils::split(s,"/");
+    replace_all(s,"\\/","$SLASH$");
+    auto sp=split(s,"/");
     check(root_element_,sp,0,element_list);
   }
   return element_list;
 }
 
-void XMLSnippet::print_tree(std::ostream& outs)
-{
-  outs << "<?xml version=\"1.0\" ?>" << std::endl;
+void XMLSnippet::print_tree(std::ostream& outs) {
+  outs << "<?xml version=\"1.0\" ?>" << endl;
   printElement(outs,root_element_,true,0);
 }
 
-void XMLSnippet::show_tree()
-{
-  std::cout << "Root: " << root_element_.name_ << std::endl;
+void XMLSnippet::show_tree() {
+  cout << "Root: " << root_element_.name_ << endl;
   showXMLSubTree(root_element_,0);
 }
 
-std::string XMLSnippet::untagged()
-{
-  return std::string(reinterpret_cast<char *>(&untag_buffer[0]),untag_buffer_off);
+string XMLSnippet::untagged() {
+  return string(reinterpret_cast<char *>(&untag_buffer[0]),untag_buffer_off);
 }
 
-void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname_start,int off,std::list<std::string>& tagnames,XMLElementAddress& eaddr,std::list<XMLElement *>& parent_elements)
-{
+void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_start,int off,std::list<string>& tagnames,XMLElementAddress& eaddr,std::list<XMLElement *>& parent_elements) {
   auto s=xml_element.substr(tagname_start,off-tagname_start);
   strutils::trim(s);
   tagnames.emplace_back(s);
@@ -150,14 +144,13 @@ void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname
   eaddr.p->name_=s;
 }
 
-void XMLSnippet::parse(std::string& xml_element)
-{
+void XMLSnippet::parse(string& xml_element) {
   int off=0,len,n;
   int tagname_start=0,last_space=0,attribute_value_start=0,content_end=0;
-  std::list<std::string> tagnames;
+  std::list<string> tagnames;
   std::list<int> content_starts;
   std::list<XMLElement> elements;
-  std::string sdum;
+  string sdum;
   XMLAttribute attr;
   XMLElementAddress eaddr;
   std::list<XMLElement *> parent_elements;
@@ -368,8 +361,7 @@ void XMLSnippet::parse(std::string& xml_element)
   }
 }
 
-void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot,size_t indent)
-{
+void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot,size_t indent) {
   for (size_t n=0; n < indent; ++n) {
     outs << " ";
   }
@@ -377,7 +369,7 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
   auto is_first=true;
   for (auto attr : element.attr_list) {
     if (isRoot && !is_first) {
-      outs << std::endl << " ";
+      outs << endl << " ";
       for (size_t n=0; n < element.name_.length(); ++n) {
         outs << " ";
       }
@@ -387,7 +379,7 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
   }
   outs << ">";
   if (element.element_address_list.size() > 0) {
-    outs << std::endl;
+    outs << endl;
     for (auto address : element.element_address_list)
       printElement(outs,*address.p,false,indent+2);
   } else
@@ -397,13 +389,12 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
       outs << " ";
     }
   }
-  outs << "</" << element.name_ << ">" << std::endl;
+  outs << "</" << element.name_ << ">" << endl;
 }
 
 z_stream *zs=nullptr;
 Buffer zbuf;
-size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::unique_ptr<char[]>& uncompressed)
-{
+size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::unique_ptr<char[]>& uncompressed) {
   if (zs == nullptr) {
     zs=new z_stream;
     zs->zalloc=Z_NULL;
@@ -434,8 +425,7 @@ size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::uniq
   return zs->total_out;
 }
 
-bool XMLDocument::open(const std::string& filename)
-{
+bool XMLDocument::open(const string& filename) {
   if (!name_.empty() || !version_.empty()) {
     return false;
   }
@@ -458,10 +448,10 @@ bool XMLDocument::open(const std::string& filename)
       return false;
     }
   }
-  std::string sline;
+  string sline;
   sline.assign(buffer.get(),256);
   if (std::regex_search(sline,std::regex("^<\\?xml"))) {
-    strutils::replace_all(sline,"<?xml","");
+    replace_all(sline,"<?xml","");
     while (strutils::has_beginning(sline," ")) {
       sline=sline.substr(1);
     }
@@ -469,26 +459,26 @@ bool XMLDocument::open(const std::string& filename)
       parse_error_="Unable to determine XML version";
       return false;
     }
-    strutils::replace_all(sline,"version=","");
+    replace_all(sline,"version=","");
     auto c=sline.front();
     if (c != '"' && c != '\'') {
       parse_error_="Bad version attribute";
       return false;
     }
     sline=sline.substr(1);
-    version_=sline.substr(0,sline.find(std::string(1,c)));
+    version_=sline.substr(0,sline.find(string(1,c)));
   }
   sline.assign(buffer.get(),buf_len);
   size_t idx;
   auto n=0;
-  while ( (idx=sline.substr(n).find("?>",n)) != std::string::npos) {
+  while ( (idx=sline.substr(n).find("?>",n)) != string::npos) {
     n+=(idx+2);
   }
   sline=sline.substr(n);
   idx = sline.find("<!DOCTYPE");
-  if (idx != std::string::npos && sline.substr(idx+9).find("[") > 0) {
+  if (idx != string::npos && sline.substr(idx+9).find("[") > 0) {
     auto idx2 = sline.find("]>");
-    if (idx2 != std::string::npos && idx2 > idx) {
+    if (idx2 != string::npos && idx2 > idx) {
       sline = sline.substr(0, idx) + sline.substr(idx2+2);
     }
   }
@@ -502,8 +492,7 @@ bool XMLDocument::open(const std::string& filename)
   }
 }
 
-void XMLDocument::close()
-{
+void XMLDocument::close() {
   if (parsed) {
     name_="";
     version_="";
@@ -520,24 +509,22 @@ void XMLDocument::close()
   }
 }
 
-void XMLDocument::show_tree()
-{
-  std::cout << "XML Document: " << name_ << std::endl;
-  std::cout << "  version=" << version_ << std::endl << std::endl;
-  std::cout << "Root: " << root_element_.name_ << std::endl;
+void XMLDocument::show_tree() {
+  cout << "XML Document: " << name_ << endl;
+  cout << "  version=" << version_ << endl << endl;
+  cout << "Root: " << root_element_.name_ << endl;
   showXMLSubTree(root_element_,0);
 }
 
-void check(const XMLElement& root,const std::deque<std::string>& comps,size_t this_comp,std::list<XMLElement>& element_list)
-{
+void check(const XMLElement& root,const std::deque<string>& comps,size_t this_comp,std::list<XMLElement>& element_list) {
   auto tc=comps[this_comp];
-  strutils::replace_all(tc,"$SLASH$","/");
-  if (strutils::contains(tc,"@")) {
-    auto sp=strutils::split(tc,"@");
+  replace_all(tc,"$SLASH$","/");
+  if (tc.find("@") != string::npos) {
+    auto sp=split(tc,"@");
     if (root.name_ == sp[0]) {
       auto is_match=true;
       for (size_t n=1; n < sp.size(); ++n) {
-        auto spx=strutils::split(sp[n],"=");
+        auto spx=split(sp[n],"=");
         if (root.attribute_value(spx[0]) != spx[1]) {
           is_match=false;
           break;
@@ -564,21 +551,20 @@ void check(const XMLElement& root,const std::deque<std::string>& comps,size_t th
   }
 }
 
-void showXMLSubTree(XMLElement& root,size_t indent)
-{
+void showXMLSubTree(XMLElement& root,size_t indent) {
   for (size_t n=0; n < indent; ++n) {
-    std::cout << " ";
+    cout << " ";
   }
-  std::cout << "Element: " << root.name();
+  cout << "Element: " << root.name();
   if (root.attribute_count() > 0) {
     for (auto& attribute : root.attribute_list() ) {
-      std::cout << "@" << attribute.name << "=" << attribute.value;
+      cout << "@" << attribute.name << "=" << attribute.value;
     }
   }
   if (!root.content().empty()) {
-    std::cout << " - " << root.content();
+    cout << " - " << root.content();
   }
-  std::cout << std::endl;
+  cout << endl;
   for (auto& address : root.element_addresses() ) {
     showXMLSubTree(*address.p,indent+2);
   }
