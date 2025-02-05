@@ -7,12 +7,14 @@
 #include <xml.hpp>
 #include <strutils.hpp>
 
+using std::copy;
 using std::cout;
 using std::endl;
 using std::string;
 using strutils::append;
 using strutils::replace_all;
 using strutils::split;
+using strutils::trim;
 
 XMLElement& XMLElement::operator=(const XMLElement& e) {
   if (this == &e) {
@@ -130,7 +132,7 @@ string XMLSnippet::untagged() {
 
 void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_start,int off,std::list<string>& tagnames,XMLElementAddress& eaddr,std::list<XMLElement *>& parent_elements) {
   auto s=xml_element.substr(tagname_start,off-tagname_start);
-  strutils::trim(s);
+  trim(s);
   tagnames.emplace_back(s);
   if (root_element_.name_.empty()) {
     eaddr.p=&root_element_;
@@ -146,12 +148,10 @@ void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_star
 }
 
 void XMLSnippet::parse(string& xml_element) {
-  int len;
   int tagname_start=0,last_space=0,attribute_value_start=0,content_end=0;
   std::list<string> tagnames;
   std::list<int> content_starts;
   std::list<XMLElement> elements;
-  string sdum;
   XMLAttribute attr;
   std::list<XMLElement *> parent_elements;
   int last_untag_off=-1,untag_off=0;
@@ -176,6 +176,13 @@ void XMLSnippet::parse(string& xml_element) {
   if (off == xml_element.length()) {
     parse_error_ = "Not an XML element";
     return;
+  }
+  auto idx = xml_element.find("<br");
+  while (idx != string::npos) {
+    auto idx2 = xml_element.find(">", idx);
+    auto s = xml_element.substr(idx, idx2-idx+1);
+    replace_all(xml_element, s, "\n");
+    idx = xml_element.find("<br");
   }
   while (off < xml_element.length()) {
     if (xml_element[off] == '<') {
@@ -222,7 +229,7 @@ void XMLSnippet::parse(string& xml_element) {
       if (!in_attribute) {
         if (xml_element[off+1] == '"' || xml_element[off+1] == '\'') {
           attr.name=xml_element.substr(last_space+1,off-1-last_space);
-          strutils::trim(attr.name);
+          trim(attr.name);
           in_attribute=true;
           if (xml_element[off+1] == '"') {
             in_double_quotes=true;
@@ -298,13 +305,14 @@ void XMLSnippet::parse(string& xml_element) {
           process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
           in_tagname_open=false;
         } else if (in_tagname_close) {
-          sdum=xml_element.substr(tagname_start,off-tagname_start);
-          strutils::trim(sdum);
+          auto s = xml_element.substr(tagname_start, off - tagname_start);
+          trim(s);
           if (tagnames.empty()) {
-            parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
+            parse_error_ = "Found element end for '" + s + "' but did not find "
+                "the element beginning";
             return;
           } else {
-            if (sdum == tagnames.back()) {
+            if (s == tagnames.back()) {
               in_tagname_close=false;
               if (content_end > content_starts.back()) {
                 eaddr.p->content_s=xml_element.substr(content_starts.back(),content_end-content_starts.back());
@@ -324,7 +332,8 @@ void XMLSnippet::parse(string& xml_element) {
                 eaddr.p=&root_element_;
               }
             } else {
-              parse_error_="End of element '"+sdum+"' does not match beginning of element '"+tagnames.back()+"'";
+              parse_error_ = "End of element '" + s + "' does not match "
+                  "beginning of element '" + tagnames.back() + "'";
               return;
             }
           }
@@ -336,15 +345,16 @@ void XMLSnippet::parse(string& xml_element) {
       }
     }
     if (xml_element[off] != '>' && !in_tag && !in_tagname_close) {
-      untag_off=off;
+      untag_off = off;
       if (last_untag_off < 0) {
-        last_untag_off=off;
+        last_untag_off = off;
       }
     } else if (last_untag_off >= 0) {
-      len=untag_off-last_untag_off+1;
-      std::copy(&xml_element[last_untag_off],&xml_element[last_untag_off+len],&untag_buffer[untag_buffer_off]);
-      untag_buffer_off+=len;
-      last_untag_off=-1;
+      auto len = untag_off - last_untag_off + 1;
+      copy(&xml_element[last_untag_off], &xml_element[last_untag_off+len],
+          &untag_buffer[untag_buffer_off]);
+      untag_buffer_off += len;
+      last_untag_off = -1;
     }
     ++off;
   }
@@ -410,7 +420,7 @@ size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::uniq
     inflateReset2(zs,MAX_WBITS+32);
   }
   zbuf.allocate(compressed_length);
-  std::copy(compressed,compressed+compressed_length,&zbuf[0]);
+  copy(compressed,compressed+compressed_length,&zbuf[0]);
   zs->next_in=&zbuf[0];
   zs->avail_in=compressed_length;
   zs->avail_out=(compressed[compressed_length-1] << 24)+(compressed[compressed_length-2] << 16)+(compressed[compressed_length-3] << 8)+compressed[compressed_length-4];
@@ -481,7 +491,7 @@ bool XMLDocument::open(const string& filename) {
       sline = sline.substr(0, idx) + sline.substr(idx2+2);
     }
   }
-  strutils::trim(sline);
+  trim(sline);
   parse(sline);
   if (parse_error_.empty()) {
     parsed=true;
