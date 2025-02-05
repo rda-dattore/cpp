@@ -37,7 +37,7 @@ string XMLElement::attribute_value(string attribute_name) const {
 
 XMLElement XMLElement::element(const string& xpath) const {
   auto elist=element_list(xpath);
-  if (!elist.size().empty()) {
+  if (!elist.empty()) {
     return elist.front();
   } else {
     return XMLElement();
@@ -60,7 +60,7 @@ string XMLElement::to_string() const {
     for (const auto& attr : attr_list) {
       s+=" "+attr.name+"=\""+attr.value+"\"";
     }
-    if (!element_address_list.size().empty() || !content_s.empty()) {
+    if (!element_address_list.empty() || !content_s.empty()) {
       s+=">";
       if (!content_s.empty()) {
         s+=content_s;
@@ -95,7 +95,7 @@ void XMLSnippet::fill(string string) {
 XMLElement XMLSnippet::element(const string& xpath) {
   if (parsed) {
     auto elist=element_list(xpath);
-    if (!elist.size().empty()) {
+    if (!elist.empty()) {
       return elist.front();
     }
   }
@@ -134,7 +134,7 @@ void XMLSnippet::process_new_tag_name(const string& xml_element,int tagname_star
   if (root_element_.name_.empty()) {
     eaddr.p=&root_element_;
   } else {
-    if (parent_elements.size().empty() || eaddr.p != parent_elements.back()) {
+    if (parent_elements.empty() || eaddr.p != parent_elements.back()) {
       parent_elements.emplace_back(eaddr.p);
     }
     eaddr.p=new XMLElement;
@@ -276,11 +276,11 @@ void XMLSnippet::parse(string& xml_element) {
         if (in_tag && xml_element[off+1] == '>') {
           tagnames.pop_back();
           in_tag=false;
-          if (!parent_elements.size().empty()) {
+          if (!parent_elements.empty()) {
             if (parent_elements.back() == eaddr.p) {
               parent_elements.pop_back();
             }
-            if (!parent_elements.size().empty()) {
+            if (!parent_elements.empty()) {
               eaddr.p=parent_elements.back();
             } else {
               eaddr.p=&root_element_;
@@ -299,7 +299,7 @@ void XMLSnippet::parse(string& xml_element) {
         } else if (in_tagname_close) {
           sdum=xml_element.substr(tagname_start,off-tagname_start);
           strutils::trim(sdum);
-          if (tagnames.size().empty()) {
+          if (tagnames.empty()) {
             parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
             return;
           } else {
@@ -310,11 +310,11 @@ void XMLSnippet::parse(string& xml_element) {
               }
               tagnames.pop_back();
               content_starts.pop_back();
-              if (!parent_elements.size().empty()) {
+              if (!parent_elements.empty()) {
                 if (parent_elements.back() == eaddr.p) {
                   parent_elements.pop_back();
                 }
-                if (!parent_elements.size().empty()) {
+                if (!parent_elements.empty()) {
                   eaddr.p=parent_elements.back();
                 } else {
                   eaddr.p=&root_element_;
@@ -347,7 +347,7 @@ void XMLSnippet::parse(string& xml_element) {
     }
     ++off;
   }
-  if (!tagnames.size().empty()) {
+  if (!tagnames.empty()) {
     parse_error_="End tag missing somewhere - "+strutils::itos(tagnames.size())+" tags still remaining: ";
     n=0;
     for (auto& tagname : tagnames) {
@@ -357,9 +357,9 @@ void XMLSnippet::parse(string& xml_element) {
       parse_error_+=tagname;
       ++n;
     }
-  } else if (!content_starts.size().empty()) {
+  } else if (!content_starts.empty()) {
     parse_error_="Content not closed somewhere";
-  } else if (!parent_elements.size().empty()) {
+  } else if (!parent_elements.empty()) {
     parse_error_="Element not closed somewhere; size = "+strutils::itos(parent_elements.size())+"; "+parent_elements.front()->name();
   }
 }
@@ -381,13 +381,13 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
     is_first=false;
   }
   outs << ">";
-  if (!element.element_address_list.size().empty()) {
+  if (!element.element_address_list.empty()) {
     outs << endl;
     for (auto address : element.element_address_list)
       printElement(outs,*address.p,false,indent+2);
   } else
     outs << element.content_s;
-  if (!element.element_address_list.size().empty()) {
+  if (!element.element_address_list.empty()) {
     for (size_t n=0; n < indent; ++n) {
       outs << " ";
     }
