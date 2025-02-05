@@ -25,7 +25,7 @@ std::string XMLElement::attribute_value(std::string attribute_name) const
 {
   for (const auto& attr : attr_list) {
     if (attr.name == attribute_name) {
-	return attr.value;
+      return attr.value;
     }
   }
   return "";
@@ -58,22 +58,22 @@ std::string XMLElement::to_string() const
   if (!name_.empty()) {
     s+="<"+name_;
     for (const auto& attr : attr_list) {
-	s+=" "+attr.name+"=\""+attr.value+"\"";
+      s+=" "+attr.name+"=\""+attr.value+"\"";
     }
     if (element_address_list.size() > 0 || !content_s.empty()) {
-	s+=">";
-	if (!content_s.empty()) {
-	  s+=content_s;
-	}
-	else {
-	  for (const auto& addr : element_address_list) {
-	    s+=addr.p->to_string();
-	  }
-	}
-	s+="</"+name_+">";
+      s+=">";
+      if (!content_s.empty()) {
+        s+=content_s;
+      }
+      else {
+        for (const auto& addr : element_address_list) {
+          s+=addr.p->to_string();
+        }
+      }
+      s+="</"+name_+">";
     }
     else {
-	s+=" />";
+      s+=" />";
     }
   }
   return s;
@@ -100,7 +100,7 @@ XMLElement XMLSnippet::element(const std::string& xpath)
   if (parsed) {
     auto elist=element_list(xpath);
     if (elist.size() > 0) {
-	return elist.front();
+      return elist.front();
     }
   }
   return XMLElement();
@@ -145,7 +145,7 @@ void XMLSnippet::process_new_tag_name(const std::string& xml_element,int tagname
   }
   else {
     if (parent_elements.size() == 0 || eaddr.p != parent_elements.back()) {
-	parent_elements.emplace_back(eaddr.p);
+      parent_elements.emplace_back(eaddr.p);
     }
     eaddr.p=new XMLElement;
     element_addresses.emplace_back(eaddr);
@@ -186,192 +186,192 @@ void XMLSnippet::parse(std::string& xml_element)
   }
   while (off < static_cast<int>(xml_element.length())) {
     if (xml_element[off] == '<') {
-	if (!in_attribute) {
-	  if (xml_element.substr(off+1,3) == "!--") {
-	    if (in_comment) {
-		parse_error_="Previous comment was not closed";
-		return;
-	    }
-	    in_comment=true;
-	    off+=2;
-	  }
-	  else if (xml_element.substr(off+1,8) == "![CDATA[") {
-	    if (in_cdata) {
-		parse_error_="Previous CDATA was not closed";
-		return;
-	    }
-	    in_cdata=true;
-	    off+=7;
-	  }
-	  else if (xml_element[off+1] == '/') {
-	    if (!in_tagname_close) {
-		in_tagname_close=true;
-		tagname_start=off+2;
-		content_end=off;
-		off++;
-	    }
-	    else {
-		parse_error_="Bad tag close specification at offset: "+strutils::itos(off);
-		return;
-	    }
-	  }
-	  else {
-	    in_tag=true;
-	    in_tagname_open=true;
-	    tagname_start=off+1;
-	  }
-	}
+      if (!in_attribute) {
+        if (xml_element.substr(off+1,3) == "!--") {
+          if (in_comment) {
+            parse_error_="Previous comment was not closed";
+            return;
+          }
+          in_comment=true;
+          off+=2;
+        }
+        else if (xml_element.substr(off+1,8) == "![CDATA[") {
+          if (in_cdata) {
+            parse_error_="Previous CDATA was not closed";
+            return;
+          }
+          in_cdata=true;
+          off+=7;
+        }
+        else if (xml_element[off+1] == '/') {
+          if (!in_tagname_close) {
+            in_tagname_close=true;
+            tagname_start=off+2;
+            content_end=off;
+            off++;
+          }
+          else {
+            parse_error_="Bad tag close specification at offset: "+strutils::itos(off);
+            return;
+          }
+        }
+        else {
+          in_tag=true;
+          in_tagname_open=true;
+          tagname_start=off+1;
+        }
+      }
     }
     else if (xml_element[off] == ' ') {
-	if (!in_attribute) {
-	  if (in_tagname_open) {
-	    process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
-	    in_tagname_open=false;
-	  }
-	}
-	last_space=off;
+      if (!in_attribute) {
+        if (in_tagname_open) {
+          process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
+          in_tagname_open=false;
+        }
+      }
+      last_space=off;
     }
     else if (xml_element[off] == '=') {
-	if (!in_attribute) {
-	  if (xml_element[off+1] == '"' || xml_element[off+1] == '\'') {
-	    attr.name=xml_element.substr(last_space+1,off-1-last_space);
-	    strutils::trim(attr.name);
-	    in_attribute=true;
-	    if (xml_element[off+1] == '"')
-		in_double_quotes=true;
-	    else
-		in_single_quotes=true;
-	    attribute_value_start=off+2;
-	    off++;
-	  }
-	  else if (in_tagname_open) {
-	    parse_error_="Bad attribute specification at offset: "+strutils::itos(off);
-	    return;
-	  }
-	}
+      if (!in_attribute) {
+        if (xml_element[off+1] == '"' || xml_element[off+1] == '\'') {
+          attr.name=xml_element.substr(last_space+1,off-1-last_space);
+          strutils::trim(attr.name);
+          in_attribute=true;
+          if (xml_element[off+1] == '"')
+            in_double_quotes=true;
+          else
+            in_single_quotes=true;
+          attribute_value_start=off+2;
+          off++;
+        }
+        else if (in_tagname_open) {
+          parse_error_="Bad attribute specification at offset: "+strutils::itos(off);
+          return;
+        }
+      }
     }
     else if (xml_element[off] == '"') {
-	if (in_attribute && !in_single_quotes) {
-	  attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
-	  eaddr.p->attr_list.emplace_back(attr);
-	  in_attribute=false;
-	  in_double_quotes=false;
-	}
+      if (in_attribute && !in_single_quotes) {
+        attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
+        eaddr.p->attr_list.emplace_back(attr);
+        in_attribute=false;
+        in_double_quotes=false;
+      }
     }
     else if (xml_element[off] == '\'') {
-	if (in_attribute && !in_double_quotes) {
-	  attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
-	  eaddr.p->attr_list.emplace_back(attr);
-	  in_attribute=false;
-	  in_single_quotes=false;
-	}
+      if (in_attribute && !in_double_quotes) {
+        attr.value=xml_element.substr(attribute_value_start,off-attribute_value_start);
+        eaddr.p->attr_list.emplace_back(attr);
+        in_attribute=false;
+        in_single_quotes=false;
+      }
     }
     else if (xml_element[off] == '-') {
-	if (!in_attribute) {
-	  if (xml_element.substr(off,3) == "-->") {
-	    if (!in_comment) {
-		parse_error_="Comment close found with no open";
-		return;
-	    }
-	    in_comment=false;
-	    off+=2;
-	  }
-	}
+      if (!in_attribute) {
+        if (xml_element.substr(off,3) == "-->") {
+          if (!in_comment) {
+            parse_error_="Comment close found with no open";
+            return;
+          }
+          in_comment=false;
+          off+=2;
+        }
+      }
     }
     else if (xml_element[off] == ']') {
-	if (!in_attribute) {
-	  if (xml_element.substr(off,3) == "]]>") {
-	    if (!in_cdata) {
-		parse_error_="CDATA close found with no open";
-		return;
-	    }
-	    in_cdata=false;
-	    off+=2;
-	  }
-	}
+      if (!in_attribute) {
+        if (xml_element.substr(off,3) == "]]>") {
+          if (!in_cdata) {
+            parse_error_="CDATA close found with no open";
+            return;
+          }
+          in_cdata=false;
+          off+=2;
+        }
+      }
     }
     else if (xml_element[off] == '/') {
-	if (!in_attribute) {
-	  if (in_tag && xml_element[off+1] == '>') {
-	    tagnames.pop_back();
-	    in_tag=false;
-	    if (parent_elements.size() > 0) {
-		if (parent_elements.back() == eaddr.p) {
-		  parent_elements.pop_back();
-		}
-		if (parent_elements.size() > 0) {
-		  eaddr.p=parent_elements.back();
-		}
-		else {
-		  eaddr.p=&root_element_;
-		}
-	    }
-	    else {
-		eaddr.p=&root_element_;
-	    }
-	    ++off;
-	  }
-	}
+      if (!in_attribute) {
+        if (in_tag && xml_element[off+1] == '>') {
+          tagnames.pop_back();
+          in_tag=false;
+          if (parent_elements.size() > 0) {
+            if (parent_elements.back() == eaddr.p) {
+              parent_elements.pop_back();
+            }
+            if (parent_elements.size() > 0) {
+              eaddr.p=parent_elements.back();
+            }
+            else {
+              eaddr.p=&root_element_;
+            }
+          }
+          else {
+            eaddr.p=&root_element_;
+          }
+          ++off;
+        }
+      }
     }
     else if (xml_element[off] == '>') {
-	if (!in_attribute) {
-	  if (in_tagname_open) {
-	    process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
-	    in_tagname_open=false;
-	  }
-	  else if (in_tagname_close) {
-	    sdum=xml_element.substr(tagname_start,off-tagname_start);
-	    strutils::trim(sdum);
-	    if (tagnames.size() == 0) {
-		parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
-		return;
-	    }
-	    else {
-		if (sdum == tagnames.back()) {
-		  in_tagname_close=false;
-		  if (content_end > content_starts.back()) {
-		    eaddr.p->content_s=xml_element.substr(content_starts.back(),content_end-content_starts.back());
-		  }
-		  tagnames.pop_back();
-		  content_starts.pop_back();
-		  if (parent_elements.size() > 0) {
-		    if (parent_elements.back() == eaddr.p) {
-			parent_elements.pop_back();
-		    }
-		    if (parent_elements.size() > 0) {
-			eaddr.p=parent_elements.back();
-		    }
-		    else {
-			eaddr.p=&root_element_;
-		    }
-		  }
-		  else {
-		    eaddr.p=&root_element_;
-		  }
-		}
-		else {
-		  parse_error_="End of element '"+sdum+"' does not match beginning of element '"+tagnames.back()+"'";
-		  return;
-		}
-	    }
-	  }
-	  if (in_tag) {
-	    in_tag=false;
-	    content_starts.emplace_back(off+1);
-	  }
-	}
+      if (!in_attribute) {
+        if (in_tagname_open) {
+          process_new_tag_name(xml_element,tagname_start,off,tagnames,eaddr,parent_elements);
+          in_tagname_open=false;
+        }
+        else if (in_tagname_close) {
+          sdum=xml_element.substr(tagname_start,off-tagname_start);
+          strutils::trim(sdum);
+          if (tagnames.size() == 0) {
+            parse_error_="Found element end for '"+sdum+"' but did not find the element beginning";
+            return;
+          }
+          else {
+            if (sdum == tagnames.back()) {
+              in_tagname_close=false;
+              if (content_end > content_starts.back()) {
+                eaddr.p->content_s=xml_element.substr(content_starts.back(),content_end-content_starts.back());
+              }
+              tagnames.pop_back();
+              content_starts.pop_back();
+              if (parent_elements.size() > 0) {
+                if (parent_elements.back() == eaddr.p) {
+                  parent_elements.pop_back();
+                }
+                if (parent_elements.size() > 0) {
+                  eaddr.p=parent_elements.back();
+                }
+                else {
+                  eaddr.p=&root_element_;
+                }
+              }
+              else {
+                eaddr.p=&root_element_;
+              }
+            }
+            else {
+              parse_error_="End of element '"+sdum+"' does not match beginning of element '"+tagnames.back()+"'";
+              return;
+            }
+          }
+        }
+        if (in_tag) {
+          in_tag=false;
+          content_starts.emplace_back(off+1);
+        }
+      }
     }
     if (xml_element[off] != '>' && !in_tag && !in_tagname_close) {
-	untag_off=off;
-	if (last_untag_off < 0) {
-	  last_untag_off=off;
-	}
+      untag_off=off;
+      if (last_untag_off < 0) {
+        last_untag_off=off;
+      }
     }
     else if (last_untag_off >= 0) {
-	len=untag_off-last_untag_off+1;
-	std::copy(&xml_element[last_untag_off],&xml_element[last_untag_off+len],&untag_buffer[untag_buffer_off]);
-	untag_buffer_off+=len;
-	last_untag_off=-1;
+      len=untag_off-last_untag_off+1;
+      std::copy(&xml_element[last_untag_off],&xml_element[last_untag_off+len],&untag_buffer[untag_buffer_off]);
+      untag_buffer_off+=len;
+      last_untag_off=-1;
     }
     ++off;
   }
@@ -379,11 +379,11 @@ void XMLSnippet::parse(std::string& xml_element)
     parse_error_="End tag missing somewhere - "+strutils::itos(tagnames.size())+" tags still remaining: ";
     n=0;
     for (auto& tagname : tagnames) {
-	if (n > 0) {
-	  parse_error_+=", ";
-	}
-	parse_error_+=tagname;
-	++n;
+      if (n > 0) {
+        parse_error_+=", ";
+      }
+      parse_error_+=tagname;
+      ++n;
     }
   }
   else if (content_starts.size() > 0) {
@@ -403,10 +403,10 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
   auto is_first=true;
   for (auto attr : element.attr_list) {
     if (isRoot && !is_first) {
-	outs << std::endl << " ";
-	for (size_t n=0; n < element.name_.length(); ++n) {
-	  outs << " ";
-	}
+      outs << std::endl << " ";
+      for (size_t n=0; n < element.name_.length(); ++n) {
+        outs << " ";
+      }
     }
     outs << " " << attr.name << "=\"" << attr.value << "\"";
     is_first=false;
@@ -415,13 +415,13 @@ void XMLSnippet::printElement(std::ostream& outs,XMLElement& element,bool isRoot
   if (element.element_address_list.size() > 0) {
     outs << std::endl;
     for (auto address : element.element_address_list)
-	printElement(outs,*address.p,false,indent+2);
+      printElement(outs,*address.p,false,indent+2);
   }
   else
     outs << element.content_s;
   if (element.element_address_list.size() > 0) {
     for (size_t n=0; n < indent; ++n) {
-	outs << " ";
+      outs << " ";
     }
   }
   outs << "</" << element.name_ << ">" << std::endl;
@@ -439,9 +439,9 @@ size_t gunzip(const unsigned char *compressed,size_t compressed_length,std::uniq
     zs->next_in=Z_NULL;
     zs->avail_in=0;
     if (inflateInit2(zs,MAX_WBITS+32) != Z_OK) {
-	delete zs;
-	zs=nullptr;
-	return 0;
+      delete zs;
+      zs=nullptr;
+      return 0;
     }
   }
   else {
@@ -483,7 +483,7 @@ bool XMLDocument::open(const std::string& filename)
   if (b[0] == 0x1f && b[1] == 0x8b) {
 // gzipped
     if ( (buf_len=gunzip(b,buf_len,buffer)) == 0) {
-	return false;
+      return false;
     }
   }
   std::string sline;
@@ -491,17 +491,17 @@ bool XMLDocument::open(const std::string& filename)
   if (std::regex_search(sline,std::regex("^<\\?xml"))) {
     strutils::replace_all(sline,"<?xml","");
     while (strutils::has_beginning(sline," ")) {
-	sline=sline.substr(1);
+      sline=sline.substr(1);
     }
     if (!std::regex_search(sline,std::regex("^version="))) {
-	parse_error_="Unable to determine XML version";
-	return false;
+      parse_error_="Unable to determine XML version";
+      return false;
     }
     strutils::replace_all(sline,"version=","");
     auto c=sline.front();
     if (c != '"' && c != '\'') {
-	parse_error_="Bad version attribute";
-	return false;
+      parse_error_="Bad version attribute";
+      return false;
     }
     sline=sline.substr(1);
     version_=sline.substr(0,sline.find(std::string(1,c)));
@@ -543,7 +543,7 @@ void XMLDocument::close()
     parsed=false;
     parse_error_="";
     for (size_t n=0; n < element_addresses.size(); ++n) {
-	delete element_addresses[n].p;
+      delete element_addresses[n].p;
     }
     element_addresses.clear();
   }
@@ -564,34 +564,34 @@ void check(const XMLElement& root,const std::deque<std::string>& comps,size_t th
   if (strutils::contains(tc,"@")) {
     auto sp=strutils::split(tc,"@");
     if (root.name_ == sp[0]) {
-	auto is_match=true;
-	for (size_t n=1; n < sp.size(); ++n) {
-	  auto spx=strutils::split(sp[n],"=");
-	  if (root.attribute_value(spx[0]) != spx[1]) {
-	    is_match=false;
-	    break;
-	  }
-	}
-	if (is_match) {
-	  if (this_comp < comps.size()-1) {
-	    for (auto& address : root.element_address_list)
-		check(*address.p,comps,this_comp+1,element_list);
-	  }
-	  else
-	    element_list.emplace_back(root);
-	}
+      auto is_match=true;
+      for (size_t n=1; n < sp.size(); ++n) {
+        auto spx=strutils::split(sp[n],"=");
+        if (root.attribute_value(spx[0]) != spx[1]) {
+          is_match=false;
+          break;
+        }
+      }
+      if (is_match) {
+        if (this_comp < comps.size()-1) {
+          for (auto& address : root.element_address_list)
+            check(*address.p,comps,this_comp+1,element_list);
+        }
+        else
+          element_list.emplace_back(root);
+      }
     }
   }
   else {
     if (root.name_ == tc) {
-	if (this_comp < comps.size()-1) {
-	  for (auto& address : root.element_address_list) {
-	    check(*address.p,comps,this_comp+1,element_list);
-	  }
-	}
-	else {
-	  element_list.emplace_back(root);
-	}
+      if (this_comp < comps.size()-1) {
+        for (auto& address : root.element_address_list) {
+          check(*address.p,comps,this_comp+1,element_list);
+        }
+      }
+      else {
+        element_list.emplace_back(root);
+      }
     }
   }
 }
@@ -604,7 +604,7 @@ void showXMLSubTree(XMLElement& root,size_t indent)
   std::cout << "Element: " << root.name();
   if (root.attribute_count() > 0) {
     for (auto& attribute : root.attribute_list() ) {
-	std::cout << "@" << attribute.name << "=" << attribute.value;
+      std::cout << "@" << attribute.name << "=" << attribute.value;
     }
   }
   if (!root.content().empty()) {
