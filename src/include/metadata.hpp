@@ -35,12 +35,13 @@ struct Directives {
 };
 
 struct Args {
-  Args() : args_string(), dsnum(), data_format(), reg_key(), path(), filename(),
+  Args() : args_string(), dsid(), data_format(), reg_key(), path(), filename(),
+
       local_name(), member_name(), temp_loc(), update_db(true), update_summary(
       true), override_primary_check(false), overwrite_only(false), regenerate(
       true), update_graphics(true), inventory_only(false) { }
 
-  std::string args_string, dsnum;
+  std::string args_string, dsid;
   std::string data_format, reg_key;
   std::string path, filename, local_name, member_name, temp_loc;
   bool update_db, update_summary, override_primary_check, overwrite_only,
@@ -295,9 +296,6 @@ extern void fill_nc_time_data(std::string units_attribute_value, NcTime::
 
 namespace primaryMetadata {
 
-extern void match_web_file_to_hpss_primary(std::string url, std::string&
-    metadata_file);
-
 extern bool expand_file(std::string dirname, std::string filename, std::string
     *file_format);
 extern bool open_file_for_metadata_scanning(void *istream, std::string filename,
@@ -314,7 +312,8 @@ extern Args args;
 
 extern "C" void cmd_unregister();
 
-extern void check_for_existing_cmd(std::string cmd_type);
+extern void check_for_existing_cmd(std::string cmd_type, std::string caller,
+    std::string user);
 extern void clean_parameter_code(std::string& parameter_code, std::string&
     parameter_map);
 extern void cmd_register(std::string cmd, std::string user);
