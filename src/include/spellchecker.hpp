@@ -19,7 +19,7 @@ protected:
   };
   void add_misspelled_word_to_list(std::string word,my::map<WordEntry>& misspelled_unique_table);
   void add_to_hash(MySQL::Server& server,std::string db_table,std::string column,my::map<WordEntry>& hash);
-  bool check_word(const std::string& word);
+  bool check_word(std::string word);
   std::string clean_word(const std::string& word);
   void do_spell_check(const std::string& text,std::string separator,std::string (*func)(const std::string& word),my::map<WordEntry>& valids_table,bool check_as_lower);
   void fill_text(std::string& text,bool include_previous = false);
