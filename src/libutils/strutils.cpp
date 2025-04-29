@@ -931,4 +931,40 @@ string wrap(const string& s,size_t wrap_width,size_t indent_width)
   return s_wrap;
 }
 
+string ng_gdex_id(string dsid) {
+  if (dsid.find("ds") == 0) {
+    dsid = dsid.substr(2);
+  }
+  if (dsid[3] == '.' || dsid[3] == '-') {
+    dsid = "d" + dsid.substr(0, 3) + "00" + dsid.substr(4, 1);
+  }
+  if (dsid[0] != 'd' || dsid.length() != 7) {
+    return "";
+  }
+  return dsid;
+}
+
+vector<string> ds_aliases(string dsid) {
+  vector<string> v; // return value
+  dsid = ng_gdex_id(dsid);
+  if (dsid.empty()) {
+    return v;
+  }
+  v.emplace_back(dsid);
+  if (dsid.substr(4, 2) == "00") {
+    v.emplace_back(dsid.substr(1, 3) + "." + dsid.substr(6, 1));
+    v.emplace_back("ds" + dsid.substr(1, 3) + "." + dsid.substr(6, 1));
+    v.emplace_back("ds" + dsid.substr(1, 3) + "-" + dsid.substr(6, 1));
+  }
+  return v;
+}
+
+string to_sql_tuple_string(vector<string> v) {
+  string t;
+  for (const auto& e : v) {
+    append(t, "'" + e + "'", ", ");
+  }
+  return "(" + t + ")";
+}
+
 } // end namespace strutils
