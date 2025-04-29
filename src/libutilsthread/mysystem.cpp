@@ -98,45 +98,43 @@ int mysystem2(string command, stringstream& output, stringstream& error) {
     return -1;
   } else if (c == 0) {
     string s;
-    char c_quote = '\0';
+    char c_quote;
     auto in_quotes = false;
     auto sp = split(command);
     for (size_t n = 0; n < sp.size(); ++n) {
       if ((sp[n][0] == '"' || sp[n][0] == '\'') && !in_quotes) {
-          c_quote = sp[n][0];
-          sp[n] = sp[n].substr(1);
-          in_quotes = true;
+        c_quote = sp[n][0];
+        sp[n] = sp[n].substr(1);
+        in_quotes = true;
       }
       if (in_quotes && sp[n].back() == c_quote) {
         in_quotes = false;
         chop(sp[n]);
-        c_quote = '\0';
       }
       if (in_quotes) {
         s += sp[n] + " ";
-      }
-      else {
+      } else {
         s += sp[n] + "<!>";
       }
     }
-    chop(s, 3);
-    sp = split(s, "<!>");
-    auto argv = new char *[sp.size() + 1];
-    auto idx = sp[0].rfind("/");
+    auto sp2 = split(s, "<!>");
+    sp2.pop_back();
+    auto argv = new char *[sp2.size() + 1];
+    auto idx = sp2[0].rfind("/");
     if (idx == string::npos) {
-      argv[0] = new char[sp[0].length() + 1];
-      strcpy(argv[0], sp[0].c_str());
+      argv[0] = new char[sp2[0].length() + 1];
+      strcpy(argv[0], sp2[0].c_str());
     } else {
-      auto a = sp[0].substr(idx + 1);
+      auto a = sp2[0].substr(idx + 1);
       argv[0] = new char[a.length() + 1];
       strcpy(argv[0], a.c_str());
     }
     size_t last = 1;
-    for (size_t n = last; n < sp.size(); ++n) {
-      replace_all(sp[n], "__INNER_QUOTE__", "'");
-      if (sp[n] == "<") {
-        if (n == (sp.size() - 2)) {
-          auto d = open(sp[n + 1].c_str(), O_RDONLY);
+    for (size_t n = last; n < sp2.size(); ++n) {
+      replace_all(sp2[n], "__INNER_QUOTE__", "'");
+      if (sp2[n] == "<") {
+        if (n == (sp2.size() - 2)) {
+          auto d = open(sp2[n + 1].c_str(), O_RDONLY);
           dup2(d, 0);
           close(d);
           break;
@@ -145,8 +143,8 @@ int mysystem2(string command, stringstream& output, stringstream& error) {
           return -1;
         }
       } else {
-        argv[n] = new char[sp[n].length() + 1];
-        strcpy(argv[n], sp[n].c_str());
+        argv[n] = new char[sp2[n].length() + 1];
+        strcpy(argv[n], sp2[n].c_str());
       }
       ++last;
     }
@@ -155,8 +153,8 @@ int mysystem2(string command, stringstream& output, stringstream& error) {
     close(pipe_err[0]);
     dup2(pipe_out[1], 1);
     dup2(pipe_err[1], 2);
-    execv(sp[0].c_str(), argv);
-    std::cerr << sp[0] << ": command not found";
+    execv(sp2[0].c_str(), argv);
+    std::cerr << sp2[0] << ": command not found";
     exit(1);
   } else {
     close(pipe_out[1]);
