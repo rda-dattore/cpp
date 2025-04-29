@@ -173,7 +173,7 @@ void untar(string dirname, string filename) {
         n += 512;
       } else {
         fwrite(buffer, 1, sz - n, fp_o);
-        n =- 1;
+        n = -1;
       }
     }
   }
