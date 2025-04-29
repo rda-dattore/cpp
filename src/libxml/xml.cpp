@@ -12,6 +12,7 @@ using std::cout;
 using std::endl;
 using std::string;
 using strutils::append;
+using strutils::substitute;
 using strutils::replace_all;
 using strutils::split;
 using strutils::trim;
@@ -181,7 +182,7 @@ void XMLSnippet::parse(string& xml_element) {
   while (idx != string::npos) {
     auto idx2 = xml_element.find(">", idx);
     auto s = xml_element.substr(idx, idx2-idx+1);
-    replace_all(xml_element, s, "\n");
+    replace_all(xml_element, s, "[LINEBREAK]");
     idx = xml_element.find("<br");
   }
   while (off < xml_element.length()) {
@@ -315,7 +316,9 @@ void XMLSnippet::parse(string& xml_element) {
             if (s == tagnames.back()) {
               in_tagname_close=false;
               if (content_end > content_starts.back()) {
-                eaddr.p->content_s=xml_element.substr(content_starts.back(),content_end-content_starts.back());
+                eaddr.p->content_s = substitute(xml_element.substr(
+                    content_starts.back(), content_end - content_starts.back()),
+                    "[LINEBREAK]", "<br>");
               }
               tagnames.pop_back();
               content_starts.pop_back();
