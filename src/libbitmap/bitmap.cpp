@@ -550,6 +550,7 @@ void decode_bit(char bit,std::vector<size_t>& values,size_t& next_value,size_t m
 	next_value+=skip;
 	break;
     }
+// skip is 1-8 then '1'
     case '2':
     case '3':
     case '4':
@@ -564,6 +565,7 @@ void decode_bit(char bit,std::vector<size_t>& values,size_t& next_value,size_t m
 	values.back()-=(multiplier*values.size());
 	break;
     }
+// skip is 9-20 then '1'
     case '!':
     case '"':
     case '#':
@@ -582,6 +584,7 @@ void decode_bit(char bit,std::vector<size_t>& values,size_t& next_value,size_t m
 	values.back()-=(multiplier*values.size());
 	break;
     }
+// skip is 21-26 then '1'
     case ';':
     case '<':
     case '=':
@@ -594,6 +597,7 @@ void decode_bit(char bit,std::vector<size_t>& values,size_t& next_value,size_t m
 	values.back()-=(multiplier*values.size());
 	break;
     }
+// skip is 0 then '1'
     case '.': {
 	size_t skip=bit-46;
 	next_value+=skip;
