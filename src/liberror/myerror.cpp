@@ -2,12 +2,24 @@
 #include <cstdlib>
 #include <myerror.hpp>
 
-void print_myerror()
-{
-  if (!mywarning.empty()) {
-    std::cerr << "Warning: " << mywarning << std::endl;
-  }
+using std::cerr;
+using std::cout;
+using std::endl;
+
+void print_myerror() {
   if (!myerror.empty()) {
-    std::cerr << "Error: " << myerror << std::endl;
+    cerr << "Error: " << myerror << endl;
+  }
+}
+
+void print_mywarning() {
+  if (!mywarning.empty()) {
+    cout << "Warning: " << mywarning << endl;
+  }
+}
+
+void print_myoutput() {
+  if (!myoutput.empty()) {
+    cout << "Output: " << myoutput << endl;
   }
 }
