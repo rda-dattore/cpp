@@ -6,124 +6,132 @@
 #include <tempfile.hpp>
 #include <myerror.hpp>
 
+using std::cerr;
 using std::cout;
 using std::endl;
+using std::string;
+using std::to_string;
+using std::vector;
 
-const char *NetCDF::data_type_str[7] = { "null", "byte", "char", "short", "int",
-    "float", "double" };
-const short NetCDF::data_type_bytes[7] = {0, 1, 1, 2, 4, 4, 8};
-const unsigned char NetCDF::BYTE_NOT_SET=0x80;
-const char NetCDF::CHAR_NOT_SET=0x80;
-const short NetCDF::SHORT_NOT_SET=0x8000;
-const int NetCDF::INT_NOT_SET=0x80000000;
-const float NetCDF::FLOAT_NOT_SET=-1.e38;
-const double NetCDF::DOUBLE_NOT_SET=-1.e38;
+const char *NetCDF::data_type_str[7] = {
+    "null", "byte", "char", "short", "int", "float", "double"
+};
+const short NetCDF::data_type_bytes[7] = {
+    0, 1, 1, 2, 4, 4, 8
+};
+const unsigned char NetCDF::BYTE_NOT_SET = 0x80;
+const char NetCDF::CHAR_NOT_SET = 0x80;
+const short NetCDF::SHORT_NOT_SET = 0x8000;
+const int NetCDF::INT_NOT_SET = 0x80000000;
+const float NetCDF::FLOAT_NOT_SET = -1.e38;
+const double NetCDF::DOUBLE_NOT_SET = -1.e38;
 
-NetCDF::Attribute& NetCDF::Attribute::operator=(const Attribute& source)
-{
+NetCDF::Attribute& NetCDF::Attribute::operator=(const Attribute& source) {
   if (this == &source) {
     return *this;
   }
-  name=source.name;
+  name = source.name;
   clear_values();
-  data_type=source.data_type;
-  num_values=source.num_values;
+  data_type = source.data_type;
+  num_values = source.num_values;
   if (source.values != nullptr) {
     switch (data_type) {
       case DataType::BYTE: {
-          values=new unsigned char[num_values];
-          for (size_t n=0; n < num_values; ++n) {
-            (reinterpret_cast<unsigned char *>(values))[n]=(reinterpret_cast<unsigned char *>(source.values))[n];
-          }
-          break;
+        values = new unsigned char[num_values];
+        for (size_t n = 0; n < num_values; ++n) {
+          (reinterpret_cast<unsigned char *>(values))[n] = (reinterpret_cast<
+              unsigned char *>(source.values))[n];
+        }
+        break;
       }
       case DataType::CHAR: {
-          values=new std::string;
-          *(reinterpret_cast<std::string *>(values))=*(reinterpret_cast<std::string *>(source.values));
-          break;
+        values = new string;
+        *(reinterpret_cast<string *>(values)) = *(reinterpret_cast<string *>(
+            source.values));
+        break;
       }
       case DataType::SHORT: {
-          values=new short[num_values];
-          for (size_t n=0; n < num_values; ++n) {
-            (reinterpret_cast<short *>(values))[n]=(reinterpret_cast<short *>(source.values))[n];
-          }
-          break;
+        values = new short[num_values];
+        for (size_t n = 0; n < num_values; ++n) {
+          (reinterpret_cast<short *>(values))[n] = (reinterpret_cast<short *>(
+              source.values))[n];
+        }
+        break;
       }
       case DataType::INT: {
-          values=new int[num_values];
-          for (size_t n=0; n < num_values; ++n) {
-            (reinterpret_cast<int *>(values))[n]=(reinterpret_cast<int *>(source.values))[n];
-          }
-          break;
+        values = new int[num_values];
+        for (size_t n = 0; n < num_values; ++n) {
+          (reinterpret_cast<int *>(values))[n] = (reinterpret_cast<int *>(
+              source.values))[n];
+        }
+        break;
       }
       case DataType::FLOAT: {
-          values=new float[num_values];
-          for (size_t n=0; n < num_values; ++n) {
-            (reinterpret_cast<float *>(values))[n]=(reinterpret_cast<float *>(source.values))[n];
-          }
-          break;
+        values = new float[num_values];
+        for (size_t n = 0; n < num_values; ++n) {
+          (reinterpret_cast<float *>(values))[n] = (reinterpret_cast<float *>(
+              source.values))[n];
+        }
+        break;
       }
       case DataType::DOUBLE: {
-          values=new double[num_values];
-          for (size_t n=0; n < num_values; ++n) {
-            (reinterpret_cast<double *>(values))[n]=(reinterpret_cast<double *>(source.values))[n];
-          }
-          break;
+        values = new double[num_values];
+        for (size_t n = 0; n < num_values; ++n) {
+          (reinterpret_cast<double *>(values))[n] = (reinterpret_cast<
+              double *>(source.values))[n];
+        }
+        break;
       }
-      default: {}
+      default: { }
     }
   }
   return *this;
 }
 
-void NetCDF::Attribute::clear_values()
-{
+void NetCDF::Attribute::clear_values() {
   if (values != nullptr) {
     switch (data_type) {
       case DataType::BYTE: {
-          delete[] reinterpret_cast<unsigned char *>(values);
-          break;
+        delete[] reinterpret_cast<unsigned char *>(values);
+        break;
       }
       case DataType::CHAR: {
-          delete reinterpret_cast<std::string *>(values);
-          break;
+        delete reinterpret_cast<string *>(values);
+        break;
       }
       case DataType::SHORT: {
-          delete reinterpret_cast<short *>(values);
-          break;
+        delete reinterpret_cast<short *>(values);
+        break;
       }
       case DataType::INT: {
-          delete reinterpret_cast<int *>(values);
-          break;
+        delete reinterpret_cast<int *>(values);
+        break;
       }
       case DataType::FLOAT: {
-          delete reinterpret_cast<float *>(values);
-          break;
+        delete reinterpret_cast<float *>(values);
+        break;
       }
       case DataType::DOUBLE: {
-          delete reinterpret_cast<double *>(values);
-          break;
+        delete reinterpret_cast<double *>(values);
+        break;
       }
-      default: {}
+      default: { }
     }
   }
 }
 
-void NetCDF::UniqueVariableTimeEntry::free_memory()
-{
+void NetCDF::UniqueVariableTimeEntry::free_memory() {
   first_valid_datetime.reset();
   last_valid_datetime.reset();
   reference_datetime.reset();
 }
 
-void NetCDF::UniqueVariableLevelEntry::free_memory()
-{
+void NetCDF::UniqueVariableLevelEntry::free_memory() {
   value.reset();
   value2.reset();
 }
 
-void NetCDF::UniqueVariableDataEntry::free_memory()
-{
+void NetCDF::UniqueVariableDataEntry::free_memory() {
   if (time_entry != nullptr) {
     time_entry->free_memory();
     time_entry.reset();
@@ -136,8 +144,7 @@ void NetCDF::UniqueVariableDataEntry::free_memory()
   }
 }
 
-void NetCDF::UniqueVariableEntry::free_memory()
-{
+void NetCDF::UniqueVariableEntry::free_memory() {
   for (auto& t : data->times) {
     t.free_memory();
   }
@@ -152,48 +159,46 @@ NetCDF::DataValue& NetCDF::DataValue::operator=(const DataValue& source) {
     return *this;
   }
   resize(source.data_type);
-  data_type=source.data_type;
+  data_type = source.data_type;
   set(source.get());
   return *this;
 }
 
-void NetCDF::DataValue::clear()
-{
+void NetCDF::DataValue::clear() {
   if (value != nullptr) {
     switch (data_type) {
       case DataType::BYTE: {
-          delete reinterpret_cast<unsigned char *>(value);
-          break;
+        delete reinterpret_cast<unsigned char *>(value);
+        break;
       }
       case DataType::CHAR: {
-          delete reinterpret_cast<char *>(value);
-          break;
+        delete reinterpret_cast<char *>(value);
+        break;
       }
       case DataType::SHORT: {
-          delete reinterpret_cast<short *>(value);
-          break;
+        delete reinterpret_cast<short *>(value);
+        break;
       }
       case DataType::INT: {
-          delete reinterpret_cast<int *>(value);
-          break;
+        delete reinterpret_cast<int *>(value);
+        break;
       }
       case DataType::FLOAT: {
-          delete reinterpret_cast<float *>(value);
-          break;
+        delete reinterpret_cast<float *>(value);
+        break;
       }
       case DataType::DOUBLE: {
-          delete reinterpret_cast<double *>(value);
-          break;
+        delete reinterpret_cast<double *>(value);
+        break;
       }
       default: {}
     }
-    value=nullptr;
-    data_type=DataType::_NULL;
+    value = nullptr;
+    data_type = DataType::_NULL;
   }
 }
 
-double NetCDF::DataValue::get() const
-{
+double NetCDF::DataValue::get() const {
   switch (data_type) {
     case DataType::BYTE: {
       return *(reinterpret_cast<unsigned char *>(value));
@@ -219,282 +224,273 @@ double NetCDF::DataValue::get() const
   }
 }
 
-void NetCDF::DataValue::resize(DataType type)
-{
+void NetCDF::DataValue::resize(DataType type) {
   if (type == data_type) {
     return;
   }
   if (value != nullptr) {
     clear();
   }
-  data_type=type;
+  data_type = type;
   switch (data_type) {
     case DataType::BYTE: {
-      value=new unsigned char;
-      *(reinterpret_cast<unsigned char *>(value))=0;
+      value = new unsigned char;
+      *(reinterpret_cast<unsigned char *>(value)) = 0;
       break;
     }
     case DataType::CHAR: {
-      value=new char;
-      *(reinterpret_cast<char *>(value))=0;
+      value = new char;
+      *(reinterpret_cast<char *>(value)) = 0;
       break;
     }
     case DataType::SHORT: {
-      value=new short;
-      *(reinterpret_cast<short *>(value))=0;
+      value = new short;
+      *(reinterpret_cast<short *>(value)) = 0;
       break;
     }
     case DataType::INT: {
-      value=new int;
-      *(reinterpret_cast<int *>(value))=0;
+      value = new int;
+      *(reinterpret_cast<int *>(value)) = 0;
       break;
     }
     case DataType::FLOAT: {
-      value=new float;
-      *(reinterpret_cast<float *>(value))=0.;
+      value = new float;
+      *(reinterpret_cast<float *>(value)) = 0.;
       break;
     }
     case DataType::DOUBLE: {
-      value=new double;
-      *(reinterpret_cast<double *>(value))=0.;
+      value = new double;
+      *(reinterpret_cast<double *>(value)) = 0.;
       break;
     }
-    default: {}
+    default: { }
   };
 }
 
-void NetCDF::DataValue::set(double source_value)
-{
+void NetCDF::DataValue::set(double source_value) {
   switch (data_type) {
     case DataType::BYTE: {
-      *(reinterpret_cast<unsigned char *>(value))=source_value;
+      *(reinterpret_cast<unsigned char *>(value)) = source_value;
       break;
     }
     case DataType::CHAR: {
-      *(reinterpret_cast<char *>(value))=source_value;
+      *(reinterpret_cast<char *>(value)) = source_value;
       break;
     }
     case DataType::SHORT: {
-      *(reinterpret_cast<short *>(value))=source_value;
+      *(reinterpret_cast<short *>(value)) = source_value;
       break;
     }
     case DataType::INT: {
-      *(reinterpret_cast<int *>(value))=source_value;
+      *(reinterpret_cast<int *>(value)) = source_value;
       break;
     }
     case DataType::FLOAT: {
-      *(reinterpret_cast<float *>(value))=source_value;
+      *(reinterpret_cast<float *>(value)) = source_value;
       break;
     }
     case DataType::DOUBLE: {
-      *(reinterpret_cast<double *>(value))=source_value;
+      *(reinterpret_cast<double *>(value)) = source_value;
       break;
     }
-    default: {}
+    default: { }
   }
 }
 
-NetCDF::VariableData& NetCDF::VariableData::operator=(const VariableData& source)
-{
+NetCDF::VariableData& NetCDF::VariableData::operator=(const VariableData&
+    source) {
   if (this == &source) {
     return *this;
   }
-  resize(source.num_values,source.data_type);
-  num_values=source.num_values;
-  data_type=source.data_type;
-  for (size_t n=0; n < num_values; ++n) {
+  resize(source.num_values, source.data_type);
+  num_values = source.num_values;
+  data_type = source.data_type;
+  for (size_t n = 0; n < num_values; ++n) {
     set(n,source[n]);
   }
   return *this;
 }
 
-double NetCDF::VariableData::operator[](size_t index) const
-{
+double NetCDF::VariableData::operator[](size_t index) const {
   if (index < num_values) {
     switch (data_type) {
       case DataType::BYTE: {
-          return (reinterpret_cast<unsigned char *>(values))[index];
+        return (reinterpret_cast<unsigned char *>(values))[index];
       }
       case DataType::CHAR: {
-          return (reinterpret_cast<char *>(values))[index];
+        return (reinterpret_cast<char *>(values))[index];
       }
       case DataType::SHORT: {
-          return (reinterpret_cast<short *>(values))[index];
+        return (reinterpret_cast<short *>(values))[index];
       }
       case DataType::INT: {
-          return (reinterpret_cast<int *>(values))[index];
+        return (reinterpret_cast<int *>(values))[index];
       }
       case DataType::FLOAT: {
-          return (reinterpret_cast<float *>(values))[index];
+        return (reinterpret_cast<float *>(values))[index];
       }
       case DataType::DOUBLE: {
-          return (reinterpret_cast<double *>(values))[index];
+        return (reinterpret_cast<double *>(values))[index];
       }
-      default: {}
+      default: { }
     }
   }
   return 3.4e38;
 }
 
-void NetCDF::VariableData::clear()
-{
+void NetCDF::VariableData::clear() {
   if (values != nullptr) {
     switch (data_type) {
       case DataType::BYTE: {
-          delete[] reinterpret_cast<unsigned char *>(values);
-          break;
+        delete[] reinterpret_cast<unsigned char *>(values);
+        break;
       }
       case DataType::CHAR: {
-          delete[] reinterpret_cast<char *>(values);
-          break;
+        delete[] reinterpret_cast<char *>(values);
+        break;
       }
       case DataType::SHORT: {
-          delete[] reinterpret_cast<short *>(values);
-          break;
+        delete[] reinterpret_cast<short *>(values);
+        break;
       }
       case DataType::INT: {
-          delete[] reinterpret_cast<int *>(values);
-          break;
+        delete[] reinterpret_cast<int *>(values);
+        break;
       }
       case DataType::FLOAT: {
-          delete[] reinterpret_cast<float *>(values);
-          break;
+        delete[] reinterpret_cast<float *>(values);
+        break;
       }
       case DataType::DOUBLE: {
-          delete[] reinterpret_cast<double *>((values));
-          break;
+        delete[] reinterpret_cast<double *>((values));
+        break;
       }
-      default: {}
+      default: { }
     };
-    values=nullptr;
-    data_type=DataType::_NULL;
+    values = nullptr;
+    data_type = DataType::_NULL;
   }
 }
 
-void NetCDF::VariableData::resize(int new_size,DataType type)
-{
-  num_values=new_size;
+void NetCDF::VariableData::resize(int new_size, DataType type) {
+  num_values = new_size;
   if (type == data_type && new_size <= capacity) {
     return;
   }
   if (values != nullptr) {
     clear();
   }
-  capacity=new_size;
-  data_type=type;
+  capacity = new_size;
+  data_type = type;
   switch (data_type) {
     case DataType::BYTE: {
-      values=new unsigned char[capacity];
+      values = new unsigned char[capacity];
       break;
     }
     case DataType::CHAR: {
-      values=new char[capacity];
+      values = new char[capacity];
       break;
     }
     case DataType::SHORT: {
-      values=new short[capacity];
+      values = new short[capacity];
       break;
     }
     case DataType::INT: {
-      values=new int[capacity];
+      values = new int[capacity];
       break;
     }
     case DataType::FLOAT: {
-      values=new float[capacity];
+      values = new float[capacity];
       break;
     }
     case DataType::DOUBLE: {
-      values=new double[capacity];
+      values = new double[capacity];
       break;
     }
-    default: {}
+    default: { }
   }
 }
 
-void NetCDF::VariableData::set(size_t index,double value)
-{
+void NetCDF::VariableData::set(size_t index, double value) {
   if (index < num_values) {
     switch (data_type) {
       case DataType::BYTE: {
-          (reinterpret_cast<unsigned char *>(values))[index]=value;
-          break;
+        (reinterpret_cast<unsigned char *>(values))[index] = value;
+        break;
       }
       case DataType::CHAR: {
-          (reinterpret_cast<char *>(values))[index]=value;
-          break;
+        (reinterpret_cast<char *>(values))[index] = value;
+        break;
       }
       case DataType::SHORT: {
-          (reinterpret_cast<short *>(values))[index]=value;
-          break;
+        (reinterpret_cast<short *>(values))[index] = value;
+        break;
       }
       case DataType::INT: {
-          (reinterpret_cast<int *>(values))[index]=value;
-          break;
+        (reinterpret_cast<int *>(values))[index] = value;
+        break;
       }
       case DataType::FLOAT: {
-          (reinterpret_cast<float *>(values))[index]=value;
-          break;
+        (reinterpret_cast<float *>(values))[index] = value;
+        break;
       }
       case DataType::DOUBLE: {
-          (reinterpret_cast<double *>(values))[index]=value;
-          break;
+        (reinterpret_cast<double *>(values))[index] = value;
+        break;
       }
-      default: {}
+      default: { }
     }
   }
 }
 
-int NetCDF::find_variable(std::string variable_name) const
-{
-  int n=0;
+int NetCDF::find_variable(string variable_name) const {
+  int n = 0;
   while (n < static_cast<int>(vars.size()) && vars[n].name != variable_name) {
     ++n;
   }
   if (n == static_cast<int>(vars.size())) {
-    n=-1;
+    n = -1;
   }
   return n;
 }
 
-bool InputNetCDFStream::open(std::string filename)
-{
+bool InputNetCDFStream::open(string filename) {
   if (fs.is_open()) {
-    std::cerr << "Error: there is already an open InputNetCDFStream" << std::endl;
+    cerr << "Error: there is already an open InputNetCDFStream" << endl;
     exit(1);
   }
-  file_name=filename;
-  fs.open(file_name.c_str(),std::ios_base::in);
+  file_name = filename;
+  fs.open(file_name.c_str(), std::ios_base::in);
   if (!fs.is_open()) {
     myerror="unable to open file or file not found";
     return false;
   }
-  rec_size=0;
+  rec_size = 0;
   char buf[4];
-  fs.read(buf,4);
+  fs.read(buf, 4);
   if (fs.gcount() != 4) {
-    myerror="unable to read first four bytes in file";
+    myerror = "unable to read first four bytes in file";
     return false;
   }
   if (buf[0] != 'C' || buf[1] != 'D' || buf[2] != 'F') {
-    myerror="did not find 'CDF' in first three bytes of file";
+    myerror = "did not find 'CDF' in first three bytes of file";
     return false;
   }
-  _version=buf[3];
-  fs.read(buf,4);
-  bits::get(reinterpret_cast<unsigned char *>(buf),num_recs,0,32);
-  fs.seekg(0,std::ios::end);
-  size_=fs.tellg();
-  fs.seekg(8,std::ios::beg);
+  _version = buf[3];
+  fs.read(buf, 4);
+  bits::get(reinterpret_cast<unsigned char *>(buf), num_recs, 0, 32);
+  fs.seekg(0, std::ios::end);
+  size_ = fs.tellg();
+  fs.seekg(8, std::ios::beg);
   fill_dimensions();
   fill_attributes(gattrs);
   fill_variables();
   return true;
 }
 
-bool InputNetCDFStream::close()
-{
+bool InputNetCDFStream::close() {
   if (!fs.is_open()) {
-    myerror="no open input stream";
+    myerror = "no open input stream";
     return false;
   }
   fs.close();
@@ -503,113 +499,111 @@ bool InputNetCDFStream::close()
   gattrs.clear();
   vars.clear();
   var_indexes.clear();
-  var_buf.first_offset=0;
-  size_=0;
+  var_buf.first_offset = 0;
+  size_ = 0;
   return true;
 }
 
-void InputNetCDFStream::print_dimensions() const
-{
-  std::cout << "Dimensions (" << dims.size() << "):" << std::endl;
-  for (size_t n=0; n < dims.size(); ++n) {
-    std::cout << "  " << dims[n].name << " = ";
+void InputNetCDFStream::print_dimensions() const {
+  cout << "Dimensions (" << dims.size() << "):" << endl;
+  for (size_t n = 0; n < dims.size(); ++n) {
+    cout << "  " << dims[n].name << " = ";
     if (dims[n].is_rec) {
-      std::cout << num_recs << " (record dimension)";
+      cout << num_recs << " (record dimension)";
+    } else {
+      cout << dims[n].length;
     }
-    else {
-      std::cout << dims[n].length;
-    }
-    std::cout << std::endl;
+    cout << endl;
   }
-  std::cout << std::endl;
+  cout << endl;
 }
 
-void InputNetCDFStream::print_global_attributes() const
-{
-  std::cout << "Global Attributes (" << gattrs.size() << "):" << std::endl;
+void InputNetCDFStream::print_global_attributes() const {
+  cout << "Global Attributes (" << gattrs.size() << "):" << endl;
   for (const auto& attr : gattrs) {
-    print_attribute(attr,2);
+    print_attribute(attr, 2);
   }
-  std::cout << std::endl;
+  cout << endl;
 }
 
-void InputNetCDFStream::print_header() const
-{
-  std::cout.setf(std::ios::fixed);
-  std::cout << "Version: " << _version << std::endl << std::endl;
+void InputNetCDFStream::print_header() const {
+  cout.setf(std::ios::fixed);
+  cout << "Version: " << _version << endl << endl;
   print_dimensions();
   print_global_attributes();
   print_variables();
 }
 
-const NetCDF::Variable& InputNetCDFStream::variable(std::string variable_name) const
-{
+const NetCDF::Variable& InputNetCDFStream::variable(string variable_name)
+    const {
   static const Variable EMPTY_VAR;
   if (var_indexes.find(variable_name) == var_indexes.end()) {
     return EMPTY_VAR;
-  }
-  else {
+  } else {
     return vars[var_indexes.at(variable_name)];
   }
 }
 
-std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t index)
-{
+vector<double> InputNetCDFStream::value_at(string variable_name, size_t index) {
   if (var_indexes.find(variable_name) == var_indexes.end()) {
-    return std::vector<double>();
-  }
-  else {
-    auto var_index=var_indexes[variable_name];
-    size_t max_num_vals=vars[var_index].dimids[0];
+    return vector<double>();
+  } else {
+    auto var_index = var_indexes[variable_name];
+    size_t max_num_vals = vars[var_index].dimids[0];
     if (max_num_vals == 0 && vars[var_index].is_rec) {
-      max_num_vals=num_recs;
+      max_num_vals = num_recs;
     }
-    auto vector_size=1;
-    for (size_t n=1; n < vars[var_index].dimids.size(); ++n) {
-      max_num_vals*=dims[vars[var_index].dimids[n]].length;
-      vector_size*=dims[vars[var_index].dimids[n]].length;
+    auto vector_size = 1;
+    for (size_t n = 1; n < vars[var_index].dimids.size(); ++n) {
+      max_num_vals *= dims[vars[var_index].dimids[n]].length;
+      vector_size *= dims[vars[var_index].dimids[n]].length;
     }
     if (index >= max_num_vals) {
-      return std::vector<double>();
+      return vector<double>();
     }
     long long f_offset;
     if (vars[var_index].is_rec) {
-      f_offset=vars[var_index].offset+(index*rec_size);
+      f_offset = vars[var_index].offset + (index * rec_size);
+    } else {
+      f_offset = vars[var_index].offset + (index * data_type_bytes[static_cast<
+          int>(vars[var_index].data_type)]);
     }
-    else {
-      f_offset=vars[var_index].offset+(index*data_type_bytes[static_cast<int>(vars[var_index].data_type)]);
-    }
-    if (var_buf.first_offset == 0 || f_offset < var_buf.first_offset || f_offset > (var_buf.first_offset+var_buf.buf_size-data_type_bytes[static_cast<int>(vars[var_index].data_type)])) {
-      fs.seekg(f_offset,std::ios_base::beg);
-      if (!fs.read(var_buf.buffer,var_buf.MAX_BUF_SIZE)) {
-        var_buf.buf_size=fs.gcount();
+    if (var_buf.first_offset == 0 || f_offset < var_buf.first_offset || f_offset
+        > (var_buf.first_offset + var_buf.buf_size - data_type_bytes[
+        static_cast<int>(vars[var_index].data_type)])) {
+      fs.seekg(f_offset, std::ios_base::beg);
+      if (!fs.read(var_buf.buffer, var_buf.MAX_BUF_SIZE)) {
+        var_buf.buf_size = fs.gcount();
         fs.clear();
+      } else {
+        var_buf.buf_size = var_buf.MAX_BUF_SIZE;
       }
-      else {
-        var_buf.buf_size=var_buf.MAX_BUF_SIZE;
-      }
-      var_buf.first_offset=f_offset;
+      var_buf.first_offset = f_offset;
     }
+    auto buf = reinterpret_cast<unsigned char *>(var_buf.buffer);
     switch (vars[var_index].data_type) {
       case DataType::BYTE: {
-        auto b=new unsigned char[vector_size];
-        bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),b,0,data_type_bytes[static_cast<int>(DataType::BYTE)]*8,0,vector_size);
-        std::vector<double> v(&b[0],&b[vector_size]);
-        delete b;
+        auto b = new unsigned char[vector_size];
+        bits::get(&buf[f_offset - var_buf.first_offset], b, 0, data_type_bytes[
+            static_cast<int>(DataType::BYTE)] * 8, 0, vector_size);
+        vector<double> v(&b[0], &b[vector_size]);
+        delete[] b;
         return v;
       }
       case DataType::SHORT: {
         auto s=new short[vector_size];
-        bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),s,0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8,0,vector_size);
-        std::vector<double> v(&s[0],&s[vector_size]);
-        delete s;
+        bits::get(&buf[f_offset - var_buf.first_offset], s, 0, data_type_bytes[
+            static_cast<int>(DataType::SHORT)] * 8, 0, vector_size);
+        vector<double> v(&s[0], &s[vector_size]);
+        delete[] s;
         return v;
       }
       case DataType::INT: {
-        auto i=new int[vector_size];
-        bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,data_type_bytes[static_cast<int>(DataType::INT)]*8,0,vector_size);
-        std::vector<double> v(&i[0],&i[vector_size]);
-        delete i;
+        auto i = new int[vector_size];
+        bits::get(&buf[f_offset - var_buf.first_offset], i, 0, data_type_bytes[
+            static_cast<int>(DataType::INT)] * 8, 0, vector_size);
+        vector<double> v(&i[0], &i[vector_size]);
+        delete[] i;
         return v;
       }
       case DataType::FLOAT: {
@@ -617,10 +611,11 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
           int *i;
           float *f;
         };
-        i=new int[vector_size];
-        bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),i,0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8,0,vector_size);
-        std::vector<double> v(&f[0],&f[vector_size]);
-        delete i;
+        i = new int[vector_size];
+        bits::get(&buf[f_offset - var_buf.first_offset], i, 0, data_type_bytes[
+            static_cast<int>(DataType::FLOAT)] * 8, 0, vector_size);
+        vector<double> v(&f[0], &f[vector_size]);
+        delete[] i;
         return v;
       }
       case DataType::DOUBLE: {
@@ -628,22 +623,23 @@ std::vector<double> InputNetCDFStream::value_at(std::string variable_name,size_t
           long long *l;
           double *d;
         };
-        l=new long long[1];
-        bits::get(&((reinterpret_cast<unsigned char *>(var_buf.buffer))[f_offset-var_buf.first_offset]),l[0],0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
-        std::vector<double> v(&d[0],&d[1]);
-        delete l;
+        l = new long long[vector_size];
+        bits::get(&buf[f_offset - var_buf.first_offset], l, 0, data_type_bytes[
+            static_cast<int>(DataType::DOUBLE)] * 8, 0, vector_size);
+        vector<double> v(&d[0], &d[vector_size]);
+        delete[] l;
         return v;
       }
       default: {
-        return std::vector<double>();
+        return vector<double>();
       }
     }
   }
 }
 
-NetCDF::DataType InputNetCDFStream::variable_data(std::string variable_name,VariableData& variable_data)
-{
-  auto var_index=find_variable(variable_name);
+NetCDF::DataType InputNetCDFStream::variable_data(string variable_name,
+    VariableData& variable_data) {
+  auto var_index = find_variable(variable_name);
   if (var_index < 0) {
     return DataType::_NULL;
   }
@@ -652,159 +648,199 @@ NetCDF::DataType InputNetCDFStream::variable_data(std::string variable_name,Vari
     case DataType::BYTE:
     case DataType::CHAR: {
       if (vars[var_index].is_rec) {
-        num_values=1;
+        num_values = 1;
+      } else {
+        num_values = dims[vars[var_index].dimids[0]].length;
       }
-      else {
-        num_values=dims[vars[var_index].dimids[0]].length;
-      }
-      for (size_t n=1; n < vars[var_index].dimids.size(); ++n) {
-        num_values*=dims[vars[var_index].dimids[n]].length;
+      for (size_t n = 1; n < vars[var_index].dimids.size(); ++n) {
+        num_values *= dims[vars[var_index].dimids[n]].length;
       }
       break;
     }
     default: {
-      num_values=vars[var_index].size/data_type_bytes[static_cast<int>(vars[var_index].data_type)];
+      num_values = vars[var_index].size/data_type_bytes[static_cast<int>(vars[
+          var_index].data_type)];
     }
   }
   size_t num_rec_vals;
   if (vars[var_index].is_rec) {
-    num_rec_vals=num_values*num_recs;
-    variable_data.resize(num_rec_vals,vars[var_index].data_type);
-    auto off=vars[var_index].offset;
+    num_rec_vals = num_values * num_recs;
+    variable_data.resize(num_rec_vals, vars[var_index].data_type);
+    auto off = vars[var_index].offset;
     switch (vars[var_index].data_type) {
       case DataType::BYTE:
       case DataType::CHAR: {
-        for (size_t n=0; n < num_rec_vals; n+=num_values) {
+        for (size_t n = 0; n < num_rec_vals; n += num_values) {
           if (off > size_) {
-            for (size_t m=0; m < num_values; ++m) {
-              (reinterpret_cast<char *>(variable_data.get()))[n+m]=CHAR_NOT_SET;
+            for (size_t m = 0; m < num_values; ++m) {
+              (reinterpret_cast<char *>(variable_data.get()))[n+m] =
+                  CHAR_NOT_SET;
             }
+          } else {
+            fs.seekg(off, std::ios_base::beg);
+            fs.read(&((reinterpret_cast<char *>(variable_data.get()))[n]),
+                num_values);
           }
-          else {
-            fs.seekg(off,std::ios_base::beg);
-            fs.read(&((reinterpret_cast<char *>(variable_data.get()))[n]),num_values);
-          }
-          off+=rec_size;
+          off += rec_size;
         }
         break;
       }
       case DataType::SHORT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::SHORT)]*num_values];
-        for (size_t n=0; n < num_rec_vals; n+=num_values) {
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            SHORT)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<short *>(variable_data.get());
+        for (size_t n = 0; n < num_rec_vals; n += num_values) {
           if (off > size_) {
-            for (size_t m=0; m < num_values; ++m) {
-              (reinterpret_cast<short *>(variable_data.get()))[n+m]=SHORT_NOT_SET;
+            for (size_t m = 0; m < num_values; ++m) {
+              v[n+m] = SHORT_NOT_SET;
             }
+          } else {
+            fs.seekg(off, std::ios_base::beg);
+            fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::SHORT)]
+                * num_values);
+            bits::get(buf, &v[n], 0, data_type_bytes[static_cast<int>(DataType::
+                SHORT)] * 8, 0, num_values);
           }
-          else {
-            fs.seekg(off,std::ios_base::beg);
-            fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::SHORT)]*num_values);
-            bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<short *>(variable_data.get()))[n]),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8,0,num_values);
-          }
-          off+=rec_size;
+          off += rec_size;
         }
         delete[] tmpbuf;
         break;
       }
       case DataType::INT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::INT)]*num_values];
-        for (size_t n=0; n < num_rec_vals; n+=num_values) {
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::INT)]
+            * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<int *>(variable_data.get());
+        for (size_t n = 0; n < num_rec_vals; n += num_values) {
           if (off > size_) {
-            for (size_t m=0; m < num_values; ++m) {
-              (reinterpret_cast<int *>(variable_data.get()))[n+m]=INT_NOT_SET;
+            for (size_t m = 0; m < num_values; ++m) {
+              v[n+m] = INT_NOT_SET;
             }
+          } else {
+            fs.seekg(off, std::ios_base::beg);
+            fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::INT)] *
+                num_values);
+            bits::get(buf, &v[n], 0, data_type_bytes[static_cast<int>(DataType::
+                INT)] * 8, 0, num_values);
           }
-          else {
-            fs.seekg(off,std::ios_base::beg);
-            fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::INT)]*num_values);
-            bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,data_type_bytes[static_cast<int>(DataType::INT)]*8,0,num_values);
-          }
-          off+=rec_size;
+          off += rec_size;
         }
         delete[] tmpbuf;
         break;
       }
       case DataType::FLOAT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::FLOAT)]*num_values];
-        for (size_t n=0; n < num_rec_vals; n+=num_values) {
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            FLOAT)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<float *>(variable_data.get());
+        auto vi = reinterpret_cast<int *>(variable_data.get());
+        for (size_t n = 0; n < num_rec_vals; n+=num_values) {
           if (off > size_) {
-            for (size_t m=0; m < num_values; ++m) {
-              (reinterpret_cast<float *>(variable_data.get()))[n+m]=FLOAT_NOT_SET;
+            for (size_t m = 0; m < num_values; ++m) {
+              v[n+m] = FLOAT_NOT_SET;
             }
+          } else {
+            fs.seekg(off, std::ios_base::beg);
+            fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::FLOAT)] *
+                num_values);
+            bits::get(buf, &vi[n], 0, data_type_bytes[static_cast<int>(
+                DataType::FLOAT)] * 8, 0, num_values);
           }
-          else {
-            fs.seekg(off,std::ios_base::beg);
-            fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::FLOAT)]*num_values);
-            bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<int *>(variable_data.get()))[n]),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8,0,num_values);
-          }
-          off+=rec_size;
+          off += rec_size;
         }
         delete[] tmpbuf;
         break;
       }
       case DataType::DOUBLE: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]*num_values];
-        for (size_t n=0; n < num_rec_vals; n+=num_values) {
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            DOUBLE)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<double *>(variable_data.get());
+        auto vll = reinterpret_cast<long long *>(variable_data.get());
+        for (size_t n = 0; n < num_rec_vals; n += num_values) {
           if (off > size_) {
-            for (size_t m=0; m < num_values; ++m) {
-              (reinterpret_cast<double *>(variable_data.get()))[n+m]=DOUBLE_NOT_SET;
+            for (size_t m = 0; m < num_values; ++m) {
+              v[n+m] = DOUBLE_NOT_SET;
             }
+          } else {
+            fs.seekg(off, std::ios_base::beg);
+            fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::DOUBLE)]
+                * num_values);
+            bits::get(buf, &vll[n], 0, data_type_bytes[static_cast<int>(
+                DataType::DOUBLE)]* 8, 0, num_values);
           }
-          else {
-            fs.seekg(off,std::ios_base::beg);
-            fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*num_values);
-            bits::get(reinterpret_cast<unsigned char *>(tmpbuf),&((reinterpret_cast<long long *>(variable_data.get()))[n]),0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8,0,num_values);
-          }
-          off+=rec_size;
+          off += rec_size;
         }
         delete[] tmpbuf;
         break;
       }
       default: {
-        myerror="variable type "+strutils::itos(static_cast<int>(vars[var_index].data_type))+" not recognized";
+        myerror = "variable type " + to_string(static_cast<int>(vars[var_index].
+            data_type)) + " not recognized";
         exit(1);
       }
     }
-  }
-  else {
-    variable_data.resize(num_values,vars[var_index].data_type);
-    fs.seekg(vars[var_index].offset,std::ios_base::beg);
+  } else {
+    variable_data.resize(num_values, vars[var_index].data_type);
+    fs.seekg(vars[var_index].offset, std::ios_base::beg);
     switch (vars[var_index].data_type) {
       case DataType::BYTE:
       case DataType::CHAR: {
-        fs.read(reinterpret_cast<char *>(variable_data.get()),num_values);
+        fs.read(reinterpret_cast<char *>(variable_data.get()), num_values);
         break;
       }
       case DataType::SHORT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::SHORT)]*num_values];
-        fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::SHORT)]*num_values);
-        bits::get(reinterpret_cast<unsigned char *>(tmpbuf),reinterpret_cast<short *>(variable_data.get()),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8,0,num_values);
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            SHORT)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<short *>(variable_data.get());
+        fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::SHORT)] *
+            num_values);
+        bits::get(buf, v, 0, data_type_bytes[static_cast<int>(DataType::SHORT)]
+            * 8, 0, num_values);
         delete[] tmpbuf;
         break;
       }
       case DataType::INT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::INT)]*num_values];
-        fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::INT)]*num_values);
-        bits::get(reinterpret_cast<unsigned char *>(tmpbuf),reinterpret_cast<int *>(variable_data.get()),0,data_type_bytes[static_cast<int>(DataType::INT)]*8,0,num_values);
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::INT)]
+            * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<int *>(variable_data.get());
+        fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::INT)] *
+            num_values);
+        bits::get(buf, v, 0, data_type_bytes[static_cast<int>(DataType::INT)] *
+            8, 0, num_values);
         delete[] tmpbuf;
         break;
       }
       case DataType::FLOAT: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::FLOAT)]*num_values];
-        fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::FLOAT)]*num_values);
-        bits::get(reinterpret_cast<unsigned char *>(tmpbuf),reinterpret_cast<int *>(variable_data.get()),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8,0,num_values);
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            FLOAT)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<int *>(variable_data.get());
+        fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::FLOAT)] *
+            num_values);
+        bits::get(buf, v, 0, data_type_bytes[static_cast<int>(DataType::FLOAT)]
+            * 8, 0, num_values);
         delete[] tmpbuf;
         break;
       }
       case DataType::DOUBLE: {
-        auto *tmpbuf=new char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]*num_values];
-        fs.read(tmpbuf,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*num_values);
-        bits::get(reinterpret_cast<unsigned char *>(tmpbuf),reinterpret_cast<long long *>(variable_data.get()),0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8,0,num_values);
+        auto *tmpbuf = new char[data_type_bytes[static_cast<int>(DataType::
+            DOUBLE)] * num_values];
+        auto buf = reinterpret_cast<unsigned char *>(tmpbuf);
+        auto v = reinterpret_cast<long long *>(variable_data.get());
+        fs.read(tmpbuf, data_type_bytes[static_cast<int>(DataType::DOUBLE)] *
+            num_values);
+        bits::get(buf, v, 0, data_type_bytes[static_cast<int>(DataType::DOUBLE)]
+            * 8, 0, num_values);
         delete[] tmpbuf;
         break;
       }
       default: {
-        myerror="variable type "+strutils::itos(static_cast<int>(vars[var_index].data_type))+" not recognized";
+        myerror = "variable type " + to_string(static_cast<int>(vars[var_index].
+            data_type)) + " not recognized";
         exit(1);
       }
     }
@@ -812,15 +848,15 @@ NetCDF::DataType InputNetCDFStream::variable_data(std::string variable_name,Vari
   return vars[var_index].data_type;
 }
 
-void InputNetCDFStream::print_variable_data(std::string variable_name,std::string string_of_indexes)
-{
-  std::cout.setf(std::ios::fixed);
+void InputNetCDFStream::print_variable_data(string variable_name, string
+    string_of_indexes) {
+  cout.setf(std::ios::fixed);
   auto var_index=find_variable(variable_name);
   if (var_index < 0) {
     return;
   }
   size_t *product=nullptr;
-  std::deque<std::string> indexes;
+  std::deque<string> indexes;
   if (string_of_indexes.length() > 0) {
     indexes=strutils::split(string_of_indexes,",");
     if (indexes.size() != vars[var_index].dimids.size()) {
@@ -834,18 +870,18 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
     }
   }
   fs.seekg(vars[var_index].offset,std::ios_base::beg);
-  std::cout << "Variable: " << vars[var_index].name << std::endl;
-  std::cout << "Type: " << data_type_str[static_cast<int>(vars[var_index].data_type)] << std::endl;
+  cout << "Variable: " << vars[var_index].name << endl;
+  cout << "Type: " << data_type_str[static_cast<int>(vars[var_index].data_type)] << endl;
   DateTime base;
-  std::string time_unit;
+  string time_unit;
   if (vars[var_index].attrs.size() > 0) {
-    std::cout << "Attributes: " << vars[var_index].attrs.size() << std::endl;
+    cout << "Attributes: " << vars[var_index].attrs.size() << endl;
     for (size_t n=0; n < vars[var_index].attrs.size(); ++n) {
       print_attribute(vars[var_index].attrs[n],2);
       if (vars[var_index].attrs[n].name == "units" && vars[var_index].attrs[n].data_type == NetCDF::DataType::CHAR) {
-        auto attr_value=*(reinterpret_cast<std::string *>(vars[var_index].attrs[n].values));
+        auto attr_value=*(reinterpret_cast<string *>(vars[var_index].attrs[n].values));
         auto idx=attr_value.find("since");
-        if (idx != std::string::npos) {
+        if (idx != string::npos) {
           time_unit=attr_value.substr(0,idx);
           strutils::trim(time_unit);
           attr_value=attr_value.substr(idx+5);
@@ -886,7 +922,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
   }
   if (vars[var_index].is_rec) {
     auto num_rec_vals=num_vals*num_recs;
-    std::cout << "Number of values: " << num_rec_vals << std::endl;
+    cout << "Number of values: " << num_rec_vals << endl;
     auto off=vars[var_index].offset;
     if (string_of_indexes.length() == 0) {
       for (size_t n=0; n < num_rec_vals; n+=num_vals) {
@@ -898,21 +934,21 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                   auto nv=dims[vars[var_index].dimids.back()].length;
                   auto data=new unsigned char[nv];
                   fs.read(reinterpret_cast<char *>(data),nv);
-                  std::cout << "  ";
+                  cout << "  ";
                   for (size_t l=0; l < nv; ++l) {
                     if (l > 0) {
-                      std::cout << ", ";
+                      cout << ", ";
                     }
-                    std::cout << static_cast<int>((reinterpret_cast<unsigned char *>(data))[l]);
+                    cout << static_cast<int>((reinterpret_cast<unsigned char *>(data))[l]);
                   }
-                  std::cout << std::endl;
+                  cout << endl;
                   m+=(nv-1);
                   delete[] data;
                 }
                 else {
                   auto data=new unsigned char;
                   fs.read(reinterpret_cast<char *>(data),1);
-                  std::cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
+                  cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << endl;
                   delete data;
                 }
                 break;
@@ -921,9 +957,9 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 auto data=new char[num_vals];
                 auto nv=dims[vars[var_index].dimids.back()].length;
                 fs.read(reinterpret_cast<char *>(data),nv);
-                std::cout << "  \"";
-                std::cout.write(reinterpret_cast<char *>(data),nv);
-                std::cout << "\"" << std::endl;
+                cout << "  \"";
+                cout.write(reinterpret_cast<char *>(data),nv);
+                cout << "\"" << endl;
                 m+=nv;
                 if ( (m+nv) > num_vals) {
                   m=num_vals;
@@ -931,7 +967,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 else {
                   --m;
                 }
-                delete data;
+                delete[] data;
                 break;
               }
               case DataType::SHORT: {
@@ -939,7 +975,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 auto tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::SHORT)]];
                 fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::SHORT)]);
                 bits::get(tmpbuf,*(reinterpret_cast<short *>(data)),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8);
-                std::cout << "  " << *(reinterpret_cast<short *>(data)) << std::endl;
+                cout << "  " << *(reinterpret_cast<short *>(data)) << endl;
                 delete[] tmpbuf;
                 delete data;
                 break;
@@ -949,11 +985,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 auto b = new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
                 fs.read(reinterpret_cast<char *>(b),data_type_bytes[static_cast<int>(DataType::INT)]);
                 bits::get(b,*(reinterpret_cast<int *>(i)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
-                std::cout << "  " << *i;
+                cout << "  " << *i;
                 if (!time_unit.empty() && *i >= 0.) {
-                  std::cout << " : " << base.fadded(time_unit, *i).to_string();
+                  cout << " : " << base.fadded(time_unit, *i).to_string();
                 }
-                std::cout << std::endl;
+                cout << endl;
                 delete[] b;
                 delete i;
                 break;
@@ -965,11 +1001,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                         static_cast<int>(DataType::FLOAT)]);
                 bits::get(b, *(reinterpret_cast<int *>(f)), 0,
                         data_type_bytes[static_cast<int>(DataType::FLOAT)] * 8);
-                std::cout << "  " << *f;
+                cout << "  " << *f;
                 if (!time_unit.empty() && *f >= 0.) {
-                  std::cout << " : " << base.fadded(time_unit, *f).to_string();
+                  cout << " : " << base.fadded(time_unit, *f).to_string();
                 }
-                std::cout << std::endl;
+                cout << endl;
                 delete[] b;
                 delete f;
                 break;
@@ -982,11 +1018,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
                 auto tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]];
                 fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::DOUBLE)]);
                 bits::get(tmpbuf,ldata,0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
-                std::cout << "  " << data;
+                cout << "  " << data;
                 if (!time_unit.empty() && data >= 0.) {
-                  std::cout << " : " << base.fadded(time_unit,data).to_string();
+                  cout << " : " << base.fadded(time_unit,data).to_string();
                 }
-                std::cout << std::endl;
+                cout << endl;
                 delete[] tmpbuf;
                 break;
               }
@@ -1030,14 +1066,14 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
         case DataType::BYTE: {
           auto data=new unsigned char;
           fs.read(reinterpret_cast<char *>(data),1);
-          std::cout << "(" << string_of_indexes << ")  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << endl;
           delete data;
           break;
         }
         case DataType::CHAR: {
           auto data=new char;
           fs.read(reinterpret_cast<char *>(data),1);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<char *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<char *>(data)) << endl;
           delete data;
           break;
         }
@@ -1046,7 +1082,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::SHORT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::SHORT)]);
           bits::get(tmpbuf,*(reinterpret_cast<short *>(data)),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<short *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<short *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1056,7 +1092,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::INT)]);
           bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<int *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<int *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1066,7 +1102,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::FLOAT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::FLOAT)]);
           bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<float *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<float *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1076,7 +1112,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::DOUBLE)]);
           bits::get(tmpbuf,*(reinterpret_cast<long long *>(data)),0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<double *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *data;
+          if (!time_unit.empty() && *data >= 0.) {
+            cout << " : " << base.fadded(time_unit, *data).to_string();
+          }
+          cout << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1087,8 +1127,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
         }
       }
     }
-  }
-  else {
+  } else {
     size_t len;
     if (vars[var_index].data_type == DataType::CHAR) {
       len=dims[vars[var_index].dimids.back()].length;
@@ -1097,7 +1136,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
     else {
       len=1;
     }
-    std::cout << "Number of values: " << num_vals << std::endl;
+    cout << "Number of values: " << num_vals << endl;
     if (string_of_indexes.length() == 0) {
       for (size_t n=0; n < num_vals; ++n) {
         if (print_indexes(vars[var_index],n*len)) {
@@ -1105,17 +1144,17 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
             case DataType::BYTE: {
               auto data=new unsigned char;
               fs.read(reinterpret_cast<char *>(data),1);
-              std::cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
+              cout << "  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << endl;
               delete data;
               break;
             }
             case DataType::CHAR: {
               auto data=new char[len];
               fs.read(reinterpret_cast<char *>(data),len);
-              std::cout << "  \"";
-              std::cout.write(reinterpret_cast<char *>(data),len);
-              std::cout << "\"" << std::endl;
-              delete data;
+              cout << "  \"";
+              cout.write(reinterpret_cast<char *>(data),len);
+              cout << "\"" << endl;
+              delete[] data;
               break;
             }
             case DataType::SHORT: {
@@ -1123,7 +1162,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
               auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::SHORT)]];
               fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::SHORT)]);
               bits::get(tmpbuf,*(reinterpret_cast<short *>(data)),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8);
-              std::cout << "  " << *(reinterpret_cast<short *>(data)) << std::endl;
+              cout << "  " << *(reinterpret_cast<short *>(data)) << endl;
               delete[] tmpbuf;
               delete data;
               break;
@@ -1133,7 +1172,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
               auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
               fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::INT)]);
               bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
-              std::cout << "  " << *(reinterpret_cast<int *>(data)) << std::endl;
+              cout << "  " << *(reinterpret_cast<int *>(data)) << endl;
               delete[] tmpbuf;
               delete data;
               break;
@@ -1143,7 +1182,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
               auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::FLOAT)]];
               fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::FLOAT)]);
               bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8);
-              std::cout << "  " << *(reinterpret_cast<float *>(data)) << std::endl;
+              cout << "  " << *(reinterpret_cast<float *>(data)) << endl;
               delete[] tmpbuf;
               delete data;
               break;
@@ -1153,7 +1192,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
               auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]];
               fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::DOUBLE)]);
               bits::get(tmpbuf,*(reinterpret_cast<long long *>(data)),0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
-              std::cout << "  " << *(reinterpret_cast<double *>(data)) << std::endl;
+              cout << "  " << *data;
+              if (!time_unit.empty() && *data >= 0.) {
+                cout << " : " << base.fadded(time_unit,*data).to_string();
+              }
+              cout << endl;
               delete[] tmpbuf;
               delete data;
               break;
@@ -1188,14 +1231,14 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
         case DataType::BYTE: {
           auto data=new unsigned char;
           fs.read(reinterpret_cast<char *>(data),1);
-          std::cout << "(" << string_of_indexes << ")  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << static_cast<int>(*(reinterpret_cast<unsigned char *>(data))) << endl;
           delete data;
           break;
         }
         case DataType::CHAR: {
           auto data=new char;
           fs.read(reinterpret_cast<char *>(data),1);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<char *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<char *>(data)) << endl;
           delete data;
           break;
         }
@@ -1204,7 +1247,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::SHORT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::SHORT)]);
           bits::get(tmpbuf,*(reinterpret_cast<short *>(data)),0,data_type_bytes[static_cast<int>(DataType::SHORT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<short *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<short *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1214,7 +1257,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::INT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::INT)]);
           bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::INT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<int *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<int *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1224,7 +1267,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::FLOAT)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::FLOAT)]);
           bits::get(tmpbuf,*(reinterpret_cast<int *>(data)),0,data_type_bytes[static_cast<int>(DataType::FLOAT)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<float *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<float *>(data)) << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1234,7 +1277,11 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
           auto *tmpbuf=new unsigned char[data_type_bytes[static_cast<int>(DataType::DOUBLE)]];
           fs.read(reinterpret_cast<char *>(tmpbuf),data_type_bytes[static_cast<int>(DataType::DOUBLE)]);
           bits::get(tmpbuf,*(reinterpret_cast<long long *>(data)),0,data_type_bytes[static_cast<int>(DataType::DOUBLE)]*8);
-          std::cout << "(" << string_of_indexes << ")  " << *(reinterpret_cast<double *>(data)) << std::endl;
+          cout << "(" << string_of_indexes << ")  " << *data;
+          if (!time_unit.empty() && *data >= 0.) {
+            cout << " : " << base.fadded(time_unit,*data).to_string();
+          }
+          cout << endl;
           delete[] tmpbuf;
           delete data;
           break;
@@ -1246,7 +1293,7 @@ void InputNetCDFStream::print_variable_data(std::string variable_name,std::strin
         }
     }
   }
-  std::cout << std::endl;
+  cout << endl;
 }
 
 void InputNetCDFStream::print_variables() const {
@@ -1304,7 +1351,7 @@ void InputNetCDFStream::fill_dimensions()
   delete[] tmpbuf;
 }
 
-void InputNetCDFStream::fill_attributes(std::vector<Attribute>& attributes)
+void InputNetCDFStream::fill_attributes(vector<Attribute>& attributes)
 {
   auto *tmpbuf=new unsigned char[8];
   fs.read(reinterpret_cast<char *>(tmpbuf),8);
@@ -1336,8 +1383,8 @@ void InputNetCDFStream::fill_attributes(std::vector<Attribute>& attributes)
       }
       case DataType::CHAR: {
         attributes[n].num_values=1;
-        attributes[n].values=new std::string;
-        fill_string(*(reinterpret_cast<std::string *>(attributes[n].values)));
+        attributes[n].values=new string;
+        fill_string(*(reinterpret_cast<string *>(attributes[n].values)));
         break;
       }
       case DataType::SHORT: {
@@ -1427,15 +1474,15 @@ void InputNetCDFStream::fill_variables()
     fill_attributes(vars[n].attrs);
     for (const auto& attr : vars[n].attrs) {
       if (attr.name == "long_name") {
-        vars[n].long_name=*(reinterpret_cast<std::string *>(attr.values));
+        vars[n].long_name=*(reinterpret_cast<string *>(attr.values));
         strutils::trim(vars[n].long_name);
       }
       else if (attr.name == "standard_name") {
-        vars[n].standard_name=*(reinterpret_cast<std::string *>(attr.values));
+        vars[n].standard_name=*(reinterpret_cast<string *>(attr.values));
         strutils::trim(vars[n].standard_name);
       }
       else if (attr.name == "units") {
-        vars[n].units=*(reinterpret_cast<std::string *>(attr.values));
+        vars[n].units=*(reinterpret_cast<string *>(attr.values));
         strutils::trim(vars[n].units);
       }
       else if (attr.name == "_FillValue" || attr.name == "missing_value") {
@@ -1496,7 +1543,7 @@ void InputNetCDFStream::fill_variables()
   }
 }
 
-void InputNetCDFStream::fill_string(std::string& string_to_fill)
+void InputNetCDFStream::fill_string(string& string_to_fill)
 {
   auto *tmpbuf=new unsigned char[4];
   fs.read(reinterpret_cast<char *>(tmpbuf),4);
@@ -1516,75 +1563,75 @@ void InputNetCDFStream::fill_string(std::string& string_to_fill)
 void InputNetCDFStream::print_attribute(const Attribute& attribute,size_t left_margin_spacing) const
 {
   for (size_t n=0; n < left_margin_spacing; ++n) {
-    std::cout << " ";
+    cout << " ";
   }
-  std::cout << attribute.name << ": ";
+  cout << attribute.name << ": ";
   switch (attribute.data_type) {
     case DataType::BYTE: {
       for (size_t n=0; n < attribute.num_values; ++n) {
         if (n > 0) {
-          std::cout << ", " << static_cast<int>((reinterpret_cast<unsigned char *>(attribute.values))[n]);
+          cout << ", " << static_cast<int>((reinterpret_cast<unsigned char *>(attribute.values))[n]);
         }
         else {
-          std::cout << static_cast<int>((reinterpret_cast<unsigned char *>(attribute.values))[n]);
+          cout << static_cast<int>((reinterpret_cast<unsigned char *>(attribute.values))[n]);
         }
       }
-      std::cout << " (byte)" << std::endl;
+      cout << " (byte)" << endl;
       break;
     }
     case DataType::CHAR: {
-      auto attr_value=*(reinterpret_cast<std::string *>(attribute.values));
-      std::string indent(left_margin_spacing+attribute.name.length()+2,' ');
+      auto attr_value=*(reinterpret_cast<string *>(attribute.values));
+      string indent(left_margin_spacing+attribute.name.length()+2,' ');
       strutils::replace_all(attr_value,"\n","\n"+indent);
-      std::cout << attr_value << " (char)" << std::endl;
+      cout << attr_value << " (char)" << endl;
       break;
     }
     case DataType::SHORT: {
       for (size_t n=0; n < attribute.num_values; ++n) {
         if (n > 0) {
-          std::cout << ", " << (reinterpret_cast<short *>(attribute.values))[n];
+          cout << ", " << (reinterpret_cast<short *>(attribute.values))[n];
         }
         else {
-          std::cout << (reinterpret_cast<short *>(attribute.values))[n];
+          cout << (reinterpret_cast<short *>(attribute.values))[n];
         }
       }
-      std::cout << " (short)" << std::endl;
+      cout << " (short)" << endl;
       break;
     }
     case DataType::INT: {
       for (size_t n=0; n < attribute.num_values; ++n) {
         if (n > 0) {
-          std::cout << ", " << (reinterpret_cast<int *>(attribute.values))[n];
+          cout << ", " << (reinterpret_cast<int *>(attribute.values))[n];
         }
         else {
-          std::cout << (reinterpret_cast<int *>(attribute.values))[n];
+          cout << (reinterpret_cast<int *>(attribute.values))[n];
         }
       }
-      std::cout << " (int)" << std::endl;
+      cout << " (int)" << endl;
       break;
     }
     case DataType::FLOAT: {
       for (size_t n=0; n < attribute.num_values; ++n) {
         if (n > 0) {
-          std::cout << ", " << (reinterpret_cast<float *>(attribute.values))[n];
+          cout << ", " << (reinterpret_cast<float *>(attribute.values))[n];
         }
         else {
-          std::cout << (reinterpret_cast<float *>(attribute.values))[n];
+          cout << (reinterpret_cast<float *>(attribute.values))[n];
         }
       }
-      std::cout << " (float)" << std::endl;
+      cout << " (float)" << endl;
       break;
     }
     case DataType::DOUBLE: {
       for (size_t n=0; n < attribute.num_values; ++n) {
         if (n > 0) {
-          std::cout << ", " << (reinterpret_cast<double *>(attribute.values))[n];
+          cout << ", " << (reinterpret_cast<double *>(attribute.values))[n];
         }
         else {
-          std::cout << (reinterpret_cast<double *>(attribute.values))[n];
+          cout << (reinterpret_cast<double *>(attribute.values))[n];
         }
       }
-      std::cout << " (double)" << std::endl;
+      cout << " (double)" << endl;
       break;
     }
     default: {
@@ -1596,7 +1643,7 @@ void InputNetCDFStream::print_attribute(const Attribute& attribute,size_t left_m
 
 bool InputNetCDFStream::print_indexes(const Variable& variable,size_t elem_num) const
 {
-  std::string indexes;
+  string indexes;
   if (variable.dimids.size() == 0) {
     indexes="(0)";
   }
@@ -1662,7 +1709,7 @@ bool InputNetCDFStream::print_indexes(const Variable& variable,size_t elem_num) 
     delete[] num_in_div;
   }
   if (indexes.length() > 0) {
-    std::cout << "(" << indexes << ")";
+    cout << "(" << indexes << ")";
     return true;
   }
   else {
@@ -1670,7 +1717,7 @@ bool InputNetCDFStream::print_indexes(const Variable& variable,size_t elem_num) 
   }
 }
 
-size_t InputNetCDFStream::variable_dimensions(std::string variable_name,size_t **address_of_dimension_array) const
+size_t InputNetCDFStream::variable_dimensions(string variable_name,size_t **address_of_dimension_array) const
 {
   auto var_index=find_variable(variable_name);
   if (var_index < 0) {
@@ -1688,7 +1735,7 @@ size_t InputNetCDFStream::variable_dimensions(std::string variable_name,size_t *
   return vars[var_index].dimids.size();
 }
 
-void InputNetCDFStream::variable_value(std::string variable_name,std::string indexes,void **value)
+void InputNetCDFStream::variable_value(string variable_name,string indexes,void **value)
 {
 }
 
@@ -1700,10 +1747,10 @@ OutputNetCDFStream::~OutputNetCDFStream()
 }
 
 
-bool OutputNetCDFStream::open(std::string filename)
+bool OutputNetCDFStream::open(string filename)
 {
   if (fs.is_open()) {
-    std::cerr << "Error: there is already an open OutputNetCDFStream" << std::endl;
+    cerr << "Error: there is already an open OutputNetCDFStream" << endl;
     exit(1);
   }
   file_name=filename;
@@ -1759,13 +1806,13 @@ bool OutputNetCDFStream::close()
   return true;
 }
 
-void OutputNetCDFStream::add_dimension(std::string name,size_t length)
+void OutputNetCDFStream::add_dimension(string name,size_t length)
 {
   size_t n=dims.size();
   if (length == 0) {
     for (size_t m=0; m < n; ++m) {
       if (dims[m].is_rec) {
-        myerror="a record dimension has already been specified - "+std::string(name)+" cannot be a record dimension";
+        myerror="a record dimension has already been specified - "+string(name)+" cannot be a record dimension";
         exit(1);
       }
     }
@@ -1882,7 +1929,7 @@ void OutputNetCDFStream::add_record_data(VariableData& variable_data,size_t num_
   }
 }
 
-void OutputNetCDFStream::add_variable(std::string name,DataType data_type,size_t num_ids,size_t *dimension_ids)
+void OutputNetCDFStream::add_variable(string name,DataType data_type,size_t num_ids,size_t *dimension_ids)
 {
   size_t n=vars.size();
   vars.resize(n+1);
@@ -1912,7 +1959,7 @@ void OutputNetCDFStream::add_variable(std::string name,DataType data_type,size_t
   }
 }
 
-void OutputNetCDFStream::add_variable(std::string name,DataType data_type,const std::vector<size_t>& dimension_ids)
+void OutputNetCDFStream::add_variable(string name,DataType data_type,const vector<size_t>& dimension_ids)
 {
   size_t n=vars.size();
   vars.resize(n+1);
@@ -1942,7 +1989,7 @@ void OutputNetCDFStream::add_variable(std::string name,DataType data_type,const 
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,unsigned char value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,unsigned char value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1950,7 +1997,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,std::string value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,string value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1958,7 +2005,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,short value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,short value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1966,7 +2013,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,int value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,int value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1974,7 +2021,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,float value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,float value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1982,7 +2029,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,double value)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,double value)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -1990,7 +2037,7 @@ void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::s
   }
 }
 
-void OutputNetCDFStream::add_variable_attribute(std::string variable_name,std::string attribute_name,DataType data_type,size_t num_values,void *values)
+void OutputNetCDFStream::add_variable_attribute(string variable_name,string attribute_name,DataType data_type,size_t num_values,void *values)
 {
   int n;
   if ( (n=find_variable(variable_name)) >= 0) {
@@ -2060,7 +2107,7 @@ void OutputNetCDFStream::write_header()
   }
 }
 
-void OutputNetCDFStream::write_non_record_data(std::string variable_name,void *data_array)
+void OutputNetCDFStream::write_non_record_data(string variable_name,void *data_array)
 {
   if (started_record_vars) {
     myerror="cannot write non-record variables after record variables";
@@ -2120,7 +2167,7 @@ void OutputNetCDFStream::write_non_record_data(std::string variable_name,void *d
   curr_offset+=(data_type_bytes[static_cast<int>(vars[index].data_type)]*num_values);
 }
 
-void OutputNetCDFStream::initialize_non_record_data(std::string variable_name)
+void OutputNetCDFStream::initialize_non_record_data(string variable_name)
 {
   if (started_record_vars) {
     myerror="cannot write non-record variables after record variables";
@@ -2203,7 +2250,7 @@ void OutputNetCDFStream::write_partial_non_record_data(void *data_array,int num_
   }
 }
 
-void OutputNetCDFStream::add_attribute(std::vector<Attribute>& attributes_to_grow,std::string name,DataType data_type,size_t num_values,void *values)
+void OutputNetCDFStream::add_attribute(vector<Attribute>& attributes_to_grow,string name,DataType data_type,size_t num_values,void *values)
 {
   size_t n=attributes_to_grow.size();
   size_t m;
@@ -2221,8 +2268,8 @@ void OutputNetCDFStream::add_attribute(std::vector<Attribute>& attributes_to_gro
       break;
     }
     case DataType::CHAR: {
-      attributes_to_grow[n].values=new std::string;
-      (*reinterpret_cast<std::string *>(attributes_to_grow[n].values))=(*reinterpret_cast<std::string *>(values));
+      attributes_to_grow[n].values=new string;
+      (*reinterpret_cast<string *>(attributes_to_grow[n].values))=(*reinterpret_cast<string *>(values));
       break;
     }
     case DataType::SHORT: {
@@ -2257,7 +2304,7 @@ void OutputNetCDFStream::add_attribute(std::vector<Attribute>& attributes_to_gro
   }
 }
 
-void OutputNetCDFStream::put_string(const std::string& string_to_put)
+void OutputNetCDFStream::put_string(const string& string_to_put)
 {
   size_t str_len=string_to_put.length();
   char tmpbuf[4],zero=0;
@@ -2274,7 +2321,7 @@ void OutputNetCDFStream::put_string(const std::string& string_to_put)
   }
 }
 
-void OutputNetCDFStream::put_attributes(const std::vector<Attribute>& attributes_to_put)
+void OutputNetCDFStream::put_attributes(const vector<Attribute>& attributes_to_put)
 {
   unsigned char tmpbuf[8];
   int flag=0;
@@ -2328,7 +2375,7 @@ curr_offset+=data_type_bytes[static_cast<int>(DataType::BYTE)]*fill;
         break;
       }
       case DataType::CHAR: {
-        put_string(*(reinterpret_cast<std::string *>(attributes_to_put[n].values)));
+        put_string(*(reinterpret_cast<string *>(attributes_to_put[n].values)));
         break;
       }
       case DataType::SHORT: {
