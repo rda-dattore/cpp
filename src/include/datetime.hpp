@@ -70,7 +70,7 @@ public:
   void set_day(short day) { m_day=day; }
   void set_month(short month) { m_month=month; }
   void set_time(size_t hhmmss);
-  void set_to_current();
+  void set_to_current(bool set_to_utc = false);
   void set_utc_offset(short utc_offset_as_hhmm);
   void set_weekday(short weekday) { m_weekday=weekday; }
   void set_year(short year) { m_year=year; }
@@ -129,7 +129,7 @@ extern int julian_day(size_t year, size_t month, size_t day, size_t base_year =
 extern std::string string_date_to_ll_string(std::string date);
 extern std::string string_ll_to_date_string(std::string ll_date);
 
-extern DateTime current_date_time();
+extern DateTime current_date_time(bool is_utc = false);
 extern DateTime from_unixtime(long long unixtime);
 
 extern bool is_leap_year(size_t year, std::string calendar = "");
