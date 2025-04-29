@@ -268,7 +268,9 @@ string gridded_netcdf_time_range_description2(const TimeRangeEntry2& tre2, const
 }
 
 string time_method_from_cell_methods(string cell_methods, string timeid) {
-  static unique_ptr<unordered_set<string>> cmset(nullptr);
+  if (cell_methods.empty()) {
+    return "";
+  }
   while (cell_methods.find("  ") != string::npos) {
     replace_all(cell_methods, "  ", " ");
   }
@@ -277,46 +279,48 @@ string time_method_from_cell_methods(string cell_methods, string timeid) {
   replace_all(cell_methods, "comment:", "");
   replace_all(cell_methods, "comments:", "");
   auto idx = cell_methods.find(timeid + ": ");
-  if (!cell_methods.empty() && idx != string::npos) {
-    if (idx != 0) {
-      cell_methods = cell_methods.substr(idx);
-    }
-    replace_all(cell_methods, timeid + ": ", "");
-    trim(cell_methods);
-    idx = cell_methods.find(": ");
-    if (idx != string::npos) {
-      auto idx2 = cell_methods.find(")");
-      if (idx2 == string::npos) {
-
-        // no extra information in parentheses
-        cell_methods = cell_methods.substr(0, idx);
-        cell_methods = cell_methods.substr(0, cell_methods.rfind(" "));
-      } else {
-
-        // found extra information so include that in the methods
-        cell_methods = cell_methods.substr(0, idx2 + 1);
-      }
-    }
-    if (cmset == nullptr) {
-      cmset.reset(new unordered_set<string>);
-      cmset->emplace("point");
-      cmset->emplace("sum");
-      cmset->emplace("maximum");
-      cmset->emplace("median");
-      cmset->emplace("mid_range");
-      cmset->emplace("minimum");
-      cmset->emplace("mean");
-      cmset->emplace("mode");
-      cmset->emplace("standard_deviation");
-      cmset->emplace("variance");
-    }
-    if (cmset->find(cell_methods) == cmset->end()) {
-      cell_methods = "!" + cell_methods;
-    }
-    return cell_methods;
-  } else {
+  if (idx == string::npos) {
     return "";
   }
+  if (idx != 0) {
+    cell_methods = cell_methods.substr(idx);
+  }
+  replace_all(cell_methods, timeid + ": ", "");
+  trim(cell_methods);
+  idx = cell_methods.find(": ");
+  if (idx != string::npos) {
+    auto idx2 = cell_methods.find(")");
+    if (idx2 == string::npos) {
+
+      // no extra information in parentheses
+      cell_methods = cell_methods.substr(0, idx);
+      cell_methods = cell_methods.substr(0, cell_methods.rfind(" "));
+    } else {
+
+      // found extra information so include that in the methods
+//        cell_methods = cell_methods.substr(0, idx2 + 1);
+cell_methods = cell_methods.substr(0, idx);
+cell_methods = cell_methods.substr(0, cell_methods.rfind(" "));
+    }
+  }
+  static unique_ptr<unordered_set<string>> cmset(nullptr);
+  if (cmset == nullptr) {
+    cmset.reset(new unordered_set<string>);
+    cmset->emplace("point");
+    cmset->emplace("sum");
+    cmset->emplace("maximum");
+    cmset->emplace("median");
+    cmset->emplace("mid_range");
+    cmset->emplace("minimum");
+    cmset->emplace("mean");
+    cmset->emplace("mode");
+    cmset->emplace("standard_deviation");
+    cmset->emplace("variance");
+  }
+  if (cmset->find(cell_methods) == cmset->end()) {
+    cell_methods = "!" + cell_methods;
+  }
+  return cell_methods;
 }
 
 } // end namespace NcTime
