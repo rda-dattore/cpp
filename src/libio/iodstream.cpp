@@ -59,9 +59,11 @@ void idstream::close() {
   } else if (if77s != nullptr) {
     if77s->close();
     if77s.reset(nullptr);
+#ifdef __WITH_S3
   } else if (is3s != nullptr) {
     is3s->close();
     is3s.reset(nullptr);
+#endif
   }
 }
 
@@ -74,12 +76,14 @@ bool idstream::open(string filename) {
     throw runtime_error("currently connected to another file stream");
   }
   num_read = 0;
+#ifdef __WITH_S3
   if (filename.substr(0, 4) == "http") {
 
     // file is on an S3 device
     is3s.reset(new is3stream);
     return is3s->open(filename);
   }
+#endif
 
   // check for rptout-blocked first, since rptout files can have COS-blocking on
   //  them
