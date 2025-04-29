@@ -42,14 +42,18 @@ string remote_web_file(string URL, string local_tmpdir) {
   f = local_tmpdir + URL.substr(URL.rfind("/"));
   auto fp = fopen(f.c_str(), "w");
   curl_easy_setopt(c, CURLOPT_WRITEDATA, fp);
+  replace_all(URL, "%", "%25");
   curl_easy_setopt(c, CURLOPT_URL, URL.c_str());
+  curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0);
   auto n = 0;
   while (curl_easy_perform(c) != CURLE_OK && n < 3) {
     std::this_thread::sleep_for(std::chrono::seconds(15));
     ++n;
   }
   fclose(fp);
-  if (n == 3) {
+  long rcode;
+  curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &rcode);
+  if (rcode != 200 || n == 3) {
     remove(f.c_str());
     f = "";
   }
@@ -74,7 +78,8 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
   list<string> hlst;
   error = "";
   if (!hosts_loaded(hlst, rdadata_home)) {
-    error = "rdadata_sync() unable to get list of host names";
+    error = "rdadata_sync() unable to get list of host names from conf in '" +
+        rdadata_home + "'";
     return -1;
   }
   if (setreuid(15968, 15968) != 0) {
@@ -116,8 +121,6 @@ int rdadata_unsync(string remote_filename, string local_tmpdir, string
     auto idx = f.rfind("/");
     auto p = f.substr(0, idx);
     f = f.substr(idx + 1);
-//    auto e = retry_command("/bin/sh -c \"" + rdadata_home + "/bin/" + h +
-//        "-sync -d " + f + "\"", 3);
     auto e = retry_command("/bin/sh -c 'rsync -r -e __INNER_QUOTE__ssh -i " +
         rdadata_home + "/.ssh/" + h + "-sync_rdadata_rsa -l "
         "rdadata__INNER_QUOTE__ --delete --include=" + f +
@@ -127,7 +130,6 @@ int rdadata_unsync(string remote_filename, string local_tmpdir, string
       if (!error.empty()) {
         error += ", ";
       }
-//      error += h + "-sync error: *'" + e + "'*";
       error += "rsync error on '" + h + "': *'" + e + "'*";
       i = -1;
     }
