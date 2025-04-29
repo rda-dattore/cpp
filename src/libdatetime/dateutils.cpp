@@ -114,9 +114,9 @@ string string_ll_to_date_string(string ll_date) {
   return ll_date;
 }
 
-DateTime current_date_time() {
+DateTime current_date_time(bool is_utc) {
   DateTime d;
-  d.set_to_current();
+  d.set_to_current(is_utc);
   return d;
 }
 

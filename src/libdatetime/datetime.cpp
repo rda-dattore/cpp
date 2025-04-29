@@ -91,8 +91,8 @@ void DateTime::add_days(size_t days_to_add, string calendar) {
 }
 
 void DateTime::add_hours(size_t hours_to_add, string calendar) {
-  auto d=hours_to_add / 24;
-  auto h=hours_to_add % 24;
+  auto d = hours_to_add / 24;
+  auto h = hours_to_add % 24;
   m_hour += h;
   if (m_hour > 23) {
     m_hour -= 24;
@@ -449,7 +449,7 @@ void DateTime::set(size_t hours_to_add, const DateTime& reference, string
   this->add_hours(hours_to_add, calendar);
 }
 
-void DateTime::set_to_current() {
+void DateTime::set_to_current(bool set_to_utc) {
   auto tm = ::time(nullptr);
   auto t = localtime(&tm);
   set(t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour * 10000 +
@@ -460,6 +460,14 @@ void DateTime::set_to_current() {
   }
   set_utc_offset(tz);
   m_weekday = t->tm_wday;
+  if (set_to_utc) {
+    if (tz > 0) {
+      subtract_hours(tz / 100);
+    } else {
+      add_hours(-tz / 100);
+    }
+    set_utc_offset(0);
+  }
 }
 
 void DateTime::set_utc_offset(short utc_offset_as_hhmm) {
