@@ -32,7 +32,7 @@ public:
       payload = "", PayloadType payload_type = PayloadType::STRING_);
   void set_range(std::string range_bytes) { range_bytes_ = range_bytes; }
   std::pair<long long, double> sha_benchmark() const {
-    return std::move(std::make_pair(sha_bytes_, sha_time_));
+    return std::make_pair(sha_bytes_, sha_time_);
   }
   void show() const;
   std::string signed_headers() const { return signed_headers_; }
@@ -102,11 +102,11 @@ public:
   std::string object_metadata(std::string bucket_name, std::string key);
   std::vector<Object> objects(std::string bucket_name);
   std::pair<long long, double> sha_benchmark() const {
-    return std::move(std::make_pair(sha_bytes_, sha_time_));
+    return std::make_pair(sha_bytes_, sha_time_);
   }
   const unsigned char *signing_key() const { return signing_key_; }
   std::pair<long long, double> upload_benchmark() const {
-    return std::move(std::make_pair(upload_bytes_, upload_time_));
+    return std::make_pair(upload_bytes_, upload_time_);
   }
   bool upload_file(std::string filename, std::string bucket_name, std::string
       key, std::string& error);
