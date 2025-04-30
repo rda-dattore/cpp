@@ -14,47 +14,47 @@ ACFTSUBS = $(SOURCEDIR)/libacft/datsavaircraft.cpp $(SOURCEDIR)/libacft/tdf57air
 ACFTOBJS = datsavaircraft.o tdf57aircraft.o
 #
 ifneq ($(wildcard $(SOURCEDIR)/libbitmap/*.cpp),)
-BITMAPOBJS = $(shell ls -1 $(SOURCEDIR)/libbitmap/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libbitmap/libbitmap\/singularity/")
+BITMAPOBJS = $(shell ls -1 $(SOURCEDIR)/libbitmap/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libbufr/*.cpp),)
-BUFROBJS = $(shell ls -1 $(SOURCEDIR)/libbufr/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libbufr/libbufr\/singularity/")
+BUFROBJS = $(shell ls -1 $(SOURCEDIR)/libbufr/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libcitation/*.cpp),)
-CITATIONOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libcitation/libcitation\/singularity/")
+CITATIONOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libcitation_pg/*.cpp),)
-CITATION_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libcitation_pg/libcitation_pg\/singularity/")
+CITATION_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libcyclone/*.cpp),)
-CYCLONEOBJS = $(shell ls -1 $(SOURCEDIR)/libcyclone/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libcyclone/libcyclone\/singularity/")
+CYCLONEOBJS = $(shell ls -1 $(SOURCEDIR)/libcyclone/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libdatetime/*.cpp),)
-DATETIMEOBJS = $(shell ls -1 $(SOURCEDIR)/libdatetime/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libdatetime/libdatetime\/singularity/")
+DATETIMEOBJS = $(shell ls -1 $(SOURCEDIR)/libdatetime/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/liberror/*.cpp),)
-ERROROBJS = $(shell ls -1 $(SOURCEDIR)/liberror/*.cpp |sed "s/\.cpp/\.o/" |sed "s/liberror/liberror\/singularity/")
+ERROROBJS = $(shell ls -1 $(SOURCEDIR)/liberror/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libgrids/*.cpp),)
-GRIDOBJS = $(shell ls -1 $(SOURCEDIR)/libgrids/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libgrids/libgrids\/singularity/")
+GRIDOBJS = $(shell ls -1 $(SOURCEDIR)/libgrids/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libgridutils/*.cpp),)
-GRIDUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libgridutils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libgridutils/libgridutils\/singularity/")
+GRIDUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libgridutils/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libhdf/*.cpp),)
-HDFOBJS = $(shell ls -1 $(SOURCEDIR)/libhdf/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libhdf/libhdf\/singularity/")
+HDFOBJS = $(shell ls -1 $(SOURCEDIR)/libhdf/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libio/*.cpp),)
-IOOBJS = $(shell ls -1 $(SOURCEDIR)/libio/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libio/libio\/singularity/")
+IOOBJS = $(shell ls -1 $(SOURCEDIR)/libio/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 IOSUBS_F77 = $(SOURCEDIR)/crayopen.f $(SOURCEDIR)/rptopen.f
@@ -63,90 +63,90 @@ IOOBJS_F77 = crayopen.o rptopen.o
 IOMETASUBS = $(SOURCEDIR)/libiometadata/iometautils.cpp
 IOMETAOBJS = iometautils.o
 #
-#JSONOBJS = $(shell ls -1 $(SOURCEDIR)/libjson/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libjson/libjson\/singularity/")
+#JSONOBJS = $(shell ls -1 $(SOURCEDIR)/libjson/*.cpp |sed "s/\.cpp/\.o/")
 #
-#LDAPOBJS = $(shell ls -1 $(SOURCEDIR)/libmyldap/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmyldap/libmyldap\/singularity/")
+#LDAPOBJS = $(shell ls -1 $(SOURCEDIR)/libmyldap/*.cpp |sed "s/\.cpp/\.o/")
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetaexport/*.cpp),)
-METAEXPORTOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexport/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetaexport/libmetaexport\/singularity/")
+METAEXPORTOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexport/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetaexport_pg/*.cpp),)
-METAEXPORT_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexport_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetaexport_pg/libmetaexport_pg\/singularity/")
+METAEXPORT_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexport_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetaexporthelpers/*.cpp),)
-METAEXPORTHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexporthelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetaexporthelpers/libmetaexporthelpers\/singularity/")
+METAEXPORTHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexporthelpers/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetaexporthelpers_pg/*.cpp),)
-METAEXPORTHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexporthelpers_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetaexporthelpers_pg/libmetaexporthelpers_pg\/singularity/")
+METAEXPORTHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexporthelpers_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers/*.cpp),)
-METAHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetahelpers/libmetahelpers\/singularity/")
+METAHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers_pg/*.cpp),)
-METAHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetahelpers_pg/libmetahelpers_pg\/singularity/")
+METAHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetautils/*.cpp),)
-METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetautils/libmetautils\/singularity/")
+METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmetautils_pg/*.cpp),)
-METAUTIL_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetautils_pg/libmetautils_pg\/singularity/")
+METAUTIL_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
-#MYCURLOBJS = $(shell ls -1 $(SOURCEDIR)/libmycurl/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmycurl/libmycurl\/singularity/")
+#MYCURLOBJS = $(shell ls -1 $(SOURCEDIR)/libmycurl/*.cpp |sed "s/\.cpp/\.o/")
 #
 ifneq ($(wildcard $(SOURCEDIR)/libmyssl/*.cpp),)
-MYSSLOBJS = $(shell ls -1 $(SOURCEDIR)/libmyssl/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmyssl/libmyssl\/singularity/")
+MYSSLOBJS = $(shell ls -1 $(SOURCEDIR)/libmyssl/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libobs/*.cpp),)
-OBSOBJS = $(shell ls -1 $(SOURCEDIR)/libobs/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libobs/libobs\/singularity/")
+OBSOBJS = $(shell ls -1 $(SOURCEDIR)/libobs/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libpostgresql/*.cpp),)
-POSTGRESQLOBJS = $(shell ls -1 $(SOURCEDIR)/libpostgresql/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libpostgresql/libpostgresql\/singularity/")
+POSTGRESQLOBJS = $(shell ls -1 $(SOURCEDIR)/libpostgresql/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libs3/*.cpp),)
-S3OBJS = $(shell ls -1 $(SOURCEDIR)/libs3/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libs3/libs3\/singularity/")
+S3OBJS = $(shell ls -1 $(SOURCEDIR)/libs3/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libsearch/*.cpp),)
-SEARCHOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsearch/libsearch\/singularity/")
+SEARCHOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libsearch_pg/*.cpp),)
-SEARCH_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsearch_pg/libsearch_pg\/singularity/")
+SEARCH_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch_pg/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
-#SOCKOBJS = $(shell ls -1 $(SOURCEDIR)/libsock/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsock/libsock\/singularity/")
+#SOCKOBJS = $(shell ls -1 $(SOURCEDIR)/libsock/*.cpp |sed "s/\.cpp/\.o/")
 #
 SPELLCHECKERSUBS = $(SOURCEDIR)/libspellchecker/spellchecker.cpp
 SPELLCHECKEROBJS = spellchecker.o
 #
 ifneq ($(wildcard $(SOURCEDIR)/libutils/*.cpp),)
-UTILOBJS = $(shell ls -1 $(SOURCEDIR)/libutils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libutils/libutils\/singularity/")
+UTILOBJS = $(shell ls -1 $(SOURCEDIR)/libutils/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libutilsthread/*.cpp),)
-UTILSTHREADOBJS = $(shell ls -1 $(SOURCEDIR)/libutilsthread/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libutilsthread/libutilsthread\/singularity/")
+UTILSTHREADOBJS = $(shell ls -1 $(SOURCEDIR)/libutilsthread/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libweb/*.cpp),)
-WEBOBJS = $(shell ls -1 $(SOURCEDIR)/libweb/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libweb/libweb\/singularity/")
+WEBOBJS = $(shell ls -1 $(SOURCEDIR)/libweb/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libxml/*.cpp),)
-XMLOBJS = $(shell ls -1 $(SOURCEDIR)/libxml/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libxml/libxml\/singularity/")
+XMLOBJS = $(shell ls -1 $(SOURCEDIR)/libxml/*.cpp |sed "s/\.cpp/\.o/")
 endif
 #
-#YAMLOBJS = $(shell ls -1 $(SOURCEDIR)/libyaml/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libyaml/libyaml\/singularity/")
+#YAMLOBJS = $(shell ls -1 $(SOURCEDIR)/libyaml/*.cpp |sed "s/\.cpp/\.o/")
 #
 all: libbitmap.so libbufr.so libcitation.so libcitation_pg.so libcyclone.so liberror.so libgrids.so libgridutils.so libhdf.so obj_iometadata libiometadata.so libio.so libjson.so libmetaexport.so libmetaexport_pg.so libmetaexporthelpers.so libmetaexporthelpers_pg.so libmetahelpers.so libmetahelpers_pg.so libmetautils.so libmycurl.so libobs.so libpostgresql.so libsearch.so libsearch_pg.so libsock.so obj_spellchecker libspellchecker.so libutils.so libutilsthread.so libweb.so libxml.so libyaml.so
 #
