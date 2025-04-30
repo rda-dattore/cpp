@@ -1,6 +1,5 @@
 #include <utils.hpp>
 
-using std::move;
 using std::string;
 
 namespace miscutils {
@@ -18,7 +17,7 @@ size_t min_byte_width(size_t value) {
 }
 
 string this_function_label(string function_name) {
-  return move(string(function_name + "()"));
+  return string(function_name + "()");
 }
 
 } // end namespace miscutils
