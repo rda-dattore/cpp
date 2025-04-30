@@ -71,7 +71,7 @@ int InputNavySpotStream::ignore()
   }
 }
 
-bool InputNavySpotStream::open(const char *filename)
+bool InputNavySpotStream::open(std::string filename)
 {
   if (is_open()) {
     std::cerr << "Error: currently connected to another file stream" << std::endl;

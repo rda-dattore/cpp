@@ -14,7 +14,7 @@ public:
   ~InputNavySpotStream();
 //  InputNavySpotStream& operator=(const InputNavySpotStream& source);
   int ignore();
-  bool open(const char *filename);
+  bool open(std::string filename);
   int peek();
   int read(unsigned char *buffer,size_t buffer_length);
 private:
