@@ -9,6 +9,7 @@
 
 using std::runtime_error;
 using std::string;
+using std::to_string;
 
 #ifndef __cosutils
 
@@ -5673,94 +5674,92 @@ void fill_level_data(const GRIB2Grid& grid,short& level_type,double& level1,doub
   }
 }
 
-void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_range,short& nmean,short& nmean_missing)
-{
-  std::vector<GRIB2Grid::StatisticalProcessRange> stat_process_ranges;
-  size_t n;
-
+void fill_time_range_data(const GRIB2Grid& grid, short& p1, short& p2, short&
+    t_range, short& nmean, short& nmean_missing) {
   switch (grid.product_type()) {
     case 0:
     case 1:
     case 2: {
-      t_range=0;
-      p1=grid.forecast_time();
-      p2=0;
-      nmean=nmean_missing=0;
+      t_range = 0;
+      p1 = grid.forecast_time();
+      p2 = 0;
+      nmean = 0;
+      nmean_missing = 0;
       break;
     }
     case 8:
     case 11:
     case 12: {
       if (grid.number_of_statistical_process_ranges() > 1) {
-        myerror="unable to map multiple ("+strutils::itos(grid.number_of_statistical_process_ranges())+") statistical processes to GRIB1";
+        myerror = "unable to map multiple (" + to_string(
+            grid.number_of_statistical_process_ranges()) + ") statistical "
+            "processes to GRIB1";
         exit(1);
       }
-      stat_process_ranges=grid.statistical_process_ranges();
-      for (n=0; n < stat_process_ranges.size(); ++n) {
+      auto stat_process_ranges = grid.statistical_process_ranges();
+      for (size_t n = 0; n < stat_process_ranges.size(); ++n) {
         switch(stat_process_ranges[n].type) {
           case 0:
           case 1:
           case 4: {
             switch(stat_process_ranges[n].type) {
               case 0: {
-// average
-                t_range=3;
+                // average
+                t_range = 3;
                 break;
               }
               case 1: {
-// accumulation
-                t_range=4;
+                // accumulation
+                t_range = 4;
                 break;
               }
               case 4: {
-// difference
-                t_range=5;
+                // difference
+                t_range = 5;
                 break;
               }
             }
-            p1=grid.forecast_time();
-            p2=grib_utils::p2_from_statistical_end_time(grid);
+            p1 = grid.forecast_time();
+            p2 = grib_utils::p2_from_statistical_end_time(grid);
             if (stat_process_ranges[n].period_time_increment.value == 0) {
-              nmean=0;
-            }
-            else {
-              myerror="unable to map discrete processing to GRIB1";
+              nmean = 0;
+            } else {
+              myerror = "unable to map discrete processing to GRIB1";
               exit(1);
             }
             break;
           }
           case 2:
           case 3: {
-// maximum
-// minimum
-            t_range=2;
-            p1=grid.forecast_time();
-            p2=grib_utils::p2_from_statistical_end_time(grid);
+            // maximum
+            // minimum
+            t_range = 2;
+            p1 = grid.forecast_time();
+            p2 = grib_utils::p2_from_statistical_end_time(grid);
             if (stat_process_ranges[n].period_time_increment.value == 0) {
-              nmean=0;
-            }
-            else {
-              myerror="unable to map discrete processing to GRIB1";
+              nmean = 0;
+            } else {
+              myerror = "unable to map discrete processing to GRIB1";
               exit(1);
             }
             break;
           }
           default: {
-// patch for NCEP grids
+            // patch for NCEP grids
             if (stat_process_ranges[n].type == 255 && grid.source() == 7) {
                if (grid.discipline() == 0) {
                 if (grid.parameter_category() == 0) {
                   switch (grid.parameter()) {
                     case 4:
                     case 5: {
-                      t_range=2;
-                      p1=grid.forecast_time();
-                      p2=grib_utils::p2_from_statistical_end_time(grid);
-                      if (stat_process_ranges[n].period_time_increment.value == 0) {
-                        nmean=0;
-                      }
-                      else {
-                        myerror="unable to map discrete processing to GRIB1";
+                      t_range = 2;
+                      p1 = grid.forecast_time();
+                      p2 = grib_utils::p2_from_statistical_end_time(grid);
+                      if (stat_process_ranges[n].period_time_increment.value ==
+                          0) {
+                        nmean = 0;
+                      } else {
+                        myerror = "unable to map discrete processing to GRIB1";
                         exit(1);
                       }
                       break;
@@ -5768,19 +5767,20 @@ void fill_time_range_data(const GRIB2Grid& grid,short& p1,short& p2,short& t_ran
                   }
                 }
               }
-            }
-            else {
-              myerror="unable to map statistical process "+strutils::itos(stat_process_ranges[n].type)+" to GRIB1";
+            } else {
+              myerror = "unable to map statistical process " + to_string(
+                  stat_process_ranges[n].type) + " to GRIB1";
               exit(1);
             }
           }
         }
       }
-      nmean_missing=grid.number_missing_from_statistical_process();
+      nmean_missing = grid.number_missing_from_statistical_process();
       break;
     }
     default: {
-      myerror="unable to map time range for Product Definition Template "+strutils::itos(grid.product_type())+" into GRIB1";
+      myerror = "unable to map time range for Product Definition Template " +
+          to_string(grid.product_type()) + " into GRIB1";
       exit(1);
     }
   }
