@@ -35,10 +35,6 @@ ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers/*.cpp),)
 METAHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetahelpers/$(LIBDIR)\/obj/")
 endif
 #
-ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers_pg/*.cpp),)
-METAHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetahelpers_pg/$(LIBDIR)\/obj/")
-endif
-#
 ifneq ($(wildcard $(SOURCEDIR)/libmetautils/*.cpp),)
 METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetautils/$(LIBDIR)\/obj/")
 endif
@@ -79,7 +75,7 @@ ifneq ($(wildcard $(SOURCEDIR)/libxml/*.cpp),)
 XMLOBJS = $(shell ls -1 $(SOURCEDIR)/libxml/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libxml/$(LIBDIR)\/obj/")
 endif
 #
-all: libbitmap.so libdatetime.so liberror.so libgrids.so libgridutils.so libio.so libjson.so libmetahelpers.so libmetahelpers_pg.so libmetautils.so libmyssl.so libpostgresql.so libs3.so libsearch.so libutils.so libutilsthread.so libweb.so libxml.so
+all: libbitmap.so libdatetime.so liberror.so libgrids.so libgridutils.so libio.so libjson.so libmetahelpers.so libmetahelpers.so libmetautils.so libmyssl.so libpostgresql.so libs3.so libsearch.so libutils.so libutilsthread.so libweb.so libxml.so
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
@@ -111,10 +107,10 @@ $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libio/%.cpp $(INCLUDEDIR)/iodstream.hpp
 libio.so: $(IOOBJS) $(INCLUDEDIR)/utils.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libio.so -Wl,-soname,libio.so $(IOOBJS)
 #
-$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetahelpers_pg/%.cpp
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetahelpers/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libmetahelpers_pg.so: $(METAHELPERS_PGOBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers_pg.so -Wl,-soname,libmetahelpers_pg.so $(METAHELPERS_PGOBJS)
+libmetahelpers.so: $(METAHELPERSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers.so -Wl,-soname,libmetahelpers.so $(METAHELPERSOBJS)
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetautils_pg/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
