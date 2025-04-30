@@ -2,6 +2,7 @@ CC_COMPILER = g++
 CC_OPTIONS = -Wall -Wold-style-cast -c -O3 -fPIC -std=c++17 -Weffc++
 SOURCEDIR = src
 INCLUDEDIR = include
+JASPERINCLUDEDIR = /usr/lib/x86_64-linux-gnu/include
 POSTGRESQLINCLUDEDIR = /usr/include/postgresql
 LIBDIR = /usr/lib64/mylibs
 LIBVERSION =
@@ -202,7 +203,7 @@ liberror.so: $(ERROROBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/liberror.so -Wl,-soname,liberror.so $(ERROROBJS)
 #
 $(SOURCEDIR)/libgrids/%.o: $(SOURCEDIR)/libgrids/%.cpp $(INCLUDEDIR)/grid.hpp
-	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -D__WITH_JASPER -o $@
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(JASPERINCLUDEDIR) -D__WITH_JASPER -o $@
 libgrids.so: $(GRIDOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libgrids.so -Wl,-soname,libgrids.so $(GRIDOBJS)
 #
