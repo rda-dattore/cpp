@@ -572,8 +572,8 @@ public:
       const;
   short forecast_process() const { return grib2.fcstgen_process; }
   short local_table_code() const { return grib2.local_table; }
-  std::vector<StatisticalProcessRange> statistical_process_ranges() const {
-      return grib2.stat_process_ranges; }
+  const std::vector<StatisticalProcessRange>& statistical_process_ranges()
+      const { return grib2.stat_process_ranges; }
   size_t number_missing_from_statistical_process() const { return
       grib2.stat_process_nmissing; }
   size_t number_of_statistical_process_ranges() const { return
