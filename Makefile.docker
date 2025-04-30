@@ -171,52 +171,52 @@ else
 endif
 endif
 #
-$(SOURCEDIR)/libbitmap/singularity/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
+$(SOURCEDIR)/libbitmap/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libbitmap.so: $(BITMAPOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libbitmap.so -Wl,-soname,libbitmap.so $(BITMAPOBJS)
 #
-$(SOURCEDIR)/libbufr/singularity/%.o: $(SOURCEDIR)/libbufr/%.cpp $(INCLUDEDIR)/bufr.hpp
+$(SOURCEDIR)/libbufr/%.o: $(SOURCEDIR)/libbufr/%.cpp $(INCLUDEDIR)/bufr.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libbufr.so: $(BUFROBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libbufr.so -Wl,-soname,libbufr.so $(BUFROBJS)
 #
-$(SOURCEDIR)/libcitation_pg/singularity/%.o: $(SOURCEDIR)/libcitation_pg/%.cpp $(INCLUDEDIR)/citation_pg.hpp
+$(SOURCEDIR)/libcitation_pg/%.o: $(SOURCEDIR)/libcitation_pg/%.cpp $(INCLUDEDIR)/citation_pg.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libcitation_pg.so: $(CITATION_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libcitation_pg.so -Wl,-soname,libcitation_pg.so $(CITATION_PGOBJS)
 #
-$(SOURCEDIR)/libcyclone/singularity/%.o: $(SOURCEDIR)/libcyclone/%.cpp $(INCLUDEDIR)/cyclone.hpp
+$(SOURCEDIR)/libcyclone/%.o: $(SOURCEDIR)/libcyclone/%.cpp $(INCLUDEDIR)/cyclone.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libcyclone.so: $(CYCLONEOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libcyclone.so -Wl,-soname,libcyclone.so $(CYCLONEOBJS)
 #
-$(SOURCEDIR)/libdatetime/singularity/%.o: $(SOURCEDIR)/libdatetime/%.cpp $(INCLUDEDIR)/datetime.hpp
+$(SOURCEDIR)/libdatetime/%.o: $(SOURCEDIR)/libdatetime/%.cpp $(INCLUDEDIR)/datetime.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libdatetime.so: $(DATETIMEOBJS) $(INCLUDEDIR)/datetime.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libdatetime.so -Wl,-soname,libdatetime.so $(DATETIMEOBJS)
 #
-$(SOURCEDIR)/liberror/singularity/%.o: $(SOURCEDIR)/liberror/%.cpp
+$(SOURCEDIR)/liberror/%.o: $(SOURCEDIR)/liberror/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 liberror.so: $(ERROROBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/liberror.so -Wl,-soname,liberror.so $(ERROROBJS)
 #
-$(SOURCEDIR)/libgrids/singularity/%.o: $(SOURCEDIR)/libgrids/%.cpp $(INCLUDEDIR)/grid.hpp
+$(SOURCEDIR)/libgrids/%.o: $(SOURCEDIR)/libgrids/%.cpp $(INCLUDEDIR)/grid.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -D__WITH_JASPER -o $@
 libgrids.so: $(GRIDOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libgrids.so -Wl,-soname,libgrids.so $(GRIDOBJS)
 #
-$(SOURCEDIR)/libgridutils/singularity/%.o: $(SOURCEDIR)/libgridutils/%.cpp
+$(SOURCEDIR)/libgridutils/%.o: $(SOURCEDIR)/libgridutils/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libgridutils.so: $(GRIDUTILOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libgridutils.so -Wl,-soname,libgridutils.so $(GRIDUTILOBJS)
 #
-$(SOURCEDIR)/libhdf/singularity/%.o: $(SOURCEDIR)/libhdf/%.cpp $(INCLUDEDIR)/hdf.hpp
+$(SOURCEDIR)/libhdf/%.o: $(SOURCEDIR)/libhdf/%.cpp $(INCLUDEDIR)/hdf.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libhdf.so: $(HDFOBJS) $(INCLUDEDIR)/hdf.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libhdf.so -Wl,-soname,libhdf.so $(HDFOBJS)
 #
-$(SOURCEDIR)/libio/singularity/%.o: $(SOURCEDIR)/libio/%.cpp $(INCLUDEDIR)/iodstream.hpp
+$(SOURCEDIR)/libio/%.o: $(SOURCEDIR)/libio/%.cpp $(INCLUDEDIR)/iodstream.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libio.so: $(IOOBJS) $(INCLUDEDIR)/utils.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libio.so -Wl,-soname,libio.so $(IOOBJS)
@@ -227,92 +227,92 @@ libiof.so: $(IOSUBS_F77) $(SOURCEDIR)/craywrap.cpp $(SOURCEDIR)/rptinwrap.cpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libiof.so -Wl,-soname,libiof.so myerror_f77.o craywrap.o rptinwrap.o $(IOOBJS_F77)
 	cp libiof.so $(DSSLIBDIR)
 #
-$(SOURCEDIR)/libjson/singularity/%.o: $(SOURCEDIR)/libjson/%.cpp $(INCLUDEDIR)/json.hpp
+$(SOURCEDIR)/libjson/%.o: $(SOURCEDIR)/libjson/%.cpp $(INCLUDEDIR)/json.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libjson.so: $(JSONOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libjson.so -Wl,-soname,libjson.so $(JSONOBJS)
 #
-$(SOURCEDIR)/libmyldap/singularity/%.o: $(SOURCEDIR)/libmyldap/%.cpp
+$(SOURCEDIR)/libmyldap/%.o: $(SOURCEDIR)/libmyldap/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libmyldap.so: $(LDAPOBJS) $(INCLUDEDIR)/MyLDAP.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmyldap.so -Wl,-soname,libmyldap.so $(LDAPOBJS)
 #
-$(SOURCEDIR)/libmetaexport_pg/singularity/%.o: $(SOURCEDIR)/libmetaexport_pg/%.cpp
+$(SOURCEDIR)/libmetaexport_pg/%.o: $(SOURCEDIR)/libmetaexport_pg/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libmetaexport_pg.so: $(METAEXPORT_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetaexport_pg.so -Wl,-soname,libmetaexport_pg.so $(METAEXPORT_PGOBJS)
 #
-$(SOURCEDIR)/libmetaexporthelpers_pg/singularity/%.o: $(SOURCEDIR)/libmetaexporthelpers_pg/%.cpp
+$(SOURCEDIR)/libmetaexporthelpers_pg/%.o: $(SOURCEDIR)/libmetaexporthelpers_pg/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libmetaexporthelpers_pg.so: $(METAEXPORTHELPERS_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetaexporthelpers_pg.so -Wl,-soname,libmetaexporthelpers_pg.so $(METAEXPORTHELPERS_PGOBJS)
 #
-$(SOURCEDIR)/libmetahelpers_pg/singularity/%.o: $(SOURCEDIR)/libmetahelpers_pg/%.cpp
+$(SOURCEDIR)/libmetahelpers_pg/%.o: $(SOURCEDIR)/libmetahelpers_pg/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libmetahelpers_pg.so: $(METAHELPERS_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers_pg.so -Wl,-soname,libmetahelpers_pg.so $(METAHELPERS_PGOBJS)
 #
-$(SOURCEDIR)/libmetautils_pg/singularity/%.o: $(SOURCEDIR)/libmetautils_pg/%.cpp
+$(SOURCEDIR)/libmetautils_pg/%.o: $(SOURCEDIR)/libmetautils_pg/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libmetautils_pg.so: $(METAUTIL_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils_pg.so -Wl,-soname,libmetautils_pg.so $(METAUTIL_PGOBJS)
 #
-$(SOURCEDIR)/libmycurl/singularity/%.o: $(SOURCEDIR)/libmycurl/%.cpp
+$(SOURCEDIR)/libmycurl/%.o: $(SOURCEDIR)/libmycurl/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libmycurl.so: $(MYCURLOBJS) $(INCLUDEDIR)/mycurl.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmycurl.so -Wl,-soname,libmycurl.so $(MYCURLOBJS)
 #
-$(SOURCEDIR)/libmyssl/singularity/%.o: $(SOURCEDIR)/libmyssl/%.cpp
+$(SOURCEDIR)/libmyssl/%.o: $(SOURCEDIR)/libmyssl/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libmyssl.so: $(MYSSLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmyssl.so -Wl,-soname,libmyssl.so $(MYSSLOBJS)
 #
-$(SOURCEDIR)/libobs/singularity/%.o: $(SOURCEDIR)/libobs/%.cpp
+$(SOURCEDIR)/libobs/%.o: $(SOURCEDIR)/libobs/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libobs.so: $(OBSOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libobs.so -Wl,-soname,libobs.so $(OBSOBJS)
 #
-$(SOURCEDIR)/libs3/singularity/%.o: $(SOURCEDIR)/libs3/%.cpp $(INCLUDEDIR)/s3.hpp
+$(SOURCEDIR)/libs3/%.o: $(SOURCEDIR)/libs3/%.cpp $(INCLUDEDIR)/s3.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libs3.so: $(S3OBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libs3.so -Wl,-soname,libs3.so $(S3OBJS)
 #
-$(SOURCEDIR)/libpostgresql/singularity/%.o: $(SOURCEDIR)/libpostgresql/%.cpp $(INCLUDEDIR)/PostgreSQL.hpp
+$(SOURCEDIR)/libpostgresql/%.o: $(SOURCEDIR)/libpostgresql/%.cpp $(INCLUDEDIR)/PostgreSQL.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libpostgresql.so: $(POSTGRESQLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libpostgresql.so -Wl,-soname,libpostgresql.so $(POSTGRESQLOBJS)
 #
-$(SOURCEDIR)/libsearch_pg/singularity/%.o: $(SOURCEDIR)/libsearch_pg/%.cpp $(INCLUDEDIR)/search_pg.hpp
+$(SOURCEDIR)/libsearch_pg/%.o: $(SOURCEDIR)/libsearch_pg/%.cpp $(INCLUDEDIR)/search_pg.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libsearch_pg.so: $(SEARCH_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch_pg.so -Wl,-soname,libsearch_pg.so $(SEARCH_PGOBJS)
 #
-$(SOURCEDIR)/libsock/singularity/%.o: $(SOURCEDIR)/libsock/%.cpp
+$(SOURCEDIR)/libsock/%.o: $(SOURCEDIR)/libsock/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libsock.so: $(SOCKOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libsock.so -Wl,-soname,libsock.so $(SOCKOBJS)
 #
-$(SOURCEDIR)/libutils/singularity/%.o: $(SOURCEDIR)/libutils/%.cpp
+$(SOURCEDIR)/libutils/%.o: $(SOURCEDIR)/libutils/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libutils.so: $(UTILOBJS) $(INCLUDEDIR)/utils.hpp $(INCLUDEDIR)/strutils.hpp
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libutils.so -Wl,-soname,libutils.so $(UTILOBJS)
 #
-$(SOURCEDIR)/libutilsthread/singularity/%.o: $(SOURCEDIR)/libutilsthread/%.cpp
+$(SOURCEDIR)/libutilsthread/%.o: $(SOURCEDIR)/libutilsthread/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libutilsthread.so: $(UTILSTHREADOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libutilsthread.so -Wl,-soname,libutilsthread.so $(UTILSTHREADOBJS)
 #
-$(SOURCEDIR)/libweb/singularity/%.o: $(SOURCEDIR)/libweb/%.cpp
+$(SOURCEDIR)/libweb/%.o: $(SOURCEDIR)/libweb/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libweb.so: $(WEBOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libweb.so -Wl,-soname,libweb.so $(WEBOBJS)
 #
-$(SOURCEDIR)/libxml/singularity/%.o: $(SOURCEDIR)/libxml/%.cpp
+$(SOURCEDIR)/libxml/%.o: $(SOURCEDIR)/libxml/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libxml.so: $(XMLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libxml.so -Wl,-soname,libxml.so $(XMLOBJS)
 #
-$(SOURCEDIR)/libyaml/singularity/%.o: $(SOURCEDIR)/libyaml/%.cpp
+$(SOURCEDIR)/libyaml/%.o: $(SOURCEDIR)/libyaml/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libyaml.so: $(YAMLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libyaml.so -Wl,-soname,libyaml.so $(YAMLOBJS)
