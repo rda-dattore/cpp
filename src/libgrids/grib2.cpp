@@ -2527,7 +2527,7 @@ int encode_jpeg2000(unsigned char *cin,int *pwidth,int *pheight,int *pnbits,
     image.maxcmpts_=1;
     image.clrspc_=JAS_CLRSPC_SGRAY;
     image.cmprof_=0; 
-    image.inmem_=1;
+//    image.inmem_=1;
     cmpt.tlx_=0;
     cmpt.tly_=0;
     cmpt.hstep_=1;
