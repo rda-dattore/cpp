@@ -39,10 +39,6 @@ ifneq ($(wildcard $(SOURCEDIR)/libmetautils/*.cpp),)
 METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetautils/$(LIBDIR)\/obj/")
 endif
 #
-ifneq ($(wildcard $(SOURCEDIR)/libmetautils_pg/*.cpp),)
-METAUTIL_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetautils_pg/$(LIBDIR)\/obj/")
-endif
-#
 ifneq ($(wildcard $(SOURCEDIR)/libmyssl/*.cpp),)
 MYSSLOBJS = $(shell ls -1 $(SOURCEDIR)/libmyssl/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmyssl/$(LIBDIR)\/obj/")
 endif
@@ -112,10 +108,10 @@ $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetahelpers/%.cpp
 libmetahelpers.so: $(METAHELPERSOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers.so -Wl,-soname,libmetahelpers.so $(METAHELPERSOBJS)
 #
-$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetautils_pg/%.cpp
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetautils/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libmetautils_pg.so: $(METAUTIL_PGOBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils_pg.so -Wl,-soname,libmetautils_pg.so $(METAUTIL_PGOBJS)
+libmetautils.so: $(METAUTILOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils.so -Wl,-soname,libmetautils.so $(METAUTILOBJS)
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmyssl/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
