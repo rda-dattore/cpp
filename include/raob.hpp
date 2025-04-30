@@ -193,7 +193,8 @@ public:
   OutputUSSRRaobStream() {}
   OutputUSSRRaobStream(const char *filename,size_t blocking_flag);
 //  OutputUSSRRaobStream(const OutputUSSRRaobStream& source) { *this=source; }
-  bool open(const char *filename,iods::Blocking blocking_flag = iods::Blocking::cos);
+  bool open(std::string filename, iods::Blocking blocking_flag = iods::
+      Blocking::cos);
   int write(const unsigned char *buffer,size_t num_bytes);
 };
 
