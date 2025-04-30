@@ -85,7 +85,7 @@ tuple<string, DateTime> interval_24_hour_forecast_averages(string f, const
           "from time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> successive_forecast_averages(string f, const DateTime&
@@ -143,7 +143,7 @@ tuple<string, DateTime> successive_forecast_averages(string f, const DateTime&
           " (successive_forecast_averages)");
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_2(string f, const DateTime& v1, short t,
@@ -207,7 +207,7 @@ tuple<string, DateTime> time_range_2(string f, const DateTime& v1, short t,
           "from time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_3(const DateTime& v1, short t, short p1,
@@ -249,7 +249,7 @@ tuple<string, DateTime> time_range_3(const DateTime& v1, short t, short p1,
           "time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime, DateTime> time_range_4_5(const DateTime& r, short n,
@@ -327,7 +327,7 @@ tuple<string, DateTime, DateTime> time_range_4_5(const DateTime& r, short n,
           "time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, f, v));
+  return make_tuple(p, f, v);
 }
 
 tuple<string, DateTime, DateTime> time_range_7(const DateTime& r, short c, short
@@ -377,7 +377,7 @@ tuple<string, DateTime, DateTime> time_range_7(const DateTime& r, short c, short
     throw my::BadSpecification_Error("time range 7 not defined for center " +
         to_string(c));
   }
-  return move(make_tuple(p, f, v));
+  return make_tuple(p, f, v);
 }
 
 tuple<string, DateTime> time_range_51(const DateTime& r, short t, short p1,
@@ -414,7 +414,7 @@ tuple<string, DateTime> time_range_51(const DateTime& r, short t, short p1,
         to_string(n));
   }
   p = to_string(n) + "-year Climatology of " + p;
-  return move(make_tuple(p, v));
+  return make_tuple(p, v);
 }
 
 tuple<string, DateTime> time_range_113(string f, const DateTime& v1, short t,
@@ -473,7 +473,7 @@ tuple<string, DateTime> time_range_113(string f, const DateTime& v1, short t,
           "from time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_118(const DateTime& v1, short t, short p1,
@@ -525,7 +525,7 @@ tuple<string, DateTime> time_range_118(const DateTime& v1, short t, short p1,
           "from time units " + to_string(t) + " (time_range_118)");
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_120(string f, const DateTime& v1, short t,
@@ -575,7 +575,7 @@ tuple<string, DateTime> time_range_120(string f, const DateTime& v1, short t,
           "from time units " + to_string(t) + " (time_range_120)");
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_123(string f, const DateTime& v1, short t,
@@ -626,7 +626,7 @@ tuple<string, DateTime> time_range_123(string f, const DateTime& v1, short t,
           "from time units " + to_string(t));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_128(string f, short c, short s, const
@@ -703,7 +703,7 @@ tuple<string, DateTime> time_range_128(string f, short c, short s, const
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_129(string f, short c, short s, const
@@ -804,7 +804,7 @@ tuple<string, DateTime> time_range_129(string f, short c, short s, const
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_130(string f, short c, short s, const
@@ -867,7 +867,7 @@ tuple<string, DateTime> time_range_130(string f, short c, short s, const
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_131(string f, short c, short s, const
@@ -942,7 +942,7 @@ tuple<string, DateTime> time_range_131(string f, short c, short s, const
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_132(short c, short s, const DateTime& v1,
@@ -981,7 +981,7 @@ tuple<string, DateTime> time_range_132(short c, short s, const DateTime& v1,
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_133(short c, const DateTime& v1, short t,
@@ -1026,7 +1026,7 @@ tuple<string, DateTime> time_range_133(short c, const DateTime& v1, short t,
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_137(string f, short c, const DateTime& v1,
@@ -1087,7 +1087,7 @@ tuple<string, DateTime> time_range_137(string f, short c, const DateTime& v1,
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<string, DateTime> time_range_138(string f, short c, const DateTime& v1,
@@ -1157,7 +1157,7 @@ tuple<string, DateTime> time_range_138(string f, short c, const DateTime& v1,
           "center " + to_string(c));
     }
   }
-  return move(make_tuple(p, v2));
+  return make_tuple(p, v2);
 }
 
 tuple<DateTime, size_t> forecast_time_data(size_t p1, short t, const DateTime&
@@ -1209,7 +1209,7 @@ tuple<DateTime, size_t> forecast_time_data(size_t p1, short t, const DateTime&
           "units " + to_string(t));
     }
   }
-  return move(make_tuple(f, h));
+  return make_tuple(f, h);
 }
 
 // input:
@@ -1347,7 +1347,7 @@ tuple<string, DateTime, DateTime, size_t> grib_product(GRIBGrid *grid) {
           grid->time_range()) + " not recognized");
     }
   }
-  return move(make_tuple(p, f, v, h));
+  return make_tuple(p, f, v, h);
 }
 
 tuple<string, DateTime> local_use_grib2_product(short src, short sub_ctr,
@@ -1577,7 +1577,7 @@ tuple<string, DateTime, DateTime> grib2_product(GRIB2Grid *grid) {
         string s;
         tie(s, v) = local_use_grib2_product(grid->source(), grid->
             sub_center_id(), spranges, f, u);
-        return move(make_tuple(s, f, v));
+        return make_tuple(s, f, v);
       }
       p = "";
       for (size_t n = 0; n < spranges.size(); ++n) {
@@ -1594,7 +1594,7 @@ tuple<string, DateTime, DateTime> grib2_product(GRIB2Grid *grid) {
           product_type()) + " not recognized");
     }
   }
-  return move(make_tuple(p, f, v));
+  return make_tuple(p, f, v);
 }
 
 short p2_from_statistical_end_time(const GRIB2Grid& grid) {
