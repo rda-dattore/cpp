@@ -1,4 +1,4 @@
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 
 namespace searchutils {
 
@@ -12,11 +12,11 @@ extern std::string root_of_word(std::string word);
 extern std::string time_resolution_keyword(std::string frequency_type, int
     number, std::string unit, std::string statistics);
 
-extern bool indexed_locations(MySQL::Server& server, std::string dsnum, std::
-    string& error);
-extern bool indexed_variables(MySQL::Server& server, std::string dsnum, std::
-    string& error);
-extern bool inserted_word_into_search_wordlist(MySQL::Server& server, const
+extern bool indexed_locations(PostgreSQL::Server& server, std::string dsnum,
+    std::string& error);
+extern bool indexed_variables(PostgreSQL::Server& server, std::string dsnum,
+    std::string& error);
+extern bool inserted_word_into_search_wordlist(PostgreSQL::Server& server, const
     std::string& table, std::string dsnum, std::string word, size_t& location,
     std::string uflg, std::string& error);
 extern bool is_compound_term(std::string word, std::string& separator);
