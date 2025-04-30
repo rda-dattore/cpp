@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cstdint>
 #include <list>
 #include <deque>
 #include <vector>
