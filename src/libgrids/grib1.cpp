@@ -5696,7 +5696,7 @@ void fill_time_range_data(const GRIB2Grid& grid, short& p1, short& p2, short&
             "processes to GRIB1";
         exit(1);
       }
-      auto stat_process_ranges = grid.statistical_process_ranges();
+      auto& stat_process_ranges = grid.statistical_process_ranges();
       for (size_t n = 0; n < stat_process_ranges.size(); ++n) {
         switch(stat_process_ranges[n].type) {
           case 0:
