@@ -116,14 +116,17 @@ void create_curl_script(const vector<string>& filelist, string server, string
     string inv_file = "/usr/local/www/server_root/web/datasets/ds" + dsnum +
         "/metadata/inv/" + file + ".GrML_inv";
     struct stat buf;
-    if (stat(inv_file.c_str(), &buf) != 0) {
-      stringstream iss;
-      system(("/usr/local/www/server_root/web/cgi-bin/datasets/inventory " +
-          dsnum + " GrML " + file + " 2>&1 1>/dev/null").c_str());
+    auto status = stat(inv_file.c_str(), &buf);
+    if (status != 0) {
+      status = system(("/usr/local/www/server_root/web/cgi-bin/datasets/"
+          "inventory " + dsnum + " GrML " + file + " 2>&1 1>/dev/null").
+          c_str());
+      if (status == 0) {
+        status = stat(inv_file.c_str(), &buf);
+      }
     }
-    if (stat(inv_file.c_str(), &buf) == 0 && (!parameters.empty() || !level.
-        empty() || !product.empty() || (!start_date.empty() && !end_date.
-        empty()))) {
+    if (status == 0 && (!parameters.empty() || !level.empty() || !product.
+        empty() || (!start_date.empty() && !end_date.empty()))) {
       unordered_set<string> parameter_set, level_set, product_set;
       vector<long long> range_start, range_end;
       long long last_match = -1;
