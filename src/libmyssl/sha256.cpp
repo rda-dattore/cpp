@@ -5,6 +5,7 @@
 #include <memory>
 #include <sstream>
 #include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/stat.h>
 #include <strutils.hpp>
@@ -35,26 +36,27 @@ unsigned char *sha256_file(string filename, unsigned char (&message_digest)[32],
   }
   struct timespec time_start;
   clock_gettime(CLOCK_MONOTONIC, &time_start);
-  SHA256_CTX ctx;
-  SHA256_Init(&ctx);
+  auto *ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
   struct stat buf;
   stat(filename.c_str(), &buf);
   const size_t BUF_LEN = min(buf.st_size, static_cast<off_t>(100000000));
   unique_ptr<char[]> buffer(new char[BUF_LEN]);
   ifs.read(buffer.get(), BUF_LEN);
   while (!ifs.eof()) {
-    SHA256_Update(&ctx, buffer.get(), ifs.gcount());
+    EVP_DigestUpdate(ctx, buffer.get(), ifs.gcount());
     if (benchmark_bytes != nullptr) {
       (*benchmark_bytes) += ifs.gcount();
     }
     ifs.read(buffer.get(), BUF_LEN);
   }
-  SHA256_Update(&ctx, buffer.get(), ifs.gcount());
+  EVP_DigestUpdate(ctx, buffer.get(), ifs.gcount());
   if (benchmark_bytes != nullptr) {
     (*benchmark_bytes) += ifs.gcount();
   }
   ifs.close();
-  SHA256_Final(message_digest, &ctx);
+  EVP_DigestFinal_ex(ctx, message_digest, nullptr);
+  EVP_MD_CTX_free(ctx);
   struct timespec time_end;
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   if (benchmark_time != nullptr) {
@@ -74,8 +76,8 @@ unsigned char *sha256_file_range(string filename, string range_bytes, unsigned
   }
   struct timespec time_start;
   clock_gettime(CLOCK_MONOTONIC, &time_start);
-  SHA256_CTX ctx;
-  SHA256_Init(&ctx);
+  auto *ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
   auto bytes = split(range_bytes, "-");
   auto file_offset = stoll(bytes.front());
   ifs.seekg(file_offset, std::ios::beg);
@@ -89,22 +91,23 @@ unsigned char *sha256_file_range(string filename, string range_bytes, unsigned
     if (num_read > num_bytes) {
       break;
     }
-    SHA256_Update(&ctx, buffer.get(), ifs.gcount());
+    EVP_DigestUpdate(ctx, buffer.get(), ifs.gcount());
     if (benchmark_bytes != nullptr) {
       (*benchmark_bytes) += ifs.gcount();
     }
     ifs.read(buffer.get(), BUF_LEN);
   }
   if (ifs.gcount() < BUF_LEN) {
-    SHA256_Update(&ctx, buffer.get(), ifs.gcount());
+    EVP_DigestUpdate(ctx, buffer.get(), ifs.gcount());
   } else {
-    SHA256_Update(&ctx, buffer.get(), ifs.gcount() - num_read + num_bytes);
+    EVP_DigestUpdate(ctx, buffer.get(), ifs.gcount() - num_read + num_bytes);
   }
   if (benchmark_bytes != nullptr) {
     (*benchmark_bytes) += ifs.gcount();
   }
   ifs.close();
-  SHA256_Final(message_digest, &ctx);
+  EVP_DigestFinal_ex(ctx, message_digest, nullptr);
+  EVP_MD_CTX_free(ctx);
   struct timespec time_end;
   clock_gettime(CLOCK_MONOTONIC, &time_end);
   if (benchmark_time != nullptr) {
