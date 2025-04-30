@@ -51,17 +51,14 @@ int InputUSSRRaobStream::read(unsigned char *buffer,size_t buffer_length)
   return bytes_read;
 }
 
-bool OutputUSSRRaobStream::open(const char *filename,iods::Blocking blocking_flag)
-{
+bool OutputUSSRRaobStream::open(std::string filename, iods::Blocking
+    blocking_flag) {
   if (blocking_flag == iods::Blocking::cos) {
-    return odstream::open(filename,blocking_flag);
+    return odstream::open(filename, blocking_flag);
   }
-  else {
-    std::cerr << "Error in OutputUSSRRaobStream::open: only COS-blocked output is "
-      << "currently supported" << std::endl;
-    exit(1);
-  }
-  return false;
+  std::cerr << "Error in OutputUSSRRaobStream::open: only COS-blocked output "
+      "is " << "currently supported" << std::endl;
+  exit(1);
 }
 
 int OutputUSSRRaobStream::write(const unsigned char *buffer,size_t num_bytes)
