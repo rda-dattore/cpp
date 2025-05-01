@@ -20,8 +20,9 @@ using strutils::to_lower;
 using strutils::to_upper;
 using strutils::trim;
 
-SpellChecker::SpellChecker() : valids_tables(), misspelled_words_() {
-  Server server("rda-db.ucar.edu", "metadata", "metadata", "rdadb");
+SpellChecker::SpellChecker(DBconfig db_config) : valids_tables(),
+    misspelled_words_() {
+  Server server(db_config);
   if (server) {
     add_to_hash(server, "metautil.word_valids", "word", valids_tables.words);
     add_to_hash(server, "metautil.acronym_valids", "word", valids_tables.
