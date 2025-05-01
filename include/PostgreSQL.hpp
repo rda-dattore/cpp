@@ -9,6 +9,16 @@
 
 namespace PostgreSQL {
 
+struct DBconfig {
+  DBconfig() : user(), password(), host(), dbname() { }
+  DBconfig(std::string user_, std::string password_, std::string host_,
+      std::string dbname_) :
+      DBconfig() { user = user_; password = password_; host = host_;
+          dbname = dbname_; }
+
+  std::string user, password, host, dbname;
+};
+
 struct PGresult_deleter {
   void operator()(PGresult *result) {
     if (result != nullptr) {
@@ -43,11 +53,16 @@ public:
   Server(std::string host, std::string user, std::string password, std::string
       db, int timeout = -1) :
       Server() { connect(host, user, password, db, timeout); }
+  Server(DBconfig db_config, int timeout = -1) :
+      Server() { connect(db_config.host, db_config.user, db_config.password,
+          db_config.dbname, timeout); }
   Server operator=(const Server& source) = delete;
   operator bool() const { return PQstatus(conn.get()) != CONNECTION_BAD; }
   int command(std::string command, std::string *result = nullptr);
   void connect(std::string host, std::string user, std::string password, std::
       string db, int timeout = -1);
+  void connect(DBconfig db_config, int timeout = -1) { connect(db_config.host,
+      db_config.user, db_config.password, db_config.dbname, timeout); }
   PGconn *connection() { return conn.get(); }
   int create_index(std::string absolute_table, std::string index_name, std::
       string column_list);
