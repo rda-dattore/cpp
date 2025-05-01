@@ -6,7 +6,8 @@
 
 class SpellChecker {
 public:
-  SpellChecker();
+  SpellChecker() = delete;
+  SpellChecker(PostgreSQL::DBconfig db_config);
   ~SpellChecker();
   int check(std::string text);
   std::vector<std::string> misspelled_words() { return misspelled_words_; }
