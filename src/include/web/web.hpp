@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <ftw.h>
+#include <PostgreSQL.hpp>
 #include <mymap.hpp>
 #include <tempfile.hpp>
 #include <datetime.hpp>
