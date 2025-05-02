@@ -12,6 +12,8 @@
 #include <bsort.hpp>
 
 using namespace PostgreSQL;
+using std::endl;
+using strutils::replace_all;
 
 namespace metadataExport {
 
@@ -34,8 +36,8 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
   };
   TempDir temp_dir;
   if (!temp_dir.create("/tmp")) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Error creating temporary directory" << std::endl;
+    std::cout << "Content-type: text/plain" << endl << endl;
+    std::cout << "Error creating temporary directory" << endl;
     exit(1);
   }
   Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
@@ -43,136 +45,138 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
   auto e=xdoc.element("dsOverview/creator@vocabulary=GCMD");
   auto dss_centername=e.attribute_value("name");
   if (strutils::contains(dss_centername,"/SCD/")) {
-    strutils::replace_all(dss_centername,"SCD","CISL");
+    replace_all(dss_centername,"SCD","CISL");
   }
-  ofs << indent << "<DIF xmlns=\"http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/\"" << std::endl;
-  ofs << indent << "     xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
-  ofs << indent << "     xsi:schemaLocation=\"http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/" << std::endl;
-  ofs << indent << "                         http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/dif_v9.7.1.xsd\">" << std::endl;
+  ofs << indent << "<DIF xmlns=\"http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/\"" << endl;
+  ofs << indent << "     xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << endl;
+  ofs << indent << "     xsi:schemaLocation=\"http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/" << endl;
+  ofs << indent << "                         http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/dif_v9.7.1.xsd\">" << endl;
   ofs << indent << "  <Entry_ID>NCAR_GDEX_" << dsid << "</Entry_ID>" << std::
       endl;
   e=xdoc.element("dsOverview/title");
   auto dstitle=e.content();
-  ofs << indent << "  <Entry_Title>" << dstitle << "</Entry_Title>" << std::endl;
-  ofs << indent << "  <Data_Set_Citation>" << std::endl;
-  ofs << indent << "    <Dataset_Creator>" << dss_centername << "</Dataset_Creator>" << std::endl;
-  ofs << indent << "    <Dataset_Title>" << dstitle << "</Dataset_Title>" << std::endl;
-  ofs << indent << "    <Dataset_Publisher>" << dss_centername << "</Dataset_Publisher>" << std::endl;
-  ofs << indent << "    <Online_Resource>https://rda.ucar.edu/datasets/" << dsid << "/</Online_Resource>" << std::endl;
-  ofs << indent << "  </Data_Set_Citation>" << std::endl;
+  ofs << indent << "  <Entry_Title>" << dstitle << "</Entry_Title>" << endl;
+  ofs << indent << "  <Data_Set_Citation>" << endl;
+  ofs << indent << "    <Dataset_Creator>" << dss_centername << "</Dataset_Creator>" << endl;
+  ofs << indent << "    <Dataset_Title>" << dstitle << "</Dataset_Title>" << endl;
+  ofs << indent << "    <Dataset_Publisher>" << dss_centername << "</Dataset_Publisher>" << endl;
+  ofs << indent << "    <Online_Resource>https://rda.ucar.edu/datasets/" << dsid << "/</Online_Resource>" << endl;
+  ofs << indent << "  </Data_Set_Citation>" << endl;
   auto elist=xdoc.element_list("dsOverview/contact");
   for (const auto& element : elist) {
-    ofs << indent << "  <Personnel>" << std::endl;
-    ofs << indent << "    <Role>Technical Contact</Role>" << std::endl;
+    ofs << indent << "  <Personnel>" << endl;
+    ofs << indent << "    <Role>Technical Contact</Role>" << endl;
     auto contact_name=element.content();
     auto idx=contact_name.find(" ");
     auto fname=contact_name.substr(0,idx);
     auto lname=contact_name.substr(idx+1);
     LocalQuery query("logname,phoneno","dssdb.dssgrp","fstname = '"+fname+"' and lstname = '"+lname+"'");
     if (query.submit(server) < 0) {
-        std::cout << "Content-type: text/plain" << std::endl << std::endl;
-        std::cout << "Database error: " << query.error() << std::endl;
+        std::cout << "Content-type: text/plain" << endl << endl;
+        std::cout << "Database error: " << query.error() << endl;
         exit(1);
     }
     Row row;
     query.fetch_row(row);
-    ofs << indent << "    <First_Name>" << fname << "</First_Name>" << std::endl;
-    ofs << indent << "    <Last_Name>" << lname << "</Last_Name>" << std::endl;
-    ofs << indent << "    <Email>" << row[0] << "@ucar.edu</Email>" << std::endl;
-    ofs << indent << "    <Phone>" << row[1] << "</Phone>" << std::endl;
-    ofs << indent << "    <Fax>(303)-497-1291</Fax>" << std::endl;
-    ofs << indent << "    <Contact_Address>" << std::endl;
-    ofs << indent << "      <Address>National Center for Atmospheric Research</Address>" << std::endl;
-    ofs << indent << "      <Address>CISL/DSS</Address>" << std::endl;
-    ofs << indent << "      <Address>P.O. Box 3000</Address>" << std::endl;
-    ofs << indent << "      <City>Boulder</City>" << std::endl;
-    ofs << indent << "      <Province_or_State>CO</Province_or_State>" << std::endl;
-    ofs << indent << "      <Postal_Code>80307</Postal_Code>" << std::endl;
-    ofs << indent << "      <Country>U.S.A.</Country>" << std::endl;
-    ofs << indent << "    </Contact_Address>" << std::endl;
-    ofs << indent << "  </Personnel>" << std::endl;
+    ofs << indent << "    <First_Name>" << fname << "</First_Name>" << endl;
+    ofs << indent << "    <Last_Name>" << lname << "</Last_Name>" << endl;
+    ofs << indent << "    <Email>" << row[0] << "@ucar.edu</Email>" << endl;
+    ofs << indent << "    <Phone>" << row[1] << "</Phone>" << endl;
+    ofs << indent << "    <Fax>(303)-497-1291</Fax>" << endl;
+    ofs << indent << "    <Contact_Address>" << endl;
+    ofs << indent << "      <Address>National Center for Atmospheric Research</Address>" << endl;
+    ofs << indent << "      <Address>CISL/DSS</Address>" << endl;
+    ofs << indent << "      <Address>P.O. Box 3000</Address>" << endl;
+    ofs << indent << "      <City>Boulder</City>" << endl;
+    ofs << indent << "      <Province_or_State>CO</Province_or_State>" << endl;
+    ofs << indent << "      <Postal_Code>80307</Postal_Code>" << endl;
+    ofs << indent << "      <Country>U.S.A.</Country>" << endl;
+    ofs << indent << "    </Contact_Address>" << endl;
+    ofs << indent << "  </Personnel>" << endl;
   }
-  ofs << indent << "  <Personnel>" << std::endl;
-  ofs << indent << "    <Role>DIF Author</Role>" << std::endl;
-  ofs << indent << "    <First_Name>Bob</First_Name>" << std::endl;
-  ofs << indent << "    <Last_Name>Dattore</Last_Name>" << std::endl;
-  ofs << indent << "    <Email>dattore@ucar.edu</Email>" << std::endl;
-  ofs << indent << "    <Phone>(303)-497-1825</Phone>" << std::endl;
-  ofs << indent << "    <Fax>(303)-497-1291</Fax>" << std::endl;
-  ofs << indent << "    <Contact_Address>" << std::endl;
-  ofs << indent << "      <Address>National Center for Atmospheric Research</Address>" << std::endl;
-  ofs << indent << "      <Address>CISL/DSS</Address>" << std::endl;
-  ofs << indent << "      <Address>P.O. Box 3000</Address>" << std::endl;
-  ofs << indent << "      <City>Boulder</City>" << std::endl;
-  ofs << indent << "      <Province_or_State>CO</Province_or_State>" << std::endl;
-  ofs << indent << "      <Postal_Code>80307</Postal_Code>" << std::endl;
-  ofs << indent << "      <Country>U.S.A.</Country>" << std::endl;
-  ofs << indent << "    </Contact_Address>" << std::endl;
-  ofs << indent << "  </Personnel>" << std::endl;
+  ofs << indent << "  <Personnel>" << endl;
+  ofs << indent << "    <Role>DIF Author</Role>" << endl;
+  ofs << indent << "    <First_Name>Bob</First_Name>" << endl;
+  ofs << indent << "    <Last_Name>Dattore</Last_Name>" << endl;
+  ofs << indent << "    <Email>dattore@ucar.edu</Email>" << endl;
+  ofs << indent << "    <Phone>(303)-497-1825</Phone>" << endl;
+  ofs << indent << "    <Fax>(303)-497-1291</Fax>" << endl;
+  ofs << indent << "    <Contact_Address>" << endl;
+  ofs << indent << "      <Address>National Center for Atmospheric Research</Address>" << endl;
+  ofs << indent << "      <Address>CISL/DSS</Address>" << endl;
+  ofs << indent << "      <Address>P.O. Box 3000</Address>" << endl;
+  ofs << indent << "      <City>Boulder</City>" << endl;
+  ofs << indent << "      <Province_or_State>CO</Province_or_State>" << endl;
+  ofs << indent << "      <Postal_Code>80307</Postal_Code>" << endl;
+  ofs << indent << "      <Country>U.S.A.</Country>" << endl;
+  ofs << indent << "    </Contact_Address>" << endl;
+  ofs << indent << "  </Personnel>" << endl;
   LocalQuery query("select g.path from search.variables as v left join search.gcmd_sciencekeywords as g on g.uuid = v.keyword where v.dsid = '"+dsid+"' and v.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
+    std::cout << "Content-type: text/plain" << endl << endl;
+    std::cout << "Database error: " << query.error() << endl;
     exit(1);
   }
   for (const auto& row : query) {
     auto parts=strutils::split(row[0]," > ");
-    ofs << indent << "  <Parameters>" << std::endl;
-    ofs << indent << "    <Category>" << parts[0] << "</Category>" << std::endl;
-    ofs << indent << "    <Topic>" << parts[1] << "</Topic>" << std::endl;
-    ofs << indent << "    <Term>" << parts[2] << "</Term>" << std::endl;
-    ofs << indent << "    <Variable_Level_1>" << parts[3] << "</Variable_Level_1>" << std::endl;
+    ofs << indent << "  <Parameters>" << endl;
+    ofs << indent << "    <Category>" << parts[0] << "</Category>" << endl;
+    ofs << indent << "    <Topic>" << parts[1] << "</Topic>" << endl;
+    ofs << indent << "    <Term>" << parts[2] << "</Term>" << endl;
+    ofs << indent << "    <Variable_Level_1>" << parts[3] << "</Variable_Level_1>" << endl;
     if (parts.size() > 4) {
-	ofs << indent << "    <Variable_Level_2>" << parts[4] << "</Variable_Level_2>" << std::endl;
+	ofs << indent << "    <Variable_Level_2>" << parts[4] << "</Variable_Level_2>" << endl;
 	if (parts.size() > 5) {
-	  ofs << indent << "    <Variable_Level_3>" << parts[5] << "</Variable_Level_3>" << std::endl;
+	  ofs << indent << "    <Variable_Level_3>" << parts[5] << "</Variable_Level_3>" << endl;
 	  if (parts.size() > 6) {
-	    ofs << indent << "    <Detailed_Variable>" << parts[6] << "</Detailed_Variable>" << std::endl;
+	    ofs << indent << "    <Detailed_Variable>" << parts[6] << "</Detailed_Variable>" << endl;
 	  }
 	}
     }
-    ofs << indent << "  </Parameters>" << std::endl;
+    ofs << indent << "  </Parameters>" << endl;
   }
   e=xdoc.element("dsOverview/topic@vocabulary=ISO");
-  ofs << indent << "  <ISO_Topic_Category>" << e.content() << "</ISO_Topic_Category>" << std::endl;
+  ofs << indent << "  <ISO_Topic_Category>" << e.content() << "</ISO_Topic_Category>" << endl;
   query.set("select g.path from search.platforms_new as p left join search.gcmd_platforms as g on g.uuid = p.keyword where p.dsid = '"+dsid+"' and p.vocabulary = 'GCMD'");
   if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
+    std::cout << "Content-type: text/plain" << endl << endl;
+    std::cout << "Database error: " << query.error() << endl;
     exit(1);
   }
   for (const auto& row : query) {
-    ofs << indent << "  <Source_Name>" << std::endl;
+    ofs << indent << "  <Source_Name>" << endl;
     auto index=row[0].find(" > ");
     if (index != std::string::npos) {
-	ofs << indent << "   <Short_Name>" << row[0].substr(0,index) << "</Short_Name>" << std::endl;
-	ofs << indent << "   <Long_Name>" << row[0].substr(index+3) << "</Long_Name>" << std::endl;
+	ofs << indent << "   <Short_Name>" << row[0].substr(0,index) <<
+            "</Short_Name>" << endl;
+	ofs << indent << "   <Long_Name>" << replace_all(row[0].substr(index+3),
+            "&", "&amp;") << "</Long_Name>" << endl;
+    } else {
+	ofs << indent << "    <Short_Name>" << row[0] << "</Short_Name>" <<
+            endl;
     }
-    else {
-	ofs << indent << "    <Short_Name>" << row[0] << "</Short_Name>" << std::endl;
-    }
-    ofs << indent << "  </Source_Name>" << std::endl;
+    ofs << indent << "  </Source_Name>" << endl;
   }
   query.set("min(date_start),max(date_end)","dssdb.dsperiod","dsid = '"+dsid+"' and date_start < '9998-01-01' and date_end < '9998-01-01'");
   if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
+    std::cout << "Content-type: text/plain" << endl << endl;
+    std::cout << "Database error: " << query.error() << endl;
     exit(1);
   }
   if (query.num_rows() > 0) {
     Row row;
     query.fetch_row(row);
-    ofs << indent << "  <Temporal_Coverage>" << std::endl;
-    ofs << indent << "    <Start_Date>" << row[0] << "</Start_Date>" << std::endl;
-    ofs << indent << "    <Stop_Date>" << row[1] << "</Stop_Date>" << std::endl;
-    ofs << indent << "  </Temporal_Coverage>" << std::endl;
+    ofs << indent << "  <Temporal_Coverage>" << endl;
+    ofs << indent << "    <Start_Date>" << row[0] << "</Start_Date>" << endl;
+    ofs << indent << "    <Stop_Date>" << row[1] << "</Stop_Date>" << endl;
+    ofs << indent << "  </Temporal_Coverage>" << endl;
   }
   e=xdoc.element("dsOverview/continuingUpdate");
   if (e.attribute_value("value") == "no") {
-    ofs << indent << "  <Data_Set_Progress>Complete</Data_Set_Progress>" << std::endl;
+    ofs << indent << "  <Data_Set_Progress>Complete</Data_Set_Progress>" << endl;
   }
   else {
-    ofs << indent << "  <Data_Set_Progress>In Work</Data_Set_Progress>" << std::endl;
+    ofs << indent << "  <Data_Set_Progress>In Work</Data_Set_Progress>" << endl;
   }
   query.set("select definition, def_params from (select distinct grid_definition_code from \"WGrML\".summary where dsid = '"+dsid+"') as s left join \"WGrML\".grid_definitions as d on d.code = s.grid_definition_code");
   query.submit(server);
@@ -200,7 +204,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	  auto sp=strutils::split(sdum," x ");
 	  sdum=sp[1];
 	  sdum=sdum.substr(0,sdum.find("&deg;"));
-	  strutils::replace_all(sdum,"~","");
+	  replace_all(sdum,"~","");
 	  add_to_resolution_table(std::stof(sdum),std::stof(strutils::substitute(sp[0],"&deg;","")),"degrees",resolution_table);
 	}
 	else if (strutils::contains(sdum,"km x")) {
@@ -211,7 +215,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	}
     }
     if (max_north_lat > -999.) {
-	ofs << indent << "  <Spatial_Coverage>" << std::endl;
+	ofs << indent << "  <Spatial_Coverage>" << endl;
 	ofs << indent << "    <Southernmost_Latitude>" << fabs(min_south_lat);
 	if (min_south_lat < 0.) {
 	  ofs << " South";
@@ -219,7 +223,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	else {
 	  ofs << " North";
 	}
-	ofs << "</Southernmost_Latitude>" << std::endl;
+	ofs << "</Southernmost_Latitude>" << endl;
 	ofs << indent << "    <Northernmost_Latitude>" << fabs(max_north_lat);
 	if (max_north_lat < 0.) {
 	  ofs << " South";
@@ -227,7 +231,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	else {
 	  ofs << " North";
 	}
-	ofs << "</Northernmost_Latitude>" << std::endl;
+	ofs << "</Northernmost_Latitude>" << endl;
 	if (min_west_lon < -180.) {
 	  min_west_lon+=360.;
 	}
@@ -238,7 +242,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	else {
 	  ofs << " East";
 	}
-	ofs << "</Westernmost_Longitude>" << std::endl;
+	ofs << "</Westernmost_Longitude>" << endl;
 	if (max_east_lon > 180.) {
 	  max_east_lon-=360.;
 	}
@@ -249,95 +253,95 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	else {
 	  ofs << " East";
 	}
-	ofs << "</Easternmost_Longitude>" << std::endl;
-	ofs << indent << "  </Spatial_Coverage>" << std::endl;
+	ofs << "</Easternmost_Longitude>" << endl;
+	ofs << indent << "  </Spatial_Coverage>" << endl;
     }
     for (const auto& key : resolution_table.keys()) {
-	ofs << indent << "  <Data_Resolution>" << std::endl;
+	ofs << indent << "  <Data_Resolution>" << endl;
 	Entry entry;
 	resolution_table.found(key,entry);
 	auto sp=strutils::split(entry.key,"<!>");
-	ofs << indent << "    <Latitude_Resolution>" << entry.min_lat << " " << sp[1] << "</Latitude_Resolution>" << std::endl;
-	ofs << indent << "    <Longitude_Resolution>" << entry.min_lon << " " << sp[1] << "</Longitude_Resolution>" << std::endl;
-	ofs << indent << "    <Horizontal_Resolution_Range>" << res_keywords[std::stoi(sp[0])] << "</Horizontal_Resolution_Range>" << std::endl;
-	ofs << indent << "  </Data_Resolution>" << std::endl;
+	ofs << indent << "    <Latitude_Resolution>" << entry.min_lat << " " << sp[1] << "</Latitude_Resolution>" << endl;
+	ofs << indent << "    <Longitude_Resolution>" << entry.min_lon << " " << sp[1] << "</Longitude_Resolution>" << endl;
+	ofs << indent << "    <Horizontal_Resolution_Range>" << res_keywords[std::stoi(sp[0])] << "</Horizontal_Resolution_Range>" << endl;
+	ofs << indent << "  </Data_Resolution>" << endl;
     }
   }
 /*
     query.set("keyword","search.time_resolutions","dsid = '"+dsid+"' and vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
-	std::cout << "Content-type: text/plain" << std::endl << std::endl;
-	std::cout << "Database error: " << query.error() << std::endl;
+	std::cout << "Content-type: text/plain" << endl << endl;
+	std::cout << "Database error: " << query.error() << endl;
 	exit(1);
     }
     if (query.num_rows() > 0) {
 	while (query.fetch_row(row)) {
-	ofs << "  <Data_Resolution>" << std::endl;
-	ofs << "  </Data_Resolution>" << std::endl;
+	ofs << "  <Data_Resolution>" << endl;
+	ofs << "  </Data_Resolution>" << endl;
     }
 */
   elist=xdoc.element_list("dsOverview/project@vocabulary=GCMD");
   for (const auto& element : elist) {
-    ofs << indent << "  <Project>" << std::endl;
+    ofs << indent << "  <Project>" << endl;
     auto project=element.content();
     if (strutils::contains(project," > ")) {
-      ofs << indent << "   <Short_Name>" << project.substr(0,project.find(" > ")) << "</Short_Name>" << std::endl;
-      ofs << indent << "   <Long_Name>" << project.substr(project.find(" > ")+3) << "</Long_Name>" << std::endl;
+      ofs << indent << "   <Short_Name>" << project.substr(0,project.find(" > ")) << "</Short_Name>" << endl;
+      ofs << indent << "   <Long_Name>" << project.substr(project.find(" > ")+3) << "</Long_Name>" << endl;
     }
     else {
-      ofs << indent << "    <Short_Name>" << project << "</Short_Name>" << std::endl;
+      ofs << indent << "    <Short_Name>" << project << "</Short_Name>" << endl;
     }
-    ofs << indent << "  </Project>" << std::endl;
+    ofs << indent << "  </Project>" << endl;
   }
   e=xdoc.element("dsOverview/restrictions/access");
   if (e.name() == "access") {
     auto access_restrictions=e.to_string();
-    ofs << indent << "  <Access_Constraints>" << std::endl;
-    ofs << htmlutils::convert_html_summary_to_ascii(access_restrictions,80,indent_length+4) << std::endl;
-    ofs << indent << "  </Access_Constraints>" << std::endl;
+    ofs << indent << "  <Access_Constraints>" << endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(access_restrictions,80,indent_length+4) << endl;
+    ofs << indent << "  </Access_Constraints>" << endl;
   }
   e=xdoc.element("dsOverview/restrictions/usage");
   if (e.name() == "usage") {
     auto usage_restrictions=e.to_string();
-    ofs << indent << "  <Use_Constraints>" << std::endl;
-    ofs << htmlutils::convert_html_summary_to_ascii(usage_restrictions,80,indent_length+4) << std::endl;
-    ofs << indent << "  </Use_Constraints>" << std::endl;
+    ofs << indent << "  <Use_Constraints>" << endl;
+    ofs << htmlutils::convert_html_summary_to_ascii(usage_restrictions,80,indent_length+4) << endl;
+    ofs << indent << "  </Use_Constraints>" << endl;
   }
-  ofs << indent << "  <Data_Set_Language>English</Data_Set_Language>" << std::endl;
-  ofs << indent << "  <Data_Center>" << std::endl;
-  ofs << indent << "    <Data_Center_Name>" << std::endl;
-  ofs << indent << "      <Short_Name>" << dss_centername.substr(0,dss_centername.find(" > ")) << "</Short_Name>" << std::endl;
-  ofs << indent << "      <Long_Name>" << dss_centername.substr(dss_centername.find(" > ")+3) << "</Long_Name>" << std::endl;
-  ofs << indent << "    </Data_Center_Name>" << std::endl;
-  ofs << indent << "    <Data_Center_URL>https://rda.ucar.edu/</Data_Center_URL>" << std::endl;
-  ofs << indent << "    <Data_Set_ID>" << dsid << "</Data_Set_ID>" << std::endl;
-  ofs << indent << "    <Personnel>" << std::endl;
-  ofs << indent << "      <Role>DATA CENTER CONTACT</Role>" << std::endl;
-  ofs << indent << "      <Last_Name>DSS Help Desk</Last_Name>" << std::endl;
-  ofs << indent << "      <Email>dssweb@ucar.edu</Email>" << std::endl;
-  ofs << indent << "      <Phone>(303)-497-1231</Phone>" << std::endl;
-  ofs << indent << "      <Fax>(303)-497-1291</Fax>" << std::endl;
-  ofs << indent << "      <Contact_Address>" << std::endl;
-  ofs << indent << "        <Address>National Center for Atmospheric Research</Address>" << std::endl;
-  ofs << indent << "        <Address>CISL/DSS</Address>" << std::endl;
-  ofs << indent << "        <Address>P.O. Box 3000</Address>" << std::endl;
-  ofs << indent << "        <City>Boulder</City>" << std::endl;
-  ofs << indent << "        <Province_or_State>CO</Province_or_State>" << std::endl;
-  ofs << indent << "        <Postal_Code>80307</Postal_Code>" << std::endl;
-  ofs << indent << "        <Country>U.S.A.</Country>" << std::endl;
-  ofs << indent << "      </Contact_Address>" << std::endl;
-  ofs << indent << "    </Personnel>" << std::endl;
-  ofs << indent << "  </Data_Center>" << std::endl;
+  ofs << indent << "  <Data_Set_Language>English</Data_Set_Language>" << endl;
+  ofs << indent << "  <Data_Center>" << endl;
+  ofs << indent << "    <Data_Center_Name>" << endl;
+  ofs << indent << "      <Short_Name>" << dss_centername.substr(0,dss_centername.find(" > ")) << "</Short_Name>" << endl;
+  ofs << indent << "      <Long_Name>" << dss_centername.substr(dss_centername.find(" > ")+3) << "</Long_Name>" << endl;
+  ofs << indent << "    </Data_Center_Name>" << endl;
+  ofs << indent << "    <Data_Center_URL>https://rda.ucar.edu/</Data_Center_URL>" << endl;
+  ofs << indent << "    <Data_Set_ID>" << dsid << "</Data_Set_ID>" << endl;
+  ofs << indent << "    <Personnel>" << endl;
+  ofs << indent << "      <Role>DATA CENTER CONTACT</Role>" << endl;
+  ofs << indent << "      <Last_Name>DSS Help Desk</Last_Name>" << endl;
+  ofs << indent << "      <Email>dssweb@ucar.edu</Email>" << endl;
+  ofs << indent << "      <Phone>(303)-497-1231</Phone>" << endl;
+  ofs << indent << "      <Fax>(303)-497-1291</Fax>" << endl;
+  ofs << indent << "      <Contact_Address>" << endl;
+  ofs << indent << "        <Address>National Center for Atmospheric Research</Address>" << endl;
+  ofs << indent << "        <Address>CISL/DSS</Address>" << endl;
+  ofs << indent << "        <Address>P.O. Box 3000</Address>" << endl;
+  ofs << indent << "        <City>Boulder</City>" << endl;
+  ofs << indent << "        <Province_or_State>CO</Province_or_State>" << endl;
+  ofs << indent << "        <Postal_Code>80307</Postal_Code>" << endl;
+  ofs << indent << "        <Country>U.S.A.</Country>" << endl;
+  ofs << indent << "      </Contact_Address>" << endl;
+  ofs << indent << "    </Personnel>" << endl;
+  ofs << indent << "  </Data_Center>" << endl;
   auto distribution_size=primary_size("('" + dsid + "')", server);
   if (!distribution_size.empty()) {
-    ofs << indent << "  <Distribution>" << std::endl;
-    ofs << indent << "    <Distribution_Size>" << distribution_size << "</Distribution_Size>" << std::endl;
-    ofs << indent << "  </Distribution>" << std::endl;
+    ofs << indent << "  <Distribution>" << endl;
+    ofs << indent << "    <Distribution_Size>" << distribution_size << "</Distribution_Size>" << endl;
+    ofs << indent << "  </Distribution>" << endl;
   }
   query.set("keyword","search.formats","dsid = '"+dsid+"'");
   if (query.submit(server) < 0) {
-    std::cout << "Content-type: text/plain" << std::endl << std::endl;
-    std::cout << "Database error: " << query.error() << std::endl;
+    std::cout << "Content-type: text/plain" << endl << endl;
+    std::cout << "Database error: " << query.error() << endl;
     exit(1);
   }
   struct stat buf;
@@ -352,7 +356,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
   my::map<Entry> format_table;
   for (const auto& row : query) {
     auto format=row[0];
-    strutils::replace_all(format,"proprietary_","");
+    replace_all(format,"proprietary_","");
     e=fdoc.element(("formatReferences/format@name="+format+"/DIF").c_str());
     if (e.name() != "DIF") {
 	e=fdoc.element(("formatReferences/format@name="+format+"/type").c_str());
@@ -365,9 +369,9 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
   }
   fdoc.close();
   for (const auto& key : format_table.keys()) {
-    ofs << indent << "  <Distribution>" << std::endl;
-    ofs << indent << "    <Distribution_Format>" << key << "</Distribution_Format>" << std::endl;
-    ofs << indent << "  </Distribution>" << std::endl;
+    ofs << indent << "  <Distribution>" << endl;
+    ofs << indent << "    <Distribution_Format>" << key << "</Distribution_Format>" << endl;
+    ofs << indent << "  </Distribution>" << endl;
   }
   elist=xdoc.element_list("dsOverview/reference");
   if (elist.size() > 0) {
@@ -377,10 +381,10 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	earray.emplace_back(element);
     }
     binary_sort(earray,compare_references);
-    ofs << indent << "  <Reference>" << std::endl;
+    ofs << indent << "  <Reference>" << endl;
     for (size_t n=0; n < elist.size(); ++n) {
 	if (n > 0) {
-	  ofs << std::endl;
+	  ofs << endl;
 	}
 	auto reference="<reference><p>"+earray[n].element("authorList").content()+", "+earray[n].element("year").content()+": "+earray[n].element("title").content()+". ";
 	auto ref_type=earray[n].attribute_value("type");
@@ -409,39 +413,39 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	  reference+=", URL: "+url;
 	}
 	reference+=".</p></reference>";
-	ofs << htmlutils::convert_html_summary_to_ascii(reference,80,indent_length+4) << std::endl;
+	ofs << htmlutils::convert_html_summary_to_ascii(reference,80,indent_length+4) << endl;
     }
-    ofs << indent << "  </Reference>" << std::endl;
+    ofs << indent << "  </Reference>" << endl;
   }
-  ofs << indent << "  <Summary>" << std::endl;
+  ofs << indent << "  <Summary>" << endl;
   e=xdoc.element("dsOverview/summary");
-  ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << std::endl;
-  ofs << indent << "  </Summary>" << std::endl;
+  ofs << htmlutils::convert_html_summary_to_ascii(e.to_string(),80,indent_length+4) << endl;
+  ofs << indent << "  </Summary>" << endl;
   elist=xdoc.element_list("dsOverview/relatedDataset");
   for (const auto& element : elist) {
-    ofs << indent << "  <Related_URL>" << std::endl;
-    ofs << indent << "    <URL_Content_Type>" << std::endl;
-    ofs << indent << "      <Type>VIEW RELATED INFORMATION</Type>" << std::endl;
-    ofs << indent << "    </URL_Content_Type>" << std::endl;
-    ofs << indent << "    <URL>https://rda.ucar.edu/datasets/" << element.attribute_value("ID") << "/</URL>" << std::endl;
-    ofs << indent << "  </Related_URL>" << std::endl;
+    ofs << indent << "  <Related_URL>" << endl;
+    ofs << indent << "    <URL_Content_Type>" << endl;
+    ofs << indent << "      <Type>VIEW RELATED INFORMATION</Type>" << endl;
+    ofs << indent << "    </URL_Content_Type>" << endl;
+    ofs << indent << "    <URL>https://rda.ucar.edu/datasets/" << element.attribute_value("ID") << "/</URL>" << endl;
+    ofs << indent << "  </Related_URL>" << endl;
   }
   elist=xdoc.element_list("dsOverview/relatedResource");
   for (const auto& element : elist) {
-    ofs << indent << "  <Related_URL>" << std::endl;
-    ofs << indent << "    <URL_Content_Type>" << std::endl;
-    ofs << indent << "      <Type>VIEW RELATED INFORMATION</Type>" << std::endl;
-    ofs << indent << "    </URL_Content_Type>" << std::endl;
-    ofs << indent << "    <URL>" << element.attribute_value("url") << "</URL>" << std::endl;
-    ofs << indent << "    <Description>" << element.content() << "</Description>" << std::endl;
-    ofs << indent << "  </Related_URL>" << std::endl;
+    ofs << indent << "  <Related_URL>" << endl;
+    ofs << indent << "    <URL_Content_Type>" << endl;
+    ofs << indent << "      <Type>VIEW RELATED INFORMATION</Type>" << endl;
+    ofs << indent << "    </URL_Content_Type>" << endl;
+    ofs << indent << "    <URL>" << element.attribute_value("url") << "</URL>" << endl;
+    ofs << indent << "    <Description>" << element.content() << "</Description>" << endl;
+    ofs << indent << "  </Related_URL>" << endl;
   }
-  ofs << indent << "  <IDN_Node>" << std::endl;
-  ofs << indent << "    <Short_Name>USA/NCAR</Short_Name>" << std::endl;
-  ofs << indent << "  </IDN_Node>" << std::endl;
-  ofs << indent << "  <Metadata_Name>CEOS IDN DIF</Metadata_Name>" << std::endl;
-  ofs << indent << "  <Metadata_Version>9.7</Metadata_Version>" << std::endl;
-  ofs << indent << "</DIF>" << std::endl;                    
+  ofs << indent << "  <IDN_Node>" << endl;
+  ofs << indent << "    <Short_Name>USA/NCAR</Short_Name>" << endl;
+  ofs << indent << "  </IDN_Node>" << endl;
+  ofs << indent << "  <Metadata_Name>CEOS IDN DIF</Metadata_Name>" << endl;
+  ofs << indent << "  <Metadata_Version>9.7</Metadata_Version>" << endl;
+  ofs << indent << "</DIF>" << endl;                    
   server.disconnect();
   return true;
 }
