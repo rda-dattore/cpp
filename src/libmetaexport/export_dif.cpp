@@ -14,6 +14,7 @@
 using namespace PostgreSQL;
 using std::endl;
 using strutils::replace_all;
+using strutils::substitute;
 
 namespace metadataExport {
 
@@ -149,7 +150,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
     if (index != std::string::npos) {
 	ofs << indent << "   <Short_Name>" << row[0].substr(0,index) <<
             "</Short_Name>" << endl;
-	ofs << indent << "   <Long_Name>" << replace_all(row[0].substr(index+3),
+	ofs << indent << "   <Long_Name>" << substitute(row[0].substr(index+3),
             "&", "&amp;") << "</Long_Name>" << endl;
     } else {
 	ofs << indent << "    <Short_Name>" << row[0] << "</Short_Name>" <<
@@ -205,13 +206,13 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
 	  sdum=sp[1];
 	  sdum=sdum.substr(0,sdum.find("&deg;"));
 	  replace_all(sdum,"~","");
-	  add_to_resolution_table(std::stof(sdum),std::stof(strutils::substitute(sp[0],"&deg;","")),"degrees",resolution_table);
+	  add_to_resolution_table(std::stof(sdum),std::stof(substitute(sp[0],"&deg;","")),"degrees",resolution_table);
 	}
 	else if (strutils::contains(sdum,"km x")) {
 	  auto sp=strutils::split(sdum," x ");
 	  sdum=sp[1];
 	  sdum=sdum.substr(0,sdum.find("km"));
-	  add_to_resolution_table(std::stof(sdum),std::stof(strutils::substitute(sp[0],"km","")),"km",resolution_table);
+	  add_to_resolution_table(std::stof(sdum),std::stof(substitute(sp[0],"km","")),"km",resolution_table);
 	}
     }
     if (max_north_lat > -999.) {
