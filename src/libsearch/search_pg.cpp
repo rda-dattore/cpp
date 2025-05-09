@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <PostgreSQL.hpp>
-#include <search_pg.hpp>
+#include <search.hpp>
 #include <strutils.hpp>
 
 using namespace PostgreSQL;
