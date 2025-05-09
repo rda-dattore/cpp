@@ -164,14 +164,6 @@ string cleaned_search_word(string& word, bool& ignore) {
   return rword;
 }
 
-string error_message(string sql_error, string table, string word, size_t
-     location) {
-  std::stringstream error; // return value
-  error << sql_error << ", table='" << table << "', word='" << word <<
-      "', location=" << location << std::endl;
-  return error.str();
-}
-
 string convert_to_expandable_summary(string summary, size_t visible_length,
     size_t& iterator) {
   auto summary_parts = split(summary);

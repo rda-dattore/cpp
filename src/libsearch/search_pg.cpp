@@ -17,6 +17,14 @@ using strutils::to_sql_tuple_string;
 
 namespace searchutils {
 
+string error_message(string sql_error, string table, string word, size_t
+     location) {
+  std::stringstream error; // return value
+  error << sql_error << ", table='" << table << "', word='" << word <<
+      "', location=" << location << std::endl;
+  return error.str();
+}
+
 bool inserted_word_into_search_wordlist(Server& server, const string& table,
     string dsid, string word, size_t& location, string uflg, string& error) {
   error = "";
