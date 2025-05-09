@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <MySQL.hpp>
 #include <search.hpp>
 #include <strutils.hpp>
 
