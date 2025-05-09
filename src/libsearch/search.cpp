@@ -11,6 +11,7 @@ using strutils::has_ending;
 using strutils::occurs;
 using strutils::replace_all;
 using strutils::split;
+using strutils::sql_ready;
 using strutils::to_lower;
 using strutils::trim;
 
