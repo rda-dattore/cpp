@@ -271,7 +271,7 @@ $(SOURCEDIR)/libpostgresql/singularity/%.o: $(SOURCEDIR)/libpostgresql/%.cpp $(I
 libpostgresql.so: $(POSTGRESQLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libpostgresql.so -Wl,-soname,libpostgresql.so $(POSTGRESQLOBJS)
 #
-$(SOURCEDIR)/libsearch/singularity/%.o: $(SOURCEDIR)/libsearch/%.cpp $(INCLUDEDIR)/search_pg.hpp
+$(SOURCEDIR)/libsearch/singularity/%.o: $(SOURCEDIR)/libsearch/%.cpp $(INCLUDEDIR)/search.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libsearch.so: $(SEARCHOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch.so -Wl,-soname,libsearch.so $(SEARCHOBJS)
