@@ -87,16 +87,8 @@ ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers/*.cpp),)
 METAHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetahelpers/libmetahelpers\/singularity/")
 endif
 #
-ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers_pg/*.cpp),)
-METAHELPERS_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetahelpers_pg/libmetahelpers_pg\/singularity/")
-endif
-#
 ifneq ($(wildcard $(SOURCEDIR)/libmetautils/*.cpp),)
-METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetautils/libmetautils\/singularity/")
-endif
-#
-ifneq ($(wildcard $(SOURCEDIR)/libmetautils_pg/*.cpp),)
-METAUTIL_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetautils_pg/libmetautils_pg\/singularity/")
+METAUTILSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmetautils/libmetautils\/singularity/")
 endif
 #
 #MYCURLOBJS = $(shell ls -1 $(SOURCEDIR)/libmycurl/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libmycurl/libmycurl\/singularity/")
@@ -119,10 +111,6 @@ endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libsearch/*.cpp),)
 SEARCHOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsearch/libsearch\/singularity/")
-endif
-#
-ifneq ($(wildcard $(SOURCEDIR)/libsearch_pg/*.cpp),)
-SEARCH_PGOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch_pg/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsearch_pg/libsearch_pg\/singularity/")
 endif
 #
 #SOCKOBJS = $(shell ls -1 $(SOURCEDIR)/libsock/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libsock/libsock\/singularity/")
@@ -148,7 +136,7 @@ endif
 #
 #YAMLOBJS = $(shell ls -1 $(SOURCEDIR)/libyaml/*.cpp |sed "s/\.cpp/\.o/" |sed "s/libyaml/libyaml\/singularity/")
 #
-all: libbitmap.so libbufr.so libcitation.so libcitation_pg.so libcyclone.so liberror.so libgrids.so libgridutils.so libhdf.so obj_iometadata libiometadata.so libio.so libjson.so libmetaexport.so libmetaexport_pg.so libmetaexporthelpers.so libmetaexporthelpers_pg.so libmetahelpers.so libmetahelpers_pg.so libmetautils.so libmycurl.so libobs.so libpostgresql.so libsearch.so libsearch_pg.so libsock.so obj_spellchecker libspellchecker.so libutils.so libutilsthread.so libweb.so libxml.so libyaml.so
+all: libbitmap.so libbufr.so libcitation.so libcitation_pg.so libcyclone.so liberror.so libgrids.so libgridutils.so libhdf.so obj_iometadata libiometadata.so libio.so libjson.so libmetaexport.so libmetaexport_pg.so libmetaexporthelpers.so libmetaexporthelpers_pg.so libmetahelpers.so libmetautils.so libmycurl.so libobs.so libpostgresql.so libsearch.so libsock.so obj_spellchecker libspellchecker.so libutils.so libutilsthread.so libweb.so libxml.so libyaml.so
 #
 obj_acft: $(ACFTSUBS)
 ifneq ($(GCCVERSION),$(EXPECTEDGCCVERSION))
@@ -248,15 +236,15 @@ $(SOURCEDIR)/libmetaexporthelpers_pg/singularity/%.o: $(SOURCEDIR)/libmetaexport
 libmetaexporthelpers_pg.so: $(METAEXPORTHELPERS_PGOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetaexporthelpers_pg.so -Wl,-soname,libmetaexporthelpers_pg.so $(METAEXPORTHELPERS_PGOBJS)
 #
-$(SOURCEDIR)/libmetahelpers_pg/singularity/%.o: $(SOURCEDIR)/libmetahelpers_pg/%.cpp
+$(SOURCEDIR)/libmetahelpers/singularity/%.o: $(SOURCEDIR)/libmetahelpers/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libmetahelpers_pg.so: $(METAHELPERS_PGOBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers_pg.so -Wl,-soname,libmetahelpers_pg.so $(METAHELPERS_PGOBJS)
+libmetahelpers.so: $(METAHELPERSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers.so -Wl,-soname,libmetahelpers.so $(METAHELPERSOBJS)
 #
-$(SOURCEDIR)/libmetautils_pg/singularity/%.o: $(SOURCEDIR)/libmetautils_pg/%.cpp
+$(SOURCEDIR)/libmetautils/singularity/%.o: $(SOURCEDIR)/libmetautils/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libmetautils_pg.so: $(METAUTIL_PGOBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils_pg.so -Wl,-soname,libmetautils_pg.so $(METAUTIL_PGOBJS)
+libmetautils.so: $(METAUTILSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils.so -Wl,-soname,libmetautils.so $(METAUTILSOBJS)
 #
 $(SOURCEDIR)/libmycurl/singularity/%.o: $(SOURCEDIR)/libmycurl/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
@@ -283,10 +271,10 @@ $(SOURCEDIR)/libpostgresql/singularity/%.o: $(SOURCEDIR)/libpostgresql/%.cpp $(I
 libpostgresql.so: $(POSTGRESQLOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libpostgresql.so -Wl,-soname,libpostgresql.so $(POSTGRESQLOBJS)
 #
-$(SOURCEDIR)/libsearch_pg/singularity/%.o: $(SOURCEDIR)/libsearch_pg/%.cpp $(INCLUDEDIR)/search_pg.hpp
+$(SOURCEDIR)/libsearch/singularity/%.o: $(SOURCEDIR)/libsearch/%.cpp $(INCLUDEDIR)/search_pg.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libsearch_pg.so: $(SEARCH_PGOBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch_pg.so -Wl,-soname,libsearch_pg.so $(SEARCH_PGOBJS)
+libsearch.so: $(SEARCHOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch.so -Wl,-soname,libsearch.so $(SEARCHOBJS)
 #
 $(SOURCEDIR)/libsock/singularity/%.o: $(SOURCEDIR)/libsock/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
