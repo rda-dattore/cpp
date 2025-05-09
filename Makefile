@@ -292,7 +292,7 @@ libutilsthread.so: $(UTILSTHREADOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libutilsthread.so -Wl,-soname,libutilsthread.so $(UTILSTHREADOBJS)
 #
 $(SOURCEDIR)/libweb/singularity/%.o: $(SOURCEDIR)/libweb/%.cpp
-	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libweb.so: $(WEBOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libweb.so -Wl,-soname,libweb.so $(WEBOBJS)
 #
