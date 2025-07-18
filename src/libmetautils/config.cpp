@@ -136,6 +136,9 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
         }
         directives.wagtail_password = conf_parts[1];
       } else if (conf_parts[0] == "tempPath") {
+  std::cerr << conf_parts[0] << " " << conf_parts[1] << std::endl;
+  auto status = stat(conf_parts[1], &buf);
+  std::cerr << status << std::endl;
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
