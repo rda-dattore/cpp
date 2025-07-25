@@ -99,6 +99,12 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
       i = -1;
     }
   }
+  stringstream oss, ess;
+  mysystem2("/bin/bash -c 'list=($(ls " + directory + "/" + relative_path +
+      ")); for file in ${list[@]}; do /glade/u/home/dattore/bin/gdex_upload " +
+      directory + "/" + relative_path + "$file " + remote_path + "/" +
+      relative_path + "; done'",
+      oss, ess);
   return i;
 }
 
