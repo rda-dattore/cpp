@@ -15,6 +15,8 @@ using std::cerr;
 using std::copy;
 using std::cout;
 using std::endl;
+using std::make_pair;
+using std::pair;
 using std::shared_ptr;
 using std::string;
 using std::to_string;
@@ -1569,33 +1571,41 @@ int global_heap_object(std::fstream& fs, short size_of_lengths, unsigned long
     cerr << "unable to read size of global heap collection" << endl;
     exit(1);
   }
+
+  typedef unordered_map<short, pair<long long, long long>> GHEAP;
+  static unordered_map<long long, GHEAP> gheaps;
   unsigned long long gsize = value(buf, size_of_lengths);
-  int off = 0;
-  while (off < static_cast<int>(gsize)) {
-    fs.read(cbuf, 8+size_of_lengths);
-    if (fs.gcount() != static_cast<int>(8+size_of_lengths)) {
-      cerr << "unable to read global heap object" << endl;
-      exit(1);
-    }
-    int idx = value(buf, 2);
-    unsigned long long osize = value(&buf[8], size_of_lengths);
-    auto pad = osize % 8;
-    if (pad > 0) {
-      osize += 8 - pad;
-    }
-    if (idx == index) {
-      buf_len = osize;
-      *buffer = new unsigned char[buf_len];
-      fs.read(reinterpret_cast<char *>(*buffer), buf_len);
-      if (fs.gcount() != buf_len) {
-        cerr << "unable to read global heap object data" << endl;
+  if (gheaps.find(address) == gheaps.end()) {
+    gheaps.emplace(address, GHEAP());
+
+    // index the global heap
+    auto base_addr = fs.tellg();
+    unsigned long long off = 0;
+    while (off < gsize) {
+      fs.read(cbuf, 8+size_of_lengths);
+      if (fs.gcount() != static_cast<int>(8+size_of_lengths)) {
+        cerr << "unable to read global heap object" << endl;
         exit(1);
       }
-      break;
-    } else {
+      short idx = value(buf, 2);
+      unsigned long long osize = value(&buf[8], size_of_lengths);
+      auto pad = osize % 8;
+      if (pad > 0) {
+        osize += 8 - pad;
+      }
+      gheaps[address].emplace(idx, make_pair(fs.tellg()-base_addr, osize));
       fs.seekg(osize, std::ios_base::cur);
       off += 8 + size_of_lengths + osize;
     }
+    fs.seekg(base_addr, std::ios_base::beg);
+  }
+  fs.seekg(gheaps[address][index].first, std::ios_base::cur);
+  buf_len = gheaps[address][index].second;
+  *buffer = new unsigned char[buf_len];
+  fs.read(reinterpret_cast<char *>(*buffer), buf_len);
+  if (fs.gcount() != buf_len) {
+    cerr << "unable to read global heap object data" << endl;
+    exit(1);
   }
   fs.seekg(curr_off, std::ios_base::beg);
   return buf_len;
