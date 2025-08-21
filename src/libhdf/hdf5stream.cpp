@@ -1179,6 +1179,21 @@ shared_ptr<InputHDF5Stream::Dataset> InputHDF5Stream::dataset(string xpath) {
   return it->p_ds;
 }
 
+list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets(Group *g) {
+  list<DatasetEntry> lst; // return value
+  if (g == nullptr) {
+    g = &root_group;
+  }
+  for (const auto& e : g->groups) {
+    auto l = datasets(e.p_g.get());
+    lst.insert(lst.end(), l.begin(), l.end());
+  }
+  for (const auto& e : g->datasets) {
+    lst.emplace_back(e);
+  }
+  return lst;
+}
+
 list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(
     string attribute_path, Group *g) {
   list<DatasetEntry> lst; // return value
@@ -1218,7 +1233,7 @@ list<InputHDF5Stream::DatasetEntry> InputHDF5Stream::datasets_with_attribute(
                     int len;
                     bits::get(attribute_value.vlen.buffer.get(), len, 0, 32);
                     if (string(reinterpret_cast<char *>(&attribute_value.vlen.
-                        buffer[4]),len) == value) {
+                        buffer[4]), len) == value) {
                       lst.emplace_back(e);
                     }
                     break;
