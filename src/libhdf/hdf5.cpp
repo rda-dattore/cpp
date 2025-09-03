@@ -1571,7 +1571,6 @@ int global_heap_object(std::fstream& fs, short size_of_lengths, unsigned long
     cerr << "unable to read size of global heap collection" << endl;
     exit(1);
   }
-
   typedef unordered_map<short, pair<long long, long long>> GHEAP;
   static unordered_map<long long, GHEAP> gheaps;
   unsigned long long gsize = value(buf, size_of_lengths);
@@ -1597,6 +1596,7 @@ int global_heap_object(std::fstream& fs, short size_of_lengths, unsigned long
       fs.seekg(osize, std::ios_base::cur);
       off += 8 + size_of_lengths + osize;
     }
+    fs.clear();
     fs.seekg(base_addr, std::ios_base::beg);
   }
   fs.seekg(gheaps[address][index].first, std::ios_base::cur);
