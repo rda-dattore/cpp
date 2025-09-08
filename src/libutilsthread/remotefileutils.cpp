@@ -60,9 +60,10 @@ string remote_web_file(string URL, string local_tmpdir) {
   return f;
 }
 
-int rdadata_sync(string directory, string relative_path, string remote_path,
-    string rdadata_home, string& error) {
+int gdex_upload_dir(string directory, string relative_path, string remote_path,
+    string api_key, string& error) {
   int i = 0; // return value
+  error = "";
   if (directory.empty()) {
     error = "missing directory";
     return -1;
@@ -75,114 +76,41 @@ int rdadata_sync(string directory, string relative_path, string remote_path,
     error = "unknown destination";
     return -1;
   }
-  list<string> hlst;
-  error = "";
-  if (!hosts_loaded(hlst, rdadata_home)) {
-    error = "rdadata_sync() unable to get list of host names from conf in '" +
-        rdadata_home + "'";
-    return -1;
-  }
-  if (setreuid(15968, 15968) != 0) {
-    error = "unable to set real and effective uids to 'rdadata'";
-    return -1;
-  }
-  for (const auto& h : hlst) {
-    auto e = retry_command("/bin/sh -c 'cd " + directory + "; rsync -rptgD "
-        "--relative -e __INNER_QUOTE__ssh -i " + rdadata_home + "/.ssh/" + h +
-        "-sync_rdadata_rsa -l rdadata__INNER_QUOTE__ " + relative_path + " " + h
-        + ".ucar.edu:" + remote_path + "'", 3);
-    if (!e.empty()) {
-      if (!error.empty()) {
-        error += ", ";
-      }
-      error += "rsync error on '" + h + "': *'" + e + "'*";
-      i = -1;
-    }
+  if (relative_path == ".") {
+    relative_path = "";
   }
   stringstream oss, ess;
   mysystem2("/bin/bash -c 'list=($(ls " + directory + "/" + relative_path +
       ")); for file in ${list[@]}; do /glade/u/home/dattore/bin/gdex_upload " +
       directory + "/" + relative_path + "$file " + remote_path + "/" +
-      relative_path + "; done'",
-      oss, ess);
+      relative_path + "; done'", oss, ess);
   return i;
 }
 
-int rdadata_unsync(string remote_filename, string local_tmpdir, string
-    rdadata_home, string& error) {
-// special tokens in remote_filename
-//  __HOST__ will be replaced with hosts.getCurrent()
-//
-
+int gdex_unlink(string remote_filepath, string api_key, string& error) {
   int i = 0; // return value
   error = "";
-  list<string> hlst;
-  if (!hosts_loaded(hlst, rdadata_home)) {
-    error = "rdadata_unsync() unable to get list of host names";
-    return -1;
-  }
-  for (auto& h : hlst) {
-    auto f = remote_filename;
-    replace_all(f, "__HOST__", h);
-    auto idx = f.rfind("/");
-    auto p = f.substr(0, idx);
-    f = f.substr(idx + 1);
-    auto e = retry_command("/bin/sh -c 'rsync -r -e __INNER_QUOTE__ssh -i " +
-        rdadata_home + "/.ssh/" + h + "-sync_rdadata_rsa -l "
-        "rdadata__INNER_QUOTE__ --delete --include=" + f +
-        " __INNER_QUOTE__--exclude=*__INNER_QUOTE__ " + local_tmpdir + "/ " + h
-        + ".ucar.edu:" + p + "'", 3);
-    if (e.length() > 0) {
-      if (!error.empty()) {
-        error += ", ";
-      }
-      error += "rsync error on '" + h + "': *'" + e + "'*";
-      i = -1;
-    }
-  }
-  return i;
-}
-
-int rdadata_sync_from(string remote_filename, string local_filename, string
-     rdadata_home, stringstream& ess) {
-// special tokens in remote_filename
-//  __HOST__ will be replaced with hosts.getCurrent()
-//
-
-  int i = 0; //return value
-  list<string> hlst;
-  if (!hosts_loaded(hlst, rdadata_home)) {
-    ess << "rdadata_sync_from() unable to get list of host names" << std::endl;
-    return -1;
-  }
-  for (auto& h : hlst) {
-    string f = remote_filename;
-    replace_all(f, "__HOST__", h);
-    struct stat b;
-    stringstream oss;
-    if (mysystem2("/bin/sh -c \"" + rdadata_home + "/bin/" + h + "-sync -g " + f
-        + " " + local_filename + "\"", oss, ess) == 0 && stat(local_filename
-        .c_str(), &b) == 0) {
-      break;
-    } else {
-      i = -1;
-    }
-  }
-  return i;
-}
-
-bool exists_on_server(string host_name, string remote_filename, string
-     rdadata_home) {
   stringstream oss, ess;
-  mysystem2("/bin/sh -c 'rsync --list-only -e __INNER_QUOTE__ssh -i " +
-      rdadata_home + "/.ssh/" + token(host_name, ".", 0) + "-sync_rdadata_rsa "
-      "-l rdadata__INNER_QUOTE__ " + host_name + ":" + remote_filename + "'",
-      oss, ess);
+  mysystem2("/bin/bash -c 'curl -s -w \" %{http_code}\" -H \"API-Key: " +
+      api_key + "\" -d \"path=" + remote_filepath + "\" "
+      "\"https://api.gdex.ucar.edu/unlink/\"'", oss, ess);
+  auto code = oss.str().substr(oss.str().length() - 3);
+  if (code != "200") {
+    i = -1;
+    error = oss.str().substr(0, oss.str().length() - 4);
+  }
+  return i;
+}
+
+bool exists_on_server(string host_name, string remote_path) {
+  stringstream oss, ess;
+  mysystem2("/bin/sh -c 'curl -I -s -w \"%{http_code}\" \"https://" + host_name
+     + "/" + remote_path + "\"'", oss, ess);
   if (!oss.str().empty()) {
-    if (ess.str().empty()) {
+    auto code = oss.str().substr(oss.str().length() - 3);
+    if (code != "404") {
       return true;
     }
-    return false;
   }
   return false;
 }
