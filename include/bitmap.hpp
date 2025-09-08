@@ -12,7 +12,7 @@ extern void compress(const std::string& uncompressed_bitmap, std::string&
 extern void compress_values(const std::vector<size_t>& values, std::string&
     compressed_bitmap);
 extern void expand_box1d_bitmap(const std::string& box1d_bitmap, char
-    **expanded_box1d_bitmap);
+    *expanded_box1d_bitmap);
 extern void further_compress(const std::string& compressed_bitmap, std::string&
     further_compressed_bitmap);
 extern void uncompress(const std::string& compressed_bitmap, size_t&
