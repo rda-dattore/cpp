@@ -32,14 +32,14 @@ using unixutils::mysystem2;
 
 namespace webutils {
 
-bool filled_inventory(string dsnum, string data_file, string type, stringstream&
-    inventory) {
-  auto dsnum2 = substitute(dsnum, ".", "");
-  Server server("rda-db.ucar.edu", "metadata", "metadata", "rdadb");
+bool filled_inventory(DBconfig db_config, string dsnum, string data_file,
+    string type, stringstream& inventory) {
+  Server server(db_config);
   if (!server) {
     myerror = "database connection error - " + server.error();
     return false;
   }
+  auto dsnum2 = substitute(dsnum, ".", "");
   LocalQuery query("select w.code, w.format_code, f.format, w.uflag from "
       "\"WGrML\".ds" + dsnum2 + "_webfiles2 as w left join \"WGrML\".formats "
       "as f on f.code = w.format_code where id = '" + data_file + "'");
