@@ -1,6 +1,7 @@
 #ifndef METAHELPERS_H
 #define   METAHELPERS_H
 
+#include <PostgreSQL.hpp>
 #include <string>
 #include <vector>
 #include <gridutils.hpp>
@@ -29,6 +30,16 @@ extern bool compare_time_ranges(const std::string& left,const std::string& right
 extern bool default_compare(const std::string& left,const std::string& right);
 
 } // end namespace metacompares
+
+namespace metatransforms {
+
+extern bool db2grml(std::string dsid, std::string wfile, std::string db, const
+    PostgreSQL::DBconfig& db_config, std::string level_map_path, std::string
+    target_dir = ".");
+extern bool db2obml(std::string dsid, std::string wfile, std::string db, const
+    PostgreSQL::DBconfig& db_config, std::string target_dir = ".");
+
+} // end namespace metatransforms
 
 namespace metatranslations {
 
