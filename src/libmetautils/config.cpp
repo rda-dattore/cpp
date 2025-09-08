@@ -21,6 +21,8 @@ const string GLOBAL_CONFIG_HOME = "/glade/u/home/dattore/conf";
 const string GLOBAL_DECS_ROOT = "/ncar/rda/setuid";
 const string LOCAL_CONFIG_HOME = "/home/dattore/conf";
 const string LOCAL_DECS_ROOT = "/usr/local/decs";
+const string GDEX_CONFIG_HOME = "/data/local/conf";
+const string GDEX_ROOT = "/data/local";
 
 bool configuration_error(string directive) {
   myerror = "configuration error on '" + directive + "' line";
@@ -47,6 +49,8 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
     directives.decs_root = GLOBAL_DECS_ROOT;
   } else if (is_singularity) {
     directives.decs_root = "/usr/local";
+  } else if (stat(GDEX_ROOT.c_str(), &buf) == 0) {
+    directives.decs_root = GDEX_ROOT;
   }
   if (directives.decs_root.empty()) {
     myerror = "unable to locate decs root directory on " + directives.host;
@@ -60,6 +64,8 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
     directives.local_root = "/ncar/rda/setuid";
   } else if (is_singularity) {
     directives.local_root = "/usr/local";
+  } else if (directives.decs_root == GDEX_ROOT) {
+    directives.local_root = GDEX_ROOT;
   }
   if (directives.local_root.empty()) {
     myerror = "unable to locate DECS local directory on " + directives.host;
@@ -70,6 +76,8 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
     ifs.open((LOCAL_CONFIG_HOME + "/metautils_pg.conf").c_str());
   } else if (stat(GLOBAL_CONFIG_HOME.c_str(), &buf) == 0) {
     ifs.open((GLOBAL_CONFIG_HOME + "/metautils_pg.conf").c_str());
+  } else if (stat(GDEX_CONFIG_HOME.c_str(), &buf) == 0) {
+    ifs.open((GDEX_CONFIG_HOME + "/metautils_pg.conf").c_str());
   }
   if (!ifs.is_open()) {
     throw my::NotFound_Error("unable to open metautils_pg.conf");
