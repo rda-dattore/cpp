@@ -205,6 +205,7 @@ public:
   };
 
   typedef std::pair<std::string, DataValue> Attribute;
+  typedef std::unordered_map<std::string, DataValue> Attributes;
 
   class Dataset {
   public:
@@ -215,7 +216,7 @@ public:
     Datatype datatype;
     Dataspace dataspace;
     FillValue fillvalue;
-    std::unordered_map<std::string, DataValue> attributes;
+    Attributes attributes;
     std::deque<short> filters;
     Data data;
   };
@@ -322,6 +323,7 @@ public:
   void close();
   Attribute attribute(std::string xpath);
   std::shared_ptr<Dataset> dataset(std::string xpath);
+  std::list<DatasetEntry> datasets(Group *g = nullptr);
   std::list<DatasetEntry> datasets_with_attribute(std::string attribute_path,
       Group *g = nullptr);
   std::fstream *file_stream() { return &fs; }
