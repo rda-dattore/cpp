@@ -23,7 +23,8 @@ struct Directives {
       metadb_username(), metadb_password(), wagtail_username(),
       wagtail_password(), metadata_manager(), server_root(), decs_root(),
       local_root(), hpss_root(), decs_bindir(), rdadata_home(),
-      parameter_map_path(),level_map_path(), singularity_binds() { }
+      parameter_map_path(),level_map_path(), singularity_binds(), unlink_key()
+      { }
 
   std::string temp_path, data_root, data_root_alias;
   std::string host, web_server, database_server, rdadb_username, rdadb_password,
@@ -32,6 +33,7 @@ struct Directives {
   std::string server_root, decs_root, local_root, hpss_root;
   std::string decs_bindir, rdadata_home, parameter_map_path, level_map_path;
   std::vector<std::string> singularity_binds;
+  std::string unlink_key;
 };
 
 struct Args {
@@ -331,6 +333,7 @@ extern void obs_per(std::string observation_type_value, size_t num_obs, DateTime
 
 extern std::string clean_id(std::string id);
 extern std::string relative_web_filename(std::string url);
+extern std::string relative_web_filename(std::string url, std::string dsid);
 extern std::string web_home();
 
 /*
