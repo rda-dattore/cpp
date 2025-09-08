@@ -182,6 +182,8 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
           return configuration_error(conf_parts[0]);
         }
         directives.singularity_binds.emplace_back(conf_parts[1]);
+      } else if (conf_parts[0] == "GDEXUnlinkKey") {
+        directives.unlink_key = conf_parts[1];
       }
     }
     ifs.getline(line, 256);
