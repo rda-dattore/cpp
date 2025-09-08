@@ -102,9 +102,10 @@ enum class DumpType { bytes = 0, bits };
 
 extern const char *cat(std::string filename);
 
-extern int rdadata_sync(std::string directory,std::string relative_path,std::string remote_path,std::string rdadata_home,std::string& error);
-extern int rdadata_sync_from(std::string remote_filename,std::string local_filename,std::string rdadata_home,std::stringstream& ess);
-extern int rdadata_unsync(std::string remote_filename,std::string local_tmpdir,std::string rdadata_home,std::string& error);
+extern int gdex_unlink(std::string remote_filepath, std::string api_key,
+    std::string& error);
+extern int gdex_upload_dir(std::string directory, std::string relative_path,
+    std::string remote_path, std::string api_key, std::string& error);
 extern int mysystem2(std::string command,std::stringstream& output,std::stringstream& error);
 
 extern long long little_endian(unsigned char *buffer,size_t num_bytes);
@@ -116,7 +117,7 @@ extern std::string remote_web_file(std::string url,std::string local_tmpdir);
 extern std::string retry_command(std::string command,int num_retries);
 extern std::string unix_args_string(int argc,char **argv,char separator = ':');
 
-extern bool exists_on_server(std::string host_name,std::string remote_filename,std::string rdadata_home);
+extern bool exists_on_server(std::string host_name, std::string remote_path);
 extern bool hosts_loaded(std::list<std::string>& hosts,std::string rdadata_home);
 extern bool tar(std::string tarfile,std::list<std::string>& filenames);
 
