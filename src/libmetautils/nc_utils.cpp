@@ -378,14 +378,13 @@ string write_level_map(const vector<LevelInfo>& level_info) {
   ofs << "</levelMap>" << endl;
   ofs.close();
   string e;
-  if (unixutils::rdadata_sync(t.name(), ".", "/data/web/metadata/LevelTables",
-      directives.rdadata_home, e) < 0) {
+  if (unixutils::gdex_upload_dir(t.name(), ".",
+      "/data/web/metadata/LevelTables", "", e) < 0) {
     return e;
   }
   stringstream oss, ess;
   unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
-      ".xml " + directives.rdadata_home + "/share/metadata/LevelTables/", oss,
-      ess);
+      ".xml " + directives.level_map_path + "/", oss, ess);
   return ess.str();
 }
 
@@ -474,20 +473,23 @@ string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
           ofs << " (" << sp[2] << ")";
         }
         ofs << "</description>" << endl;
+        if (sp.size() > 3 && !sp[3].empty()) {
+          ofs << "    <standardName>" << sp[3] << "</standardName>" << endl;
+        }
         ofs << "  </dataType>" << endl;
       }
     }
     ofs << "</" << map_type << "Map>" << endl;
     ofs.close();
     string e;
-    if (unixutils::rdadata_sync(t.name(), ".", "/data/web/metadata/"
-        "ParameterTables", directives.rdadata_home, e) < 0) {
+    if (unixutils::gdex_upload_dir(t.name(), ".", "/data/web/metadata/"
+        "ParameterTables", "", e) < 0) {
       warning = "parameter map was not synced - error(s): '" + e + "'";
     }
+warning = e;
     stringstream oss;
     unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
-        ".xml " + directives.rdadata_home + "/share/metadata/ParameterTables/",
-        oss, ess);
+        ".xml " + directives.parameter_map_path + "/", oss, ess);
   }
   return ess.str();
 }
