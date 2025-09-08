@@ -75,9 +75,8 @@ void check_for_existing_cmd(string cmd_type, string caller, string user) {
   if (query.fetch_row(row)) {
     string cmd_file = path + "/" + args.filename;
     replace_all(cmd_file, "/", "%");
-    if (unixutils::exists_on_server("rda-web-prod.ucar.edu", "/data/web/"
-        "datasets/" + args.dsid + "/metadata/" + cmd_dir + "/" + cmd_file + "."
-        + cmd_type, directives.rdadata_home)) {
+    if (unixutils::exists_on_server("gdex.ucar.edu", "/data/web/datasets/" +
+        args.dsid + "/metadata/" + cmd_dir + "/" + cmd_file + "." + cmd_type)) {
       DateTime archive_date(stoll(substitute(row[0], "-", "")) * 1000000 +
           stoll(substitute(row[1], ":", "")));
       auto tm = time(nullptr);
