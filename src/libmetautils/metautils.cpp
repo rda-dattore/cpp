@@ -104,6 +104,14 @@ string relative_web_filename(string url) {
       "");
 }
 
+string relative_web_filename(string url, string dsid) {
+  auto d = args.dsid;
+  args.dsid = dsid;
+  auto s = relative_web_filename(url);
+  args.dsid = d;
+  return s;
+}
+
 string clean_id(string id) {
   trim(id);
   for (size_t n = 0; n < id.length(); ++n) {
