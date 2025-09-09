@@ -249,8 +249,8 @@ void fill_geographic_extent_data(Server& server, string dsid, XMLDocument&
       }
     }
   } else {
-    auto elist = dataset_overview.element_list("dsOverview/contentMetadata/"
-        "geospatialCoverage/grid");
+    auto elist = dataset_overview.element_list("OAI-PMH/GetRecord/record/"
+        "metadata/dsOverview/contentMetadata/geospatialCoverage/grid");
     if (!elist.empty()) {
       is_grid = true;
       for (const auto& element : elist) {
@@ -378,8 +378,8 @@ void fill_geographic_extent_data(Server& server, string dsid, XMLDocument&
         }
       }
     } else {
-      auto elist = dataset_overview.element_list("dsOverview/contentMetadata/"
-          "geospatialCoverage/location");
+      auto elist = dataset_overview.element_list("OAI-PMH/GetRecord/record/"
+          "metadata/dsOverview/contentMetadata/geospatialCoverage/location");
       string where_conditions;
       for (const auto& element : elist) {
         append(where_conditions, "keyword = '" + element.content() + "'",
