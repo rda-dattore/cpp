@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <regex>
+#include <PostgreSQL.hpp>
 #include <mymap.hpp>
 #include <grid.hpp>
 #include <xml.hpp>
@@ -15,20 +16,20 @@
 #include <tokendoc.hpp>
 #include <myerror.hpp>
 
+using namespace PostgreSQL;
+
 namespace metautils {
 
 struct Directives {
   Directives() : temp_path(), data_root(), data_root_alias(), host(),
-      web_server(), database_server(), rdadb_username(), rdadb_password(),
-      metadb_username(), metadb_password(), wagtail_username(),
-      wagtail_password(), metadata_manager(), server_root(), decs_root(),
-      local_root(), hpss_root(), decs_bindir(), rdadata_home(),
-      parameter_map_path(),level_map_path(), singularity_binds(), unlink_key()
-      { }
+      web_server(), rdadb_config(), metadb_config(), wagtail_config(),
+      metadata_manager(), server_root(), decs_root(), local_root(), hpss_root(),
+      decs_bindir(), rdadata_home(), parameter_map_path(),level_map_path(),
+      singularity_binds(), unlink_key() { }
 
   std::string temp_path, data_root, data_root_alias;
-  std::string host, web_server, database_server, rdadb_username, rdadb_password,
-      metadb_username, metadb_password, wagtail_username, wagtail_password;
+  std::string host, web_server;
+  DBconfig rdadb_config, metadb_config, wagtail_config;
   std::string metadata_manager;
   std::string server_root, decs_root, local_root, hpss_root;
   std::string decs_bindir, rdadata_home, parameter_map_path, level_map_path;
@@ -38,7 +39,6 @@ struct Directives {
 
 struct Args {
   Args() : args_string(), dsid(), data_format(), reg_key(), path(), filename(),
-
       local_name(), member_name(), temp_loc(), update_db(true), update_summary(
       true), override_primary_check(false), overwrite_only(false), regenerate(
       true), update_graphics(true), inventory_only(false) { }
