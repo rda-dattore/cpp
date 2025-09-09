@@ -28,8 +28,7 @@ namespace metautils {
 vector<CMD_DATABASE> cmd_databases(string caller, string user) {
   static const string F = this_function_label(__func__);
   vector<CMD_DATABASE> databases;
-  Server server(directives.database_server, directives.metadb_username,
-      directives.metadb_password, "rdadb");
+  Server server(directives.metadb_config);
   if (!server) {
     log_error2("could not connect to the metadata server", F, caller, user);
   }
@@ -55,8 +54,7 @@ vector<CMD_DATABASE> cmd_databases(string caller, string user) {
 
 void check_for_existing_cmd(string cmd_type, string caller, string user) {
   static const string F = this_function_label(__func__);
-  Server server(directives.database_server, directives.metadb_username,
-      directives.metadb_password, "rdadb");
+  Server server(directives.metadb_config);
   if (!server) {
     log_error2("unable to connect to the metadata server", F, caller, user);
   }
@@ -114,8 +112,7 @@ void check_for_existing_cmd(string cmd_type, string caller, string user) {
 
 void cmd_register(string cmd, string user) {
   static const string F = this_function_label(__func__);
-  Server server_d(directives.database_server, directives.rdadb_username,
-      directives.rdadb_password, "rdadb");
+  Server server_d(directives.metadb_config);
   if (!server_d) {
     log_error2("could not connect to the metadata server", F, cmd, user);
   }
@@ -156,8 +153,7 @@ void cmd_register(string cmd, string user) {
 }
 
 extern "C" void cmd_unregister() {
-  Server server_d(directives.database_server, directives.rdadb_username,
-      directives.rdadb_password, "rdadb");
+  Server server_d(directives.metadb_config);
   if (!args.reg_key.empty()) {
     server_d._delete("dssdb.cmd_reg", "regkey = '" + args.reg_key + "'");
   }
