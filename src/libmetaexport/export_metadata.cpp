@@ -53,8 +53,7 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
       exported = export_to_datacite(format.substr(8), ofs, ident, xdoc,
           initial_indent_length);
     } else if (format == "dc_meta_tags") {
-      exported = export_to_dc_meta_tags(ofs, ident, xdoc,
-          initial_indent_length);
+      exported = export_to_dc_meta_tags(ofs, ident, initial_indent_length);
     } else if (format == "dif") {
       exported = export_to_dif(ofs, ident, xdoc, initial_indent_length);
     } else if (format == "fgdc") {
