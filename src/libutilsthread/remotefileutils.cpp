@@ -104,8 +104,11 @@ int gdex_unlink(string remote_filepath, string api_key, string& error) {
 
 bool exists_on_server(string host_name, string remote_path) {
   stringstream oss, ess;
+  if (remote_path.front() != '/' && host_name.back() != '/') {
+    host_name += "/";
+  }
   mysystem2("/bin/sh -c 'curl -I -s -w \"%{http_code}\" \"https://" + host_name
-     + "/" + remote_path + "\"'", oss, ess);
+     + remote_path + "\"'", oss, ess);
   if (!oss.str().empty()) {
     auto code = oss.str().substr(oss.str().length() - 3);
     if (code != "404") {
