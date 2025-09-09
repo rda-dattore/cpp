@@ -91,7 +91,7 @@ int gdex_unlink(string remote_filepath, string api_key, string& error) {
   int i = 0; // return value
   error = "";
   stringstream oss, ess;
-  mysystem2("/bin/bash -c 'curl -s -w \" %{http_code}\" -H \"API-Key: " +
+  mysystem2("/bin/bash -c 'curl -k -s -w \" %{http_code}\" -H \"API-Key: " +
       api_key + "\" -d \"path=" + remote_filepath + "\" "
       "\"https://api.gdex.ucar.edu/unlink/\"'", oss, ess);
   auto code = oss.str().substr(oss.str().length() - 3);
@@ -107,8 +107,8 @@ bool exists_on_server(string host_name, string remote_path) {
   if (remote_path.front() != '/' && host_name.back() != '/') {
     host_name += "/";
   }
-  mysystem2("/bin/sh -c 'curl -I -s -w \"%{http_code}\" \"https://" + host_name
-     + remote_path + "\"'", oss, ess);
+  mysystem2("/bin/sh -c 'curl -k -I -s -w \"%{http_code}\" \"https://" +
+     host_name + remote_path + "\"'", oss, ess);
   if (!oss.str().empty()) {
     auto code = oss.str().substr(oss.str().length() - 3);
     if (code != "404") {
