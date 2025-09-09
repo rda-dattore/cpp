@@ -11,6 +11,7 @@
 #include <utils.hpp>
 
 using std::list;
+using std::stoi;
 using std::string;
 using std::stringstream;
 using strutils::itos;
@@ -96,7 +97,7 @@ int gdex_unlink(string remote_filepath, string api_key, string& error) {
       "\"https://api.gdex.ucar.edu/unlink/\"'", oss, ess);
   auto code = oss.str().substr(oss.str().length() - 3);
   if (code != "200") {
-    i = -1;
+    i = -stoi(code);
     error = oss.str().substr(0, oss.str().length() - 4);
   }
   return i;
