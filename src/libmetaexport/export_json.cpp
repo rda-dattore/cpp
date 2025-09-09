@@ -40,14 +40,16 @@ bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
     ofs << "https://rda.ucar.edu/datasets/" << dsid << "/";
   }
   ofs << "\"," << endl;
-  ofs << "    \"name\": \"" << substitute(xdoc.element("dsOverview/title").
-      content(), "\"", "\\\"") << "\"," << endl;
+  ofs << "    \"name\": \"" << substitute(xdoc.element("OAI-PMH/GetRecord/"
+      "record/metadata/dsOverview/title").content(), "\"", "\\\"") << "\"," << endl;
   auto summary = htmlutils::convert_html_summary_to_ascii(xdoc.element(
-      "dsOverview/summary").to_string(), 0x7fffffff, 0);
+      "OAI-PMH/GetRecord/record/metadata/dsOverview/summary").to_string(),
+      0x7fffffff, 0);
   replace_all(summary, "\n", "\\n");
   ofs << "    \"description\": \"" << substitute(summary, "\"", "\\\"") << "\","
       << endl;
-  auto elist = xdoc.element_list("dsOverview/author");
+  auto elist = xdoc.element_list("OAI-PMH/GetRecord/record/metadata/dsOverview/"
+      "author");
   ofs << "    \"author\": {" << endl;
   if (!elist.empty()) {
     string local_indent = "";
@@ -232,8 +234,8 @@ bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
   ofs << "      \"@type\": \"Organization\"," << endl;
   ofs << "      \"name\": \"" << PUBLISHER << "\"" << endl;
   ofs << "    }," << endl;
-  ofs << "    \"datePublished\": \"" << xdoc.element("dsOverview/"
-      "publicationDate").content() << "\"" << endl;
+  ofs << "    \"datePublished\": \"" << xdoc.element("OAI-PMH/GetRecord/record/"
+      "metadata/dsOverview/publicationDate").content() << "\"" << endl;
   ofs << "  }" << endl;
   ofs << "</script>" << endl;
   return true;
