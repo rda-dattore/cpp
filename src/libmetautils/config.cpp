@@ -108,41 +108,66 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
           return configuration_error(conf_parts[0]);
         }
         directives.web_server = conf_parts[1];
-      } else if (conf_parts[0] == "databaseServer") {
-        if (conf_parts.size() != 2) {
-          return configuration_error(conf_parts[0]);
-        }
-        directives.database_server = conf_parts[1];
       } else if (conf_parts[0] == "rdadbUsername") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.rdadb_username = conf_parts[1];
+        directives.rdadb_config.user = conf_parts[1];
       } else if (conf_parts[0] == "rdadbPassword") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.rdadb_password = conf_parts[1];
+        directives.rdadb_config.password = conf_parts[1];
+      } else if (conf_parts[0] == "rdadbHost") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.rdadb_config.host = conf_parts[1];
+      } else if (conf_parts[0] == "rdadbDBName") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.rdadb_config.dbname = conf_parts[1];
       } else if (conf_parts[0] == "metadbUsername") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.metadb_username = conf_parts[1];
+        directives.metadb_config.user = conf_parts[1];
       } else if (conf_parts[0] == "metadbPassword") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.metadb_password = conf_parts[1];
+        directives.metadb_config.password = conf_parts[1];
+      } else if (conf_parts[0] == "metadbHost") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.metadb_config.host = conf_parts[1];
+      } else if (conf_parts[0] == "metadbDBName") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.metadb_config.dbname = conf_parts[1];
       } else if (conf_parts[0] == "wagtailUsername") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.wagtail_username = conf_parts[1];
+        directives.wagtail_config.user = conf_parts[1];
       } else if (conf_parts[0] == "wagtailPassword") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
         }
-        directives.wagtail_password = conf_parts[1];
+        directives.wagtail_config.password = conf_parts[1];
+      } else if (conf_parts[0] == "wagtailHost") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.wagtail_config.host = conf_parts[1];
+      } else if (conf_parts[0] == "wagtailDBName") {
+        if (conf_parts.size() != 2) {
+          return configuration_error(conf_parts[0]);
+        }
+        directives.wagtail_config.dbname = conf_parts[1];
       } else if (conf_parts[0] == "tempPath") {
         if (conf_parts.size() != 2) {
           return configuration_error(conf_parts[0]);
