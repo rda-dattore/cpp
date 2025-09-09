@@ -14,7 +14,7 @@ namespace metadataExport {
 bool export_to_thredds(std::ostream& ofs,std::string ident,XMLDocument& xdoc,size_t indent_length)
 {
   std::string indent(indent_length,' ');
-  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server server(metautils::directives.metadb_config);
   ofs << indent << "<catalog xmlns=\"http://www.unidata.ucar.edu/namespaces/thredds/InvCatalog/v1.0\"" << std::endl;
   ofs << indent << "         xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
   ofs << indent << "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;

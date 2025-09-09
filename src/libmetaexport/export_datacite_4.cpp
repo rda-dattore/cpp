@@ -678,8 +678,7 @@ bool export_to_datacite_4(std::ostream& ofs, string dsid, XMLDocument& xdoc,
   g_ng_gdex_id = ng_gdex_id(dsid);
   g_ds_set = to_sql_tuple_string(ds_aliases(g_ng_gdex_id));
   g_indent = string(indent_length, ' ');
-  Server server(metautils::directives.database_server, metautils::directives.
-      metadb_username, metautils::directives.metadb_password, "rdadb");
+  Server server(metautils::directives.metadb_config);
   if (!server) {
     myerror = "Unable to connect to database.";
     return false;

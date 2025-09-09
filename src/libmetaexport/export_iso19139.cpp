@@ -33,10 +33,9 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     string dsid, XMLDocument& xdoc, size_t indent_length) {
   if (token_doc == nullptr) {
     token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/"
-        "iso19139.xml", indent_length));
+        "iso19139v2.xml", indent_length));
   }
-  Server server(metautils::directives.database_server, metautils::directives.
-      metadb_username, metautils::directives.metadb_password, "rdadb");
+  Server server(metautils::directives.metadb_config);
   token_doc->add_replacement("__DSID__", dsid);
   auto ds_set = to_sql_tuple_string(ds_aliases(ng_gdex_id(dsid)));
   auto s = xdoc.element("dsOverview/timeStamp").attribute_value("value");
@@ -101,15 +100,24 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   if (!elist.empty()) {
     token_doc->add_if("__HAS_AUTHOR_PERSONS__");
     for (const auto& e : elist) {
-      string author;
+      string author, title;
       auto author_type = e.attribute_value("xsi:type");
       if (author_type == "authorPerson" || author_type.empty()) {
         author = e.attribute_value("lname") + ", " + e.attribute_value("fname")
             + " " + e.attribute_value("mname");
+        title = trimmed(e.attribute_value("fname") + " " + e.attribute_value(
+            "mname")) + " " + e.attribute_value("lname");
       } else {
         author = e.attribute_value("name");
       }
       trim(author);
+      author = "NAME[!]" + author;
+      auto orcid_id = e.attribute_value("orcid_id");
+      if (!orcid_id.empty()) {
+        author += "<!>TITLE[!]" + title + "<!>ORCID_ID[!]" + orcid_id;
+      } else {
+        author += "<!>NO_ORCID_ID[!]true";
+      }
       token_doc->add_repeat("__AUTHOR_PERSON__", author);
     }
   } else {
@@ -320,6 +328,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     }
     if (!time.empty()) {
       date += "T" + time;
+    } else if (row[5] == "BCE") {
+      date = "-" + date;
     }
     token_doc->add_replacement("__BEGIN_DATE__", date);
     parts = split(row[2], "-");
@@ -351,6 +361,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     }
     if (!time.empty()) {
       date += "T" + time;
+    } else if (row[5] == "BCE") {
+      date = "-" + date;
     }
     token_doc->add_replacement("__END_DATE__", date);
     token_doc->add_if("__HAS_TEMPORAL_EXTENT__");
@@ -367,8 +379,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     string license = "";
     e = xdoc.element("dsOverview/dataLicense");
     if (!e.name().empty()) {
-      Server srv(metautils::directives.database_server, metautils::directives.
-          wagtail_username, metautils::directives.wagtail_password, "rdadb");
+      Server srv(metautils::directives.wagtail_config);
       LocalQuery q("name", "wagtail.home_datalicense", "id = '" + e.content() +
           "'");
       Row r;

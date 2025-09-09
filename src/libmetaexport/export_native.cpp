@@ -45,7 +45,7 @@ void add_frequency(my::map<Entry>& frequency_table,size_t frequency,std::string 
 extern "C" void *run_query(void *ts)
 {
   PThreadStruct *t=(PThreadStruct *)ts;
-  Server tserver(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server tserver(metautils::directives.metadb_config);
   t->query.submit(tserver);
   tserver.disconnect();
   return NULL;
@@ -56,7 +56,7 @@ bool export_to_native(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size
   std::string dsnum2=strutils::substitute(dsnum,".","");
   TempDir temp_dir;
   temp_dir.create("/tmp");
-  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server server(metautils::directives.metadb_config);
   std::string indent(indent_length,' ');
   XMLElement e=xdoc.element("dsOverview");
   ofs << indent << "<dsOverview xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;

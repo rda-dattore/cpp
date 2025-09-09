@@ -16,7 +16,7 @@ bool export_to_iso19115_3(std::unique_ptr<TokenDocument>& token_doc,std::ostream
   }
   XMLElement e=xdoc.element("dsOverview/timeStamp");
   auto mdate=e.attribute_value("value").substr(0,10);
-  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server server(metautils::directives.metadb_config);
   LocalQuery query;
   query.set("mssdate","dssdb.dataset","dsid = 'ds"+dsnum+"'");
   Row row;

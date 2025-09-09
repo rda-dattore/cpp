@@ -14,7 +14,7 @@ namespace metadataExport {
 
 bool export_to_fgdc(std::ostream& ofs,std::string dsnum,XMLDocument& xdoc,size_t indent_length)
 {
-  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server server(metautils::directives.metadb_config);
   std::string indent(indent_length,' ');
   ofs << indent << "<metadata xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" << std::endl;
   ofs << indent << "            xsi:schemaLocation=\"http://www.fgdc.gov/schemas/metadata" << std::endl;

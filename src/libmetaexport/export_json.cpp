@@ -29,8 +29,7 @@ bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
   ofs << "    \"@context\": \"http://schema.org\"," << endl;
   ofs << "    \"@type\": \"Dataset\"," << endl;
   ofs << "    \"@id\": \"";
-  Server server(metautils::directives.database_server, metautils::directives.
-      metadb_username, metautils::directives.metadb_password, "rdadb");
+  Server server(metautils::directives.metadb_config);
   auto ds_set = to_sql_tuple_string(ds_aliases(dsid));
   LocalQuery query("doi", "dssdb.dsvrsn", "dsid in " + ds_set + " and end_date "
       "is null");

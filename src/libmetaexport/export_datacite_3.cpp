@@ -20,8 +20,7 @@ namespace metadataExport {
 
 bool export_to_datacite_3(std::ostream& ofs, string dsnum, XMLDocument& xdoc,
     size_t indent_length) {
-  Server server(metautils::directives.database_server, metautils::directives.
-      metadb_username, metautils::directives.metadb_password, "rdadb");
+  Server server(metautils::directives.metadb_config);
   string indent(indent_length, ' ');
   ofs << indent << "<resource xmlns=\"http://datacite.org/schema/kernel-3\" "
       "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:"

@@ -41,7 +41,7 @@ bool export_to_dif(std::ostream& ofs,std::string dsid,XMLDocument& xdoc,size_t i
     std::cout << "Error creating temporary directory" << endl;
     exit(1);
   }
-  Server server(metautils::directives.database_server,metautils::directives.metadb_username,metautils::directives.metadb_password,"rdadb");
+  Server server(metautils::directives.metadb_config);
   std::string indent(indent_length,' ');
   auto e=xdoc.element("dsOverview/creator@vocabulary=GCMD");
   auto dss_centername=e.attribute_value("name");
