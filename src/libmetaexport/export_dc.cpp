@@ -19,8 +19,8 @@ using strutils::to_sql_tuple_string;
 
 namespace metadataExport {
 
-bool export_to_dc_meta_tags(std::ostream& ofs, string dsid, XMLDocument& xdoc,
-    size_t indent_length) {
+bool export_to_dc_meta_tags(std::ostream& ofs, string dsid, size_t
+    indent_length) {
   ofs << "<meta name=\"DC.type\" content=\"Dataset\" />" << endl;
   ofs << "<meta name=\"DC.identifier\" content=\"";
   Server server(metautils::directives.metadb_config);
@@ -34,16 +34,23 @@ bool export_to_dc_meta_tags(std::ostream& ofs, string dsid, XMLDocument& xdoc,
     ofs << "https://rda.ucar.edu/datasets/" << dsid << "/";
   }
   ofs << "\" />" << endl;
-  auto elist = xdoc.element_list("dsOverview/author");
-  if (!elist.empty()) {
-    for (const auto& author : elist) {
+  query.set("select type, given_name, middle_name, family_name from search."
+      "dataset_authors where dsid = '" + dsid + "' order by sequence");
+  if (query.submit(server) < 0) {
+    myerror = "database error while getting dataset authors: '" + server.
+        error() + "'";
+    return false;
+  }
+  if (query.num_rows() > 0) {
+    for (const auto& row : query) {
       ofs << "<meta name=\"DC.creator\" content=\"";
-      auto author_type = author.attribute_value("xsi:type");
-      if (author_type == "authorPerson" || author_type.empty()) {
-        ofs << author.attribute_value("lname") << ", " << author.
-            attribute_value("fname");
+      if (row[0] == "Person") {
+        ofs << row[3] << ", " << row[1];
+        if (!row[2].empty()) {
+          ofs << " " << row[2];
+        }
       } else {
-        ofs << author.attribute_value("name");
+        ofs << row[1];
       }
       ofs << "\" />" << endl;
     }
@@ -52,7 +59,8 @@ bool export_to_dc_meta_tags(std::ostream& ofs, string dsid, XMLDocument& xdoc,
         "join search.gcmd_providers as g on g.uuid = c.keyword where c.dsid in "
         + ds_set + " and c.vocabulary = 'GCMD'");
     if (query.submit(server) < 0) {
-      myerror = "database error: " + server.error();
+      myerror = "database error while getting dataset contributors: '" + server.
+          error() + "'";
       return false;
     }
     if (query.num_rows() == 0) {
@@ -82,14 +90,21 @@ bool export_to_dc_meta_tags(std::ostream& ofs, string dsid, XMLDocument& xdoc,
       return false;
     }
   }
-  ofs << "<meta name=\"DC.title\" content=\"" << substitute(xdoc.element(
-      "dsOverview/title").content(), "\"", "\\\"") << "\" />" << endl;
-  ofs << "<meta name=\"DC.date\" content=\"" << xdoc.element("dsOverview/"
-      "publicationDate").content() << "\" scheme=\"DCTERMS.W3CDTF\" />" << endl;
+  query.set("select title, summary, pub_date from search.datasets where dsid = "
+      "'" + dsid + "'");
+  if (query.submit(server) < 0 || !query.fetch_row(row)) {
+    myerror = "database error while trying to get dataset information: '" +
+        server.error() + "'";
+    return false;
+  }
+  ofs << "<meta name=\"DC.title\" content=\"" << substitute(row[0], "\"",
+      "\\\"") << "\" />" << endl;
+  ofs << "<meta name=\"DC.date\" content=\"" << row[2] << "\" scheme=\""
+      "DCTERMS.W3CDTF\" />" << endl;
   ofs << "<meta name=\"DC.publisher\" content=\"" << PUBLISHER << "\" />" <<
       endl;
-  auto summary = htmlutils::convert_html_summary_to_ascii(xdoc.element(
-      "dsOverview/summary").to_string(), 0x7fffffff, 0);
+  auto summary = htmlutils::convert_html_summary_to_ascii("<summary>" + row[1] +
+      "</summary>", 0x7fffffff, 0);
   replace_all(summary, "\n", "\\n");
   ofs << "<meta name=\"DC.description\" content=\"" << substitute(summary, "\"",
       "\\\"") << "\" />" << endl;
