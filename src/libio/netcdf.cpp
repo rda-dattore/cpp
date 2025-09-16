@@ -12,6 +12,7 @@ using std::endl;
 using std::string;
 using std::to_string;
 using std::vector;
+using strutils::trim;
 
 const char *NetCDF::nc_type_str[12] = {
     "null",
@@ -909,19 +910,21 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
   cout << "Variable: " << vars[var_index].name << endl;
   cout << "Type: " << nc_type_str[static_cast<int>(vars[var_index].nc_type)] << endl;
   DateTime base;
-  string time_unit;
+  string time_unit, calendar;
   if (vars[var_index].attrs.size() > 0) {
     cout << "Attributes: " << vars[var_index].attrs.size() << endl;
     for (size_t n=0; n < vars[var_index].attrs.size(); ++n) {
       print_attribute(vars[var_index].attrs[n],2);
-      if (vars[var_index].attrs[n].name == "units" && vars[var_index].attrs[n].nc_type == NetCDF::NCType::CHAR) {
-        auto attr_value=*(reinterpret_cast<string *>(vars[var_index].attrs[n].values));
+      if (vars[var_index].attrs[n].name == "units" && vars[var_index].attrs[n].
+          nc_type == NetCDF::NCType::CHAR) {
+        auto attr_value = *(reinterpret_cast<string *>(vars[var_index].attrs[n].
+            values));
         auto idx=attr_value.find("since");
         if (idx != string::npos) {
-          time_unit=attr_value.substr(0,idx);
-          strutils::trim(time_unit);
-          attr_value=attr_value.substr(idx+5);
-          strutils::trim(attr_value);
+          time_unit = attr_value.substr(0, idx);
+          trim(time_unit);
+          attr_value = attr_value.substr(idx+5);
+          trim(attr_value);
           auto sp = strutils::split(attr_value);
           auto yr = 0, mo = 0, dy = 0, hr = 0, min = 0, sec = 0;
           if (sp[0][4] == '-' && sp[0][7] == '-') {
@@ -947,6 +950,10 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
             time_unit="";
           }
         }
+      } else if (vars[var_index].attrs[n].name == "calendar" && vars[var_index].
+          attrs[n].nc_type == NetCDF::NCType::CHAR) {
+        calendar = *(reinterpret_cast<string *>(vars[var_index].attrs[n].
+            values));
       }
     }
   }
@@ -1023,7 +1030,8 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
                 bits::get(b,*(reinterpret_cast<int *>(i)),0,nc_type_bytes[static_cast<int>(NCType::INT)]*8);
                 cout << "  " << *i;
                 if (!time_unit.empty() && *i >= 0.) {
-                  cout << " : " << base.fadded(time_unit, *i).to_string();
+                  cout << " : " << base.fadded(time_unit, *i, calendar).
+                      to_string();
                 }
                 cout << endl;
                 delete[] b;
@@ -1039,7 +1047,8 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
                         nc_type_bytes[static_cast<int>(NCType::FLOAT)] * 8);
                 cout << "  " << *f;
                 if (!time_unit.empty() && *f >= 0.) {
-                  cout << " : " << base.fadded(time_unit, *f).to_string();
+                  cout << " : " << base.fadded(time_unit, *f, calendar).
+                      to_string();
                 }
                 cout << endl;
                 delete[] b;
@@ -1056,7 +1065,8 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
                 bits::get(tmpbuf,ldata,0,nc_type_bytes[static_cast<int>(NCType::DOUBLE)]*8);
                 cout << "  " << data;
                 if (!time_unit.empty() && data >= 0.) {
-                  cout << " : " << base.fadded(time_unit,data).to_string();
+                  cout << " : " << base.fadded(time_unit, data, calendar).
+                      to_string();
                 }
                 cout << endl;
                 delete[] tmpbuf;
@@ -1072,8 +1082,7 @@ void InputNetCDFStream::print_variable_data(string variable_name, string
         off+=rec_size;
         fs.seekg(off,std::ios_base::beg);
       }
-    }
-    else {
+    } else {
       auto data_index=0;
       if (indexes.size() > 1) {
         size_t n=1;
@@ -1596,13 +1605,13 @@ void InputNetCDFStream::fill_variables() {
     for (const auto& attr : vars[n].attrs) {
       if (attr.name == "long_name") {
         vars[n].long_name = *(reinterpret_cast<string *>(attr.values));
-        strutils::trim(vars[n].long_name);
+        trim(vars[n].long_name);
       } else if (attr.name == "standard_name") {
         vars[n].standard_name = *(reinterpret_cast<string *>(attr.values));
-        strutils::trim(vars[n].standard_name);
+        trim(vars[n].standard_name);
       } else if (attr.name == "units") {
         vars[n].units = *(reinterpret_cast<string *>(attr.values));
-        strutils::trim(vars[n].units);
+        trim(vars[n].units);
       } else if (attr.name == "_FillValue" || attr.name == "missing_value") {
         vars[n]._FillValue.resize(attr.nc_type);
         switch (attr.nc_type) {
