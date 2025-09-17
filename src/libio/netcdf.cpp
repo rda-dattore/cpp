@@ -1674,6 +1674,7 @@ void InputNetCDFStream::fill_string(string& string_to_fill) {
   }
   fs.read(sbuf, str_len);
   string_to_fill = string(sbuf, str_len);
+  trim(string_to_fill);
   if ( (str_len % 4) != 0) {
     fs.seekg(4-(str_len % 4), std::ios_base::cur);
   }
