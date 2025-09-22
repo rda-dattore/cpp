@@ -25,7 +25,7 @@ struct Directives {
       web_server(), rdadb_config(), metadb_config(), wagtail_config(),
       metadata_manager(), server_root(), decs_root(), local_root(), hpss_root(),
       decs_bindir(), rdadata_home(), parameter_map_path(),level_map_path(),
-      singularity_binds(), unlink_key() { }
+      singularity_binds(), gdex_upload_key(), gdex_unlink_key() { }
 
   std::string temp_path, data_root, data_root_alias;
   std::string host, web_server;
@@ -34,7 +34,7 @@ struct Directives {
   std::string server_root, decs_root, local_root, hpss_root;
   std::string decs_bindir, rdadata_home, parameter_map_path, level_map_path;
   std::vector<std::string> singularity_binds;
-  std::string unlink_key;
+  std::string gdex_upload_key, gdex_unlink_key;
 };
 
 struct Args {
