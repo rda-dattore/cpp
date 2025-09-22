@@ -189,8 +189,8 @@ libs3.so: $(S3OBJS)
 #
 $(LIBDIR)/libsearch/%.o: $(SOURCEDIR)/libsearch/%.cpp $(INCLUDEDIR)/search.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
-libsearch.so: $(SEARCH_OBJS)
-	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch.so -Wl,-soname,libsearch.so $(SEARCH_OBJS)
+libsearch.so: $(SEARCHOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch.so -Wl,-soname,libsearch.so $(SEARCHOBJS)
 #
 $(LIBDIR)/libutils/%.o: $(SOURCEDIR)/libutils/%.cpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
