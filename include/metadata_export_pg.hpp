@@ -59,8 +59,8 @@ extern bool export_metadata(std::string format, std::unique_ptr<TokenDocument>&
     initial_indent_length = 0);
 extern bool export_to_datacite(std::string version, std::ostream& ofs, std::
     string dsnum, XMLDocument& xdoc, size_t indent_length);
-extern bool export_to_dc_meta_tags(std::ostream& ofs, std::string dsnum,
-    XMLDocument& xdoc, size_t indent_length);
+extern bool export_to_dc_meta_tags(std::ostream& ofs, std::string dsnum, size_t
+    indent_length);
 extern bool export_to_dif(std::ostream& ofs, std::string dsnum, XMLDocument&
      xdoc, size_t indent_length);
 extern bool export_to_fgdc(std::ostream& ofs, std::string dsnum, XMLDocument&
