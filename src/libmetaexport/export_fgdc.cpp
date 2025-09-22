@@ -1,7 +1,7 @@
 #include <fstream>
 #include <metadata_export.hpp>
 #include <metadata.hpp>
-#include <citation_pg.hpp>
+#include <citation.hpp>
 #include <xml.hpp>
 #include <PostgreSQL.hpp>
 #include <strutils.hpp>

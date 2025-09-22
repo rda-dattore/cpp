@@ -9,7 +9,7 @@
 #include <metadata.hpp>
 #include <metahelpers.hpp>
 #include <gridutils.hpp>
-#include <citation_pg.hpp>
+#include <citation.hpp>
 #include <hereDoc.hpp>
 #include <tokendoc.hpp>
 #include <myerror.hpp>
