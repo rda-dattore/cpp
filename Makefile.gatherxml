@@ -108,7 +108,7 @@ libbufr.so: $(BUFROBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libbufr.so -Wl,-soname,libbufr.so $(BUFROBJS)
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libcitation/%.cpp $(INCLUDEDIR)/citation.hpp
-	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
 libcitation.so: $(CITATIONOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libcitation.so -Wl,-soname,libcitation.so $(CITATIONOBJS)
 #
