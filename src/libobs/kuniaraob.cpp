@@ -2,18 +2,19 @@
 #include <raob.hpp>
 #include <bits.hpp>
 
+using std::string;
+
 const size_t KuniaRaob::mand_pres[7]={1000,850,700,500,400,300,200};
 const size_t KuniaRaob::std_z[7]={111,1457,3012,5574,7185,9164,11784};
 
-int InputKuniaRaobStream::ignore()
-{
+int InputKuniaRaobStream::ignore() {
 return 0;
 }
 
-bool InputKuniaRaobStream::open(const char *filename)
-{
+bool InputKuniaRaobStream::open(string filename) {
   if (is_open()) {
-    std::cerr << "Error: currently connected to another file stream" << std::endl;
+    std::cerr << "Error: currently connected to another file stream" <<
+        std::endl;
     exit(1);
   }
   num_read=0;
@@ -22,12 +23,11 @@ bool InputKuniaRaobStream::open(const char *filename)
     ics.reset(nullptr);
     return false;
   }
-  offset=0;
+  offset = 0;
   return true;
 }
 
-int InputKuniaRaobStream::peek()
-{
+int InputKuniaRaobStream::peek() {
   if (!is_open()) {
     std::cerr << "Error: no InputKuniaRaobStream has been opened" << std::endl;
     exit(1);
@@ -35,8 +35,7 @@ int InputKuniaRaobStream::peek()
 return bfstream::error;
 }
 
-int InputKuniaRaobStream::read(unsigned char *buffer,size_t buffer_length)
-{
+int InputKuniaRaobStream::read(unsigned char *buffer, size_t buffer_length) {
   int bytes_read;
   int block_len,report_type=0;
 
@@ -46,30 +45,30 @@ int InputKuniaRaobStream::read(unsigned char *buffer,size_t buffer_length)
   }
   if (ics != NULL) {
     if (offset == 0) {
-	while (report_type != 2) {
-	  block_len=ics->read(buf,3000);
-	  if (block_len == craystream::eod)
-	    return bfstream::eof;
-	  else if (block_len == bfstream::eof || block_len == 200)
-	    block_len=ics->read(buf,3000);
-	  bits::get(buf,report_type,21,5);
-	}
-	offset=6;
+      while (report_type != 2) {
+        block_len=ics->read(buf,3000);
+        if (block_len == craystream::eod)
+          return bfstream::eof;
+        else if (block_len == bfstream::eof || block_len == 200)
+          block_len=ics->read(buf,3000);
+        bits::get(buf,report_type,21,5);
+      }
+      offset=6;
     }
     if (buffer_length < 6) {
-	std::copy(buf,buf+buffer_length,buffer);
-	bytes_read=buffer_length;
+      std::copy(buf,buf+buffer_length,buffer);
+      bytes_read=buffer_length;
     }
     else {
-	std::copy(buf,buf+6,buffer);
-	if (buffer_length < 54) {
-	  std::copy(&buf[offset],&buf[offset-buffer_length+6],&buffer[6]);
-	  bytes_read=buffer_length;
-	}
-	else {
-	  std::copy(&buf[offset],&buf[offset+48],&buffer[6]);
-	  bytes_read=48;
-	}
+      std::copy(buf,buf+6,buffer);
+      if (buffer_length < 54) {
+        std::copy(&buf[offset],&buf[offset-buffer_length+6],&buffer[6]);
+        bytes_read=buffer_length;
+      }
+      else {
+        std::copy(&buf[offset],&buf[offset+48],&buffer[6]);
+        bytes_read=48;
+      }
     }
     offset+=48;
     offset%=2982;
@@ -110,68 +109,68 @@ void KuniaRaob::fill(const unsigned char *stream_buffer,bool fill_header_only)
     off=96;
 // unpack the 7 mandatory levels
     for (n=0; n < 7; n++) {
-	num_missing=0;
-	levels[nlev].pressure=mand_pres[n];
-	bits::get(stream_buffer,levels[nlev].height,off,13);
-	if (levels[nlev].height == 0xfff || levels[nlev].height == 0x1fff) {
-	  levels[nlev].height=99999;
-	  num_missing++;
-	}
-	else {
-	  if (levels[nlev].height >= 0x1000)
-	    levels[nlev].height=levels[nlev].height-0x1fff;
-	  levels[nlev].height+=std_z[n];
-	}
-	bits::get(stream_buffer,dum,off+13,9);
-	if (dum == 0xff || dum == 0x1ff) {
-	  levels[nlev].temperature=-99.9;
-	  num_missing++;
-	}
-	else {
-	  if (dum >= 0x100)
-	    dum-=0x1ff;
-	  levels[nlev].temperature=dum/2.;
-	}
-	bits::get(stream_buffer,dum,off+22,6);
-	kunia.mois_flag[nlev]=0;
-	if (dum == 0x1f || dum == 0x3f) {
-	  levels[nlev].moisture=-99.9;
-	  kunia.mois_flag[nlev]=9;
-	  num_missing++;
-	}
-	else {
-	  if (dum >= 0x20) {
-	    dum=0x3f-dum;
-	    kunia.mois_flag[nlev]=1;
-	  }
-	  levels[nlev].moisture=levels[nlev].temperature-dum;
-	}
-	bits::get(stream_buffer,dum,off+28,10);
-	if (dum == 0x1ff || dum == 0x3ff) {
-	  levels[nlev].ucomp=-999.9;
-	  ++num_missing;
-	}
-	else {
-	  if (dum >= 0x200) {
-	    dum-=0x3ff;
-	  }
-	  levels[nlev].ucomp=dum;
-	}
-	bits::get(stream_buffer,dum,off+38,10);
-	if (dum == 0x1ff || dum == 0x3ff) {
-	  levels[nlev].vcomp=-999.9;
-	  ++num_missing;
-	}
-	else {
-	  if (dum >= 0x200) {
-	    dum-=0x3ff;
-	  }
-	  levels[nlev].vcomp=dum;
-	}
-	if (num_missing < 5) {
-	  ++nlev;
-	}
-	off+=48;
+      num_missing=0;
+      levels[nlev].pressure=mand_pres[n];
+      bits::get(stream_buffer,levels[nlev].height,off,13);
+      if (levels[nlev].height == 0xfff || levels[nlev].height == 0x1fff) {
+        levels[nlev].height=99999;
+        num_missing++;
+      }
+      else {
+        if (levels[nlev].height >= 0x1000)
+          levels[nlev].height=levels[nlev].height-0x1fff;
+        levels[nlev].height+=std_z[n];
+      }
+      bits::get(stream_buffer,dum,off+13,9);
+      if (dum == 0xff || dum == 0x1ff) {
+        levels[nlev].temperature=-99.9;
+        num_missing++;
+      }
+      else {
+        if (dum >= 0x100)
+          dum-=0x1ff;
+        levels[nlev].temperature=dum/2.;
+      }
+      bits::get(stream_buffer,dum,off+22,6);
+      kunia.mois_flag[nlev]=0;
+      if (dum == 0x1f || dum == 0x3f) {
+        levels[nlev].moisture=-99.9;
+        kunia.mois_flag[nlev]=9;
+        num_missing++;
+      }
+      else {
+        if (dum >= 0x20) {
+          dum=0x3f-dum;
+          kunia.mois_flag[nlev]=1;
+        }
+        levels[nlev].moisture=levels[nlev].temperature-dum;
+      }
+      bits::get(stream_buffer,dum,off+28,10);
+      if (dum == 0x1ff || dum == 0x3ff) {
+        levels[nlev].ucomp=-999.9;
+        ++num_missing;
+      }
+      else {
+        if (dum >= 0x200) {
+          dum-=0x3ff;
+        }
+        levels[nlev].ucomp=dum;
+      }
+      bits::get(stream_buffer,dum,off+38,10);
+      if (dum == 0x1ff || dum == 0x3ff) {
+        levels[nlev].vcomp=-999.9;
+        ++num_missing;
+      }
+      else {
+        if (dum >= 0x200) {
+          dum-=0x3ff;
+        }
+        levels[nlev].vcomp=dum;
+      }
+      if (num_missing < 5) {
+        ++nlev;
+      }
+      off+=48;
     }
   }
 }
