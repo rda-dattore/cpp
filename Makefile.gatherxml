@@ -8,7 +8,7 @@ LIBDIR = lib
 LIBVERSION =
 #
 ifneq ($(wildcard $(SOURCEDIR)/libbitmap/*.cpp),)
-BITMAPOBJS = $(shell ls -1 $(SOURCEDIR)/libbitmap/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libbitmap/$(LIBDIR)\/obj/")
+BITMAPOBJS = $(shell ls -1 $(SOURCEDIR)/libbitmap/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)/$(LIBDIR)/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libbufr/*.cpp),)
@@ -97,7 +97,7 @@ endif
 #
 all: libbitmap.so libbufr.so libcitation.so libcyclone.so libdatetime.so liberror.so libgrids.so libgridutils.so libhdf.so libio.so libmetaexport.so libmetaexporthelpers.so libmetahelpers.so libmetautils.so libmyssl.so libobs.so libpostgresql.so libs3.so libsearch.so libutils.so libutilsthread.so libxml.so
 #
-$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
+$(LIBDIR)/libbitmap/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libbitmap.so: $(BITMAPOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libbitmap.so -Wl,-soname,libbitmap.so $(BITMAPOBJS)
