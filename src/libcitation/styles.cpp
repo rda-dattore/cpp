@@ -1,4 +1,4 @@
-#include <citation_pg.hpp>
+#include <citation.hpp>
 #include <regex>
 #include <PostgreSQL.hpp>
 #include <xml.hpp>

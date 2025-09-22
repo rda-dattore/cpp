@@ -1,7 +1,7 @@
 #include <iostream>
 #include <regex>
 #include <PostgreSQL.hpp>
-#include <citation_pg.hpp>
+#include <citation.hpp>
 #include <strutils.hpp>
 #include <xmlutils.hpp>
 #include <xml.hpp>
