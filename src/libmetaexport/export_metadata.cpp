@@ -1,7 +1,7 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <pthread.h>
-#include <metadata_export_pg.hpp>
+#include <metadata_export.hpp>
 #include <xml.hpp>
 #include <bsort.hpp>
 #include <strutils.hpp>
