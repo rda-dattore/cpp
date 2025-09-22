@@ -20,8 +20,8 @@ int InputBUFRStream::read(unsigned char *buffer,size_t buffer_length)
 {
   int bytes_read;
 // read a BUFR report from the stream
-  if (icosstream != NULL) {
-    if ( (bytes_read=icosstream->read(buffer,buffer_length)) <= 0) {
+  if (ics != NULL) {
+    if ( (bytes_read=ics->read(buffer,buffer_length)) <= 0) {
 	return bytes_read;
     }
     if (bytes_read == static_cast<int>(buffer_length)) {
@@ -33,8 +33,8 @@ int InputBUFRStream::read(unsigned char *buffer,size_t buffer_length)
 	return bfstream::error;
     }
   }
-  else if (if77_stream != NULL) {
-    if ( (bytes_read=if77_stream->read(buffer,buffer_length)) <= 0) {
+  else if (if77s != NULL) {
+    if ( (bytes_read=if77s->read(buffer,buffer_length)) <= 0) {
 	return bytes_read;
     }
     if (bytes_read == static_cast<int>(buffer_length)) {
