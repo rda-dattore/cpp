@@ -847,7 +847,7 @@ bool is_bounded_time(std::string cell_methods)
 void add_times(OutputNetCDFStream& ostream,std::string cell_methods,const DateTime& ref_date_time,size_t *t_dimids)
 {
 // time
-  ostream.add_variable("time",NetCDF::DataType::FLOAT,0);
+  ostream.add_variable("time",NetCDF::NCType::FLOAT,0);
   ostream.add_variable_attribute("time","name",std::string("time"));
   ostream.add_variable_attribute("time","long_name",std::string("time"));
   ostream.add_variable_attribute("time","units",ref_date_time.to_string("hours since %Y-%m-%d %H:%MM:00.0 +0:00"));
@@ -857,7 +857,7 @@ void add_times(OutputNetCDFStream& ostream,std::string cell_methods,const DateTi
   if (is_bounded_time(cell_methods)) {
     ostream.add_variable_attribute("time","bounds","time_bnds");
     t_dimids[1]=ostream.dimensions().size()-1;
-    ostream.add_variable("time_bnds",NetCDF::DataType::INT,2,t_dimids);
+    ostream.add_variable("time_bnds",NetCDF::NCType::INT,2,t_dimids);
     t_dimids[2]=ostream.dimensions().size()-2;
   }
   else {
@@ -865,22 +865,22 @@ void add_times(OutputNetCDFStream& ostream,std::string cell_methods,const DateTi
   }
 // valid date/time as YYYYMMDDHH
   if (is_bounded_time(cell_methods)) {
-    ostream.add_variable("valid_date_time_range",NetCDF::DataType::CHAR,3,t_dimids);
+    ostream.add_variable("valid_date_time_range",NetCDF::NCType::CHAR,3,t_dimids);
     ostream.add_variable_attribute("valid_date_time_range","name","valid_date_time_range");
     ostream.add_variable_attribute("valid_date_time_range","long_name","begin and end valid date and time as YYYYMMDDHH");
     t_dimids[1]=ostream.dimensions().size()-2;
   }
   else {
-    ostream.add_variable("valid_date_time",NetCDF::DataType::CHAR,2,t_dimids);
+    ostream.add_variable("valid_date_time",NetCDF::NCType::CHAR,2,t_dimids);
     ostream.add_variable_attribute("valid_date_time","name","valid_date_time");
     ostream.add_variable_attribute("valid_date_time","long_name","valid date and time as YYYYMMDDHH");
   }
 // reference date/time as YYYYMMDDHH
-  ostream.add_variable("ref_date_time",NetCDF::DataType::CHAR,2,t_dimids);
+  ostream.add_variable("ref_date_time",NetCDF::NCType::CHAR,2,t_dimids);
   ostream.add_variable_attribute("ref_date_time","name","ref_date_time");
   ostream.add_variable_attribute("ref_date_time","long_name","reference date and time as YYYYMMDDHH");
 // forecast hour
-  ostream.add_variable("forecast_hour",NetCDF::DataType::INT,0);
+  ostream.add_variable("forecast_hour",NetCDF::NCType::INT,0);
   ostream.add_variable_attribute("forecast_hour","long_name","forecast hour");
   ostream.add_variable_attribute("forecast_hour","units","hours");
 }
@@ -1100,7 +1100,7 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
     }
     for (n=0; n < time_dims.size(); ++n) {
       sdum=strutils::itos(n);
-      ostream.add_variable("time"+sdum,NetCDF::DataType::FLOAT,dim_off);
+      ostream.add_variable("time"+sdum,NetCDF::NCType::FLOAT,dim_off);
       ostream.add_variable_attribute("time"+sdum,"long_name","time"+sdum);
       ostream.add_variable_attribute("time"+sdum,"units",grid_data.ref_date_time.to_string("hours since %Y-%m-%d %H:%MM:00.0 +0:00"));
       ostream.add_variable_attribute("time"+sdum,"calendar","standard");
@@ -1109,21 +1109,21 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
       if (time_dims_bounded[n]) {
         ostream.add_variable_attribute("time"+sdum,"bounds","time_bnds"+sdum);
         t_dimids[1]=ostream.dimensions().size()-1;
-        ostream.add_variable("time_bnds"+sdum,NetCDF::DataType::INT,2,t_dimids);
+        ostream.add_variable("time_bnds"+sdum,NetCDF::NCType::INT,2,t_dimids);
         t_dimids[2]=ostream.dimensions().size()-2;
-        ostream.add_variable("valid_date_time_range"+sdum,NetCDF::DataType::CHAR,3,t_dimids);
+        ostream.add_variable("valid_date_time_range"+sdum,NetCDF::NCType::CHAR,3,t_dimids);
         ostream.add_variable_attribute("valid_date_time_range"+sdum,"name","valid_date_time_range");
         ostream.add_variable_attribute("valid_date_time_range"+sdum,"long_name","begin and end valid date and time as YYYYMMDDHH");
         t_dimids[1]=t_dimids[2];
       }
       else {
-        ostream.add_variable("valid_date_time"+sdum,NetCDF::DataType::CHAR,2,t_dimids);
+        ostream.add_variable("valid_date_time"+sdum,NetCDF::NCType::CHAR,2,t_dimids);
         ostream.add_variable_attribute("valid_date_time"+sdum,"long_name","valid date and time as YYYYMMDDHH");
       }
-      ostream.add_variable("ref_date_time"+sdum,NetCDF::DataType::CHAR,2,t_dimids);
+      ostream.add_variable("ref_date_time"+sdum,NetCDF::NCType::CHAR,2,t_dimids);
       ostream.add_variable_attribute("ref_date_time"+sdum,"long_name","reference date and time as YYYYMMDDHH");
       if (show_forecast_times) {
-        ostream.add_variable("forecast_hour"+sdum,NetCDF::DataType::INT,dim_off);
+        ostream.add_variable("forecast_hour"+sdum,NetCDF::NCType::INT,dim_off);
         ostream.add_variable_attribute("forecast_hour"+sdum,"long_name","forecast hour");
         ostream.add_variable_attribute("forecast_hour"+sdum,"units","hours");
       }
@@ -1147,19 +1147,19 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
         if (sp.size() > 1)
           sdum2=convert_units_to_CF(sp[1]);
         if (ve.data->is_layer) {
-          ostream.add_variable(sdum+"_top",NetCDF::DataType::FLOAT,dim_off+lle.lev_off);
+          ostream.add_variable(sdum+"_top",NetCDF::NCType::FLOAT,dim_off+lle.lev_off);
           ostream.add_variable_attribute(sdum+"_top","long_name",sp[0]);
           if (sp.size() > 1) {
             ostream.add_variable_attribute(sdum+"_top","units",sdum2);
           }
-          ostream.add_variable(sdum+"_bottom",NetCDF::DataType::FLOAT,dim_off+lle.lev_off);
+          ostream.add_variable(sdum+"_bottom",NetCDF::NCType::FLOAT,dim_off+lle.lev_off);
           ostream.add_variable_attribute(sdum+"_bottom","long_name",sp[0]);
           if (sp.size() > 1) {
             ostream.add_variable_attribute(sdum+"_bottom","units",sdum2);
           }
         }
         else {
-          ostream.add_variable(sdum,NetCDF::DataType::FLOAT,dim_off+lle.lev_off);
+          ostream.add_variable(sdum,NetCDF::NCType::FLOAT,dim_off+lle.lev_off);
           ostream.add_variable_attribute(sdum,"long_name",sp[0]);
           if (sp.size() > 1) {
             ostream.add_variable_attribute(sdum,"units",sdum2);
@@ -1177,27 +1177,27 @@ std::cerr << grid->definition().stdparallel2 << " " << ref_def.stdparallel2 << "
     hk.unique_variable_table.found(key,ve);
     ve.data->dim_ids.emplace_back(dim_off);
   }
-  ostream.add_variable("lat",NetCDF::DataType::FLOAT,dim_off++);
+  ostream.add_variable("lat",NetCDF::NCType::FLOAT,dim_off++);
   ostream.add_variable_attribute("lat","name",std::string("lat"));
   ostream.add_variable_attribute("lat","long_name","latitude");
   ostream.add_variable_attribute("lat","units","degree_north");
-  ostream.add_variable_attribute("lat","valid_range",NetCDF::DataType::FLOAT,2,latrange);
+  ostream.add_variable_attribute("lat","valid_range",NetCDF::NCType::FLOAT,2,latrange);
   delete[] latrange;
 // longitude
   for (auto& key : hk.unique_variable_table.keys()) {
     hk.unique_variable_table.found(key,ve);
     ve.data->dim_ids.emplace_back(dim_off);
   }
-  ostream.add_variable("lon",NetCDF::DataType::FLOAT,dim_off++);
+  ostream.add_variable("lon",NetCDF::NCType::FLOAT,dim_off++);
   ostream.add_variable_attribute("lon","name",std::string("lon"));
   ostream.add_variable_attribute("lon","long_name","longitude");
   ostream.add_variable_attribute("lon","units","degree_east");
-  ostream.add_variable_attribute("lon","valid_range",NetCDF::DataType::FLOAT,2,lonrange);
+  ostream.add_variable_attribute("lon","valid_range",NetCDF::NCType::FLOAT,2,lonrange);
   delete[] reinterpret_cast<float *>(lonrange);
 // data variable(s)
   for (auto& key : hk.unique_variable_table.keys()) {
     if (hk.unique_variable_table.found(key,ve)) {
-      ostream.add_variable(ve.key,NetCDF::DataType::FLOAT,ve.data->dim_ids);
+      ostream.add_variable(ve.key,NetCDF::NCType::FLOAT,ve.data->dim_ids);
       if (strutils::has_beginning(ve.data->description,"CF:")) {
         ostream.add_variable_attribute(ve.key,"standard_name",ve.data->description.substr(3));
       }
@@ -1395,38 +1395,38 @@ int convert_grid_to_netcdf(Grid *source_grid, Grid::Format format,OutputNetCDFSt
         ostream->add_dimension("xc",47);
 // add variables
 // time
-        ostream->add_variable("time",NetCDF::DataType::INT,0);
+        ostream->add_variable("time",NetCDF::NCType::INT,0);
         ostream->add_variable_attribute("time","name",std::string("time"));
         ostream->add_variable_attribute("time","long_name",std::string("time"));
         ostream->add_variable_attribute("time","units",grid_data.ref_date_time.to_string("hours since %Y-%m-%d %H UTC"));
         ostream->add_variable_attribute("time","calendar","standard");
 // y-coordinate
-        ostream->add_variable("yc",NetCDF::DataType::INT,1);
+        ostream->add_variable("yc",NetCDF::NCType::INT,1);
         ostream->add_variable_attribute("yc","name",std::string("yc"));
         ostream->add_variable_attribute("yc","long_name",std::string("y-coordinate in cartesian system"));
         ostream->add_variable_attribute("yc","axis",std::string("y"));
         ostream->add_variable_attribute("yc","units",std::string("m"));
         range_values[0]=1;
         range_values[1]=51;
-        ostream->add_variable_attribute("yc","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("yc","valid_range",NetCDF::NCType::INT,2,range_values);
 // x-coordinate
-        ostream->add_variable("xc",NetCDF::DataType::INT,2);
+        ostream->add_variable("xc",NetCDF::NCType::INT,2);
         ostream->add_variable_attribute("xc","name",std::string("xc"));
         ostream->add_variable_attribute("xc","long_name",std::string("x-coordinate in cartesian system"));
         ostream->add_variable_attribute("xc","axis",std::string("x"));
         ostream->add_variable_attribute("xc","units",std::string("m"));
         range_values[0]=1;
         range_values[1]=47;
-        ostream->add_variable_attribute("xc","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("xc","valid_range",NetCDF::NCType::INT,2,range_values);
 // latitudes
         dim_ids[0]=1;
         dim_ids[1]=2;
-        ostream->add_variable("lat",NetCDF::DataType::FLOAT,2,dim_ids);
+        ostream->add_variable("lat",NetCDF::NCType::FLOAT,2,dim_ids);
         ostream->add_variable_attribute("lat","name",std::string("lat"));
         ostream->add_variable_attribute("lat","long_name",std::string("north latitude"));
         ostream->add_variable_attribute("lat","units",std::string("degrees_north"));
 // longitudes
-        ostream->add_variable("lon",NetCDF::DataType::FLOAT,2,dim_ids);
+        ostream->add_variable("lon",NetCDF::NCType::FLOAT,2,dim_ids);
         ostream->add_variable_attribute("lon","name",std::string("lon"));
         ostream->add_variable_attribute("lon","long_name",std::string("east longitude"));
         ostream->add_variable_attribute("lon","units",std::string("degrees_east"));
@@ -1436,7 +1436,7 @@ int convert_grid_to_netcdf(Grid *source_grid, Grid::Format format,OutputNetCDFSt
         dim_ids[2]=2;
         add_ncar_grid_variable_to_netcdf(ostream,source_grid,3,dim_ids);
 //        gridpoints=new float[2397];
-gridpoints.resize(2397,NetCDF::DataType::FLOAT);
+gridpoints.resize(2397,NetCDF::NCType::FLOAT);
 // write the header
         ostream->write_header();
 // write the non-record variables
@@ -1483,7 +1483,7 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
       if (dateTime.time() == 3100) {
         dateTime.set_time(0);
       }
-      nctime.resize(1,NetCDF::DataType::INT);
+      nctime.resize(1,NetCDF::NCType::INT);
       nctime.set(0,dateTime.hours_since(grid_data.ref_date_time));
       ostream->add_record_data(nctime);
       for (n=l=0; n < 51; n++) {
@@ -1503,27 +1503,27 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
         ostream->add_dimension("lon",72);
 // add variables
 // time
-        ostream->add_variable("time",NetCDF::DataType::INT,0);
+        ostream->add_variable("time",NetCDF::NCType::INT,0);
         ostream->add_variable_attribute("time","name",std::string("time"));
         ostream->add_variable_attribute("time","long_name",std::string("time"));
         ostream->add_variable_attribute("time","units",grid_data.ref_date_time.to_string("hours since %Y-%m-%d %H UTC"));
         ostream->add_variable_attribute("time","calendar","standard");
 // latitude
-        ostream->add_variable("lat",NetCDF::DataType::INT,1);
+        ostream->add_variable("lat",NetCDF::NCType::INT,1);
         ostream->add_variable_attribute("lat","name",std::string("lat"));
         ostream->add_variable_attribute("lat","long_name",std::string("north latitude"));
         ostream->add_variable_attribute("lat","units",std::string("degrees_north"));
         range_values[0]=0;
         range_values[1]=90;
-        ostream->add_variable_attribute("lat","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("lat","valid_range",NetCDF::NCType::INT,2,range_values);
 // longitude
-        ostream->add_variable("lon",NetCDF::DataType::INT,2);
+        ostream->add_variable("lon",NetCDF::NCType::INT,2);
         ostream->add_variable_attribute("lon","name",std::string("lon"));
         ostream->add_variable_attribute("lon","long_name",std::string("east longitude"));
         ostream->add_variable_attribute("lon","units",std::string("degrees_east"));
         range_values[0]=0;
         range_values[1]=355;
-        ostream->add_variable_attribute("lon","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("lon","valid_range",NetCDF::NCType::INT,2,range_values);
 // latlon grid variable
         dim_ids[0]=0;
         dim_ids[1]=1;
@@ -1549,10 +1549,10 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
       if (dateTime.time() == 3100) {
         dateTime.set_time(0);
       }
-      nctime.resize(1,NetCDF::DataType::INT);
+      nctime.resize(1,NetCDF::NCType::INT);
       nctime.set(0,dateTime.hours_since(grid_data.ref_date_time));
       ostream->add_record_data(nctime);
-      gridpoints.resize(1368,NetCDF::DataType::FLOAT);
+      gridpoints.resize(1368,NetCDF::NCType::FLOAT);
       for (n=l=0; n < 19; ++n) {
         for (m=0; m < 72; ++m) {
           gridpoints.set(l++,source_grid->gridpoint(m,n));
@@ -1570,32 +1570,32 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
         ostream->add_dimension("lon",72);
 // add variables
 // time
-        ostream->add_variable("time",NetCDF::DataType::INT,0);
+        ostream->add_variable("time",NetCDF::NCType::INT,0);
         ostream->add_variable_attribute("time","name",std::string("time"));
         ostream->add_variable_attribute("time","long_name",std::string("time"));
         ostream->add_variable_attribute("time","units",grid_data.ref_date_time.to_string("hours since %Y-%m-%d %H:%MM:00.0 +0:00"));
         ostream->add_variable_attribute("time","calendar","standard");
 // integer date/time
-        ostream->add_variable("date_time",NetCDF::DataType::INT,0);
+        ostream->add_variable("date_time",NetCDF::NCType::INT,0);
         ostream->add_variable_attribute("date_time","name","date_time");
         ostream->add_variable_attribute("date_time","long_name","integer date and time");
         ostream->add_variable_attribute("date_time","units","YYYYMMDDHH");
 // latitude
-        ostream->add_variable("lat",NetCDF::DataType::INT,1);
+        ostream->add_variable("lat",NetCDF::NCType::INT,1);
         ostream->add_variable_attribute("lat","name",std::string("lat"));
         ostream->add_variable_attribute("lat","long_name",std::string("north latitude"));
         ostream->add_variable_attribute("lat","units",std::string("degrees_north"));
         range_values[0]=15;
         range_values[1]=90;
-        ostream->add_variable_attribute("lat","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("lat","valid_range",NetCDF::NCType::INT,2,range_values);
 // longitude
-        ostream->add_variable("lon",NetCDF::DataType::INT,2);
+        ostream->add_variable("lon",NetCDF::NCType::INT,2);
         ostream->add_variable_attribute("lon","name",std::string("lon"));
         ostream->add_variable_attribute("lon","long_name",std::string("east longitude"));
         ostream->add_variable_attribute("lon","units",std::string("degrees_east"));
         range_values[0]=0;
         range_values[1]=355;
-        ostream->add_variable_attribute("lon","valid_range",NetCDF::DataType::INT,2,range_values);
+        ostream->add_variable_attribute("lon","valid_range",NetCDF::NCType::INT,2,range_values);
 // slp
         dim_ids[0]=0;
         dim_ids[1]=1;
@@ -1622,12 +1622,12 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
       if (dateTime.time() == 3100) {
         dateTime.set_time(0);
       }
-      nctime.resize(1,NetCDF::DataType::INT);
+      nctime.resize(1,NetCDF::NCType::INT);
       nctime.set(0,dateTime.hours_since(grid_data.ref_date_time));
       ostream->add_record_data(nctime);
       nctime.set(0,(dateTime.year()*10000+dateTime.month()*100+dateTime.day())*100+dateTime.time()/10000);
       ostream->add_record_data(nctime);
-      gridpoints.resize(1152,NetCDF::DataType::FLOAT);
+      gridpoints.resize(1152,NetCDF::NCType::FLOAT);
       for (n=l=0; n < 15; ++n) {
         for (m=0; m < 72; ++m) {
           gridpoints.set(l++,source_grid->gridpoint(m,n));
@@ -1672,18 +1672,18 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
 // add variables
         add_times(*ostream,grid_data.cell_methods,grid_data.ref_date_time,t_dimids);
 // latitude
-        ostream->add_variable("lat",NetCDF::DataType::FLOAT,1);
+        ostream->add_variable("lat",NetCDF::NCType::FLOAT,1);
         ostream->add_variable_attribute("lat","name",std::string("lat"));
         ostream->add_variable_attribute("lat","long_name",std::string("north latitude"));
         ostream->add_variable_attribute("lat","units",std::string("degrees_north"));
-        ostream->add_variable_attribute("lat","valid_range",NetCDF::DataType::FLOAT,2,latrange);
+        ostream->add_variable_attribute("lat","valid_range",NetCDF::NCType::FLOAT,2,latrange);
         delete[] latrange;
 // longitude
-        ostream->add_variable("lon",NetCDF::DataType::FLOAT,2);
+        ostream->add_variable("lon",NetCDF::NCType::FLOAT,2);
         ostream->add_variable_attribute("lon","name",std::string("lon"));
         ostream->add_variable_attribute("lon","long_name",std::string("east longitude"));
         ostream->add_variable_attribute("lon","units",std::string("degrees_east"));
-        ostream->add_variable_attribute("lon","valid_range",NetCDF::DataType::FLOAT,2,lonrange);
+        ostream->add_variable_attribute("lon","valid_range",NetCDF::NCType::FLOAT,2,lonrange);
         delete[] lonrange;
 // data variable
         dim_ids[0]=0;
@@ -1731,7 +1731,7 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
           lev_description = build_grib_individual_level_description(
               level_mapper, g2);
         }
-        ostream->add_variable(var_name, NetCDF::DataType::FLOAT, 3, dim_ids);
+        ostream->add_variable(var_name, NetCDF::NCType::FLOAT, 3, dim_ids);
         if (strutils::has_beginning(var_description, "CF:")) {
           ostream->add_variable_attribute(var_name, "standard_name",
               var_description.substr(3));
@@ -1764,7 +1764,7 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
       }
       if (grid_data.num_parameters_written == 0) {
         dateTime=source_grid->valid_date_time();
-        nctime.resize(1,NetCDF::DataType::FLOAT);
+        nctime.resize(1,NetCDF::NCType::FLOAT);
         nctime.set(0,dateTime.hours_since(grid_data.ref_date_time));
         if (is_bounded_time(grid_data.cell_methods)) {
           dateTime=source_grid->reference_date_time().hours_added(source_grid->forecast_time()/10000);
@@ -1777,14 +1777,14 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
             nctime.set(0,range_values[1]);
           }
           ostream->add_record_data(nctime);
-          nctime.resize(2,NetCDF::DataType::INT);
+          nctime.resize(2,NetCDF::NCType::INT);
           nctime.set(0,range_values[0]);
           nctime.set(1,range_values[1]);
           ostream->add_record_data(nctime);
           sdum=dateTime.to_string("%Y%m%d%H");
           dateTime=source_grid->valid_date_time();
           sdum+=dateTime.to_string("%Y%m%d%H");
-          char_data.resize(sdum.length(),NetCDF::DataType::CHAR);
+          char_data.resize(sdum.length(),NetCDF::NCType::CHAR);
           for (n=0; n < static_cast<int>(sdum.length()); ++n) {
             char_data.set(n,sdum[n]);
           }
@@ -1793,7 +1793,7 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
         else {
           ostream->add_record_data(nctime);
           sdum=dateTime.to_string("%Y%m%d%H  ");
-          char_data.resize(sdum.length(),NetCDF::DataType::CHAR);
+          char_data.resize(sdum.length(),NetCDF::NCType::CHAR);
           for (n=0; n < static_cast<int>(sdum.length()); ++n) {
             char_data.set(n,sdum[n]);
           }
@@ -1801,16 +1801,16 @@ gridpoints.resize(2397,NetCDF::DataType::FLOAT);
         }
         dateTime=source_grid->reference_date_time();
         sdum=dateTime.to_string("%Y%m%d%H  ");
-        char_data.resize(sdum.length(),NetCDF::DataType::CHAR);
+        char_data.resize(sdum.length(),NetCDF::NCType::CHAR);
         for (n=0; n < static_cast<int>(sdum.length()); ++n) {
           char_data.set(n,sdum[n]);
         }
         ostream->add_record_data(char_data);
-        nctime.resize(1,NetCDF::DataType::INT);
+        nctime.resize(1,NetCDF::NCType::INT);
         nctime.set(0,source_grid->valid_date_time().hours_since(source_grid->reference_date_time()));
         ostream->add_record_data(nctime);
       }
-      gridpoints.resize(source_grid->dimensions().x*source_grid->dimensions().y,NetCDF::DataType::FLOAT);
+      gridpoints.resize(source_grid->dimensions().x*source_grid->dimensions().y,NetCDF::NCType::FLOAT);
       if (g->scan_mode() == 0x0) {
         for (n=grid_data.subset_definition.y.min,l=0; n <= grid_data.subset_definition.y.max; ++n) {
           if (grid_data.subset_definition.crosses_greenwich) {
@@ -1874,31 +1874,31 @@ exit(1);
         ostream->add_dimension("lon",grid_data.subset_definition.x.num);
 // add variables
 // time
-        ostream->add_variable("time",NetCDF::DataType::FLOAT,0);
+        ostream->add_variable("time",NetCDF::NCType::FLOAT,0);
         ostream->add_variable_attribute("time","name",std::string("time"));
         ostream->add_variable_attribute("time","long_name",std::string("time"));
         grid_data.ref_date_time=source_grid->valid_date_time();
         ostream->add_variable_attribute("time","units",grid_data.ref_date_time.to_string("hours since %Y-%m-%d %H:%MM:00.0 +0:00"));
         ostream->add_variable_attribute("time","calendar","standard");
 // latitude
-        ostream->add_variable("lat",NetCDF::DataType::FLOAT,1);
+        ostream->add_variable("lat",NetCDF::NCType::FLOAT,1);
         ostream->add_variable_attribute("lat","name",std::string("lat"));
         ostream->add_variable_attribute("lat","long_name",std::string("north latitude"));
         ostream->add_variable_attribute("lat","units",std::string("degrees_north"));
-        ostream->add_variable_attribute("lat","valid_range",NetCDF::DataType::FLOAT,2,latrange);
+        ostream->add_variable_attribute("lat","valid_range",NetCDF::NCType::FLOAT,2,latrange);
         delete[] latrange;
 // longitude
-        ostream->add_variable("lon",NetCDF::DataType::FLOAT,2);
+        ostream->add_variable("lon",NetCDF::NCType::FLOAT,2);
         ostream->add_variable_attribute("lon","name",std::string("lon"));
         ostream->add_variable_attribute("lon","long_name",std::string("east longitude"));
         ostream->add_variable_attribute("lon","units",std::string("degrees_east"));
-        ostream->add_variable_attribute("lon","valid_range",NetCDF::DataType::FLOAT,2,lonrange);
+        ostream->add_variable_attribute("lon","valid_range",NetCDF::NCType::FLOAT,2,lonrange);
         delete[] lonrange;
 // data variable
         dim_ids[0]=0;
         dim_ids[1]=1;
         dim_ids[2]=2;
-        ostream->add_variable(g->parameter_name(),NetCDF::DataType::FLOAT,3,dim_ids);
+        ostream->add_variable(g->parameter_name(),NetCDF::NCType::FLOAT,3,dim_ids);
         ostream->add_variable_attribute(g->parameter_name(),"units",g->parameter_units());
         ostream->add_variable_attribute(g->parameter_name(),"_FillValue",-99999.);
 // write the header
@@ -1912,10 +1912,10 @@ exit(1);
         delete[] lonnonrec;
         grid_data.wrote_header=true;
       }
-      nctime.resize(1,NetCDF::DataType::FLOAT);
+      nctime.resize(1,NetCDF::NCType::FLOAT);
       nctime.set(0,source_grid->valid_date_time().hours_since(grid_data.ref_date_time));
       ostream->add_record_data(nctime);
-      gridpoints.resize(source_grid->dimensions().x*source_grid->dimensions().y,NetCDF::DataType::FLOAT);
+      gridpoints.resize(source_grid->dimensions().x*source_grid->dimensions().y,NetCDF::NCType::FLOAT);
       for (n=grid_data.subset_definition.y.min,l=0; n <= grid_data.subset_definition.y.max; ++n) {
           for (m=grid_data.subset_definition.x.min; m <= grid_data.subset_definition.x.max; ++m) {
             gridpoints.set(l++,source_grid->gridpoint(m,n));
