@@ -515,26 +515,25 @@ BUFRReport::~BUFRReport()
   }
 }
 
-BUFRReport& BUFRReport::operator=(const BUFRReport& source)
-{
+BUFRReport& BUFRReport::operator=(const BUFRReport& source) {
   if (this == &source) {
     return *this;
   }
-  report=source.report;
+  report = source.report;
   if (os != nullptr) {
     delete[] os;
-    os=nullptr;
+    os = nullptr;
   }
-  if (source.os != nullptr) {
-    os=new unsigned char[report.os_length-4];
-    memcpy(os,source.os,report.os_length-4);
+  if (source.os == nullptr) {
+    os = new unsigned char[report.os_length-4];
+    std::copy(&source.os[0], &source.os[report.os_length-4], os);
   }
-  num_descriptors=source.num_descriptors;
+  num_descriptors = source.num_descriptors;
   if (num_descriptors > descriptors.size()) {
     descriptors.resize(num_descriptors);
   }
-  for (size_t n=0; n < num_descriptors; ++n) {
-    descriptors[n]=source.descriptors[n];
+  for (size_t n = 0; n < num_descriptors; ++n) {
+    descriptors[n] = source.descriptors[n];
   }
   return *this;
 }
@@ -1235,7 +1234,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		  break;
 		}
 		case 14: {
-		  n=strlen(dum);
+		  n = string(dum).length();
 		  bits::get(input_buffer,&dum[n],offset,8,0,num_chars);
 		  n+=num_chars;
 		  dum[n]='\0';
@@ -1610,8 +1609,8 @@ void BUFRReport::unpack_ds(InputBUFRStream& istream,const unsigned char *input_b
 }
 
 void BUFRReport::unpack_end(const unsigned char *input_buffer) {
-  if (string(reinterpret_cast<const char *>(&input_buffer[report.length-4], 4)
-      != "7777") {
+  auto c = reinterpret_cast<const char *>(input_buffer);
+  if (string(&c[report.length-4], 4) != "7777") {
     myerror = "bad END section: " + report.datetime.to_string();
     exit(1);
   }
