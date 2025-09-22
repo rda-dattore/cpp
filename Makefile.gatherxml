@@ -115,6 +115,7 @@ libcitation.so: $(CITATIONOBJS)
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libcyclone/%.cpp $(INCLUDEDIR)/cyclone.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libcyclone.so: $(CYCLONEOBJS)
+	echo $(CYCLONEOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libcyclone.so -Wl,-soname,libcyclone.so $(CYCLONEOBJS)
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libdatetime/%.cpp $(INCLUDEDIR)/datetime.hpp
