@@ -1,15 +1,17 @@
 #include <sys/stat.h>
-#include <MySQL.hpp>
+#include <PostgreSQL.hpp>
 #include <xml.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <tempfile.hpp>
 #include <datetime.hpp>
 
+using namespace PostgreSQL;
 using std::string;
 using std::vector;
 using strutils::capitalize;
 using strutils::is_numeric;
+using strutils::ng_gdex_id;
 using strutils::occurs;
 using strutils::split;
 using strutils::substitute;
@@ -80,86 +82,82 @@ string formatted_access_date(string access_date, bool embedded, bool htmlized) {
   return s;
 }
 
-string list_authors(XMLSnippet& xsnip, MySQL::Server& server, size_t
-    max_num_authors, string et_al_string, bool
-    last_first_middle_on_first_author_only) {
+string list_authors(XMLSnippet& xsnip, Server& server, size_t max_num_authors,
+    string et_al_string, bool last_first_middle_on_first_author_only) {
   string authlist; // return value
-  auto elist = xsnip.element_list("dsOverview/author");
-  if (!elist.empty()) {
-    if (elist.size() > max_num_authors) {
-      auto type = elist.front().attribute_value("xsi:type");
-      if (type == "authorPerson" || type.empty()) {
-        auto f = elist.front().attribute_value("fname");
-        auto m = elist.front().attribute_value("mname");
-        auto l = elist.front().attribute_value("lname");
-        authlist = l + ", " + f.substr(0,1) + ".";
-        if (!m.empty()) {
-          if (strutils::occurs(m, ".") > 0) {
-            authlist += " " + m;
+  LocalQuery query("select given_name, middle_name, family_name, type from "
+          "search.dataset_authors where dsid = '" + ng_gdex_id(
+          xsnip.element("dsOverview").attribute_value("ID")) + "' order by "
+          "sequence");
+  if (query.submit(server) == 0 && query.num_rows() > 0) {
+    if (query.num_rows() > max_num_authors) {
+      Row row;
+      query.fetch_row(row);
+      if (row[3] == "Person") {
+        authlist = row[2] + ", " + row[0].substr(0,1) + ".";
+        if (!row[1].empty()) {
+          if (strutils::occurs(row[1], ".") > 0) {
+            authlist += " " + row[1];
           } else {
-            authlist += " " + m.substr(0, 1) + ".";
+            authlist += " " + row[1].substr(0, 1) + ".";
           }
         }
       } else {
-        authlist = elist.front().attribute_value("name");
+        authlist = row[0];
       }
       authlist += ", " + et_al_string;
     } else {
       size_t n = 0;
-      for (const auto& e : elist) {
-        auto type = e.attribute_value("xsi:type");
-        if (type == "authorPerson" || type.empty()) {
-          auto f = e.attribute_value("fname");
-          auto m = e.attribute_value("mname");
-          auto l = e.attribute_value("lname");
+      for (const auto& row : query) {
+        if (row[3] == "Person") {
           if (last_first_middle_on_first_author_only && n > 0) {
             authlist += ", ";
-            if (n > 0 && (n + 1) == elist.size()) {
+            if (n > 0 && (n + 1) == query.num_rows()) {
               authlist += "and ";
             }
-            authlist += f.substr(0, 1) + ".";
-            if (!m.empty()) {
-              if (strutils::occurs(m, ".") > 0) {
-                authlist += " " + m;
+            authlist += row[0].substr(0, 1) + ".";
+            if (!row[1].empty()) {
+              if (strutils::occurs(row[1], ".") > 0) {
+                authlist += " " + row[1];
               } else {
-                authlist += " " + m.substr(0, 1) + ".";
+                authlist += " " + row[1].substr(0, 1) + ".";
               }
             }
-            authlist += " " + l;
+            authlist += " " + row[2];
           } else {
             if (!authlist.empty()) {
               authlist += ", ";
-              if (n > 0 && (n + 1) == elist.size()) {
+              if (n > 0 && (n + 1) == query.num_rows()) {
                 authlist += "and ";
               }
             }
-            authlist += l + ", " + f.substr(0, 1) + ".";
-            if (!m.empty()) {
-              if (strutils::occurs(m, ".") > 0) {
-                authlist += " " + m;
+            authlist += row[2] + ", " + row[0].substr(0, 1) + ".";
+            if (!row[1].empty()) {
+              if (strutils::occurs(row[1], ".") > 0) {
+                authlist += " " + row[1];
               } else {
-                authlist += " " + m.substr(0, 1) + ".";
+                authlist += " " + row[1].substr(0, 1) + ".";
               }
             }
           }
         } else {
           if (!authlist.empty()) {
             authlist+=", ";
-            if (n > 0 && (n + 1) == elist.size()) {
+            if (n > 0 && (n + 1) == query.num_rows()) {
               authlist += "and ";
             }
           }
-          authlist += e.attribute_value("name");
+          authlist += row[0];
         }
         ++n;
       }
     }
   } else {
-    MySQL::LocalQuery query("select g.path, c.contact from search."
-        "contributors_new as c left join search.gcmd_providers as g on g.uuid "
-        "= c.keyword where c.dsid = '" + xsnip.element("dsOverview").
-        attribute_value("ID") + "' and c.vocabulary = 'GCMD' and c.citable = "
-        "'Y' order by c.disp_order");
+    LocalQuery query("select g.path, c.contact from search.contributors_new as "
+        "c left join search.gcmd_providers as g on g.uuid = c.keyword where c."
+        "dsid = '" + ng_gdex_id(xsnip.element("dsOverview").attribute_value(
+        "ID")) + "' and c.vocabulary = 'GCMD' and c.citable = 'Y' order by c."
+        "disp_order");
     if (query.submit(server) == 0) {
       vector<string> c_list;
       for (const auto& row : query) {
@@ -198,20 +196,25 @@ string list_authors(XMLSnippet& xsnip, MySQL::Server& server, size_t
   return authlist;
 }
 
-bool open_ds_overview(XMLDocument& xdoc, string dsnum) {
+bool open_ds_overview(XMLDocument& xdoc, string dsid) {
+  TempDir temp_dir;
   string fname;
   struct stat buf;
-  if (stat(("/usr/local/www/server_root/web/datasets/ds" + dsnum + "/metadata/"
+  if (stat(("/usr/local/www/server_root/web/datasets/" + dsid + "/metadata/"
       "dsOverview.xml").c_str(), &buf) == 0) {
-    fname = "/usr/local/www/server_root/web/datasets/ds" + dsnum + "/metadata/"
+    fname = "/usr/local/www/server_root/web/datasets/" + dsid + "/metadata/"
         "dsOverview.xml";
   } else {
-    TempDir temp_dir;
-    if (!temp_dir.create("/tmp")) {
+    if (!temp_dir.create("/data/ptmp")) {
       return false;
     }
-    fname = unixutils::remote_web_file("https://rda.ucar.edu/datasets/ds" +
-        dsnum + "/metadata/dsOverview.xml", temp_dir.name());
+/*
+    fname = unixutils::remote_web_file("https://gdex.k8s.ucar.edu/datasets/" +
+        dsid + "/native/", temp_dir.name());
+*/
+    fname = temp_dir.name() + "/" + dsid + ".xml";
+    std::stringstream oss, ess;
+    unixutils::mysystem2("/usr/bin/curl -s -o " + fname + " https://gdex.k8s.ucar.edu/datasets/" + dsid + "/native/", oss, ess);
   }
   if (xdoc.open(fname)) {
     return true;
