@@ -3,40 +3,36 @@
 #include <raob.hpp>
 #include <strutils.hpp>
 
-void InputCardsRaobStream::close()
-{
+using std::string;
+
+void InputCardsRaobStream::close() {
   idstream::close();
-  at_eof=false;
+  at_eof = false;
 }
 
-int InputCardsRaobStream::ignore()
-{
+int InputCardsRaobStream::ignore() {
 return bfstream::error;
 }
 
-bool InputCardsRaobStream::open(const char *filename)
-{
-  if (!idstream::open(filename))
+bool InputCardsRaobStream::open(string filename) {
+  if (!idstream::open(filename)) {
     return false;
-
+  }
   if (ics != NULL) {
-    if (ics->read(first_card,80) == bfstream::eof)
-	return false;
+    if (ics->read(first_card,80) == bfstream::eof) {
+      return false;
+    }
+  } else {
   }
-  else {
-  }
-
-  at_eof=false;
+  at_eof = false;
   return true;
 }
 
-int InputCardsRaobStream::peek()
-{
+int InputCardsRaobStream::peek() {
 return bfstream::error;
 }
 
-int InputCardsRaobStream::read(unsigned char *buffer,size_t buffer_length)
-{
+int InputCardsRaobStream::read(unsigned char *buffer, size_t buffer_length) {
   if (!is_open()) {
     std::cerr << "Error: no InputCardsRaobStream has been opened" << std::endl;
     exit(1);
@@ -50,18 +46,18 @@ int InputCardsRaobStream::read(unsigned char *buffer,size_t buffer_length)
   if (ics != NULL) {
     size_t card_num=0,off;
     do {
-	++card_num;
-	off=card_num*80;
-	if (off+80 > buffer_length) {
-	  std::cerr << "Error: buffer overflow" << std::endl;
-	  exit(1);
-	}
-	if (ics->read(&buffer[off],80) == bfstream::eof)
-	  at_eof=true;
-    } while (!at_eof && std::string(reinterpret_cast<char *>(first_card),13) == std::string(reinterpret_cast<char *>(&buffer[off]),13));
+      ++card_num;
+      off=card_num*80;
+      if (off+80 > buffer_length) {
+        std::cerr << "Error: buffer overflow" << std::endl;
+        exit(1);
+      }
+      if (ics->read(&buffer[off],80) == bfstream::eof)
+        at_eof=true;
+    } while (!at_eof && string(reinterpret_cast<char *>(first_card),13) == string(reinterpret_cast<char *>(&buffer[off]),13));
     off=card_num*80;
     if (!at_eof) {
-	std::copy(&buffer[off],&buffer[off+80],reinterpret_cast<char *>(first_card));
+      std::copy(&buffer[off],&buffer[off+80],reinterpret_cast<char *>(first_card));
     }
     buffer[off]='X';
     ++num_read;
@@ -112,49 +108,49 @@ void CardsRaob::fill(const unsigned char *stream_buffer,bool fill_header_only)
   strutils::strget(buffer+3,lon,2);
   switch (buffer[1]) {
     case 0:
-	loc.latitude=lat;
-	loc.longitude=-lon;
-	break;
+      loc.latitude=lat;
+      loc.longitude=-lon;
+      break;
     case 1:
-	loc.latitude=lat;
-	if (lon <= 99)
-	  loc.longitude=-lon;
-	else
-	  loc.longitude=-(100+lon);
-	break;
+      loc.latitude=lat;
+      if (lon <= 99)
+        loc.longitude=-lon;
+      else
+        loc.longitude=-(100+lon);
+      break;
     case 2:
-	loc.latitude=lat;
-	if (lon <= 99)
-	  loc.longitude=lon;
-	else
-	  loc.longitude=100+lon;
-	break;
+      loc.latitude=lat;
+      if (lon <= 99)
+        loc.longitude=lon;
+      else
+        loc.longitude=100+lon;
+      break;
     case 3:
-	loc.latitude=lat;
-	loc.longitude=lon;
-	break;
+      loc.latitude=lat;
+      loc.longitude=lon;
+      break;
     case 5:
-	loc.latitude=-lat;
-	loc.longitude=-lon;
-	break;
+      loc.latitude=-lat;
+      loc.longitude=-lon;
+      break;
     case 6:
-	loc.latitude=-lat;
-	if (lon <= 99)
-	  loc.longitude=-lon;
-	else
-	  loc.longitude=-(100+lon);
-	break;
+      loc.latitude=-lat;
+      if (lon <= 99)
+        loc.longitude=-lon;
+      else
+        loc.longitude=-(100+lon);
+      break;
     case 7:
-	loc.latitude=-lat;
-	if (lon <= 99)
-	  loc.longitude=lon;
-	else
-	  loc.longitude=100+lon;
-	break;
+      loc.latitude=-lat;
+      if (lon <= 99)
+        loc.longitude=lon;
+      else
+        loc.longitude=100+lon;
+      break;
     case 8:
-	loc.latitude=-lat;
-	loc.longitude=lon;
-	break;
+      loc.latitude=-lat;
+      loc.longitude=lon;
+      break;
   }
 */
 
@@ -168,109 +164,109 @@ void CardsRaob::fill(const unsigned char *stream_buffer,bool fill_header_only)
     std::copy(buffer,buffer+13,header);
     n=0;
     do {
-	off=n*80+14;
-	if (buffer[off-1] >= '1' && buffer[off-1] <= '8') {
-	  card_num=buffer[off-1]-49;
-	  for (m=0; m < 4; ++m) {
-	    levels[nlev].pressure=mpres[card_num][m];
-	    if (std::string(buffer+off,4) == "    ") {
-		if (card_num == 0 && m == 0) {
-		  levels[nlev].pressure=-9999.;
-		}
-		levels[nlev].height=-9999;
-	    }
-	    else {
-		bad_field=false;
-		for (l=off; l < off+4; l++) {
-		  if (buffer[l] < '0' || buffer[l] > '9') {
-		    bad_field=true;
-		    l=off+4;
-		  }
-		}
-		if (bad_field) {
-		  levels[nlev].height=-9999;
-		  std::cerr << "Warning: bad height field on level " << nlev+1 << " - header and field follow:" << std::endl;
-		  std::cerr.write(header,13);
-		  std::cerr << " ";
-		  std::cerr.write(buffer+off,4);
-		  std::cerr << std::endl;
-		}
-		else {
-		  strutils::strget(buffer+off,levels[nlev].height,4);
-		  if (card_num == 0 && m == 0) {
-		    levels[nlev].pressure=levels[nlev].height;
-		    levels[nlev].height=-9999;
-		  }
-		  else {
-		    if (levels[nlev].pressure < 300. && levels[nlev].pressure > 50.)
-			levels[nlev].height+=10000;
-		    else if (levels[nlev].pressure < 51. && levels[nlev].pressure > 49.) {
-			if (levels[nlev].height < 8000)
-			  levels[nlev].height+=20000;
-			else
-			  levels[nlev].height+=10000;
-		    }
-		    else if (levels[nlev].pressure < 50.)
-			levels[nlev].height+=20000;
-		  }
-		}
-	    }
-	    if (std::string(buffer+off+4,4) == "    ") {
-		levels[nlev].temperature=-99.9;
-	    }
-	    else {
-		strutils::strget(buffer+off+5,dum,3);
-		if (buffer[off+4] == '0')
-		  levels[nlev].temperature=dum/10.;
-		else if (buffer[off+4] == 'X' || buffer[off+4] == '-')
-		  levels[nlev].temperature=-dum/10.;
-		else {
-		  levels[nlev].temperature=-99.9;
-		  std::cerr << "Warning: bad temperature field on level " << nlev+1 << " - header and field follow:" << std::endl;
-		  std::cerr.write(header,13);
-		  std::cerr << " ";
-		  std::cerr.write(buffer+off+4,4);
-		  std::cerr << std::endl;
-		}
-	    }
-	    if (std::string(buffer+off+8,2) == "  ") {
-		levels[nlev].moisture=-99.0;
-	    }
-	    else {
-		levels[nlev].moisture=(buffer[off+8]-48)*10;
-		if ((buffer[off+9] >= 'J' && buffer[off+9] <= 'R') || buffer[off+9] == '}')
-		  levels[nlev].moisture+=buffer[off+9]-'I';
-		else
-		  levels[nlev].moisture+=buffer[off+9]-48;
-	    }
-	    if (std::string(buffer+off+10,2) == "  ") {
-		levels[nlev].wind_direction=999;
-	    }
-	    else {
-		strutils::strget(buffer+off+10,levels[nlev].wind_direction,2);
-		levels[nlev].wind_direction*=10;
-	    }
-	    if (std::string(buffer+off+12,3) == "   ") {
-		levels[nlev].wind_speed=999.;
-	    }
-	    else {
-		strutils::strget(buffer+off+12,levels[nlev].wind_speed,3);
-	    }
-	    if (card_num == 0 && m == 0) {
-		levels[nlev].type=0;
-	    }
-	    else {
-		levels[nlev].type=1;
-	    }
-	    off+=15;
+      off=n*80+14;
+      if (buffer[off-1] >= '1' && buffer[off-1] <= '8') {
+        card_num=buffer[off-1]-49;
+        for (m=0; m < 4; ++m) {
+          levels[nlev].pressure=mpres[card_num][m];
+          if (string(buffer+off,4) == "    ") {
+            if (card_num == 0 && m == 0) {
+              levels[nlev].pressure=-9999.;
+            }
+            levels[nlev].height=-9999;
+          }
+          else {
+            bad_field=false;
+            for (l=off; l < off+4; l++) {
+              if (buffer[l] < '0' || buffer[l] > '9') {
+                bad_field=true;
+                l=off+4;
+              }
+            }
+            if (bad_field) {
+              levels[nlev].height=-9999;
+              std::cerr << "Warning: bad height field on level " << nlev+1 << " - header and field follow:" << std::endl;
+              std::cerr.write(header,13);
+              std::cerr << " ";
+              std::cerr.write(buffer+off,4);
+              std::cerr << std::endl;
+            }
+            else {
+              strutils::strget(buffer+off,levels[nlev].height,4);
+              if (card_num == 0 && m == 0) {
+                levels[nlev].pressure=levels[nlev].height;
+                levels[nlev].height=-9999;
+              }
+              else {
+                if (levels[nlev].pressure < 300. && levels[nlev].pressure > 50.)
+                  levels[nlev].height+=10000;
+                else if (levels[nlev].pressure < 51. && levels[nlev].pressure > 49.) {
+                  if (levels[nlev].height < 8000)
+                    levels[nlev].height+=20000;
+                  else
+                    levels[nlev].height+=10000;
+                }
+                else if (levels[nlev].pressure < 50.)
+                  levels[nlev].height+=20000;
+              }
+            }
+          }
+          if (string(buffer+off+4,4) == "    ") {
+            levels[nlev].temperature=-99.9;
+          }
+          else {
+            strutils::strget(buffer+off+5,dum,3);
+            if (buffer[off+4] == '0')
+              levels[nlev].temperature=dum/10.;
+            else if (buffer[off+4] == 'X' || buffer[off+4] == '-')
+              levels[nlev].temperature=-dum/10.;
+            else {
+              levels[nlev].temperature=-99.9;
+              std::cerr << "Warning: bad temperature field on level " << nlev+1 << " - header and field follow:" << std::endl;
+              std::cerr.write(header,13);
+              std::cerr << " ";
+              std::cerr.write(buffer+off+4,4);
+              std::cerr << std::endl;
+            }
+          }
+          if (string(buffer+off+8,2) == "  ") {
+            levels[nlev].moisture=-99.0;
+          }
+          else {
+            levels[nlev].moisture=(buffer[off+8]-48)*10;
+            if ((buffer[off+9] >= 'J' && buffer[off+9] <= 'R') || buffer[off+9] == '}')
+              levels[nlev].moisture+=buffer[off+9]-'I';
+            else
+              levels[nlev].moisture+=buffer[off+9]-48;
+          }
+          if (string(buffer+off+10,2) == "  ") {
+            levels[nlev].wind_direction=999;
+          }
+          else {
+            strutils::strget(buffer+off+10,levels[nlev].wind_direction,2);
+            levels[nlev].wind_direction*=10;
+          }
+          if (string(buffer+off+12,3) == "   ") {
+            levels[nlev].wind_speed=999.;
+          }
+          else {
+            strutils::strget(buffer+off+12,levels[nlev].wind_speed,3);
+          }
+          if (card_num == 0 && m == 0) {
+            levels[nlev].type=0;
+          }
+          else {
+            levels[nlev].type=1;
+          }
+          off+=15;
 
 // eliminate missing levels
-	    if ((levels[nlev].type == 0 && levels[nlev].pressure > -9999.) || (levels[nlev].type == 1 && (levels[nlev].height != -9999 || levels[nlev].temperature > -99. || levels[nlev].moisture > -99. || levels[nlev].wind_direction != 999 || levels[nlev].wind_speed < 999.)))
-		++nlev;
-	  }
-	}
-	++n;
-    } while (std::string(header,13) == std::string(&buffer[n*80],13));
+          if ((levels[nlev].type == 0 && levels[nlev].pressure > -9999.) || (levels[nlev].type == 1 && (levels[nlev].height != -9999 || levels[nlev].temperature > -99. || levels[nlev].moisture > -99. || levels[nlev].wind_direction != 999 || levels[nlev].wind_speed < 999.)))
+            ++nlev;
+        }
+      }
+      ++n;
+    } while (string(header,13) == string(&buffer[n*80],13));
   }
 }
 
@@ -282,7 +278,7 @@ void CardsRaob::print(std::ostream& outs) const
   if (nlev > 0) {
     outs << "\n  LEV   PRES   HEIGHT   TEMP    RH   DD    FF  TYPE" << std::endl;
     for (n=0; n < nlev; ++n) {
-	outs << std::setw(5) << n+1 << std::setw(7) << levels[n].pressure << std::setw(9) << levels[n].height << std::setw(7) << levels[n].temperature << std::setw(6) << levels[n].moisture << std::setw(5) << levels[n].wind_direction << std::setw(6) << levels[n].wind_speed << std::setw(6) << levels[n].type << std::endl;
+      outs << std::setw(5) << n+1 << std::setw(7) << levels[n].pressure << std::setw(9) << levels[n].height << std::setw(7) << levels[n].temperature << std::setw(6) << levels[n].moisture << std::setw(5) << levels[n].wind_direction << std::setw(6) << levels[n].wind_speed << std::setw(6) << levels[n].type << std::endl;
     }
   }
 }
