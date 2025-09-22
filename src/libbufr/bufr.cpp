@@ -8,6 +8,8 @@
 #include <bits.hpp>
 #include <myerror.hpp>
 
+using std::string;
+
 const bool BUFRReport::header_only=true,
            BUFRReport::full_report=false;
 
@@ -150,7 +152,7 @@ void InputBUFRStream::clear_table_d()
   }
 }
 
-std::string InputBUFRStream::data_category_description(short data_type)
+string InputBUFRStream::data_category_description(short data_type)
 {
   TableAEntry table_a_entry;
   if (table_a.found(data_type,table_a_entry)) {
@@ -222,7 +224,7 @@ void InputBUFRStream::define_table_b_scale_sign(Descriptor descriptor,char sign)
     return;
   }
   if (sign != '+' && sign != '-') {
-    myerror="attempt to define a bad scale sign '"+std::string(&sign,1)+"' for descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
+    myerror="attempt to define a bad scale sign '"+string(&sign,1)+"' for descriptor "+strutils::itos(descriptor.f)+" "+strutils::itos(descriptor.x)+" "+strutils::itos(descriptor.y);
     exit(1);
   }
   table_b_entry.key=make_key(descriptor.f,descriptor.x,descriptor.y);
@@ -251,7 +253,7 @@ void InputBUFRStream::define_table_b_reference_value_sign(Descriptor descriptor,
     return;
   }
   if (sign != '+' && sign != '-') {
-    myerror="attempt to define a bad reference value sign '"+std::string(&sign,1)+"'";
+    myerror="attempt to define a bad reference value sign '"+string(&sign,1)+"'";
     exit(1);
   }
   table_b_entry.key=make_key(descriptor.f,descriptor.x,descriptor.y);
@@ -308,28 +310,23 @@ void InputBUFRStream::print_table_a()
   }
 }
 
-void InputBUFRStream::print_table_b(const char *type_string)
-{
-
+void InputBUFRStream::print_table_b(const char *type_string) {
   if (table_b == nullptr) {
     return;
   }
   auto print_local=false,print_BUFR=false;
-  if (strcmp(type_string,"local") == 0) {
+  if (string(type_string, 5) == "local") {
     print_local=true;
-  }
-  else if (strcmp(type_string,"BUFR") == 0) {
+  } else if (string(type_string, 4) == "BUFR") {
     print_BUFR=true;
-  }
-  else if (strcmp(type_string,"all") == 0) {
+  } else if (string(type_string, 3) == "all") {
     print_local=print_BUFR=true;
-  }
-  else {
+  } else {
     myerror="Error in printTableB: bad type_string";
     exit(1);
   }
   std::cout << "Table B contains " << table_b_length_ << " entries";
-  if (strcmp(type_string,"all") != 0) {
+  if (string(type_string, 3) != "all") {
     std::cout << " (showing only " << type_string << " entries)";
   }
   std::cout << std::endl;
@@ -400,7 +397,7 @@ void InputBUFRStream::add_table_b_entries(std::ifstream& ifs)
     table_b_entry.units.assign(&line[29],18);
     strutils::trim(table_b_entry.units);
     table_b_entry.is_local=false;
-    if (std::string(line.get()).length() > 48) {
+    if (string(line.get()).length() > 48) {
 	table_b_entry.element_name.assign(&line[48]);
     }
     else {
@@ -412,7 +409,7 @@ void InputBUFRStream::add_table_b_entries(std::ifstream& ifs)
   }
 }
 
-void InputBUFRStream::fill_table_b(std::string path_to_bufr_tables,short src,short sub_center)
+void InputBUFRStream::fill_table_b(string path_to_bufr_tables,short src,short sub_center)
 {
   table_b.reset(new TableBEntry[400000]);
   table_b_length_=0;
@@ -447,7 +444,7 @@ void InputBUFRStream::extract_sequences(std::ifstream& ifs)
     table_d_entry.key=make_key(d.f,d.x,d.y);
     size_t offset=7;
     table_d_entry.sequence.clear();
-    while (offset < std::string(line.get()).length()) {
+    while (offset < string(line.get()).length()) {
 	strutils::strget(&line[offset],d.f,1);
 	strutils::strget(&line[offset+1],d.x,2);
 	strutils::strget(&line[offset+3],d.y,3);
@@ -459,7 +456,7 @@ void InputBUFRStream::extract_sequences(std::ifstream& ifs)
   }
 }
 
-void InputBUFRStream::fill_table_d(std::string path_to_bufr_tables,short src,short sub_center)
+void InputBUFRStream::fill_table_d(string path_to_bufr_tables,short src,short sub_center)
 {
   if (table_d == nullptr) {
     table_d.reset(new my::map<TableDEntry>);
@@ -542,7 +539,7 @@ BUFRReport& BUFRReport::operator=(const BUFRReport& source)
   return *this;
 }
 
-void BUFRReport::fill(InputBUFRStream& istream,const unsigned char *stream_buffer,bool fill_header_only,std::string path_to_bufr_tables,std::string file_of_descriptors)
+void BUFRReport::fill(InputBUFRStream& istream,const unsigned char *stream_buffer,bool fill_header_only,string path_to_bufr_tables,string file_of_descriptors)
 {
   if (stream_buffer == NULL) {
     myerror="empty file stream";
@@ -599,7 +596,7 @@ void BUFRReport::print_data(bool printed_headers) const
   }
 }
 
-void BUFRReport::print_descriptor_group(std::string indent,size_t index,int num_to_print,InputBUFRStream& istream,bool verbose)
+void BUFRReport::print_descriptor_group(string indent,size_t index,int num_to_print,InputBUFRStream& istream,bool verbose)
 {
   static int width=0;
   if (width == 0) {
@@ -910,7 +907,7 @@ size_t BUFRReport::delayed_replication_factor(size_t& offset,InputBUFRStream& is
   return rep_factor;
 }
 
-void BUFRReport::unpack_dds(InputBUFRStream& istream,const unsigned char *input_buffer,std::string file_of_descriptors,bool fill_header_only)
+void BUFRReport::unpack_dds(InputBUFRStream& istream,const unsigned char *input_buffer,string file_of_descriptors,bool fill_header_only)
 {
   size_t off=(report.is_length+report.ids_length+report.os_length)*8;
   bits::get(input_buffer,report.dds_length,off,24);
@@ -978,7 +975,7 @@ void BUFRReport::unpack_dds(InputBUFRStream& istream,const unsigned char *input_
 	auto nlines=0;
 	while (!ifs.eof()) {
 	  ++nlines;
-	  std::string sline=line;
+	  string sline=line;
 	  auto sp=strutils::split(sline);
 	  if (sp.size() != 3) {
 	    myerror="Error in file of descriptors on line "+strutils::itos(nlines);
@@ -1128,7 +1125,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
   short nbinc;
   static InputBUFRStream::TableAEntry aentry;
   InputBUFRStream::TableBEntry bentry;
-  std::string sdum;
+  string sdum;
   double *parray;
 
   switch (descriptor.f) {
@@ -1196,7 +1193,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		case 2: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
-		  aentry.description+=std::string(dum);
+		  aentry.description+=string(dum);
 		  strutils::trim(aentry.description);
 		  istream.add_entry_to_table_a(aentry);
 		  break;
@@ -1204,7 +1201,7 @@ void BUFRReport::decode_descriptor(size_t& offset,Descriptor& descriptor,InputBU
 		case 3: {
 		  bits::get(input_buffer,dum,offset,8,0,num_chars);
 		  dum[num_chars]='\0';
-		  aentry.description+=std::string(dum);
+		  aentry.description+=string(dum);
 		  strutils::trim(aentry.description);
 		  istream.update_table_a_entry(aentry);
 		  break;
@@ -1612,10 +1609,10 @@ void BUFRReport::unpack_ds(InputBUFRStream& istream,const unsigned char *input_b
   }
 }
 
-void BUFRReport::unpack_end(const unsigned char *input_buffer)
-{
-  if (strncmp(reinterpret_cast<char *>(const_cast<unsigned char *>(input_buffer))+report.length-4,"7777",4) != 0) {
-    myerror="bad END section: "+report.datetime.to_string();
+void BUFRReport::unpack_end(const unsigned char *input_buffer) {
+  if (string(reinterpret_cast<const char *>(&input_buffer[report.length-4], 4)
+      != "7777") {
+    myerror = "bad END section: " + report.datetime.to_string();
     exit(1);
   }
 }
