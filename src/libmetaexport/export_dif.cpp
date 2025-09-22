@@ -1,6 +1,6 @@
 #include <fstream>
 #include <sys/stat.h>
-#include <metadata_export_pg.hpp>
+#include <metadata_export.hpp>
 #include <metadata.hpp>
 #include <xml.hpp>
 #include <PostgreSQL.hpp>
