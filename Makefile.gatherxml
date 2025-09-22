@@ -20,7 +20,7 @@ CITATIONOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation/*.cpp |sed "s/\.cpp/\.o/" 
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libcyclone/*.cpp),)
-CYCLONEOBJS = $(shell ls -1 $(SOURCEDIR)/libcyclone/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libcyclone/$(LIBDIR)\/obj/"))
+CYCLONEOBJS = $(shell ls -1 $(SOURCEDIR)/libcyclone/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libcyclone/$(LIBDIR)\/obj/")
 endif
 #
 ifneq ($(wildcard $(SOURCEDIR)/libdatetime/*.cpp),)
@@ -115,7 +115,6 @@ libcitation.so: $(CITATIONOBJS)
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libcyclone/%.cpp $(INCLUDEDIR)/cyclone.hpp
 	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
 libcyclone.so: $(CYCLONEOBJS)
-	echo $(CYCLONEOBJS)
 	$(CC_COMPILER) -shared -o $(LIBDIR)/libcyclone.so -Wl,-soname,libcyclone.so $(CYCLONEOBJS)
 #
 $(LIBDIR)/obj/%.o: $(SOURCEDIR)/libdatetime/%.cpp $(INCLUDEDIR)/datetime.hpp
