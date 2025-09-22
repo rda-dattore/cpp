@@ -10,9 +10,10 @@
 
 class NetCDF {
 public:
-  enum class DataType {_NULL = 0, BYTE, CHAR, SHORT, INT, FLOAT, DOUBLE};
-  static const char *data_type_str[7];
-  static const short data_type_bytes[7];
+  enum class NCType {_NULL = 0, BYTE, CHAR, SHORT, INT, FLOAT, DOUBLE, UBYTE,
+      USHORT, UINT, INT64, UINT64};
+  static const char *nc_type_str[12];
+  static const short nc_type_bytes[12];
   enum class Category {DIMENSION = 10, VARIABLE, ATTRIBUTE};
   static const unsigned char BYTE_NOT_SET;
   static const char CHAR_NOT_SET;
@@ -24,14 +25,14 @@ public:
   struct Dimension {
     Dimension() : length(0), name(), is_rec(false) { }
 
-    size_t length;
+    unsigned long long length;
     std::string name;
     bool is_rec;
   };
   class Attribute {
   public:
-    Attribute() : name(), data_type(), num_values(0), values(nullptr) { }
-    Attribute(const Attribute& source) : name(), data_type(), num_values(0),
+    Attribute() : name(), nc_type(), num_values(0), values(nullptr) { }
+    Attribute(const Attribute& source) : name(), nc_type(), num_values(0),
         values(nullptr) { *this = source; }
     ~Attribute() { clear_values(); }
     Attribute& operator=(const Attribute& source);
@@ -40,35 +41,35 @@ public:
         values)); }
 
     std::string name;
-    DataType data_type;
+    NCType nc_type;
     size_t num_values;
     void *values;
   };
   class DataValue {
   public:
-    DataValue() : value(nullptr), data_type(DataType::_NULL) { }
+    DataValue() : value(nullptr), nc_type(NCType::_NULL) { }
     DataValue(const DataValue& source) : DataValue() { *this = source; }
     ~DataValue() { clear(); };
     DataValue& operator=(const DataValue& source);
     void clear();
     double get() const;
-    void resize(DataType type);
+    void resize(NCType type);
     void set(double source_value);
-    DataType type() const { return data_type; }
+    NCType type() const { return nc_type; }
 
   private:
     void *value;
-    DataType data_type;
+    NCType nc_type;
   };
   struct Variable {
-    Variable() : name(), dimids(), attrs(), data_type(), size(0), offset(0),
+    Variable() : name(), dimids(), attrs(), nc_type(), size(0), offset(0),
         long_name(), standard_name(), units(), _FillValue(), is_rec(false),
         is_coord(false) { }
 
     std::string name;
-    std::vector<size_t> dimids;
+    std::vector<unsigned long long> dimids;
     std::vector<Attribute> attrs;
-    DataType data_type;
+    NCType nc_type;
     size_t size;
     off_t offset;
     std::string long_name, standard_name, units;
@@ -129,7 +130,7 @@ public:
   };
   class VariableData {
   public:
-    VariableData() : num_values(0), values(nullptr), data_type(DataType::_NULL),
+    VariableData() : num_values(0), values(nullptr), nc_type(NCType::_NULL),
         capacity(0) { }
     VariableData(const VariableData& source) : VariableData() { *this =
         source; }
@@ -141,27 +142,27 @@ public:
     bool empty() const { return num_values == 0; }
     double front() const { return (*this)[0]; }
     void *get() const { return values; }
-    void resize(int new_size, DataType type);
+    void resize(int new_size, NCType type);
     void set(size_t index, double value);
     size_t size() const { return num_values; }
-    DataType type() const { return data_type; }
+    NCType type() const { return nc_type; }
 
   private:
     size_t num_values;
     void *values;
-    DataType data_type;
+    NCType nc_type;
     int capacity;
   };
   struct Time {
-    Time() : base(), data_type(), units() { }
+    Time() : base(), nc_type(), units() { }
 
     DateTime base;
-    DataType data_type;
+    NCType nc_type;
     std::string units;
   };
 
-  NetCDF() : file_name(), fs(), _version(0), num_recs(0), rec_size(0),
-      dims(), gattrs(), vars() { }
+  NetCDF() : file_name(), fs(), _version(0), data_len(0), var_offset_len(0),
+      num_recs(0), rec_size(0), dims(), gattrs(), vars() { }
   virtual ~NetCDF() { }
   virtual bool close() = 0;
   std::vector<Dimension>& dimensions() { return dims; }
@@ -178,8 +179,8 @@ protected:
 
   std::string file_name;
   std::fstream fs;
-  short _version;
-  size_t num_recs, rec_size;
+  short _version, data_len, var_offset_len;
+  unsigned long long num_recs, rec_size;
   std::vector<Dimension> dims;
   std::vector<Attribute> gattrs;
   std::vector<Variable> vars;
@@ -199,7 +200,7 @@ public:
   off_t size() const { return size_; }
   std::vector<double> value_at(std::string variable_name, size_t index);
   const Variable& variable(std::string variable_name) const;
-  DataType variable_data(std::string variable_name, VariableData&
+  NCType variable_data(std::string variable_name, VariableData&
       variable_data);
   size_t variable_dimensions(std::string variable_name,
       size_t **address_of_dimension_array) const;
@@ -235,27 +236,27 @@ public:
   ~OutputNetCDFStream();
   void add_dimension(std::string name, size_t length);
   void add_global_attribute(std::string name, std::string value) {
-      add_attribute(gattrs, name, DataType::CHAR, 1, &value); }
+      add_attribute(gattrs, name, NCType::CHAR, 1, &value); }
   void add_global_attribute(std::string name, short value) {
-      add_attribute(gattrs, name, DataType::SHORT, 1, &value); }
+      add_attribute(gattrs, name, NCType::SHORT, 1, &value); }
   void add_global_attribute(std::string name, int value) {
-      add_attribute(gattrs, name, DataType::INT, 1, &value); }
+      add_attribute(gattrs, name, NCType::INT, 1, &value); }
   void add_global_attribute(std::string name, float value) {
-      add_attribute(gattrs, name, DataType::FLOAT, 1, &value); }
+      add_attribute(gattrs, name, NCType::FLOAT, 1, &value); }
   void add_global_attribute(std::string name, double value) {
-      add_attribute(gattrs, name, DataType::DOUBLE, 1, &value); }
-  void add_global_attribute(std::string name, DataType data_type, size_t
-      num_values, void *values) { add_attribute(gattrs, name, data_type,
+      add_attribute(gattrs, name, NCType::DOUBLE, 1, &value); }
+  void add_global_attribute(std::string name, NCType nc_type, size_t
+      num_values, void *values) { add_attribute(gattrs, name, nc_type,
       num_values, values); }
   void add_record_data(VariableData& variable_data);
   void add_record_data(VariableData& variable_data, size_t num_values);
-  void add_variable(std::string name, DataType data_type) {
-      add_variable(name, data_type, 0, nullptr); }
-  void add_variable(std::string name, DataType data_type, size_t dimension_id) {
-      add_variable(name, data_type, 1, &dimension_id); }
-  void add_variable(std::string name, DataType data_type, size_t num_ids,
+  void add_variable(std::string name, NCType nc_type) {
+      add_variable(name, nc_type, 0, nullptr); }
+  void add_variable(std::string name, NCType nc_type, size_t dimension_id) {
+      add_variable(name, nc_type, 1, &dimension_id); }
+  void add_variable(std::string name, NCType nc_type, size_t num_ids,
       size_t *dimension_ids);
-  void add_variable(std::string name, DataType data_type, const std::vector<
+  void add_variable(std::string name, NCType nc_type, const std::vector<
       size_t>& dimension_ids);
   void add_variable_attribute(std::string variable_name,
       std::string attribute_name, unsigned char value);
@@ -270,7 +271,7 @@ public:
   void add_variable_attribute(std::string variable_name,
       std::string attribute_name, double value);
   void add_variable_attribute(std::string variable_name,
-      std::string attribute_name, DataType data_type, size_t num_values,
+      std::string attribute_name, NCType nc_type, size_t num_values,
       void *values);
   bool close();
   void initialize_non_record_data(std::string variable_name);
@@ -281,8 +282,8 @@ public:
   void write_partial_non_record_data(void *data_array, int num_values);
 
 private:
-  void add_attribute(std::vector<Attribute>& attributes_to_grow,
-      std::string name, DataType data_type, size_t num_values, void *values);
+  void add_attribute(std::vector<Attribute>& attributes_to_grow, std::string
+      name, NCType nc_type, size_t num_values, void *values);
   void put_string(const std::string& string_to_put);
   void put_attributes(const std::vector<Attribute>& attributes_to_put);
 
