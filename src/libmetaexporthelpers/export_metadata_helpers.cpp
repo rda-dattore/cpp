@@ -4,7 +4,7 @@
 #include <PostgreSQL.hpp>
 #include <xml.hpp>
 #include <mymap.hpp>
-#include <metadata_export_pg.hpp>
+#include <metadata_export.hpp>
 #include <strutils.hpp>
 #include <utils.hpp>
 #include <gridutils.hpp>
