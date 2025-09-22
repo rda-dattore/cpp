@@ -1,5 +1,5 @@
 #include <fstream>
-#include <metadata_export_pg.hpp>
+#include <metadata_export.hpp>
 #include <metahelpers.hpp>
 #include <xml.hpp>
 #include <PostgreSQL.hpp>
