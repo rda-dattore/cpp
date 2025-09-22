@@ -1,0 +1,208 @@
+CC_COMPILER = g++
+CC_OPTIONS = -Wall -Wold-style-cast -c -O3 -fPIC -std=c++17 -Weffc++
+SOURCEDIR = src
+INCLUDEDIR = include
+JASPERINCLUDEDIR = /usr/lib/x86_64-linux-gnu/include
+POSTGRESQLINCLUDEDIR = /usr/include/postgresql
+LIBDIR = lib
+LIBVERSION =
+#
+ifneq ($(wildcard $(SOURCEDIR)/libbitmap/*.cpp),)
+BITMAPOBJS = $(shell ls -1 $(SOURCEDIR)/libbitmap/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libbitmap/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libbufr/*.cpp),)
+BUFROBJS = $(shell ls -1 $(SOURCEDIR)/libbufr/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libbufr/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libcitation/*.cpp),)
+CITATIONOBJS = $(shell ls -1 $(SOURCEDIR)/libcitation/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libcitation/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libcyclone/*.cpp),)
+CYCLONEOBJS = $(shell ls -1 $(SOURCEDIR)/libcyclone/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libcyclone/$(LIBDIR)\/obj/"))
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libdatetime/*.cpp),)
+DATETIMEOBJS = $(shell ls -1 $(SOURCEDIR)/libdatetime/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libdatetime/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/liberror/*.cpp),)
+ERROROBJS = $(shell ls -1 $(SOURCEDIR)/liberror/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/liberror/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libgrids/*.cpp),)
+GRIDOBJS = $(shell ls -1 $(SOURCEDIR)/libgrids/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libgrids/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libgridutils/*.cpp),)
+GRIDUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libgridutils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libgridutils/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libhdf/*.cpp),)
+HDFOBJS = $(shell ls -1 $(SOURCEDIR)/libhdf/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libhdf/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libio/*.cpp),)
+IOOBJS = $(shell ls -1 $(SOURCEDIR)/libio/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libio/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libmetaexport/*.cpp),)
+METAEXPORTOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexport/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetaexport/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libmetaexporthelpers/*.cpp),)
+METAEXPORTHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetaexporthelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetaexporthelpers/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libmetahelpers/*.cpp),)
+METAHELPERSOBJS = $(shell ls -1 $(SOURCEDIR)/libmetahelpers/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetahelpers/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libmetautils/*.cpp),)
+METAUTILOBJS = $(shell ls -1 $(SOURCEDIR)/libmetautils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmetautils/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libmyssl/*.cpp),)
+MYSSLOBJS = $(shell ls -1 $(SOURCEDIR)/libmyssl/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libmyssl/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libobs/*.cpp),)
+OBSOBJS = $(shell ls -1 $(SOURCEDIR)/libobs/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libobs/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libpostgresql/*.cpp),)
+POSTGRESQLOBJS = $(shell ls -1 $(SOURCEDIR)/libpostgresql/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libpostgresql/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libs3/*.cpp),)
+S3OBJS = $(shell ls -1 $(SOURCEDIR)/libs3/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libs3/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libsearch/*.cpp),)
+SEARCHOBJS = $(shell ls -1 $(SOURCEDIR)/libsearch/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libsearch/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libutils/*.cpp),)
+UTILOBJS = $(shell ls -1 $(SOURCEDIR)/libutils/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libutils/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libutilsthread/*.cpp),)
+UTILSTHREADOBJS = $(shell ls -1 $(SOURCEDIR)/libutilsthread/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libutilsthread/$(LIBDIR)\/obj/")
+endif
+#
+ifneq ($(wildcard $(SOURCEDIR)/libxml/*.cpp),)
+XMLOBJS = $(shell ls -1 $(SOURCEDIR)/libxml/*.cpp |sed "s/\.cpp/\.o/" |sed "s/$(SOURCEDIR)\/libxml/$(LIBDIR)\/obj/")
+endif
+#
+all: libbitmap.so libbufr.so libcitation.so libcyclone.so libdatetime.so liberror.so libgrids.so libgridutils.so libhdf.so libio.so libmetaexport.so libmetaexporthelpers.so libmetahelpers.so libmetautils.so libmyssl.so libobs.so libpostgresql.so libs3.so libsearch.so libutils.so libutilsthread.so libxml.so
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libbitmap/%.cpp $(INCLUDEDIR)/bitmap.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libbitmap.so: $(BITMAPOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libbitmap.so -Wl,-soname,libbitmap.so $(BITMAPOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libbufr/%.cpp $(INCLUDEDIR)/bufr.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libbufr.so: $(BUFROBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libbufr.so -Wl,-soname,libbufr.so $(BUFROBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libcitation/%.cpp $(INCLUDEDIR)/citation.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libcitation.so: $(CITATIONOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libcitation.so -Wl,-soname,libcitation.so $(CITATIONOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libcyclone/%.cpp $(INCLUDEDIR)/cyclone.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libcyclone.so: $(CYCLONEOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libcyclone.so -Wl,-soname,libcyclone.so $(CYCLONEOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libdatetime/%.cpp $(INCLUDEDIR)/datetime.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libdatetime.so: $(DATETIMEOBJS) $(INCLUDEDIR)/datetime.hpp
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libdatetime.so -Wl,-soname,libdatetime.so $(DATETIMEOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/liberror/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+liberror.so: $(ERROROBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/liberror.so -Wl,-soname,liberror.so $(ERROROBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libgrids/%.cpp $(INCLUDEDIR)/grid.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(JASPERINCLUDEDIR) -D__WITH_JASPER -o $@
+libgrids.so: $(GRIDOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libgrids.so -Wl,-soname,libgrids.so $(GRIDOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libgridutils/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libgridutils.so: $(GRIDUTILOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libgridutils.so -Wl,-soname,libgridutils.so $(GRIDUTILOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libhdf/%.cpp $(INCLUDEDIR)/hdf.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libhdf.so: $(HDFOBJS) $(INCLUDEDIR)/utils.hpp
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libhdf.so -Wl,-soname,libhdf.so $(HDFOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libio/%.cpp $(INCLUDEDIR)/iodstream.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libio.so: $(IOOBJS) $(INCLUDEDIR)/utils.hpp
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libio.so -Wl,-soname,libio.so $(IOOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetaexport/%.cpp $(INCLUDEDIR)/metadata_export.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libmetaexport.so: $(METAEXPORTOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetaexport.so -Wl,-soname,libmetaexport.so $(METAEXPORTOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetaexporthelpers/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libmetaexporthelpers.so: $(METAEXPORTHELPERSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetaexporthelpers.so -Wl,-soname,libmetaexporthelpers.so $(METAEXPORTHELPERSOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetahelpers/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libmetahelpers.so: $(METAHELPERSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetahelpers.so -Wl,-soname,libmetahelpers.so $(METAHELPERSOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmetautils/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libmetautils.so: $(METAUTILOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmetautils.so -Wl,-soname,libmetautils.so $(METAUTILOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libmyssl/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libmyssl.so: $(MYSSLOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libmyssl.so -Wl,-soname,libmyssl.so $(MYSSLOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libobs/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libobs.so: $(OBSOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libobs.so -Wl,-soname,libobs.so $(OBSOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libpostgresql/%.cpp $(INCLUDEDIR)/PostgreSQL.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libpostgresql.so: $(POSTGRESQLOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libpostgresql.so -Wl,-soname,libpostgresql.so $(POSTGRESQLOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libs3/%.cpp $(INCLUDEDIR)/s3.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libs3.so: $(S3OBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libs3.so -Wl,-soname,libs3.so $(S3OBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libsearch/%.cpp $(INCLUDEDIR)/search.hpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -I$(POSTGRESQLINCLUDEDIR) -o $@
+libsearch.so: $(SEARCH_OBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libsearch.so -Wl,-soname,libsearch.so $(SEARCH_OBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libutils/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libutils.so: $(UTILOBJS) $(INCLUDEDIR)/utils.hpp $(INCLUDEDIR)/strutils.hpp
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libutils.so -Wl,-soname,libutils.so $(UTILOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libutilsthread/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libutilsthread.so: $(UTILSTHREADOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libutilsthread.so -Wl,-soname,libutilsthread.so $(UTILSTHREADOBJS)
+#
+$(LIBDIR)/obj/%.o: $(SOURCEDIR)/libxml/%.cpp
+	$(CC_COMPILER) $(CC_OPTIONS) $< -I$(INCLUDEDIR) -o $@
+libxml.so: $(XMLOBJS)
+	$(CC_COMPILER) -shared -o $(LIBDIR)/libxml.so -Wl,-soname,libxml.so $(XMLOBJS)
