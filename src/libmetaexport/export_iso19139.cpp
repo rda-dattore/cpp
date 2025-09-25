@@ -171,7 +171,6 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     token_doc->add_replacement("__SPECIALIST_PHONE__", row[1]);
     token_doc->add_replacement("__SPECIALIST_EMAIL__", row[0] + "@ucar.edu");
   }
-  struct stat buf;
   string format_ref;
   TempDir temp_dir;
   temp_dir.create("/tmp");
