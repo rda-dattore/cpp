@@ -38,83 +38,68 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   Server server(metautils::directives.metadb_config);
   token_doc->add_replacement("__DSID__", dsid);
   auto ds_set = to_sql_tuple_string(ds_aliases(ng_gdex_id(dsid)));
-  auto s = xdoc.element("dsOverview/timeStamp").attribute_value("value");
-  auto sp = split(s);
-  auto dp = split(sp[0], "-");
-  auto tp = split(sp[1], ":");
-  auto utc_off = stoi(sp[2]) / 100;
-  auto d1 = DateTime(stoi(dp[0]), stoi(dp[1]), stoi(dp[2]), stoi(tp[0]) * 10000
-      + stoi(tp[1]) * 100 + stoi(tp[2]), 0);
-  if (utc_off < 0) {
-    d1.add_hours(-utc_off);
-  } else {
-    d1.subtract_hours(utc_off);
+  DateTime tstamp;
+  LocalQuery query("timestamp_utc, title, summary, pub_date, continuing_update",
+      "search.datasets", "dsid in " + ds_set);
+  Row ds_info;
+  if (query.submit(server) == 0 && query.fetch_row(ds_info)) {
+    auto sp = split(ds_info[0]);
+    auto dp = split(sp[0], "-");
+    auto tp = split(sp[1], ":");
+    tstamp.set(stoi(dp[0]), stoi(dp[1]), stoi(dp[2]), stoi(tp[0]) * 10000 +
+        stoi(tp[1]) * 100 + stoi(tp[2]), 0);
   }
-  DateTime d2;
-  LocalQuery query("timestamp_utc", "search.datasets", "dsid in " + ds_set);
-  Row row;
-  if (query.submit(server) == 0 && query.fetch_row(row)) {
-    sp = split(row[0]);
+  DateTime d2(1000, 1, 1, 0, 0);
+  query.set("max(concat(date_created, ' ', time_created))", "dssdb.wfile_" +
+      dsid);
+  Row wfile_date;
+  if (query.submit(server) == 0 && query.fetch_row(wfile_date) &&
+      !wfile_date[0].empty()) {
+    auto sp = split(wfile_date[0]);
     auto dp = split(sp[0], "-");
     auto tp = split(sp[1], ":");
     d2.set(stoi(dp[0]), stoi(dp[1]), stoi(dp[2]), stoi(tp[0]) * 10000 + stoi(
         tp[1]) * 100 + stoi(tp[2]), 0);
+    d2.add_hours(6);
   }
-  DateTime d3;
-  query.set("max(concat(date_created, ' ', time_created))", "dssdb.wfile_" +
-      dsid);
-  if (query.submit(server) == 0 && query.fetch_row(row) && !row[0].empty()) {
-    sp = split(row[0]);
-    auto dp = split(sp[0], "-");
-    auto tp = split(sp[1], ":");
-    d3.set(stoi(dp[0]), stoi(dp[1]), stoi(dp[2]), stoi(tp[0]) * 10000 + stoi(
-        tp[1]) * 100 + stoi(tp[2]), 0);
-    d3.add_hours(7);
-  }
-  token_doc->add_replacement("__MDATE__", std::max({d1, d2, d3}).to_string(
+  token_doc->add_replacement("__MDATE__", std::max({tstamp, d2}).to_string(
       "%Y-%m-%dT%H:%MM:%SSZ"));
-  auto e = xdoc.element("dsOverview/title");
-  token_doc->add_replacement("__TITLE__", e.content());
-  e = xdoc.element("dsOverview/publicationDate");
-  auto pub_date = e.content();
-  if (pub_date.empty()) {
-    query.set("pub_date", "search.datasets", "dsid in " + ds_set);
-    if (query.submit(server) == 0 && query.fetch_row(row)) {
-      pub_date = row[0];
-    }
-  }
-  if (!pub_date.empty()) {
+  token_doc->add_replacement("__TITLE__", ds_info[1]);
+  if (ds_info[3] < "9999-01-01") {
     token_doc->add_replacement("__PUBLICATION_DATE_XML__", "<gmd:date>"
-        "<gco:Date>" + pub_date + "</gco:Date></gmd:date>");
+        "<gco:Date>" + ds_info[3] + "</gco:Date></gmd:date>");
   } else {
     token_doc->add_replacement("__PUBLICATION_DATE_XML__", "<gmd:date "
         "gco:nilReason=\"unknown\" />");
   }
   query.set("doi", "dssdb.dsvrsn", "dsid in " + ds_set + " and end_date is "
       "null");
-  if (query.submit(server) == 0 && query.fetch_row(row)) {
+  Row doi_data;
+  if (query.submit(server) == 0 && query.fetch_row(doi_data)) {
     token_doc->add_if("__HAS_DOI__");
-    token_doc->add_replacement("__DOI__", row[0]);
+    token_doc->add_replacement("__DOI__", doi_data[0]);
   }
-  auto elist = xdoc.element_list("dsOverview/author");
-  if (!elist.empty()) {
-    token_doc->add_if("__HAS_AUTHOR_PERSONS__");
-    for (const auto& e : elist) {
+  query.set("select type, given_name, middle_name, family_name, orcid_id from "
+      "search.dataset_authors where dsid in " + ds_set + " order by sequence");
+  if (query.submit(server) == 0 && query.num_rows() > 0) {
+    for (const auto& r : query) {
       string author, title;
-      auto author_type = e.attribute_value("xsi:type");
-      if (author_type == "authorPerson" || author_type.empty()) {
-        author = e.attribute_value("lname") + ", " + e.attribute_value("fname")
-            + " " + e.attribute_value("mname");
-        title = trimmed(e.attribute_value("fname") + " " + e.attribute_value(
-            "mname")) + " " + e.attribute_value("lname");
+      if (r[0] == "Person") {
+        author = r[3] + ", " + r[1];
+        title = r[1];
+        if (!r[2].empty()) {
+          author += ", " + r[2];
+          title += " " + r[2];
+        }
+        title += " " + r[3];
       } else {
-        author = e.attribute_value("name");
+        author = r[1];
       }
       trim(author);
+      trim(title);
       author = "NAME[!]" + author;
-      auto orcid_id = e.attribute_value("orcid_id");
-      if (!orcid_id.empty()) {
-        author += "<!>TITLE[!]" + title + "<!>ORCID_ID[!]" + orcid_id;
+      if (!r[4].empty()) {
+        author += "<!>TITLE[!]" + title + "<!>ORCID_ID[!]" + r[4];
       } else {
         author += "<!>NO_ORCID_ID[!]true";
       }
@@ -132,14 +117,13 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
       }
     }
   }
-  e = xdoc.element("dsOverview/summary");
   token_doc->add_replacement("__ABSTRACT__", htmlutils::
-      convert_html_summary_to_ascii(e.to_string(), 32768, 0));
-  e = xdoc.element("dsOverview/continuingUpdate");
+      convert_html_summary_to_ascii(ds_info[2], 32768, 0));
   string frequency;
-  if (e.attribute_value("value") == "yes") {
+  if (ds_info[4] == "Y") {
     token_doc->add_replacement("__PROGRESS_STATUS__", "onGoing");
-    frequency = e.attribute_value("frequency");
+    frequency = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/"
+        "continuingUpdate").attribute_value("frequency");
     if (frequency == "bi-monthly") {
       frequency = "monthly";
     } else if (frequency == "half-yearly") {
@@ -154,7 +138,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     frequency = "notPlanned";
   }
   token_doc->add_replacement("__UPDATE_FREQUENCY__", frequency);
-  e = xdoc.element("dsOverview/logo");
+  auto e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/logo");
   if (!e.name().empty()) {
     token_doc->add_if("__HAS_LOGO__");
     token_doc->add_replacement("__LOGO_URL__", "https://gdex.ucar.edu/images/"
@@ -162,11 +146,13 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     token_doc->add_replacement("__LOGO_IMAGE_FORMAT__", to_upper(e.content().
         substr(e.content().rfind(".")+1)));
   }
-  elist = xdoc.element_list("dsOverview/contact");
+  auto elist = xdoc.element_list("OAI-PMH/GetRecord/record/metadata/dsOverview/"
+      "contact");
   token_doc->add_replacement("__SPECIALIST_NAME__", elist.front().content());
-  sp = split(elist.front().content());
+  auto sp = split(elist.front().content());
   query.set("logname, phoneno", "dssdb.dssgrp", "fstname = '" + sp[0] + "' and "
       "lstname = '" + sp[1] + "'");
+  Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     token_doc->add_replacement("__SPECIALIST_PHONE__", row[1]);
     token_doc->add_replacement("__SPECIALIST_EMAIL__", row[0] + "@ucar.edu");
@@ -244,7 +230,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
       }
     }
   }
-  e = xdoc.element("dsOverview/topic@vocabulary=ISO");
+  e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/topic@"
+      "vocabulary=ISO");
   token_doc->add_replacement("__ISO_TOPIC__", e.content());
   double min_west_lon, min_south_lat, max_east_lon, max_north_lat;
   bool is_grid;
@@ -364,13 +351,15 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   if (has_any_extent) {
     token_doc->add_if("__HAS_ANY_EXTENT__");
   }
-  e = xdoc.element("dsOverview/restrictions/usage");
+  e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/restrictions/"
+      "usage");
   if (!e.name().empty()) {
     token_doc->add_replacement("__USAGE_RESTRICTIONS__", htmlutils::
         convert_html_summary_to_ascii(e.to_string(), 32768, 0));
   } else {
     string license = "";
-    e = xdoc.element("dsOverview/dataLicense");
+    e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/"
+        "dataLicense");
     if (!e.name().empty()) {
       Server srv(metautils::directives.wagtail_config);
       LocalQuery q("name", "wagtail2.home_datalicense", "id = '" + e.content() +
@@ -387,7 +376,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
           "Attribution 4.0 International License");
     }
   }
-  e = xdoc.element("dsOverview/restrictions/access");
+  e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/restrictions/"
+      "access");
   if (!e.name().empty()) {
     token_doc->add_if("__HAS_ACCESS_RESTRICTIONS__");
     token_doc->add_replacement("__ACCESS_RESTRICTIONS__", htmlutils::
@@ -404,7 +394,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     token_doc->add_if("__VOLUME_SPECIFIED__");
     token_doc->add_replacement("__MB_VOLUME__", row[0]);
   }
-  elist = xdoc.element_list("dsOverview/relatedResource");
+  elist = xdoc.element_list("OAI-PMH/GetRecord/record/metadata/dsOverview/"
+      "relatedResource");
   auto n = 0;
   for (const auto& e : elist) {
     auto url = e.attribute_value("url");
