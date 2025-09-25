@@ -132,7 +132,9 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
     TimeData& time_data, string time_method, string& error) {
   string s; // return value
   if (static_cast<int>(tre.key) < 0) {
-    if (!time_method.empty()) {
+    if (static_cast<int>(tre.key) == -11) {
+      s = "Climate Model Simulation";
+    } else if (!time_method.empty()) {
       auto l = to_lower(time_method);
       if (l.find("monthly") != string::npos || (tre.bounded.
           first_valid_datetime.day() == tre.bounded.last_valid_datetime.day() &&
@@ -207,16 +209,12 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
       if (time_data.units == "months") {
         s = "Monthly Mean";
       } else {
-        if (static_cast<int>(tre.key) == -11) {
-          s = "Climate Model Simulation";
+        if (static_cast<int>(tre.key) == -1) {
+          s = "Analysis";
         } else {
-          if (static_cast<int>(tre.key) == -1) {
-            s = "Analysis";
-          } else {
-            s = itos(-static_cast<int>(tre.key) / 100) + "-" + time_data.units;
-            chop(s);
-            s += " Forecast";
-          }
+          s = itos(-static_cast<int>(tre.key) / 100) + "-" + time_data.units;
+          chop(s);
+          s += " Forecast";
         }
       }
     }
