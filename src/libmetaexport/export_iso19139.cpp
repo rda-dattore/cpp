@@ -32,7 +32,7 @@ namespace metadataExport {
 bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     string dsid, XMLDocument& xdoc, size_t indent_length) {
   if (token_doc == nullptr) {
-    token_doc.reset(new TokenDocument("/usr/local/www/server_root/web/html/oai/"
+    token_doc.reset(new TokenDocument("/gdex/transfer/old-web-data/html/oai/"
         "iso19139v2.xml", indent_length));
   }
   Server server(metautils::directives.metadb_config);
@@ -157,7 +157,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   e = xdoc.element("dsOverview/logo");
   if (!e.name().empty()) {
     token_doc->add_if("__HAS_LOGO__");
-    token_doc->add_replacement("__LOGO_URL__", "https://rda.ucar.edu/images/"
+    token_doc->add_replacement("__LOGO_URL__", "https://gdex.ucar.edu/images/"
         "ds_logos/" + e.content());
     token_doc->add_replacement("__LOGO_IMAGE_FORMAT__", to_upper(e.content().
         substr(e.content().rfind(".")+1)));
@@ -175,14 +175,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
   string format_ref;
   TempDir temp_dir;
   temp_dir.create("/tmp");
-  if (stat((metautils::directives.server_root + "/web/metadata/"
-      "FormatReferences.xml.new").c_str(), &buf) == 0) {
-    format_ref = metautils::directives.server_root + "/web/metadata/"
-        "FormatReferences.xml.new";
-  } else {
-    format_ref = unixutils::remote_web_file("https://rda.ucar.edu/metadata/"
-        "FormatReferences.xml.new", temp_dir.name());
-  }
+  format_ref = unixutils::remote_web_file("https://gdex.ucar.edu/metadata/"
+      "FormatReferences.xml.new", temp_dir.name());
   unordered_map<string, string> formats;
   XMLDocument fdoc(format_ref);
   elist = fdoc.element_list("formatReferences/format");
