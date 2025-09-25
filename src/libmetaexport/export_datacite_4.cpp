@@ -461,7 +461,7 @@ void add_rights(Server& server, std::ostream& ofs, XMLDocument& xdoc) {
   if (id.empty()) {
     id = "CC-BY-4.0";
   }
-  LocalQuery q("url, name", "wagtail.home_datalicense", "id = '" + id + "'");
+  LocalQuery q("url, name", "wagtail2.home_datalicense", "id = '" + id + "'");
   Row row;
   if (q.submit(server) == 0 && q.fetch_row(row)) {
     ofs << g_indent << "  <rightsList>" << endl;

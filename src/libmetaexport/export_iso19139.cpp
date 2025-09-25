@@ -380,7 +380,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     e = xdoc.element("dsOverview/dataLicense");
     if (!e.name().empty()) {
       Server srv(metautils::directives.wagtail_config);
-      LocalQuery q("name", "wagtail.home_datalicense", "id = '" + e.content() +
+      LocalQuery q("name", "wagtail2.home_datalicense", "id = '" + e.content() +
           "'");
       Row r;
       if (q.submit(srv) == 0 && q.fetch_row(r)) {
