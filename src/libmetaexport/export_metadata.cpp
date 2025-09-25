@@ -35,15 +35,9 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
   TempDir temp_dir;
   temp_dir.create("/tmp");
   string ds_overview;
-  auto fpath = ident + "/metadata/dsOverview.xml";
-  struct stat buf;
-  if (stat((metautils::directives.server_root + "/web/datasets/" + fpath).
-      c_str(),&buf) == 0) {
-    ds_overview = metautils::directives.server_root + "/web/datasets/" + fpath;
-  } else {
-    ds_overview = unixutils::remote_web_file("https://rda.ucar.edu/datasets/" +
-        fpath, temp_dir.name());
-  }
+  ds_overview = unixutils::remote_web_file("https://gdex.ucar.edu/oai/?verb="
+      "GetRecord&metadataPrefix=native&identifier=oai:edu.ucar.gdex:" +
+      ident, temp_dir.name());
   XMLDocument xdoc(ds_overview);
   if (xdoc.is_open()) {
     replace_all(format, "-", "_");
