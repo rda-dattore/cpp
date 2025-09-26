@@ -38,13 +38,14 @@ struct Directives {
 };
 
 struct Args {
-  Args() : args_string(), dsid(), data_format(), reg_key(), path(), filename(),
-      local_name(), member_name(), temp_loc(), update_db(true), update_summary(
-      true), override_primary_check(false), overwrite_only(false), regenerate(
-      true), update_graphics(true), inventory_only(false) { }
+  Args() : args_string(), dsid(), data_format(), file_format(), reg_key(),
+      path(), filename(), local_name(), member_name(), temp_loc(), update_db(
+      true), update_summary(true), override_primary_check(false),
+      overwrite_only(false), regenerate(true), update_graphics(true),
+      inventory_only(false) { }
 
   std::string args_string, dsid;
-  std::string data_format, reg_key;
+  std::string data_format, file_format, reg_key;
   std::string path, filename, local_name, member_name, temp_loc;
   bool update_db, update_summary, override_primary_check, overwrite_only,
       regenerate;
