@@ -2440,18 +2440,20 @@ int InputHDF5Stream::decode_header_message(string ident, int ohdr_version,
   #ifdef __DEBUG
           cerr << "Address of link object header: " << ste->objhdr_addr << endl;
   #endif
-          if (!decode_object_header(*ste, &root_group)) {
-            exit(1);
+          if (ste->objhdr_addr > 0) {
+            if (!decode_object_header(*ste, &root_group)) {
+              exit(1);
+            }
+            if (buffer[0] == 1) {
+              if (ref_table == nullptr) {
+                ref_table.reset(new unordered_map<size_t, string>);
+              }
+              if (ref_table->find(ste->objhdr_addr) == ref_table->end()) {
+                ref_table->emplace(ste->objhdr_addr, ste->linkname);
+              }
+            }
           }
           curr_off += sizes.offsets;
-          if (buffer[0] == 1) {
-            if (ref_table == nullptr) {
-              ref_table.reset(new unordered_map<size_t, string>);
-            }
-            if (ref_table->find(ste->objhdr_addr) == ref_table->end()) {
-              ref_table->emplace(ste->objhdr_addr, ste->linkname);
-            }
-          }
         }
         delete ste;
       }
