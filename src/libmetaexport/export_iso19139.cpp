@@ -36,6 +36,7 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
         "iso19139v2.xml", indent_length));
   }
   Server server(metautils::directives.metadb_config);
+  Server wserver(metautils::directives.wagtail_config);
   token_doc->add_replacement("__DSID__", dsid);
   auto ds_set = to_sql_tuple_string(ds_aliases(ng_gdex_id(dsid)));
   DateTime tstamp;
@@ -118,7 +119,8 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     }
   }
   token_doc->add_replacement("__ABSTRACT__", htmlutils::
-      convert_html_summary_to_ascii(ds_info[2], 32768, 0));
+      convert_html_summary_to_ascii("<summary>" + ds_info[2] + "</summary>",
+          32768, 0));
   string frequency;
   if (ds_info[4] == "Y") {
     token_doc->add_replacement("__PROGRESS_STATUS__", "onGoing");
@@ -361,11 +363,10 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
     e = xdoc.element("OAI-PMH/GetRecord/record/metadata/dsOverview/"
         "dataLicense");
     if (!e.name().empty()) {
-      Server srv(metautils::directives.wagtail_config);
       LocalQuery q("name", "wagtail2.home_datalicense", "id = '" + e.content() +
           "'");
       Row r;
-      if (q.submit(srv) == 0 && q.fetch_row(r)) {
+      if (q.submit(wserver) == 0 && q.fetch_row(r)) {
         license = r[0];
       }
     }
@@ -403,7 +404,16 @@ bool export_to_iso19139(unique_ptr<TokenDocument>& token_doc, std::ostream& ofs,
         "PROTOCOL[!]" + url.substr(0, url.find("://")) + "<!>NAME[!]Related "
         "Resource #" + to_string(++n) + "<!>DESCRIPTION[!]" + e.content());
   }
+  query.set("select welcome from wagtail2.home_homepage");
+  string w;
+  if (query.submit(wserver) == 0 && query.fetch_row(row)) {
+    w = htmlutils::convert_html_summary_to_ascii("<welcome>" + row[0] +
+        "</welcome>", 32768, 0);
+  }
+  token_doc->add_replacement("__RESPONSIBLE_PARTY_DESCRIPTION__", w);
   ofs << *token_doc << std::endl;
+  server.disconnect();
+  wserver.disconnect();
   return true;
 }
 
