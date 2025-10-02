@@ -5,6 +5,7 @@
 
 using std::string;
 using std::vector;
+using std::string;
 using strutils::chop;
 using strutils::replace_all;
 using strutils::trim;
@@ -191,8 +192,7 @@ void process_summary_node(SummaryNode& node, size_t wrap_length) {
   }
 }
 
-string convert_html_summary_to_ascii(string summary,size_t wrap_length,size_t indent_length)
-{
+string convert_html_summary_to_ascii(string summary,size_t wrap_length,size_t indent_length) {
   vector<SummaryNode> nodes;
   string ascii_summary;
   string indent;
@@ -207,6 +207,7 @@ string convert_html_summary_to_ascii(string summary,size_t wrap_length,size_t in
   replace_all(summary,"&lt;","less than");
   replace_all(summary,"&gt;","greater than");
   replace_all(summary,"<br>",";");
+  replace_all(summary,"<br/>",";");
   replace_all(summary,"<br />",";");
   while (strutils::contains(summary,"  ")) {
     replace_all(summary,"  "," ");
@@ -225,18 +226,18 @@ string convert_html_summary_to_ascii(string summary,size_t wrap_length,size_t in
   return ascii_summary;
 }
 
-string transform_superscripts(string s)
-{
-  auto ts=s;
-  while (strutils::contains(ts,"^")) {
-    auto n=ts.find("^");
-    auto m=n+1;
+string transform_superscripts(string s) {
+  auto ts = s;
+  while (ts.find("^") != string::npos) {
+    auto n = ts.find("^");
+    auto m = n + 1;
     while ((ts[m] >= '0' && ts[m] <= '9') || ts[m] == '-') {
       ++m;
     }
-    ts=ts.substr(0,n)+"<sup>"+ts.substr(n+1,m-n-1)+"</sup>"+ts.substr(m);
+    ts = ts.substr(0, n) + "<sup>" + ts.substr(n+1, m-n-1) + "</sup>" +
+        ts.substr(m);
   }
-  ts="<nobr>"+ts+"</nobr>";
+  ts = "<nobr>" + ts + "</nobr>";
   return ts;
 }
 
