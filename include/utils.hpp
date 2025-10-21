@@ -105,7 +105,8 @@ extern const char *cat(std::string filename);
 extern int gdex_unlink(std::string remote_filepath, std::string api_key,
     std::string& error);
 extern int gdex_upload_dir(std::string directory, std::string relative_path,
-    std::string remote_path, std::string api_key, std::string& error);
+    std::string remote_path, std::string api_key, std::string& error,
+    std::string opts = "");
 extern int mysystem2(std::string command,std::stringstream& output,std::stringstream& error);
 
 extern long long little_endian(unsigned char *buffer,size_t num_bytes);
