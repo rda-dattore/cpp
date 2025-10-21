@@ -61,8 +61,7 @@ string remote_web_file(string URL, string local_tmpdir) {
 }
 
 int gdex_upload_dir(string directory, string relative_path, string remote_path,
-    string api_key, string& error) {
-  int i = 0; // return value
+    string api_key, string& error, string opts) {
   error = "";
   if (directory.empty()) {
     error = "missing directory";
@@ -83,8 +82,13 @@ int gdex_upload_dir(string directory, string relative_path, string remote_path,
   mysystem2("/bin/bash -c 'list=($(ls " + directory + "/" + relative_path +
       ")); for file in ${list[@]}; do /glade/u/home/dattore/bin/gdex_upload " +
       directory + "/" + relative_path + "$file " + remote_path + "/" +
-      relative_path + "; done'", oss, ess);
-  return i;
+      relative_path + " " + opts + "; done'", oss, ess);
+  error = oss.str();
+  replace_all(error, "Success.", "");
+  if (!error.empty()) {
+    return -1;
+  }
+  return 0;
 }
 
 int gdex_unlink(string remote_filepath, string api_key, string& error) {
