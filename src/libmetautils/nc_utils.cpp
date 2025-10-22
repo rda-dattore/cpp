@@ -46,13 +46,24 @@ error = "can't compute dates from fractional minutes";
       dt = time_data.reference.minutes_subtracted(-time, time_data.calendar);
     }
   } else if (time_data.units == "hours") {
-if (fabs(time - static_cast<long long>(time)) > 0.01) {
-error = "can't compute dates from fractional hours";
-}
-    if (time >= 0.) {
-      dt = time_data.reference.hours_added(time, time_data.calendar);
+    if (fabs(time - static_cast<long long>(time)) > 0.01) {
+      time *= 60.;
+      if (fabs(time - static_cast<long long>(time)) > 0.01) {
+        error = "can't compute dates from fractional hours";
+      } else {
+        if (time >= 0.) {
+          dt = time_data.reference.minutes_added(time, time_data.calendar);
+        } else {
+          dt = time_data.reference.minutes_subtracted(-time,
+              time_data.calendar);
+        }
+      }
     } else {
-      dt = time_data.reference.hours_subtracted(-time, time_data.calendar);
+      if (time >= 0.) {
+        dt = time_data.reference.hours_added(time, time_data.calendar);
+      } else {
+        dt = time_data.reference.hours_subtracted(-time, time_data.calendar);
+      }
     }
   } else if (time_data.units == "days") {
     if (time >= 0.) {
@@ -151,8 +162,8 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
         }
       } else if (time_data.units == "hours") {
         if (tre.bounded.first_valid_datetime.year() > 0) {
-          auto n = tre.instantaneous.first_valid_datetime.hours_since(tre.
-              bounded.first_valid_datetime) * 2;
+          auto n = tre.instantaneous.first_valid_datetime.seconds_since(tre.
+              bounded.first_valid_datetime) * 2 / 3600;
           switch (n) {
             case 1: {
               s = "Hourly ";
