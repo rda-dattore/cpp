@@ -31,8 +31,9 @@ bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
   ofs << "    \"@id\": \"";
   Server server(metautils::directives.metadb_config);
   auto ds_set = to_sql_tuple_string(ds_aliases(dsid));
-  LocalQuery query("doi", "dssdb.dsvrsn", "dsid in " + ds_set + " and end_date "
-      "is null");
+  LocalQuery query("select v.doi, s.title, s.summary from search.datasets as s "
+      "left join dssdb.dsvrsn as v on v.dsid = s.dsid where s.dsid in " + ds_set
+      + " and end_date is null");
   Row row;
   if (query.submit(server) == 0 && query.fetch_row(row)) {
     ofs << "https://doi.org/" << row[0];
@@ -40,11 +41,10 @@ bool export_to_json_ld(std::ostream& ofs, string dsid, XMLDocument& xdoc, size_t
     ofs << "https://rda.ucar.edu/datasets/" << dsid << "/";
   }
   ofs << "\"," << endl;
-  ofs << "    \"name\": \"" << substitute(xdoc.element("OAI-PMH/GetRecord/"
-      "record/metadata/dsOverview/title").content(), "\"", "\\\"") << "\"," << endl;
-  auto summary = htmlutils::convert_html_summary_to_ascii(xdoc.element(
-      "OAI-PMH/GetRecord/record/metadata/dsOverview/summary").to_string(),
-      0x7fffffff, 0);
+  ofs << "    \"name\": \"" << substitute(row[1], "\"", "\\\"") << "\"," <<
+      endl;
+  auto summary = htmlutils::convert_html_summary_to_ascii("<summary>" +
+      substitute(row[2], "&amp;", "&") + "</summary>", 0x7fffffff, 0);
   replace_all(summary, "\n", "\\n");
   ofs << "    \"description\": \"" << substitute(summary, "\"", "\\\"") << "\","
       << endl;
