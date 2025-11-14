@@ -36,8 +36,8 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
   temp_dir.create("/tmp");
   string ds_overview;
   ds_overview = unixutils::remote_web_file("https://gdex.ucar.edu/oai/?verb="
-      "GetRecord&metadataPrefix=native&identifier=oai:edu.ucar.gdex:" +
-      ident, temp_dir.name());
+      "GetRecord&metadataPrefix=native&identifier=oai:edu.ucar.gdex:" + ident,
+      temp_dir.name());
   XMLDocument xdoc(ds_overview);
   if (xdoc.is_open()) {
     replace_all(format, "-", "_");
@@ -63,6 +63,8 @@ bool export_metadata(string format, unique_ptr<TokenDocument>& token_doc, std::
       exported = export_to_thredds(ofs, ident, xdoc, initial_indent_length);
     }
     xdoc.close();
+  } else {
+    myerror = xdoc.parse_error();
   }
   return exported;
 }
