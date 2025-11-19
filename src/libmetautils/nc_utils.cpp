@@ -343,8 +343,9 @@ string write_level_map(const vector<LevelInfo>& level_info) {
   } else {
     f = "netCDF";
   }
-  string x = unixutils::remote_web_file("https://rda.ucar.edu/metadata/"
-      "LevelTables/" + f + "." + args.dsid + ".xml", directives.temp_path);
+  string x = unixutils::remote_web_file("https://" + directives.web_server +
+      "/metadata/LevelTables/" + f + "." + args.dsid + ".xml",
+      directives.temp_path);
   LevelMap lmap;
   vector<string> v;
   if (lmap.fill(x)) {
