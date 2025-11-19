@@ -231,9 +231,10 @@ struct TimeBounds2 {
 };
 
 struct TimeData {
-  TimeData() : reference(), units(), calendar() { }
+  TimeData() : reference(), fcst_period(0), units(), calendar() { }
 
   DateTime reference;
+  size_t fcst_period;
   std::string units, calendar;
 };
 
