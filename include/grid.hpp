@@ -65,7 +65,14 @@ public:
       float dy; // grid length (km) in x-direction
     };
     size_t projection_flag, num_centers;
-    float stdparallel1, stdparallel2;
+    union {
+      float stdparallel1;
+      size_t originX;
+    };
+    union {
+      float stdparallel2;
+      size_t originY;
+    };
     bool is_cell;
   };
 
