@@ -65,11 +65,7 @@ public:
       float dy; // grid length (km) in x-direction
     };
     size_t projection_flag, num_centers;
-    float stdparallel1; // tangent latitude
-    union {
-      float stdparallel2; // 2nd tangent latitude
-      float cmeridian; // central meridian
-    };
+    float stdparallel1, stdparallel2;
     bool is_cell;
   };
 
