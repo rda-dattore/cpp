@@ -67,12 +67,9 @@ public:
     size_t projection_flag, num_centers;
     union {
       float stdparallel1;
-      size_t originX;
+      float cmeridian;
     };
-    union {
-      float stdparallel2;
-      size_t originY;
-    };
+    float stdparallel2;
     bool is_cell;
   };
 
