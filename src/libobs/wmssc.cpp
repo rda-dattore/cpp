@@ -18,13 +18,15 @@ int InputWMSSCObservationStream::read(unsigned char *buffer, size_t
     buffer_length) {
   int num_bytes = 0; // return value
   if (irs != NULL) {
+std::cerr << "READ binary" << std::endl;
     // binary rptout version
-    num_bytes=irs->read(buffer,buffer_length);
+    num_bytes = irs->read(buffer, buffer_length);
+std::cerr << num_bytes << std::endl;
     if (num_bytes < 0) {
       return num_bytes;
     }
     if (irs->flag() == 0) {
-      auto temp=new unsigned char[num_bytes];
+      auto temp = new unsigned char[num_bytes];
       bits::get(buffer, temp, 16, 8, 0, num_bytes-2);
       bits::set(buffer, temp, 20, 8, 0, num_bytes-2);
       bits::set(buffer, 0x3f, 16, 6);
