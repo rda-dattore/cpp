@@ -18,7 +18,7 @@ int InputWMSSCObservationStream::read(unsigned char *buffer, size_t
     buffer_length) {
   int num_bytes = 0; // return value
   if (irs != NULL) {
-std::cerr << "READ binary" << std::endl;
+std::cerr << "READ binary observation" << std::endl;
     // binary rptout version
     num_bytes = irs->read(buffer, buffer_length);
 std::cerr << num_bytes << std::endl;
