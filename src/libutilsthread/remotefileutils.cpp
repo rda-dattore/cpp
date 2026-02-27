@@ -115,7 +115,7 @@ bool exists_on_server(string host_name, string remote_path) {
      host_name + remote_path + "\"'", oss, ess);
   if (!oss.str().empty()) {
     auto code = oss.str().substr(oss.str().length() - 3);
-    if (code != "404") {
+    if (code == "200") {
       return true;
     }
   }
