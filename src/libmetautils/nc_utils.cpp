@@ -158,7 +158,11 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
         if (n == 1440) {
           s = "Daily ";
         } else {
-          s = itos(n) + "-minute ";
+          if (n > 0) {
+            s = itos(n) + "-minute ";
+          } else {
+            s = "Analysis";
+          }
         }
       } else if (time_data.units == "hours") {
         if (tre.bounded.first_valid_datetime.year() > 0) {
@@ -169,7 +173,11 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
               s = "Hourly ";
             }
             default: {
-              s = itos(n) + "-hour ";
+              if (n > 0) {
+                s = itos(n) + "-hour ";
+              } else {
+                s = "Analysis";
+              }
             }
           }
         } else {
@@ -202,7 +210,11 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
               break;
             }
             default: {
-              s = itos(n) + "-day ";
+              if (n > 0) {
+                s = itos(n) + "-day ";
+              } else {
+                s = "Analysis";
+              }
             }
           }
         } else {
@@ -215,7 +227,9 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
             "time units '" + time_data.units + "' for cell method '" +
             time_method + "'";
       }
-      s += strutils::to_capital(time_method);
+      if (s.back() == ' ') {
+        s += strutils::to_capital(time_method);
+      }
     } else {
       if (time_data.units == "months") {
         s = "Monthly Mean";
