@@ -158,10 +158,10 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
         if (n == 1440) {
           s = "Daily ";
         } else {
-          if (n > 0) {
-            s = itos(n) + "-minute ";
-          } else {
+          if (n == 0 && to_lower(time_method) == "mean") {
             s = "Analysis";
+          } else {
+            s = itos(n) + "-minute ";
           }
         }
       } else if (time_data.units == "hours") {
@@ -173,10 +173,10 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
               s = "Hourly ";
             }
             default: {
-              if (n > 0) {
-                s = itos(n) + "-hour ";
-              } else {
+              if (n == 0 && to_lower(time_method) == "mean") {
                 s = "Analysis";
+              } else {
+                s = itos(n) + "-hour ";
               }
             }
           }
@@ -210,10 +210,10 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
               break;
             }
             default: {
-              if (n > 0) {
-                s = itos(n) + "-day ";
-              } else {
+              if (n == 0 && to_lower(time_method) == "mean") {
                 s = "Analysis";
+              } else {
+                s = itos(n) + "-day ";
               }
             }
           }
