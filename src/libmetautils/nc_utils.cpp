@@ -167,7 +167,7 @@ string gridded_netcdf_time_range_description(const TimeRangeEntry& tre, const
       } else if (time_data.units == "hours") {
         if (tre.bounded.first_valid_datetime.year() > 0) {
           auto n = tre.instantaneous.first_valid_datetime.seconds_since(tre.
-              bounded.first_valid_datetime) * 2 / 3600;
+              bounded.first_valid_datetime) / 3600;
           switch (n) {
             case 1: {
               s = "Hourly ";
