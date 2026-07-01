@@ -3,8 +3,12 @@
 #include <iostream>
 #include <bfstream.hpp>
 
-bfstream::~bfstream()
-{
+using std::cerr;
+using std::endl;
+using std::ios;
+using std::string;
+
+bfstream::~bfstream() {
   if (file_buf != nullptr) {
     file_buf.reset(nullptr);
   }
@@ -13,34 +17,36 @@ bfstream::~bfstream()
   }
 }
 
-bool ibfstream::open(std::string filename)
-{
-// opening a stream while another is open is a fatal error
+bool ibfstream::open(string filename) {
   if (is_open()) {
-    std::cerr << "Error: an open stream already exists" << std::endl;
+    // opening a stream while another is open is a fatal error
+    cerr << "Error: an open stream already exists" << endl;
     exit(1);
   }
-  file_name=filename;
-  fs.open(file_name.c_str(),std::ios::in);
+  file_name = filename;
+  fs.open(file_name.c_str(), ios::in);
   if (!fs.is_open()) {
     return false;
   }
-  num_read=num_blocks=max_block_len=0;
+  num_read = 0;
+  num_blocks = 0;
+  max_block_len = 0;
   return true;
 }
 
-bool obfstream::open(std::string filename)
-{
-// opening a stream while another is open is a fatal error
+bool obfstream::open(string filename) {
   if (is_open()) {
-    std::cerr << "Error: an open stream already exists" << std::endl;
+    // opening a stream while another is open is a fatal error
+    cerr << "Error: an open stream already exists" << endl;
     exit(1);
   }
-  file_name=filename;
-  fs.open(file_name.c_str(),std::ios::out);
+  file_name = filename;
+  fs.open(file_name.c_str(), ios::out);
   if (!fs.is_open()) {
     return false;
   }
-  num_written=num_blocks=max_block_len=0;
+  num_written = 0;
+  num_blocks = 0;
+  max_block_len = 0;
   return true;
 }
