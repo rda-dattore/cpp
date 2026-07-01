@@ -8,7 +8,7 @@
 
 class InputASCENTStream : public ibfstream {
 public:
-  InputASCENTStream() { }
+  InputASCENTStream() : header(), header_len(0) { }
   void close();
   int ignore();
   bool open(std::string filename);
@@ -17,6 +17,8 @@ public:
   void rewind();
 
 private:
+  std::string header;
+  size_t header_len;
 };
 
 class ASCENTData : public Observation {
