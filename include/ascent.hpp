@@ -11,7 +11,6 @@ public:
   InputASCENTStream() { }
   void close();
   int ignore();
-  bool open(std::string filename);
   int peek();
   int read(unsigned char *buffer, size_t buffer_length);
   void rewind();
