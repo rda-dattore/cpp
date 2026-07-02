@@ -30,6 +30,7 @@ extern bool is_numeric(const std::string& s);
 extern size_t occurs(const std::string& s,const std::string& find_s);
 
 extern std::deque<std::string> split(const std::string& s,const std::string& separator = "");
+extern std::deque<std::string> csv_split(std::string s);
 extern std::vector<std::string> ds_aliases(std::string dsid);
 extern std::vector<std::pair<std::string,size_t>> split_index(const std::string& s,const std::string& separator = "");
 
