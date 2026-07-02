@@ -86,6 +86,6 @@ int InputASCENTStream::read(unsigned char *buffer, size_t buffer_length) {
 void InputASCENTStream::rewind() {
 }
 
-void ASCENTData::fill(const unsigned char *stream_buffer, bool
+void ASCENTObservation::fill(const unsigned char *stream_buffer, bool
     fill_header_only) {
 }
