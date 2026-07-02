@@ -21,9 +21,9 @@ private:
   size_t header_len;
 };
 
-class ASCENTData : public Observation {
+class ASCENTObservation : public Observation {
 public:
-  ASCENTData() { }
+  ASCENTObservation() { }
   DateTime date_time() const { return date_time_; }
   void fill(const unsigned char *stream_buffer, bool fill_header_only);
   ObservationLocation location() const { return location_; }
