@@ -367,7 +367,7 @@ string join(const vector<string>& strings, const string& separator) {
   return s;
 }
 
-std::deque<string> split(const string& s, const string& separator) {
+deque<string> split(const string& s, const string& separator) {
   deque<string> parts;
   if (s.empty()) {
     return parts;
@@ -405,6 +405,32 @@ std::deque<string> split(const string& s, const string& separator) {
     parts.emplace_back(s.substr(start));
   } else {
     parts.emplace_back("");
+  }
+  return parts;
+}
+
+deque<string> csv_split(string s) {
+  replace_all(s, R"("")", "DQUOTE");
+  deque<string> parts;
+  auto pstart = 0;
+  auto inquotes = false;
+  for (size_t n = 0; n < s.length(); ++n) {
+    if (s[n] == '"') {
+      if (inquotes) {
+        inquotes = false;
+      } else {
+        inquotes = true;
+      }
+    } else if (s[n] == ',') {
+      if (!inquotes) {
+        parts.emplace_back(s.substr(pstart, n-pstart));
+        pstart = n + 1;
+      }
+    }
+  }
+  parts.emplace_back(s.substr(pstart));
+  for (auto& part : parts) {
+    replace_all(part, "DQUOTE", R"("")");
   }
   return parts;
 }
@@ -804,7 +830,7 @@ string to_title(const string& s)
               title_s[m]+=32;
             }
           }
-          if (n > 0 && n < last && uncapitalized_words->find(strutils::to_lower(words[n].first)) != uncapitalized_words->end()) {
+          if (n > 0 && n < last && uncapitalized_words->find(to_lower(words[n].first)) != uncapitalized_words->end()) {
             title_s[words[n].second]+=32;
           }
         }
