@@ -23,12 +23,15 @@ private:
 
 class ASCENTObservation : public Observation {
 public:
-  ASCENTObservation() { }
+  ASCENTObservation() : instrument_(), qc_outcome_() { }
   DateTime date_time() const { return date_time_; }
   void fill(const unsigned char *stream_buffer, bool fill_header_only);
+  std::string instrument() const { return instrument_; }
   ObservationLocation location() const { return location_; }
+  std::string qc_outcome() const { return qc_outcome_; }
 
 private:
+  std::string instrument_, qc_outcome_;
 };
 
 #endif
