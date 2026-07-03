@@ -6,9 +6,9 @@
 #include <iodstream.hpp>
 #include <observation.hpp>
 
-class InputASCENTStream : public ibfstream {
+class InputASCENTObservationStream : public ibfstream {
 public:
-  InputASCENTStream() : header(), header_len(0) { }
+  InputASCENTObservationStream() : header(), header_len(0) { }
   void close();
   int ignore();
   bool open(std::string filename);
