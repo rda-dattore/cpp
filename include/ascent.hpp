@@ -6,7 +6,7 @@
 #include <iodstream.hpp>
 #include <observation.hpp>
 
-class InputASCENTObservationStream : public ibfstream {
+class InputASCENTObservationStream : public idstream {
 public:
   InputASCENTObservationStream() : header(), header_len(0) { }
   void close();
