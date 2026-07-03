@@ -22,7 +22,7 @@ return -1;
 }
 
 bool InputASCENTObservationStream::open(string filename) {
-  if (!ibfstream::open(filename)) {
+  if (!idstream::open(filename)) {
     myerror = "Unable to open data file.";
     return false;
   }
