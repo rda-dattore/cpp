@@ -14,14 +14,14 @@ using strutils::split;
 using strutils::substitute;
 using strutils::trim;
 
-void InputASCENTStream::close() {
+void InputASCENTObservationStream::close() {
 }
 
-int InputASCENTStream::ignore() {
+int InputASCENTObservationStream::ignore() {
 return -1;
 }
 
-bool InputASCENTStream::open(string filename) {
+bool InputASCENTObservationStream::open(string filename) {
   if (!ibfstream::open(filename)) {
     myerror = "Unable to open data file.";
     return false;
@@ -80,11 +80,12 @@ bool InputASCENTStream::open(string filename) {
   return true;
 }
 
-int InputASCENTStream::peek() {
+int InputASCENTObservationStream::peek() {
 return -1;
 }
 
-int InputASCENTStream::read(unsigned char *buffer, size_t buffer_length) {
+int InputASCENTObservationStream::read(unsigned char *buffer, size_t
+    buffer_length) {
   auto *cbuf = reinterpret_cast<char *>(buffer);
   copy(header.begin(), header.end(), &cbuf[0]);
   fs.getline(&cbuf[header_len], buffer_length-header_len);
@@ -94,7 +95,7 @@ int InputASCENTStream::read(unsigned char *buffer, size_t buffer_length) {
   return header_len + fs.gcount();
 }
 
-void InputASCENTStream::rewind() {
+void InputASCENTObservationStream::rewind() {
 }
 
 void ASCENTObservation::fill(const unsigned char *stream_buffer, bool
