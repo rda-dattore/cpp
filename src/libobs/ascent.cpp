@@ -121,6 +121,7 @@ void ASCENTObservation::fill(const unsigned char *stream_buffer, bool
     date_off = 7;
   }
   location_.ID = parts[id_off];
+  replace_all(location_.ID, R"(")", "");
   replace_all(parts[date_off], "-", "");
   replace_all(parts[date_off], ":", "");
   replace_all(parts[date_off], " ", "");
