@@ -1,6 +1,12 @@
 #include <little_r.hpp>
 #include <strutils.hpp>
 
+using std::make_tuple;
+using std::stof;
+using std::stoi;
+using std::string;
+using strutils::split;
+
 int InputLITTLE_RStream::ignore()
 {
 return -1;
@@ -15,7 +21,7 @@ int InputLITTLE_RStream::peek()
   auto start_off=fs.tellg();
 // read to the end record
   fs.getline(line_buffer.get(),2048);
-  while (std::string(line_buffer.get(),13) != "-777777.00000") {
+  while (string(line_buffer.get(),13) != "-777777.00000") {
     if (fs.eof()) {
 	return bfstream::eof;
     }
@@ -48,7 +54,7 @@ int InputLITTLE_RStream::read(unsigned char *buffer,size_t buffer_length)
   fs.getline(line_buffer.get(),2048);
   int boff=4;
   while (1) {
-    std::string check;
+    string check;
     check.assign(line_buffer.get(),13);
     if (fs.eof()) {
 	return bfstream::eof;
@@ -91,34 +97,45 @@ int InputLITTLE_RStream::read(unsigned char *buffer,size_t buffer_length)
   return boff;
 }
 
-void LITTLE_RObservation::fill(const unsigned char *stream_buffer,bool fill_header_only)
-{
-  int rec_len=(stream_buffer[0] << 24)+(stream_buffer[1] << 16)+(stream_buffer[2] << 8)+stream_buffer[3];
-  auto records=strutils::split(std::string(&(reinterpret_cast<const char *>(stream_buffer))[4],rec_len),"\n");
-  location_.latitude=std::stof(records.front().substr(0,20));
-  location_.longitude=std::stof(records.front().substr(20,20));
-  location_.ID=records.front().substr(40,40);
+void LITTLE_RObservation::fill(const unsigned char *stream_buffer, bool
+    fill_header_only) {
+  int rec_len = (stream_buffer[0] << 24) + (stream_buffer[1] << 16) +
+      (stream_buffer[2] << 8) + stream_buffer[3];
+  auto records = split(string(&(reinterpret_cast<const char *>
+      (stream_buffer))[4], rec_len), "\n");
+  location_.latitude = stof(records.front().substr(0, 20));
+  location_.longitude = stof(records.front().substr(20, 20));
+  location_.ID = records.front().substr(40, 40);
   if (location_.longitude > 180.) {
-    location_.longitude-=360.;
+    location_.longitude -= 360.;
   }
-  platform_code_=std::stoi(records.front().substr(123,3));
-  if (records.front()[279] == 'T') {
-    is_sounding_=true;
+  platform_code_ = stoi(records.front().substr(123, 3));
+  is_sounding_ = (records.front()[279] == 'T') ? true : false;
+  data_records_.clear();
+  if (records.front().substr(326, 8) == "        ") {
+    date_time_.set(9999, 1, 1, 0);
+    return;
+  } else {
+    auto yr = stoi(records.front().substr(326,4));
+    auto mo = stoi(records.front().substr(330,2));
+    auto dy = stoi(records.front().substr(332,2));
+    auto hhmmss = stoi(records.front().substr(334,6));
+    date_time_.set(yr, mo, dy, hhmmss);
   }
-  else {
-    is_sounding_=false;
-  }
-  auto yr=std::stoi(records.front().substr(326,4));
-  auto mo=std::stoi(records.front().substr(330,2));
-  auto dy=std::stoi(records.front().substr(332,2));
-  auto hhmmss=std::stoi(records.front().substr(334,6));
-  date_time_.set(yr,mo,dy,hhmmss);
   if (!fill_header_only) {
     records.pop_front();
     records.pop_back();
     records.pop_back();
     for (const auto& r : records) {
-	data_records_.emplace_back(std::make_tuple(std::stof(r.substr(0,13)),std::stoi(r.substr(13,7)),std::stof(r.substr(20,13)),std::stoi(r.substr(33,7)),std::stof(r.substr(40,13)),std::stoi(r.substr(53,7)),std::stof(r.substr(60,13)),std::stoi(r.substr(73,7)),std::stof(r.substr(80,13)),std::stoi(r.substr(93,7)),std::stof(r.substr(100,13)),std::stoi(r.substr(113,7)),std::stof(r.substr(120,13)),std::stoi(r.substr(133,7)),std::stof(r.substr(140,13)),std::stoi(r.substr(153,7)),std::stof(r.substr(160,13)),std::stoi(r.substr(173,7)),std::stof(r.substr(180,13)),std::stoi(r.substr(193,7))));
+	data_records_.emplace_back(make_tuple(stof(r.substr(0, 13)),
+            stoi(r.substr(13, 7)), stof(r.substr(20, 13)), stoi(r.
+            substr(33, 7)), stof(r.substr(40, 13)), stoi(r.substr(53, 7)),
+            stof(r.substr(60, 13)), stoi(r.substr(73, 7)), stof(r.
+            substr(80, 13)), stoi(r.substr(93, 7)), stof(r.substr(100, 13)),
+            stoi(r.substr(113, 7)), stof(r.substr(120, 13)), stoi(r.
+            substr(133, 7)), stof(r.substr(140, 13)), stoi(r.substr(153, 7)),
+            stof(r.substr(160, 13)), stoi(r.substr(173, 7)), stof(r.
+            substr(180, 13)), stoi(r.substr(193, 7))));
     }
   }
 }
