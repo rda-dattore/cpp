@@ -34,28 +34,29 @@ bool InputASCENTObservationStream::open(string filename) {
     myerror = "Unrecognized CSV header.";
     return false;
   }
-  if (parts.size() == 77 && parts[7] == R"("chl_ug_m3")") {
+  auto nhead = parts.size();
+  if (nhead == 77 && parts[7] == R"("chl_ug_m3")") {
     header = "ACSM:L1b";
-  } else if (parts.size() == 30 && parts[4] == R"("organics_STP_ug_m3")") {
+  } else if (nhead == 30 && parts[4] == R"("organics_STP_ug_m3")") {
     header = "ACSM:L2";
-  } else if (parts.size() == 39 && parts[3] == R"("organics_STP_ug_m3")") {
+  } else if (nhead == 39 && parts[3] == R"("organics_STP_ug_m3")") {
     header = "ACSM:L2N";
-  } else if ((parts.size() == 84 || parts.size() == 85) && parts[37] ==
+  } else if ((nhead == 84 || nhead == 85 || nhead = 90) && parts[37] ==
       R"("bc_1_STP_ng_m3")") {
     header = "AE33:L1b";
-  } else if (parts.size() == 50 && parts[4] == R"("bc_1_STP_ng_m3")") {
+  } else if (nhead == 50 && parts[4] == R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2";
-  } else if (parts.size() == 87 && parts[37] == R"("bc_1_STP_ng_m3")") {
+  } else if (nhead == 87 && parts[37] == R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2N";
-  } else if (parts.size() == 52 && parts[42] == R"("stp_factor")") {
+  } else if (nhead == 52 && parts[42] == R"("stp_factor")") {
     header = "SMPS:L1b";
-  } else if (parts.size() == 18 && parts[3] == R"("stp_factor")") {
+  } else if (nhead == 18 && parts[3] == R"("stp_factor")") {
     header = "SMPS:L2";
-  } else if (parts.size() == 54 && parts[42] == R"("stp_factor")") {
+  } else if (nhead == 54 && parts[42] == R"("stp_factor")") {
     header = "SMPS:L2N";
-  } else if (parts.size() == 34 && parts[5] == R"("element")") {
+  } else if (nhead == 34 && parts[5] == R"("element")") {
     header = "Xact:L1b";
-  } else if (parts.size() == 17 && parts[4] == R"("element")") {
+  } else if (nhead == 17 && parts[4] == R"("element")") {
     header = "Xact:L2";
   }
   if (header.empty()) {
