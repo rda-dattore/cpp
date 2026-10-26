@@ -40,7 +40,8 @@ bool InputASCENTObservationStream::open(string filename) {
     header = "ACSM:L2";
   } else if (parts.size() == 39 && parts[3] == R"("organics_STP_ug_m3")") {
     header = "ACSM:L2N";
-  } else if (parts.size() == 85 && parts[37] == R"("bc_1_STP_ng_m3")") {
+  } else if ((parts.size() == 84 || parts.size() == 85) && parts[37] ==
+      R"("bc_1_STP_ng_m3")") {
     header = "AE33:L1b";
   } else if (parts.size() == 50 && parts[4] == R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2";
