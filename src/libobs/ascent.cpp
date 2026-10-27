@@ -41,7 +41,7 @@ bool InputASCENTObservationStream::open(string filename) {
     header = "ACSM:L2";
   } else if (nhead == 39 && parts[3] == R"("organics_STP_ug_m3")") {
     header = "ACSM:L2N";
-  } else if ((nhead == 84 || nhead == 85 || nhead = 90) && parts[37] ==
+  } else if ((nhead == 84 || nhead == 85 || nhead = 91) && parts[37] ==
       R"("bc_1_STP_ng_m3")") {
     header = "AE33:L1b";
   } else if (nhead == 50 && parts[4] == R"("bc_1_STP_ng_m3")") {
