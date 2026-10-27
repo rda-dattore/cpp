@@ -48,7 +48,7 @@ bool InputASCENTObservationStream::open(string filename) {
   } else if ((nhead == 49 || nhead == 50) && parts[4] ==
       R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2";
-  } else if ((nhead == 86 || nhead == 87) && parts[37] ==
+  } else if ((nhead == 86 || nhead == 87 || nhead == 93) && parts[37] ==
       R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2N";
   } else if (nhead == 52 && parts[42] == R"("stp_factor")") {
