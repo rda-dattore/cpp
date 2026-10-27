@@ -12,6 +12,7 @@ using strutils::csv_split;
 using strutils::replace_all;
 using strutils::split;
 using strutils::substitute;
+using std::to_string;
 using strutils::trim;
 
 void InputASCENTObservationStream::close() {
@@ -61,7 +62,8 @@ bool InputASCENTObservationStream::open(string filename) {
   }
   if (header.empty()) {
     fs.close();
-    myerror = "Unrecognized instrument.";
+    myerror = "Unrecognized instrument (header length=" + to_string(nhead) +
+        ".";
     return false;
   }
   std::ifstream ifs(substitute(filename, "csv", "txt"));
