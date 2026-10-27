@@ -45,7 +45,8 @@ bool InputASCENTObservationStream::open(string filename) {
   } else if ((nhead == 84 || nhead == 85 || nhead == 91) && parts[37] ==
       R"("bc_1_STP_ng_m3")") {
     header = "AE33:L1b";
-  } else if (nhead == 50 && parts[4] == R"("bc_1_STP_ng_m3")") {
+  } else if ((nhead == 49 || nhead == 50) && parts[4] ==
+      R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2";
   } else if (nhead == 87 && parts[37] == R"("bc_1_STP_ng_m3")") {
     header = "AE33:L2N";
@@ -63,7 +64,7 @@ bool InputASCENTObservationStream::open(string filename) {
   if (header.empty()) {
     fs.close();
     myerror = "Unrecognized instrument (header length=" + to_string(nhead) +
-        ".";
+        ").";
     return false;
   }
   std::ifstream ifs(substitute(filename, "csv", "txt"));
