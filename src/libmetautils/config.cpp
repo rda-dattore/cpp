@@ -211,6 +211,14 @@ bool read_config(string caller, string user, bool restrict_to_user_rdadata) {
         directives.gdex_upload_key = conf_parts[1];
       } else if (conf_parts[0] == "GDEXUnlinkKey") {
         directives.gdex_unlink_key = conf_parts[1];
+      } else if (conf_parts[0] == "objServer") {
+        directives.obj_server = conf_parts[1];
+      } else if (conf_parts[0] == "objAccessKey") {
+        directives.obj_access_key = conf_parts[1];
+      } else if (conf_parts[0] == "objSecretKey") {
+        directives.obj_secret_key = conf_parts[1];
+      } else if (conf_parts[0] == "objBucket") {
+        directives.obj_bucket = conf_parts[1];
       }
     }
     ifs.getline(line, 256);
