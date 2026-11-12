@@ -100,7 +100,7 @@ public:
       std::string& error);
   bool object_exists(std::string bucket_name, std::string key);
   std::string object_metadata(std::string bucket_name, std::string key);
-  std::vector<Object> objects(std::string bucket_name);
+  std::vector<Object> objects(std::string bucket_name, std::string prefix = "");
   std::pair<long long, double> sha_benchmark() const {
     return std::make_pair(sha_bytes_, sha_time_);
   }
