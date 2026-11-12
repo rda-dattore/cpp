@@ -14,7 +14,7 @@ std::string curl_request(const CanonicalRequest& canonical_request,std::string a
   for (const auto& header : headers) {
     curl_request_+=" -H '"+header+"'";
   }
-  curl_request_+=" 'http://"+canonical_request.host()+canonical_request.uri();
+  curl_request_+=" 'https://"+canonical_request.host()+canonical_request.uri();
   if (!canonical_request.query_string().empty()) {
     curl_request_+="?"+canonical_request.query_string();
   }
@@ -123,7 +123,7 @@ std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canon
     header_list=curl_slist_append(header_list,header.c_str());
   }
   curl_easy_setopt(curl_handle,CURLOPT_HTTPHEADER,header_list);
-  std::string url="http://"+canonical_request.host()+canonical_request.uri();
+  std::string url="https://"+canonical_request.host()+canonical_request.uri();
   if (!canonical_request.query_string().empty()) {
     url+="?"+canonical_request.query_string();
   }
@@ -230,7 +230,7 @@ std::string perform_curl_request(CURL *curl_handle,const CanonicalRequest& canon
     header_list=curl_slist_append(header_list,header.c_str());
   }
   curl_easy_setopt(curl_handle,CURLOPT_HTTPHEADER,header_list);
-  std::string url="http://"+canonical_request.host()+canonical_request.uri();
+  std::string url="https://"+canonical_request.host()+canonical_request.uri();
   if (!canonical_request.query_string().empty()) {
     url+="?"+canonical_request.query_string();
   }
