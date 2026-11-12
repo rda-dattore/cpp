@@ -310,14 +310,14 @@ string Session::object_metadata(string bucket_name, string key) {
   return s;
 }
 
-std::vector<Object> Session::objects(string bucket_name) {
+std::vector<Object> Session::objects(string bucket_name, string prefix) {
   std::vector<Object> v; // return value
   if (!bucket_name.empty()) {
     auto trunc = true;
     string next;
     while (trunc) {
       canonical_request.reset("GET", "/" + bucket_name + "?delimiter=!&marker="
-          + next, host_);
+          + next + "&prefix=" + prefix, host_);
       unsigned char md[32];
       s3::signature(const_cast<unsigned char *>(signing_key_),
           canonical_request, region_, terminal_, md);
