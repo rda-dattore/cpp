@@ -19,6 +19,9 @@ using strutils::replace_all;
 using strutils::split;
 using strutils::to_lower;
 using strutils::trim;
+using unixutils::gdex_upload_dir;
+using unixutils::mysystem2;
+using unixutils::remote_web_file;
 
 namespace metautils {
 
@@ -308,7 +311,7 @@ string write_level_map(const vector<LevelInfo>& level_info) {
   } else {
     f = "netCDF";
   }
-  string x = unixutils::remote_web_file("https://" + directives.web_server +
+  string x = remote_web_file("https://" + directives.web_server +
       "/metadata/LevelTables/" + f + "." + args.dsid + ".xml",
       directives.temp_path);
   LevelMap lmap;
@@ -353,13 +356,13 @@ string write_level_map(const vector<LevelInfo>& level_info) {
   ofs << "</levelMap>" << endl;
   ofs.close();
   string e;
-  if (unixutils::gdex_upload_dir(t.name(), ".",
-      "/data/web/metadata/LevelTables", "", e) < 0) {
+  if (gdex_upload_dir(t.name(), ".", "/data/web/metadata/LevelTables", "", e) <
+      0) {
     return e;
   }
   stringstream oss, ess;
-  unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
-      ".xml " + directives.level_map_path + "/", oss, ess);
+  mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid + ".xml " +
+      directives.level_map_path + "/", oss, ess);
   return ess.str();
 }
 
@@ -367,105 +370,105 @@ string write_level_map(const vector<LevelInfo>& level_info) {
 
 namespace NcParameter {
 
-string write_parameter_map(std::list<string>& varlist, unordered_set<string>&
+string write_parameter_map(vector<string>& varlist, unordered_set<string>&
     var_changes_table, string map_type, string map_name, bool found_map, string&
     warning) {
   stringstream ess; // return value
-  if (varlist.size() > 0) {
-    vector<string> v;
-    if (found_map) {
-      std::ifstream ifs(map_name.c_str());
-      char l[32768];
-      ifs.getline(l, 32768);
-      while (!ifs.eof()) {
-        v.emplace_back(l);
-        ifs.getline(l, 32768);
-      }
-      ifs.close();
-      v.pop_back();
-    }
-    TempDir t;
-    if (!t.create(directives.temp_path)) {
-      return "can't create temporary directory for parameter map";
-    }
-    string f;
-    if (args.data_format == "hdf5nc4") {
-      f="netCDF4";
-    } else if (args.data_format == "hdf5") {
-      f="HDF5";
-    } else {
-      f="netCDF";
-    }
-    std::ofstream ofs((t.name() + "/" + f + "." + args.dsid + ".xml").
-        c_str());
-    if (!ofs.is_open()) {
-      return "can't open parameter map file for output";
-    }
-    if (!found_map) {
-      ofs << "<?xml version=\"1.0\" ?>" << endl;
-      ofs << "<" << map_type << "Map>" << endl;
-    } else {
-      auto b = false;
-      for (const auto& e : v) {
-        if (e.find(" code=\"") != string::npos) {
-          auto sp = split(e, "\"");
-          if (var_changes_table.find(sp[1]) != var_changes_table.end()) {
-            b = true;
-          } else {
-            var_changes_table.emplace(sp[1]);
-          }
-        }
-        if (!b) {
-          ofs << e << endl;
-        }
-        if (e.find("</" + map_type + ">") != string::npos) {
-          b = false;
-        }
-      }
-    }
-    for (const auto& e : varlist) {
-      auto sp = split(e, "<!>");
-      if (map_type == "parameter") {
-        ofs << "  <parameter code=\"" << sp[0] << "\">" << endl;
-        ofs << "    <shortName>" << sp[0] << "</shortName>" << endl;
-        if (!sp[1].empty()) {
-          ofs << "    <description>" << sp[1] << "</description>" << endl;
-        }
-        if (!sp[2].empty()) {
-          sp[2] = regex_replace(sp[2], regex("\\*\\*"), "^");
-          sp[2] = regex_replace(sp[2], regex("([a-z]{1,})(-){0,1}([0-9]{1,})"),
-              "$1^$2$3");
-          ofs << "    <units>" << sp[2] << "</units>" << endl;
-        }
-        if (sp.size() > 3 && !sp[3].empty()) {
-          ofs << "    <standardName>" << sp[3] << "</standardName>" << endl;
-        }
-        ofs << "  </parameter>" << endl;
-      } else if (map_type == "dataType") {
-        ofs << "  <dataType code=\"" << sp[0] << "\">" << endl;
-        ofs << "    <description>" << sp[1];
-        if (!sp[2].empty()) {
-          ofs << " (" << sp[2] << ")";
-        }
-        ofs << "</description>" << endl;
-        if (sp.size() > 3 && !sp[3].empty()) {
-          ofs << "    <standardName>" << sp[3] << "</standardName>" << endl;
-        }
-        ofs << "  </dataType>" << endl;
-      }
-    }
-    ofs << "</" << map_type << "Map>" << endl;
-    ofs.close();
-    string e;
-    if (unixutils::gdex_upload_dir(t.name(), ".", "/data/web/metadata/"
-        "ParameterTables", "", e) < 0) {
-      warning = "parameter map was not synced - error(s): '" + e + "'";
-    }
-warning = e;
-    stringstream oss;
-    unixutils::mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid +
-        ".xml " + directives.parameter_map_path + "/", oss, ess);
+  if (varlist.empty()) {
+    return ess;
   }
+  vector<string> v;
+  if (found_map) {
+    std::ifstream ifs(map_name.c_str());
+    char l[32768];
+    ifs.getline(l, 32768);
+    while (!ifs.eof()) {
+      v.emplace_back(l);
+      ifs.getline(l, 32768);
+    }
+    ifs.close();
+    v.pop_back();
+  }
+  TempDir t;
+  if (!t.create(directives.temp_path)) {
+    return "can't create temporary directory for parameter map";
+  }
+  string f;
+  if (args.data_format == "hdf5nc4") {
+    f = "netCDF4";
+  } else if (args.data_format == "hdf5") {
+    f = "HDF5";
+  } else {
+    f = "netCDF";
+  }
+  std::ofstream ofs((t.name() + "/" + f + "." + args.dsid + ".xml").
+      c_str());
+  if (!ofs.is_open()) {
+    return "can't open parameter map file for output";
+  }
+  if (!found_map) {
+    ofs << "<?xml version=\"1.0\" ?>" << endl;
+    ofs << "<" << map_type << "Map>" << endl;
+  } else {
+    auto b = false;
+    for (const auto& e : v) {
+      if (e.find(" code=\"") != string::npos) {
+        auto sp = split(e, "\"");
+        if (var_changes_table.find(sp[1]) != var_changes_table.end()) {
+          b = true;
+        } else {
+          var_changes_table.emplace(sp[1]);
+        }
+      }
+      if (!b) {
+        ofs << e << endl;
+      }
+      if (e.find("</" + map_type + ">") != string::npos) {
+        b = false;
+      }
+    }
+  }
+  for (const auto& e : varlist) {
+    auto sp = split(e, "<!>");
+    if (map_type == "parameter") {
+      ofs << "  <parameter code=\"" << sp[0] << "\">" << endl;
+      ofs << "    <shortName>" << sp[0] << "</shortName>" << endl;
+      if (!sp[1].empty()) {
+        ofs << "    <description>" << sp[1] << "</description>" << endl;
+      }
+      if (!sp[2].empty()) {
+        sp[2] = regex_replace(sp[2], regex("\\*\\*"), "^");
+        sp[2] = regex_replace(sp[2], regex("([a-z]{1,})(-){0,1}([0-9]{1,})"),
+            "$1^$2$3");
+        ofs << "    <units>" << sp[2] << "</units>" << endl;
+      }
+      if (sp.size() > 3 && !sp[3].empty()) {
+        ofs << "    <standardName>" << sp[3] << "</standardName>" << endl;
+      }
+      ofs << "  </parameter>" << endl;
+    } else if (map_type == "dataType") {
+      ofs << "  <dataType code=\"" << sp[0] << "\">" << endl;
+      ofs << "    <description>" << sp[1];
+      if (!sp[2].empty()) {
+        ofs << " (" << sp[2] << ")";
+      }
+      ofs << "</description>" << endl;
+      if (sp.size() > 3 && !sp[3].empty()) {
+        ofs << "    <standardName>" << sp[3] << "</standardName>" << endl;
+      }
+      ofs << "  </dataType>" << endl;
+    }
+  }
+  ofs << "</" << map_type << "Map>" << endl;
+  ofs.close();
+  string e;
+  if (gdex_upload_dir(t.name(), ".", "/data/web/metadata/ParameterTables", "",
+      e) < 0) {
+    warning = "parameter map was not synced - error(s): '" + e + "'";
+  }
+  stringstream oss;
+  mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid + ".xml " +
+      directives.parameter_map_path + "/", oss, ess);
   return ess.str();
 }
 
