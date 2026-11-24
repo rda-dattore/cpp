@@ -26,84 +26,35 @@ namespace NcTime {
 
 DateTime actual_date_time(double time, const TimeData& time_data, string&
     error) {
-  DateTime dt; // return value
-  if (time_data.units == "seconds") {
-if (fabs(time - static_cast<long long>(time)) > 0.01) {
-error = "can't compute dates from fractional seconds";
-}
-    if (time >= 0.) {
-      dt = time_data.reference.seconds_added(time, time_data.calendar);
-    } else {
-      dt = time_data.reference.seconds_subtracted(-time, time_data.calendar);
-    }
-  } else if (time_data.units == "minutes") {
-if (fabs(time - static_cast<long long>(time)) > 0.01) {
-error = "can't compute dates from fractional minutes";
-}
-    if (time >= 0.) {
-      dt = time_data.reference.minutes_added(time, time_data.calendar);
-    } else {
-      dt = time_data.reference.minutes_subtracted(-time, time_data.calendar);
-    }
+  if (time_data.units == "minutes") {
+    time *= 60.;
   } else if (time_data.units == "hours") {
-    if (fabs(time - static_cast<long long>(time)) > 0.01) {
-      time *= 60.;
-      if (fabs(time - static_cast<long long>(time)) > 0.01) {
-        error = "can't compute dates from fractional hours";
-      } else {
-        if (time >= 0.) {
-          dt = time_data.reference.minutes_added(time, time_data.calendar);
-        } else {
-          dt = time_data.reference.minutes_subtracted(-time,
-              time_data.calendar);
-        }
-      }
-    } else {
-      if (time >= 0.) {
-        dt = time_data.reference.hours_added(time, time_data.calendar);
-      } else {
-        dt = time_data.reference.hours_subtracted(-time, time_data.calendar);
-      }
-    }
+    time *= 3600.;
   } else if (time_data.units == "days") {
-    if (time >= 0.) {
-      dt = time_data.reference.days_added(time, time_data.calendar);
-    } else {
-      dt = time_data.reference.days_subtracted(-time, time_data.calendar);
-    }
-    auto f = fabs(time - static_cast<long long>(time));
-    if (f > 0.01) {
-      f *= 24.;
-      if (fabs(f - lround(f)) > 0.01) {
-        f *= 60.;
-        if (fabs(f - lround(f)) > 0.01) {
-          f *= 60.;
-          if (fabs(f - lround(f)) > 0.01) {
-            error = "can't compute dates from fractional seconds in fractional "
-                "days (" + strutils::ftos(time,10) + ")";
-          } else {
-            dt.add_seconds(lround(f), time_data.calendar);
-          }
-        } else {
-          dt.add_minutes(lround(f), time_data.calendar);
-        }
-      } else {
-        dt.add_hours(lround(f), time_data.calendar);
-      }
-    }
+    time *= 86400.;
   } else if (time_data.units == "months") {
-if (fabs(time - static_cast<long long>(time)) > 0.01) {
-error = "can't compute dates from fractional months";
-}
-    if (time >= 0.) {
-      dt = time_data.reference.months_added(time);
-    } else {
-      dt = time_data.reference.months_subtracted(-time);
+    if (fabs(time - static_cast<long long>(time)) > 0.01) {
+      error = "can't compute dates from fractional months";
+      return DateTime();
     }
-  } else {
+    if (time >= 0.) {
+      return time_data.reference.months_added(time, time_data.calendar);
+    } else {
+      return time_data.reference.months_subtracted(-time, time_data.calendar);
+    }
+  } else if (time_data.units != "seconds") {
     error = "don't understand time units in " + time_data.units;
+    return DateTime();
   }
-  return dt;
+  if (fabs(time - static_cast<long long>(time)) > 0.01) {
+    error = "can't compute dates from fractional " + time_data.units;
+    return DateTime();
+  }
+  if (time >= 0.) {
+    return time_data.reference.seconds_added(time, time_data.calendar);
+  } else {
+    return time_data.reference.seconds_subtracted(-time, time_data.calendar);
+  }
 }
 
 DateTime reference_date_time(string units_attribute_value) {
