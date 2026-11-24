@@ -376,18 +376,6 @@ string write_parameter_map(vector<string>& varlist, unordered_set<string>&
   if (varlist.empty()) {
     return "";
   }
-  vector<string> v;
-  if (found_map) {
-    std::ifstream ifs(map_name.c_str());
-    char l[32768];
-    ifs.getline(l, 32768);
-    while (!ifs.eof()) {
-      v.emplace_back(l);
-      ifs.getline(l, 32768);
-    }
-    ifs.close();
-    v.pop_back();
-  }
   TempDir t;
   if (!t.create(directives.temp_path)) {
     return "can't create temporary directory for parameter map";
@@ -405,12 +393,25 @@ string write_parameter_map(vector<string>& varlist, unordered_set<string>&
   if (!ofs.is_open()) {
     return "can't open parameter map file for output";
   }
+  vector<string> evars;
+  if (found_map) {
+    // read in existing map variables
+    std::ifstream ifs(map_name.c_str());
+    char l[32768];
+    ifs.getline(l, 32768);
+    while (!ifs.eof()) {
+      evars.emplace_back(l);
+      ifs.getline(l, 32768);
+    }
+    ifs.close();
+    evars.pop_back();
+  }
   if (!found_map) {
     ofs << "<?xml version=\"1.0\" ?>" << endl;
     ofs << "<" << map_type << "Map>" << endl;
   } else {
     auto b = false;
-    for (const auto& e : v) {
+    for (const auto& e : evars) {
       if (e.find(" code=\"") != string::npos) {
         auto sp = split(e, "\"");
         if (var_changes_table.find(sp[1]) != var_changes_table.end()) {
