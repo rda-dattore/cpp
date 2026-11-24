@@ -373,9 +373,8 @@ namespace NcParameter {
 string write_parameter_map(vector<string>& varlist, unordered_set<string>&
     var_changes_table, string map_type, string map_name, bool found_map, string&
     warning) {
-  stringstream ess; // return value
   if (varlist.empty()) {
-    return ess;
+    return "";
   }
   vector<string> v;
   if (found_map) {
@@ -466,7 +465,7 @@ string write_parameter_map(vector<string>& varlist, unordered_set<string>&
       e) < 0) {
     warning = "parameter map was not synced - error(s): '" + e + "'";
   }
-  stringstream oss;
+  stringstream oss, ess;
   mysystem2("/bin/cp " + t.name() + "/" + f + "." + args.dsid + ".xml " +
       directives.parameter_map_path + "/", oss, ess);
   return ess.str();
