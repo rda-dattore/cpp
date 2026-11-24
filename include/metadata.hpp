@@ -287,7 +287,7 @@ std::string write_level_map(const std::vector<LevelInfo>& level_info);
 
 namespace NcParameter {
 
-std::string write_parameter_map(std::list<std::string>& varlist, std::
+std::string write_parameter_map(std::vector<std::string>& varlist, std::
     unordered_set<std::string>& var_changes_table, std::string map_type, std::
     string map_name, bool found_map, std::string& warning);
 
