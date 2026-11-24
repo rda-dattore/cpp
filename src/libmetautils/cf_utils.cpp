@@ -8,6 +8,7 @@ using std::regex_search;
 using std::stof;
 using std::stoi;
 using std::string;
+using strutils::split;
 using strutils::to_lower;
 using strutils::trim;
 
@@ -38,12 +39,12 @@ void fill_nc_time_data(string time_units, NcTime::TimeData& time_data, string
     time_units = time_units.substr(0, n);
   }
   trim(time_units);
-  auto sp = strutils::split(time_units);
+  auto sp = split(time_units);
   if (sp.size() < 1 || sp.size() > 3) {
     log_error2("unable to get reference time from units specified as: '" +
         time_units + "'", F, "nc2xml", user);
   }
-  auto dsp = strutils::split(sp[0], "-");
+  auto dsp = split(sp[0], "-");
   if (dsp.size() != 3) {
     log_error2("unable to get reference time from units specified as: '" +
         time_units + "'", F, "nc2xml", user);
@@ -52,7 +53,7 @@ void fill_nc_time_data(string time_units, NcTime::TimeData& time_data, string
   time_data.reference.set_month(stoi(dsp[1]));
   time_data.reference.set_day(stoi(dsp[2]));
   if (sp.size() > 1) {
-    auto tsp = strutils::split(sp[1], ":");
+    auto tsp = split(sp[1], ":");
     switch (tsp.size()) {
       case 1: {
         time_data.reference.set_time(stoi(tsp[0]) * 10000);
